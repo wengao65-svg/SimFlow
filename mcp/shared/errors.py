@@ -4,9 +4,17 @@
 class SimFlowError(Exception):
     """Base exception for SimFlow errors."""
 
-    def __init__(self, message: str, code: str = "UNKNOWN"):
+    def __init__(self, message: str, code: str = "UNKNOWN", suggestion: str = ""):
         super().__init__(message)
         self.code = code
+        self.suggestion = suggestion
+
+    def to_dict(self) -> dict:
+        """Convert to dict for JSON serialization."""
+        d = {"message": str(self), "code": self.code}
+        if self.suggestion:
+            d["suggestion"] = self.suggestion
+        return d
 
 
 class ValidationError(SimFlowError):

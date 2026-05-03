@@ -10,12 +10,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.mock import MockLiteratureConnector
 from connectors.arxiv import ArxivConnector
 from connectors.crossref import CrossrefConnector
 from connectors.semantic_scholar import SemanticScholarConnector
+from mcp.shared.transport import dispatch_request, run_server
 
 
 _CONNECTORS = {
@@ -54,7 +55,7 @@ def handle_search(params: dict) -> dict:
 
     connector = _get_connector(backend)
     if connector is None:
-        return {"status": "error", "message": f"Unknown backend: {backend}"}
+        return {"status": "error", "message": "Unknown backend: {}".format(backend)}
 
     results = connector.search(query, max_results=max_results)
     return {
@@ -72,11 +73,11 @@ def handle_get_metadata(params: dict) -> dict:
 
     connector = _get_connector(backend)
     if connector is None:
-        return {"status": "error", "message": f"Unknown backend: {backend}"}
+        return {"status": "error", "message": "Unknown backend: {}".format(backend)}
 
     metadata = connector.get_metadata(doi)
     if metadata is None:
-        return {"status": "error", "message": f"DOI not found: {doi}", "code": "NOT_FOUND"}
+        return {"status": "error", "message": "DOI not found: {}".format(doi), "code": "NOT_FOUND"}
     return {"status": "success", "data": metadata}
 
 
@@ -87,19 +88,9 @@ TOOLS = {
 
 
 def handle_request(request: dict) -> dict:
-    tool = request.get("tool")
-    params = request.get("params", {})
-    if tool not in TOOLS:
-        return {"status": "error", "message": f"Unknown tool: {tool}"}
-    try:
-        return TOOLS[tool](params)
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    """Dispatch a request to the appropriate tool handler."""
+    return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        request = json.loads(line)
-        response = handle_request(request)
-        print(json.dumps(response))
-        sys.stdout.flush()
+    run_server(TOOLS)

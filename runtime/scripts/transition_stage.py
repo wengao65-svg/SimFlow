@@ -43,8 +43,15 @@ def main():
     if args.agent:
         kwargs["agent"] = args.agent
 
+    from_stage = current
     result = update_stage(args.stage, args.status, args.base_dir, **kwargs)
-    print(json.dumps(result, indent=2))
+    output = {
+        "status": "success",
+        "stage": args.stage,
+        "from": from_stage,
+        "to": args.status,
+    }
+    print(json.dumps(output, indent=2))
 
 
 if __name__ == "__main__":

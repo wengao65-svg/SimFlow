@@ -57,10 +57,22 @@ def main():
         print(json.dumps(result, indent=2))
 
     except FileNotFoundError as e:
-        print(json.dumps({"status": "fail", "error": str(e)}))
+        print(json.dumps({
+            "status": "fail",
+            "error": str(e),
+            "suggestion": "Check that the output file exists and the path is correct",
+        }))
         sys.exit(1)
     except Exception as e:
-        print(json.dumps({"status": "fail", "error": str(e)}))
+        error_msg = str(e)
+        suggestion = "Check output file format and try parsing with the software-specific parser"
+        if "convergence" in error_msg.lower():
+            suggestion = "Try increasing ENCUT/EDIFF (VASP), ecutwfc (QE), or reducing ionic steps"
+        print(json.dumps({
+            "status": "fail",
+            "error": error_msg,
+            "suggestion": suggestion,
+        }))
         sys.exit(1)
 
 

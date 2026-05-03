@@ -4,8 +4,11 @@ import json
 import urllib.parse
 import urllib.request
 from typing import Optional
+from urllib.error import HTTPError, URLError
 
 from .base import BaseLiteratureConnector
+from mcp.shared.retry import retry_with_backoff, RetryableError
+from mcp.shared.cache import TTLCache
 
 CROSSREF_API = "https://api.crossref.org"
 
@@ -13,8 +16,16 @@ CROSSREF_API = "https://api.crossref.org"
 class CrossrefConnector(BaseLiteratureConnector):
     """Connector for Crossref DOI metadata."""
 
+    def __init__(self):
+        self._cache = TTLCache(max_size=128, ttl_seconds=900)
+
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search Crossref for works."""
+        cache_key = "search:{}:{}".format(query, max_results)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         params = urllib.parse.urlencode({
             "query": query,
             "rows": max_results,
@@ -22,16 +33,15 @@ class CrossrefConnector(BaseLiteratureConnector):
         })
         url = "{}/works?{}".format(CROSSREF_API, params)
 
-        try:
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "SimFlow/0.5.0 (mailto:simflow@example.com)"
-            })
-            with urllib.request.urlopen(req, timeout=30) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except Exception:
+        success, result = retry_with_backoff(
+            lambda: self._fetch_json(url)
+        )
+        if not success:
             return []
 
-        return self._parse_results(data)
+        results = self._parse_results(result)
+        self._cache.set(cache_key, results)
+        return results
 
     def get_metadata(self, doi: str) -> Optional[dict]:
         """Get metadata for a specific DOI."""
@@ -39,19 +49,40 @@ class CrossrefConnector(BaseLiteratureConnector):
         if not doi.startswith("10."):
             return None
 
+        cache_key = "meta:{}".format(doi)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         url = "{}/works/{}".format(CROSSREF_API, urllib.parse.quote(doi, safe=""))
 
+        success, result = retry_with_backoff(
+            lambda: self._fetch_json(url)
+        )
+        if not success:
+            return None
+
+        item = result.get("message", {})
+        meta = self._format_item(item) if item else None
+        if meta:
+            self._cache.set(cache_key, meta)
+        return meta
+
+    @staticmethod
+    def _fetch_json(url: str) -> dict:
+        """Fetch JSON from URL with structured error handling."""
         try:
             req = urllib.request.Request(url, headers={
                 "User-Agent": "SimFlow/0.5.0 (mailto:simflow@example.com)"
             })
             with urllib.request.urlopen(req, timeout=30) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except Exception:
-            return None
-
-        item = data.get("message", {})
-        return self._format_item(item) if item else None
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as e:
+            if e.code == 429:
+                raise RetryableError("Crossref rate limited: HTTP {}".format(e.code)) from e
+            raise
+        except URLError as e:
+            raise
 
     def _parse_results(self, data: dict) -> list:
         """Parse Crossref search results."""

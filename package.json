@@ -1,6 +1,6 @@
 {
   "name": "simflow",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Codex-native computational simulation domain workflow layer",
   "private": true,
   "scripts": {
@@ -12,7 +12,9 @@
     "scaffold:stage": "node scripts/scaffold_stage.js",
     "test:schemas": "node tests/schemas/run_all.js",
     "test:runtime": "cd runtime && python -m pytest tests/ -v",
-    "test:e2e": "cd tests/e2e && python -m pytest -v"
+    "test:e2e": "python -m pytest tests/e2e/ -v",
+    "test:mcp": "python -m pytest tests/mcp/ -v",
+    "test:all": "python -m pytest tests/ -v"
   },
   "devDependencies": {
     "ajv": "^8.12.0"

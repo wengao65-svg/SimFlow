@@ -10,11 +10,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.mock import MockStructureConnector
 from connectors.materials_project import MaterialsProjectConnector
 from connectors.cod import CODConnector
+from mcp.shared.transport import dispatch_request, run_server
 
 
 _CONNECTORS = {
@@ -51,7 +52,7 @@ def handle_search(params: dict) -> dict:
 
     connector = _get_connector(backend)
     if connector is None:
-        return {"status": "error", "message": f"Unknown backend: {backend}"}
+        return {"status": "error", "message": "Unknown backend: {}".format(backend)}
 
     results = connector.search(formula)
     return {
@@ -69,11 +70,11 @@ def handle_get(params: dict) -> dict:
 
     connector = _get_connector(backend)
     if connector is None:
-        return {"status": "error", "message": f"Unknown backend: {backend}"}
+        return {"status": "error", "message": "Unknown backend: {}".format(backend)}
 
     structure = connector.get_structure(material_id)
     if structure is None:
-        return {"status": "error", "message": f"Material not found: {material_id}", "code": "NOT_FOUND"}
+        return {"status": "error", "message": "Material not found: {}".format(material_id), "code": "NOT_FOUND"}
     return {"status": "success", "data": structure}
 
 
@@ -84,19 +85,9 @@ TOOLS = {
 
 
 def handle_request(request: dict) -> dict:
-    tool = request.get("tool")
-    params = request.get("params", {})
-    if tool not in TOOLS:
-        return {"status": "error", "message": f"Unknown tool: {tool}"}
-    try:
-        return TOOLS[tool](params)
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    """Dispatch a request to the appropriate tool handler."""
+    return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        request = json.loads(line)
-        response = handle_request(request)
-        print(json.dumps(response))
-        sys.stdout.flush()
+    run_server(TOOLS)

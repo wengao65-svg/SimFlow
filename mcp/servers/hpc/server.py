@@ -10,12 +10,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.slurm import SlurmConnector
 from connectors.pbs import PBSConnector
 from connectors.local import LocalConnector
 from connectors.ssh import SSHConnector
+from mcp.shared.transport import dispatch_request, run_server
 
 
 _CONNECTORS = {
@@ -52,7 +53,7 @@ def handle_dry_run(params: dict) -> dict:
 
     connector = _get_connector(scheduler)
     if connector is None:
-        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler)}
 
     result = connector.dry_run(script_path, manifest_path, base_dir)
     return {"status": "success", "data": result}
@@ -87,7 +88,7 @@ def handle_status(params: dict) -> dict:
 
     connector = _get_connector(scheduler)
     if connector is None:
-        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler)}
 
     result = connector.status(job_id)
     return result
@@ -102,7 +103,7 @@ def handle_submit(params: dict) -> dict:
 
     connector = _get_connector(scheduler)
     if connector is None:
-        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler)}
 
     result = connector.submit(script_path)
     return result
@@ -117,19 +118,9 @@ TOOLS = {
 
 
 def handle_request(request: dict) -> dict:
-    tool = request.get("tool")
-    params = request.get("params", {})
-    if tool not in TOOLS:
-        return {"status": "error", "message": f"Unknown tool: {tool}"}
-    try:
-        return TOOLS[tool](params)
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    """Dispatch a request to the appropriate tool handler."""
+    return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        request = json.loads(line)
-        response = handle_request(request)
-        print(json.dumps(response))
-        sys.stdout.flush()
+    run_server(TOOLS)

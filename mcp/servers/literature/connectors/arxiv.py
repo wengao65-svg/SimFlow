@@ -4,19 +4,29 @@ import re
 import urllib.parse
 import urllib.request
 from typing import Optional
+from urllib.error import HTTPError, URLError
 from xml.etree import ElementTree
 
 from .base import BaseLiteratureConnector
+from mcp.shared.retry import retry_with_backoff, RetryableError
+from mcp.shared.cache import TTLCache
 
-
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 
 class ArxivConnector(BaseLiteratureConnector):
     """Connector for arXiv paper search."""
 
+    def __init__(self):
+        self._cache = TTLCache(max_size=128, ttl_seconds=900)
+
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search arXiv for papers."""
+        cache_key = "search:{}:{}".format(query, max_results)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         params = urllib.parse.urlencode({
             "search_query": "all:{}".format(query),
             "start": 0,
@@ -26,32 +36,56 @@ class ArxivConnector(BaseLiteratureConnector):
         })
         url = "{}?{}".format(ARXIV_API, params)
 
-        try:
-            with urllib.request.urlopen(url, timeout=30) as response:
-                xml_data = response.read().decode("utf-8")
-        except Exception as e:
+        success, result = retry_with_backoff(
+            lambda: self._fetch(url)
+        )
+        if not success:
             return []
 
-        return self._parse_results(xml_data)
+        results = self._parse_results(result)
+        self._cache.set(cache_key, results)
+        return results
 
     def get_metadata(self, arxiv_id: str) -> Optional[dict]:
         """Get metadata for a specific arXiv paper."""
-        # Clean arxiv ID
         arxiv_id = arxiv_id.replace("arXiv:", "").strip()
+        cache_key = "meta:{}".format(arxiv_id)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         params = urllib.parse.urlencode({
             "id_list": arxiv_id,
             "max_results": 1,
         })
         url = "{}?{}".format(ARXIV_API, params)
 
-        try:
-            with urllib.request.urlopen(url, timeout=30) as response:
-                xml_data = response.read().decode("utf-8")
-        except Exception:
+        success, result = retry_with_backoff(
+            lambda: self._fetch(url)
+        )
+        if not success:
             return None
 
-        results = self._parse_results(xml_data)
-        return results[0] if results else None
+        results = self._parse_results(result)
+        meta = results[0] if results else None
+        if meta:
+            self._cache.set(cache_key, meta)
+        return meta
+
+    @staticmethod
+    def _fetch(url: str) -> str:
+        """Fetch URL content with structured error handling."""
+        try:
+            req = urllib.request.Request(url)
+            req.add_header("User-Agent", "SimFlow/0.5.0")
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return response.read().decode("utf-8")
+        except HTTPError as e:
+            if e.code == 429:
+                raise RetryableError("arXiv rate limited: HTTP {}".format(e.code)) from e
+            raise
+        except URLError as e:
+            raise
 
     def _parse_results(self, xml_data: str) -> list:
         """Parse arXiv Atom XML response."""
@@ -68,7 +102,6 @@ class ArxivConnector(BaseLiteratureConnector):
             published = entry.find("atom:published", ns)
             authors = entry.findall("atom:author/atom:name", ns)
 
-            # Extract arXiv ID from id URL
             id_elem = entry.find("atom:id", ns)
             arxiv_id = ""
             if id_elem is not None and id_elem.text:
