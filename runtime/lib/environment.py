@@ -128,6 +128,34 @@ def detect_pbs() -> dict:
     }
 
 
+def detect_potcar_library() -> dict:
+    """Detect VASP pseudopotential library configuration."""
+    potcar_path = os.environ.get("SIMFLOW_VASP_POTCAR_PATH")
+    flavor = os.environ.get("SIMFLOW_VASP_POTCAR_FLAVOR", "PBE")
+    path_exists = os.path.isdir(potcar_path) if potcar_path else False
+    vaspkit = shutil.which("vaspkit")
+
+    # Count available elements if library path exists
+    element_count = 0
+    if path_exists:
+        flavor_dir = os.path.join(potcar_path, flavor)
+        if os.path.isdir(flavor_dir):
+            element_count = sum(
+                1 for d in os.listdir(flavor_dir)
+                if os.path.isdir(os.path.join(flavor_dir, d))
+                and os.path.isfile(os.path.join(flavor_dir, d, "POTCAR"))
+            )
+
+    return {
+        "potcar_path": potcar_path,
+        "flavor": flavor,
+        "path_exists": path_exists,
+        "vaspkit_available": vaspkit is not None,
+        "vaspkit_path": vaspkit,
+        "element_count": element_count,
+    }
+
+
 def detect_environment() -> dict:
     """Run full environment detection."""
     return {
@@ -136,6 +164,7 @@ def detect_environment() -> dict:
         "tmux": detect_tmux(),
         "mpi": detect_mpi(),
         "software": detect_software(),
+        "potcar": detect_potcar_library(),
         "scheduler": {
             "slurm": detect_slurm(),
             "pbs": detect_pbs(),

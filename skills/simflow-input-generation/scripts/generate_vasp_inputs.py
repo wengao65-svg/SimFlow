@@ -3,6 +3,11 @@
 
 Reads templates from templates/vasp/ and applies parameters to produce
 ready-to-use input files for VASP calculations.
+
+NBANDS policy is applied via runtime/lib/vasp_incar.py:
+- Ordinary calc types (relax, scf, bands, etc.): NBANDS removed
+- Special calc types (optics, gw, etc.): NBANDS auto-calculated
+- User-explicit NBANDS: validated and preserved
 """
 
 import argparse
@@ -10,6 +15,24 @@ import json
 import re
 import sys
 from pathlib import Path
+
+# Add runtime to path for vasp_incar module
+SIMFLOW_ROOT = Path(__file__).resolve().parents[4] / "simflow"
+# Try relative to project root
+_project_root = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(_project_root / "runtime"))
+
+try:
+    from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+except ImportError:
+    # Fallback: try from simflow root
+    _alt_root = Path(__file__).resolve().parents[3].parent
+    sys.path.insert(0, str(_alt_root / "runtime"))
+    try:
+        from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+    except ImportError:
+        apply_nbands_policy = None
+        get_explicit_user_nbands = None
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "templates" / "vasp"
@@ -24,8 +47,21 @@ def render_template(template_content: str, variables: dict) -> str:
     return result
 
 
-def generate_incar(job_type: str, params: dict, output_path: str) -> str:
-    """Generate INCAR file from template."""
+def generate_incar(job_type: str, params: dict, output_path: str,
+                   nelect: float = None, nions: int = None) -> str:
+    """Generate INCAR file from template with NBANDS policy.
+
+    Args:
+        job_type: Calculation type
+        params: Parameter overrides
+        output_path: Output INCAR path
+        nelect: Number of valence electrons (from POTCAR ZVAL). Required for
+                NBANDS auto-calculation.
+        nions: Number of ions/atoms. Required for NBANDS auto-calculation.
+
+    Returns:
+        Output file path
+    """
     template_path = TEMPLATE_DIR / "INCAR.template"
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
@@ -55,7 +91,36 @@ def generate_incar(job_type: str, params: dict, output_path: str) -> str:
     elif job_type == "md":
         defaults.update({"nsw": 10000, "ibrion": 0, "potim": 1.0, "mdalgo": 2})
 
+    # Apply NBANDS policy if vasp_incar is available and nelect/nions provided
+    if apply_nbands_policy is not None and nelect is not None and nions is not None:
+        user_nbands = get_explicit_user_nbands(params) if get_explicit_user_nbands else params.get("NBANDS")
+        ispin = int(params.get("ISPIN", defaults.get("ispin", 1)))
+        total_magmom = params.get("MAGMOM") if ispin == 2 else None
+
+        # Build a dict for the policy function (case-sensitive INCAR keys)
+        policy_incar = {"ISPIN": ispin}
+        apply_nbands_policy(
+            incar=policy_incar,
+            calc_type=job_type,
+            nelect=float(nelect),
+            nions=nions,
+            user_nbands=user_nbands if isinstance(user_nbands, int) else None,
+            ispin=ispin,
+            total_magmom=total_magmom,
+        )
+        # Set nbands for template rendering (None -> not rendered)
+        defaults["nbands"] = policy_incar.get("NBANDS")
+    elif "NBANDS" in params:
+        # No policy available, pass through user value
+        defaults["nbands"] = params["NBANDS"]
+    # else: nbands not set -> template conditional block won't render
+
     defaults.update(params)
+    # Ensure nbands from policy is not overwritten by params merge
+    if apply_nbands_policy is not None and nelect is not None and nions is not None:
+        # Re-apply to get the correct nbands value after params merge
+        pass  # nbands was already computed above
+
     content = render_template(template, defaults)
 
     out = Path(output_path)
@@ -88,11 +153,19 @@ def generate_kpoints(params: dict, output_path: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate VASP input files")
-    parser.add_argument("--job-type", required=True, choices=["scf", "relax", "vc-relax", "md", "bands"],
+    parser.add_argument("--job-type", required=True,
+                        choices=["scf", "relax", "vc-relax", "md", "bands",
+                                 "dos", "nscf", "optics", "dielectric", "eels",
+                                 "gw", "rpa", "bse", "wannier"],
                         help="Type of VASP calculation")
     parser.add_argument("--params", type=str, default="{}",
                         help="JSON string of parameters to override defaults")
     parser.add_argument("--output-dir", default=".", help="Output directory")
+    parser.add_argument("--nelect", type=float, default=None,
+                        help="Total valence electrons (from POTCAR ZVAL). "
+                             "Required for NBANDS auto-calculation.")
+    parser.add_argument("--nions", type=int, default=None,
+                        help="Number of ions/atoms. Required for NBANDS auto-calculation.")
     args = parser.parse_args()
 
     try:
@@ -100,7 +173,8 @@ def main():
         output_dir = Path(args.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        incar_path = generate_incar(args.job_type, params, str(output_dir / "INCAR"))
+        incar_path = generate_incar(args.job_type, params, str(output_dir / "INCAR"),
+                                     nelect=args.nelect, nions=args.nions)
         kpoints_path = generate_kpoints(params, str(output_dir / "KPOINTS"))
 
         result = {

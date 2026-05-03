@@ -1,0 +1,38 @@
+  energy without entropy =       70.27548650  energy(sigma->0) =       70.27540272
+  ENCUT  =  520.00 eV  
+
+  free  energy   TOTEN  =       -43.38248058 eV
+
+  energy  without entropy=      -43.38248058  energy(sigma->0) =      -43.38248058
+ 
+ d Force = 0.0000000E+00[ 0.000E+00, 0.000E+00]  d Energy = 0.1377773E-04-0.138E-04
+ d Force = 0.0000000E+00[ 0.000E+00, 0.000E+00]  d Ewald  =-0.1748968E+00 0.175E+00
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+    POTLOK:  cpu time      0.1648: real time      0.0275
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+ stress matrix after NEB project (eV)
+      0.00035      0.00000      0.00000
+      0.00000      0.00035      0.00000
+     -0.00000      0.00000      0.00035
+  FORCES: max atom, RMS     0.000000    0.000000
+  FORCE total and by dimension    0.000000    0.000000
+  Stress total and by dimension    0.000601    0.000347
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+  
+ reached required accuracy - stopping structural energy minimisation
+     LOOP+:  cpu time     13.8529: real time      2.2099
+    4ORBIT:  cpu time      0.0001: real time      0.0000
+
+ total amount of memory used by VASP MPI-rank0    49782. kBytes

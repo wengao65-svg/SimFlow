@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simflow"
+version = "0.5.0"
+description = "Codex-native computational simulation domain workflow layer"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = ["simulation", "dft", "md", "workflow", "materials-science"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+[project.optional-dependencies]
+vasp = ["pymatgen>=2023.0"]
+qe = ["pymatgen>=2023.0"]
+lammps = ["MDAnalysis>=2.5"]
+gaussian = ["pymatgen>=2023.0"]
+structure = ["pymatgen>=2023.0", "ase>=3.22"]
+all = ["pymatgen>=2023.0", "MDAnalysis>=2.5", "ase>=3.22"]
+dev = [
+    "pytest>=7.0",
+    "pymatgen>=2023.0",
+    "MDAnalysis>=2.5",
+    "ase>=3.22",
+]
+
+[tool.setuptools.packages.find]
+include = ["runtime*", "mcp*", "skills*"]
+exclude = ["tests*", "docs*", "examples*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

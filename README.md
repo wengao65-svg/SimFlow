@@ -17,13 +17,14 @@ Codex / OMX Host
 
 ## Features
 
-- **Workflow Management**: Declarative stage definitions with gates and policies
+- **Workflow Management**: Declarative stage definitions with 9 verification gates and 6 policies
+- **Template Engine**: Jinja2-compatible rendering for VASP/QE/LAMMPS/Gaussian inputs (no Jinja2 dependency)
 - **Structure Building**: pymatgen/ASE for crystal structures (FCC, BCC, diamond, rocksalt, zincblende)
 - **Input Generation**: VASP, Quantum ESPRESSO, LAMMPS input files
 - **Trajectory Analysis**: MDAnalysis for RDF, MSD, energy analysis
-- **Literature Search**: arXiv, Crossref, Semantic Scholar connectors
+- **Literature Search**: arXiv, Crossref, Semantic Scholar connectors with retry + caching
 - **Structure Databases**: Materials Project, Crystallography Open Database (COD)
-- **HPC Integration**: SLURM, PBS, SSH, local execution
+- **HPC Integration**: SLURM, PBS, SSH, local execution with gate-based approval
 - **State Tracking**: Checkpoints, artifact lineage, workflow recovery
 - **Custom Skills**: User-defined skill extensions
 
@@ -72,6 +73,7 @@ simflow/
 │   ├── simflow-aimd/          # AIMD workflow skills
 │   └── simflow-md/            # MD workflow skills
 ├── workflow/                  # Stage, gate, policy definitions
+│   └── gates/                 # 9 verification gate definitions
 ├── agents/                    # 9 workflow agents
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
@@ -79,10 +81,13 @@ simflow/
 │   │   ├── structure/         # Materials Project, COD
 │   │   ├── hpc/               # SLURM, PBS, SSH, Local
 │   │   └── state/             # Workflow state management
-│   └── shared/                # Credentials, utilities
-├── runtime/                   # State, artifact, checkpoint libraries
+│   └── shared/                # Retry, cache, credentials, transport
+├── runtime/                   # Libraries and scripts
+│   ├── lib/                   # State, artifact, checkpoint, gates, template, parsers
+│   └── scripts/               # CLI scripts for workflow operations
+├── templates/                 # Input file templates (VASP, QE, LAMMPS, SLURM)
 ├── schemas/                   # 8 JSON schemas for validation
-├── tests/                     # Unit and E2E tests
+├── tests/                     # Unit, MCP, E2E tests (134 tests)
 ├── docs/                      # 16 documentation files
 └── scripts/                   # Scaffold and utility scripts
 ```

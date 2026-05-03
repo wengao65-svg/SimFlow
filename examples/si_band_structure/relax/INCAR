@@ -1,0 +1,13 @@
+ALGO = Normal
+EDIFF = 1e-06
+ENCUT = 520.0
+IBRION = 2
+ISIF = 3
+ISMEAR = 0
+LCHARG = False
+LREAL = Auto
+LWAVE = False
+NSW = 100
+PREC = Accurate
+SIGMA = 0.05
+SYSTEM = Si_relax
