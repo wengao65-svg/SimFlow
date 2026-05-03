@@ -38,6 +38,16 @@ CREDENTIAL_ENV_VARS = {
         "required": False,
         "description": "Path to SSH private key file",
     },
+    "SIMFLOW_VASP_POTCAR_PATH": {
+        "service": "VASP POTCAR",
+        "required": False,
+        "description": "Path to VASP pseudopotential library (potpaw, potpaw_PBE, etc.)",
+    },
+    "SIMFLOW_VASP_POTCAR_FLAVOR": {
+        "service": "VASP POTCAR",
+        "required": False,
+        "description": "POTCAR functional type: PBE (default), LDA, PW91",
+    },
 }
 
 
@@ -96,6 +106,33 @@ def check_ssh_credentials() -> dict:
         "user": bool(os.environ.get("SIMFLOW_SSH_USER")),
         "key_file": bool(os.environ.get("SIMFLOW_SSH_KEY")),
         "ready": bool(os.environ.get("SIMFLOW_SSH_HOST")),
+    }
+
+
+def check_potcar_config() -> dict:
+    """Check VASP POTCAR configuration.
+
+    Returns:
+        Dict with potcar_path, flavor, path_exists, and generation method
+    """
+    import shutil
+    potcar_path = os.environ.get("SIMFLOW_VASP_POTCAR_PATH")
+    flavor = os.environ.get("SIMFLOW_VASP_POTCAR_FLAVOR", "PBE")
+    path_exists = os.path.isdir(potcar_path) if potcar_path else False
+    vaspkit = shutil.which("vaspkit") is not None
+
+    method = None
+    if path_exists:
+        method = "concatenation"
+    elif vaspkit:
+        method = "vaspkit"
+
+    return {
+        "potcar_path": potcar_path,
+        "flavor": flavor,
+        "path_exists": path_exists,
+        "vaspkit_available": vaspkit,
+        "method": method,
     }
 
 

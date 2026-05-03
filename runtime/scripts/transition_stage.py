@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.state import update_stage, read_state
+from lib.gates import check_gate, record_gate_decision
 
 
 VALID_TRANSITIONS = {
@@ -26,7 +27,31 @@ def main():
                         help="New status")
     parser.add_argument("--agent", help="Agent name")
     parser.add_argument("--base-dir", default=".", help="Base directory")
+    parser.add_argument("--gate", help="Gate name to check before transition")
+    parser.add_argument("--gate-context", help="JSON string with gate condition values")
+    parser.add_argument("--approve-gate", action="store_true",
+                        help="Record gate approval after conditions pass")
     args = parser.parse_args()
+
+    # Gate check: block transition if gate conditions not met
+    if args.gate:
+        context = {}
+        if args.gate_context:
+            context = json.loads(args.gate_context)
+        gate_result = check_gate(args.gate, context)
+        if gate_result["status"] != "pass":
+            print(json.dumps({
+                "status": "blocked",
+                "gate": args.gate,
+                "gate_result": gate_result,
+            }, indent=2))
+            sys.exit(1)
+        if args.approve_gate:
+            record_gate_decision(
+                args.gate, "approved", context,
+                base_dir=args.base_dir,
+                agent=args.agent or "",
+            )
 
     # Validate transition
     stages = read_state(args.base_dir, "stages.json")

@@ -74,6 +74,94 @@ def test_vasp_pymatgen_relax():
         assert "NSW" in incar_content
 
 
+# ── NBANDS policy tests ───────────────────────────────────────
+
+def test_scf_no_nbands():
+    """SCF INCAR should not contain NBANDS (ordinary calc, no POTCAR)."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir, kppa=100
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NBANDS" not in incar_content
+
+
+def test_bands_no_nbands():
+    """Bands INCAR should not contain NBANDS (ordinary calc)."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "bands", tmpdir, kppa=100
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NBANDS" not in incar_content
+
+
+def test_optics_has_nbands_with_nelect():
+    """Optics INCAR should contain NBANDS when NELECT is provided."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Si 2-atom: ZVAL=4 -> NELECT=8, nions=2
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "optics", tmpdir,
+            params={"NELECT": 8}, kppa=100,
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NBANDS" in incar_content
+        # Should be > occupied_bands (ceil(8/2)=4)
+        for line in incar_content.split("\n"):
+            if "NBANDS" in line and "=" in line:
+                nbands_val = int(line.split("=")[1].strip())
+                assert nbands_val > 4
+
+
+def test_user_nbands_preserved():
+    """User-explicit NBANDS=20 should be preserved when valid."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir,
+            params={"NELECT": 8, "NBANDS": 20}, kppa=100,
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NBANDS" in incar_content
+        assert "20" in incar_content
+
+
+def test_user_nbands_too_small_raises():
+    """User-explicit NBANDS=4 with NELECT=8 (occupied=4) should raise."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
+            mod.generate_vasp_inputs(
+                str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir,
+                params={"NELECT": 8, "NBANDS": 4}, kppa=100,
+            )
+            assert False, "Should have raised ValueError"
+        except (ValueError, SystemExit):
+            pass  # Expected
+
+
+def test_residual_nbands_removed_in_scf():
+    """Residual NBANDS in params should be removed for ordinary SCF."""
+    mod = _load_module("vasp_gen", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Pass NBANDS="auto" (sentinel -> treated as not specified)
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir,
+            params={"NELECT": 8, "NBANDS": "auto"}, kppa=100,
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        # "auto" sentinel -> policy removes NBANDS
+        assert "NBANDS" not in incar_content
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

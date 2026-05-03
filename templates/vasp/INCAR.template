@@ -35,6 +35,11 @@ LORBIT = {{ lorbit | default(11) }}     # PAW projections
 LWAVE  = {{ lwave | default(.FALSE.) }}
 LCHARG = {{ lcharg | default(.FALSE.) }}
 
+# NBANDS (only set for special calculations; ordinary calc types omit this)
+{% if nbands %}
+NBANDS = {{ nbands }}           # number of bands (auto or user-specified)
+{% endif %}
+
 # Symmetry
 ISYM   = {{ isym | default(2) }}        # 0=nosym, 2=symmetry
 
