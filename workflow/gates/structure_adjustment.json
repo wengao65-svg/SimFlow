@@ -1,0 +1,13 @@
+{
+  "name": "structure_adjustment",
+  "description": "论文结构调整审批门：论文结构需要调整时触发",
+  "type": "approval",
+  "conditions": [
+    "draft_completed",
+    "section_completeness_checked"
+  ],
+  "actions_on_approve": ["finalize_manuscript"],
+  "actions_on_reject": ["revise_structure", "rewrite_sections"],
+  "auto_approve": false,
+  "timeout_minutes": 60
+}

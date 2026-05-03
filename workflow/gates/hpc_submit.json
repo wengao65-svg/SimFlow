@@ -1,0 +1,15 @@
+{
+  "name": "hpc_submit",
+  "description": "HPC 作业提交审批门：所有真实 HPC 提交必须经过此门",
+  "type": "approval",
+  "conditions": [
+    "dry_run_passed",
+    "input_files_complete",
+    "resource_request_reasonable",
+    "no_credential_in_files"
+  ],
+  "actions_on_approve": ["submit_job", "record_job_id"],
+  "actions_on_reject": ["report_rejection_reason", "suggest_fixes"],
+  "auto_approve": false,
+  "timeout_minutes": 60
+}

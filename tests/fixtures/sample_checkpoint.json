@@ -1,0 +1,11 @@
+{
+  "checkpoint_id": "ckpt_001_proposal",
+  "workflow_id": "wf_a1b2c3d4",
+  "stage_id": "proposal",
+  "job_id": null,
+  "description": "After proposal stage completion",
+  "state_snapshot": {},
+  "artifact_versions": {},
+  "status": "success",
+  "created_at": "2025-01-01T03:00:00Z"
+}

@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<qes:espresso xmlns:qes="http://www.quantum-espresso.org/ns/qes/qes-1.0">
+ <general_info>
+  <xml_format>QESchema</xml_format>
+  <creator>pw.x</creator>
+  <creator_version>7.2</creator_version>
+ </general_info>
+ <input>
+  <control_variables>
+   <calculation>scf</calculation>
+   <restart_mode>from_scratch</restart_mode>
+   <prefix>Si</prefix>
+   <pseudo_dir>./</pseudo_dir>
+   <outdir>./out</outdir>
+  </control_variables>
+  <atomic_structure nat="2" alat="5.43">
+   <cell>
+    <a1> 0.5 0.5 0.0 </a1>
+    <a2> 0.5 0.0 0.5 </a2>
+    <a3> 0.0 0.5 0.5 </a3>
+   </cell>
+   <atomic_positions>
+    <atom name="Si" index="1">     0.000000000     0.000000000     0.000000000</atom>
+    <atom name="Si" index="2">     0.250000000     0.250000000     0.250000000</atom>
+   </atomic_positions>
+  </atomic_structure>
+ </input>
+ <output>
+  <convergence_info>
+   <scf_conv>
+    <n_scf_steps>12</n_scf_steps>
+    <scf_error>  4.321E-09</scf_error>
+   </scf_conv>
+   <convergence_achieved>true</convergence_achieved>
+  </convergence_info>
+  <total_energy>
+   <etot>  -5.37621452E+00</etot>
+   <efield_corr>   0.00000000E+00</efield_corr>
+   <fermi_energy>   6.12345678E-01</fermi_energy>
+  </total_energy>
+  <forces>
+   <total_force>
+    <force atom="1">   0.00000000   0.00000000   0.00000000</force>
+    <force atom="2">   0.00000000   0.00000000   0.00000000</force>
+   </total_force>
+  </forces>
+  <stress>
+   <stress_tensor>
+    <sigma_1_1>   1.23450000E-02</sigma_1_1>
+    <sigma_1_2>   0.00000000E+00</sigma_1_2>
+    <sigma_1_3>   0.00000000E+00</sigma_1_3>
+    <sigma_2_2>   1.23450000E-02</sigma_2_2>
+    <sigma_2_3>   0.00000000E+00</sigma_2_3>
+    <sigma_3_3>   1.23450000E-02</sigma_3_3>
+   </stress_tensor>
+  </stress>
+ </output>
+</qes:espresso>

@@ -1,0 +1,59 @@
+# 研究方案
+
+## 1. 研究目标
+
+{{ research_goal }}
+
+## 2. 研究体系
+
+### 2.1 材料/分子描述
+
+{{ material_description }}
+
+### 2.2 结构信息
+
+- 化学式：{{ chemical_formula }}
+- 空间群：{{ space_group }}
+- 晶格参数：{{ lattice_parameters }}
+
+## 3. 计算方法
+
+### 3.1 计算软件
+
+{{ software }}
+
+### 3.2 关键参数
+
+| 参数 | 值 | 说明 |
+|------|------|------|
+{% for param in parameters %}
+| {{ param.name }} | {{ param.value }} | {{ param.description }} |
+{% endfor %}
+
+### 3.3 资源估算
+
+- 预计 CPU 时间：{{ estimated_time }}
+- 节点数：{{ nodes }}
+- 内存需求：{{ memory }}
+
+## 4. 对照组设计
+
+{{ control_groups }}
+
+## 5. 预期产出
+
+{% for output in expected_outputs %}
+- {{ output }}
+{% endfor %}
+
+## 6. 风险与注意事项
+
+{% for risk in risks %}
+- {{ risk }}
+{% endfor %}
+
+## 7. 审批点
+
+{% for approval in approval_points %}
+- [ ] {{ approval }}
+{% endfor %}

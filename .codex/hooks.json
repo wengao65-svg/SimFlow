@@ -1,0 +1,34 @@
+{
+  "hooks": [
+    {
+      "event": "pre_stage",
+      "description": "Check inputs and prerequisites before stage execution",
+      "handler": "hooks/pre_stage.md"
+    },
+    {
+      "event": "post_stage",
+      "description": "Write artifacts, checkpoint, and reports after stage completion",
+      "handler": "hooks/post_stage.md"
+    },
+    {
+      "event": "pre_submit",
+      "description": "Verify approval gate before HPC job submission",
+      "handler": "hooks/pre_submit.md"
+    },
+    {
+      "event": "post_analysis",
+      "description": "Generate charts, reports, and handoff after analysis",
+      "handler": "hooks/post_analysis.md"
+    },
+    {
+      "event": "on_error",
+      "description": "Diagnose failure, collect logs, create checkpoint",
+      "handler": "hooks/on_error.md"
+    },
+    {
+      "event": "before_handoff",
+      "description": "Completeness check before handoff",
+      "handler": "hooks/before_handoff.md"
+    }
+  ]
+}

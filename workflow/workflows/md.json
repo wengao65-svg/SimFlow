@@ -1,0 +1,30 @@
+{
+  "name": "md",
+  "description": "MD 计算模拟工作流：从方案设计到论文写作",
+  "stages": [
+    "proposal",
+    "modeling",
+    "input_generation",
+    "compute",
+    "analysis",
+    "visualization",
+    "writing"
+  ],
+  "stage_dependencies": {
+    "proposal": [],
+    "modeling": ["proposal"],
+    "input_generation": ["modeling"],
+    "compute": ["input_generation"],
+    "analysis": ["compute"],
+    "visualization": ["analysis"],
+    "writing": ["visualization"]
+  },
+  "entry_points": ["proposal", "modeling", "input_generation", "compute", "analysis", "visualization", "writing"],
+  "default_entry": "proposal",
+  "parallel_stages": [],
+  "iteration_points": {
+    "modeling": ["proposal"],
+    "input_generation": ["modeling"],
+    "analysis": ["input_generation", "compute"]
+  }
+}

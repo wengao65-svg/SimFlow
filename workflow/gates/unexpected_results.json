@@ -1,0 +1,13 @@
+{
+  "name": "unexpected_results",
+  "description": "异常结果审批门：分析结果与预期偏差较大时触发",
+  "type": "approval",
+  "conditions": [
+    "analysis_completed",
+    "expected_range_defined"
+  ],
+  "actions_on_approve": ["accept_results", "proceed_to_visualization"],
+  "actions_on_reject": ["investigate_cause", "iterate_to_input_generation"],
+  "auto_approve": false,
+  "timeout_minutes": 30
+}

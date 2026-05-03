@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SimFlow state (per-project, not committed)
+.simflow/state/
+.simflow/artifacts/
+.simflow/checkpoints/
+.simflow/logs/
+
+# Secrets
+.env
+*.pem
+*.key
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+package-lock.json

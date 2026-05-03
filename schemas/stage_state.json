@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StageState",
+  "description": "Per-stage state tracking",
+  "type": "object",
+  "required": ["stage_name", "status", "started_at"],
+  "properties": {
+    "stage_name": {
+      "type": "string",
+      "description": "Stage identifier"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "failed", "skipped"],
+      "description": "Stage execution status"
+    },
+    "agent": {
+      "type": ["string", "null"],
+      "description": "Agent assigned to this stage"
+    },
+    "inputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Input artifact paths"
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Output artifact paths"
+    },
+    "checkpoint_id": {
+      "type": ["string", "null"],
+      "description": "Checkpoint created after this stage"
+    },
+    "error_message": {
+      "type": ["string", "null"],
+      "description": "Error message if stage failed"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

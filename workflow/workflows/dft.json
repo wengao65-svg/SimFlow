@@ -1,0 +1,34 @@
+{
+  "name": "dft",
+  "description": "DFT 计算模拟工作流：从文献调研到论文写作的完整流程",
+  "stages": [
+    "literature",
+    "review",
+    "proposal",
+    "modeling",
+    "input_generation",
+    "compute",
+    "analysis",
+    "visualization",
+    "writing"
+  ],
+  "stage_dependencies": {
+    "literature": [],
+    "review": ["literature"],
+    "proposal": ["review"],
+    "modeling": ["proposal"],
+    "input_generation": ["modeling"],
+    "compute": ["input_generation"],
+    "analysis": ["compute"],
+    "visualization": ["analysis"],
+    "writing": ["visualization"]
+  },
+  "entry_points": ["literature", "proposal", "modeling", "input_generation", "compute", "analysis", "visualization", "writing"],
+  "default_entry": "literature",
+  "parallel_stages": [],
+  "iteration_points": {
+    "modeling": ["proposal"],
+    "input_generation": ["modeling"],
+    "analysis": ["input_generation", "compute"]
+  }
+}

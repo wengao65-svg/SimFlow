@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkflowState",
+  "description": "SimFlow workflow state schema",
+  "type": "object",
+  "required": ["workflow_id", "workflow_type", "current_stage", "status", "created_at", "updated_at"],
+  "properties": {
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^wf_[a-z0-9]{8}$",
+      "description": "Unique workflow identifier"
+    },
+    "workflow_type": {
+      "type": "string",
+      "enum": ["dft", "aimd", "md", "custom"],
+      "description": "Workflow type"
+    },
+    "current_stage": {
+      "type": "string",
+      "description": "Current active stage name"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["initialized", "in_progress", "paused", "completed", "failed"],
+      "description": "Overall workflow status"
+    },
+    "plan": {
+      "type": ["string", "null"],
+      "description": "Path to the plan file"
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "Stage where the workflow was entered"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

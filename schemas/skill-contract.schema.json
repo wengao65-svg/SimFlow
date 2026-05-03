@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SkillContract",
+  "description": "SimFlow skill contract schema (SKILL.md frontmatter)",
+  "type": "object",
+  "required": ["skill_name", "description", "stage_binding"],
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "pattern": "^simflow-[a-z0-9-]+$",
+      "description": "Unique skill identifier"
+    },
+    "description": {
+      "type": "string",
+      "description": "Skill purpose and capabilities"
+    },
+    "version": {
+      "type": "string",
+      "default": "0.1.0"
+    },
+    "stage_binding": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Workflow stages this skill can execute"
+    },
+    "agent_binding": {
+      "type": "string",
+      "description": "Primary agent role for this skill"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "required": {"type": "boolean", "default": true}
+        }
+      },
+      "description": "Expected input artifacts"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"}
+        }
+      },
+      "description": "Produced output artifacts"
+    },
+    "mcp_tools": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "MCP tools this skill depends on"
+    },
+    "scripts": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Available helper scripts"
+    },
+    "policies": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Applicable policies"
+    },
+    "requires_approval": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether execution requires user approval"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "ambiguous_visualization",
+  "description": "可视化歧义审批门：图表展示结果有歧义时触发",
+  "type": "approval",
+  "conditions": [
+    "figures_generated",
+    "data_traceability_verified"
+  ],
+  "actions_on_approve": ["accept_figures", "proceed_to_writing"],
+  "actions_on_reject": ["revise_visualization", "adjust_parameters"],
+  "auto_approve": false,
+  "timeout_minutes": 30
+}

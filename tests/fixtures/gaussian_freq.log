@@ -1,0 +1,69 @@
+ Entering Gaussian System, Link 0=g16
+ ******************************************
+ Gaussian 16:  ES64L-G16RevC.01 15-Jan-2024
+ ******************************************
+ #p B3LYP/6-311G(d,p) Opt Freq
+
+ Si atom frequency calculation
+
+ Charge = 0 Multiplicity = 1
+ Si                    0.000000    0.000000    0.000000
+
+ Symbolic Z-matrix:
+ Charge = 0 Multiplicity = 1
+ Si
+ Stoichiometry    Si
+ Framework group  KH[Si]
+ Deg. of freedom    0
+
+ Optimization completed.
+    Item               Value     Threshold  Converged?
+ Maximum Force            0.000000     0.000450     YES
+ RMS     Force            0.000000     0.000300     YES
+ Maximum Displacement     0.000000     0.001800     YES
+ RMS     Displacement     0.000000     0.001200     YES
+ Predicted change in Energy=-0.000000D+00
+ Optimization completed.
+ -- Stationary point found.
+
+                         Standard orientation:
+ ---------------------------------------------------------------------
+ Center     Atomic      Atomic             Coordinates (Angstroms)
+ Number     Number       Type             X           Y           Z
+ ---------------------------------------------------------------------
+    1          14           0        0.000000    0.000000    0.000000
+ ---------------------------------------------------------------------
+
+ Harmonic frequencies (cm**-1), IR Intensities (KM/Mole), Raman scattering
+ activities (A**4/AMU), depolarization ratios for plane and unpolarized
+ light:
+
+                    1                      2                      3
+                   B1                      A1                     B2
+ Frequencies --    520.1234                520.1234                520.1234
+ Red. masses --      1.0000                  1.0000                  1.0000
+ Frc consts  --      1.2345                  1.2345                  1.2345
+ IR Inten     --      0.0000                  0.0000                  0.0000
+ Atom  AN      X      Y      Z        X      Y      Z        X      Y      Z
+   1   14     0.00   0.71   0.00     0.00   0.00   0.71     0.71   0.00   0.00
+
+                    4                      5                      6
+                   B1                      A1                     B2
+ Frequencies --    520.1234                520.1234                520.1234
+ Red. masses --      1.0000                  1.0000                  1.0000
+ Frc consts  --      1.2345                  1.2345                  1.2345
+ IR Inten     --      0.0000                  0.0000                  0.0000
+ Atom  AN      X      Y      Z        X      Y      Z        X      Y      Z
+   1   14     0.00   0.71   0.00     0.00   0.00   0.71     0.71   0.00   0.00
+
+ -- Thermochemistry --
+ Temperature   298.150 Kelvin.  Pressure   1.00000 Atm.
+ Thermal correction to Energy=                   0.000000
+ Thermal correction to Enthalpy=                 0.000000
+ Thermal correction to Gibbs Free Energy=        0.000000
+ Sum of electronic and zero-point Energies=    -289.123456
+ Sum of electronic and thermal Energies=       -289.123456
+ Sum of electronic and thermal Enthalpies=     -289.123456
+ Sum of electronic and thermal Free Energies=  -289.123456
+
+ Normal termination of Gaussian 16 at Mon Jan 15 10:00:10 2024.

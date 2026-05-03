@@ -1,0 +1,47 @@
+ vasp.6.3.0  (build Jan 01 2023 00:00:00)
+ executed on  Linux 6.1.0  date  2024.01.15
+ running on   16 mpi tasks
+ POSCAR:  Si FCC bulk
+
+ POTCAR:    PAW_PBE Si 05Jan2001
+ POTCAR:    PAW_PBE Si 05Jan2001
+
+ dimension x,y,z NGXF=  32 NGYF=  32 NGZF=  32
+ NKPTS=  4  k-Points in BZ:  NKDIM=  4
+
+  number of bands   NBANDS=    8
+  energy-cutoff   ENCUT  =  520.00 eV
+
+  SCF iteration:
+      1 F= -.10885712E+02 E0= -.10885712E+02  d E =-.108857E+02
+      2 F= -.10987654E+02 E0= -.10987654E+02  d E =-.101938E+00
+      3 F= -.10988123E+02 E0= -.10988123E+02  d E =-.469000E-03
+      4 F= -.10988130E+02 E0= -.10988130E+02  d E =-.700000E-05
+      5 F= -.10988130E+02 E0= -.10988130E+02  d E =-.100000E-06
+
+  reached required accuracy -  stopping structural energy minimisation
+
+  FREE ENERGIE OF THE ION-ELECTRON SYSTEM (eV)
+  ---------------------------------------------------
+  free  energy TOTEN  =     -10.988130 eV
+
+  FORCE on cell =-STRESS in cart. coord.  (kB)
+  Direction    XX          YY          ZZ          XY          YZ          ZX
+  --------------------------------------------------------------------------------------
+  in kB        0.000123    0.000123    0.000123    0.000000    0.000000    0.000000
+
+  POSITION                                       FORCE (eV/Angst)
+     1     0.000000     0.000000     0.000000     0.000000     0.000000     0.000000
+     2     1.357750     1.357750     1.357750     0.000000     0.000000     0.000000
+
+  total drift:                                0.000000     0.000000     0.000000
+
+  FORCES: max atom force = 0.000000E+00
+
+  --- aborting loop because EDIFF is reached ---
+  reached required accuracy -  stopping structural energy minimisation
+  General timing and accounting informations for this job:
+  Total CPU time used (sec):       12.34
+  User time (sec):                 10.56
+  System time (sec):                1.78
+  Elapsed time (sec):              15.67

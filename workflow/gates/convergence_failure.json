@@ -1,0 +1,13 @@
+{
+  "name": "convergence_failure",
+  "description": "收敛失败审批门：计算结果未达到收敛标准时触发",
+  "type": "approval",
+  "conditions": [
+    "convergence_check_performed",
+    "convergence_criteria_defined"
+  ],
+  "actions_on_approve": ["accept_with_warning", "proceed_to_visualization"],
+  "actions_on_reject": ["suggest_parameter_adjustment", "iterate_to_input_generation"],
+  "auto_approve": false,
+  "timeout_minutes": 30
+}

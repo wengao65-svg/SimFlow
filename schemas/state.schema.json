@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimFlowState",
+  "description": "Unified SimFlow state file schema (.simflow/state/*.json)",
+  "oneOf": [
+    {"$ref": "#/definitions/workflowState"},
+    {"$ref": "#/definitions/stagesState"},
+    {"$ref": "#/definitions/jobsState"},
+    {"$ref": "#/definitions/artifactsState"},
+    {"$ref": "#/definitions/verificationState"}
+  ],
+  "definitions": {
+    "workflowState": {
+      "type": "object",
+      "required": ["workflow_id", "workflow_type", "current_stage", "status"],
+      "properties": {
+        "workflow_id": {"type": "string", "pattern": "^wf_[a-z0-9]{8}$"},
+        "workflow_type": {"type": "string", "enum": ["dft", "aimd", "md", "custom"]},
+        "current_stage": {"type": "string"},
+        "status": {"type": "string", "enum": ["initialized", "in_progress", "paused", "completed", "failed"]},
+        "plan": {"type": ["string", "null"]},
+        "entry_point": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "stagesState": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "failed", "skipped"]},
+            "started_at": {"type": ["string", "null"], "format": "date-time"},
+            "completed_at": {"type": ["string", "null"], "format": "date-time"},
+            "artifacts": {"type": "array", "items": {"type": "string"}},
+            "checkpoint_id": {"type": ["string", "null"]},
+            "error": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "jobsState": {
+      "type": "object",
+      "patternProperties": {
+        "^job_[a-z0-9]+$": {
+          "type": "object",
+          "required": ["job_id", "stage", "status"],
+          "properties": {
+            "job_id": {"type": "string"},
+            "stage": {"type": "string"},
+            "status": {"type": "string", "enum": ["pending", "submitted", "running", "completed", "failed", "cancelled"]},
+            "scheduler_id": {"type": ["string", "null"]},
+            "submitted_at": {"type": ["string", "null"], "format": "date-time"},
+            "completed_at": {"type": ["string", "null"], "format": "date-time"}
+          }
+        }
+      }
+    },
+    "artifactsState": {
+      "type": "object",
+      "patternProperties": {
+        "^art_[a-z0-9]+$": {
+          "type": "object",
+          "required": ["artifact_id", "name", "type", "stage"],
+          "properties": {
+            "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9]{8}$"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "version": {"type": "string"},
+            "stage": {"type": "string"},
+            "path": {"type": "string"},
+            "checksum": {"type": "string"},
+            "created_at": {"type": "string", "format": "date-time"}
+          }
+        }
+      }
+    },
+    "verificationState": {
+      "type": "object",
+      "required": ["verifications"],
+      "properties": {
+        "verifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["stage", "status", "timestamp"],
+            "properties": {
+              "stage": {"type": "string"},
+              "status": {"type": "string", "enum": ["pass", "fail", "warning", "skip"]},
+              "checks": {"type": "array", "items": {"type": "object"}},
+              "timestamp": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "aimd_dry_run",
+  "description": "AIMD 工作流 dry-run 示例：liquid water AIMD",
+  "workflow_type": "aimd",
+  "software": "vasp",
+  "dry_run": true,
+  "stages": [
+    {
+      "name": "proposal",
+      "inputs": {
+        "research_goal": "AIMD simulation of liquid water at 300K",
+        "system_info": "64 H2O molecules, NVT ensemble"
+      },
+      "expected_outputs": ["proposal.md", "parameter_table.json", "resource_estimate.json"]
+    },
+    {
+      "name": "modeling",
+      "inputs": {
+        "proposal": "proposal.md",
+        "structure": "64 H2O cubic box, 12.4A"
+      },
+      "expected_outputs": ["POSCAR", "model.json"]
+    },
+    {
+      "name": "input_generation",
+      "inputs": {
+        "model": "POSCAR",
+        "parameters": "parameter_table.json",
+        "software": "vasp"
+      },
+      "expected_outputs": ["INCAR", "KPOINTS", "POTCAR", "input_manifest.json"]
+    },
+    {
+      "name": "compute",
+      "inputs": {
+        "manifest": "input_manifest.json"
+      },
+      "expected_outputs": ["job_script.sh", "dry_run_report.json"],
+      "dry_run_only": true
+    }
+  ]
+}

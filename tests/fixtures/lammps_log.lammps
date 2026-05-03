@@ -1,0 +1,43 @@
+LAMMPS (2 Aug 2023)
+# LAMMPS log file for Si melt simulation
+units           metal
+dimension       3
+boundary        p p p
+atom_style      atomic
+
+read_data       data.Si
+Reading data file ...
+  8 atoms
+  1 atom types
+  0.0000000  5.4310000 xlo xhi
+  0.0000000  5.4310000 ylo yhi
+  0.0000000  5.4310000 zlo zhi
+
+pair_style      eam/alloy
+pair_coeff      * * Si.eam Si
+
+neighbor        2.0 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.001
+thermo_style    custom step temp pe ke etotal press vol
+thermo          10
+
+fix             1 all nvt temp 300 3000 0.1
+run             1000
+
+Step Temp PotEng KinEng TotEng Press Volume
+       0    300.00000   -43.55252    0.03893   -43.51359    1234.56    160.12
+     100    523.45678   -43.23456    0.06789   -43.16667    1456.78    160.45
+     200    756.78901   -42.87654    0.09812   -42.77842    1678.90    160.89
+     300    987.65432   -42.45678    0.12801   -42.32877    1890.12    161.34
+     400   1234.56789   -41.98765    0.16012   -41.82753    2123.45    161.89
+     500   1456.78901   -41.45678    0.18890   -41.26788    2345.67    162.45
+     600   1678.90123   -40.87654    0.21768   -40.65886    2567.89    163.12
+     700   1890.12345   -40.23456    0.24509   -39.98947    2789.01    163.89
+     800   2123.45678   -39.54321    0.27531   -39.26790    3012.34    164.67
+     900   2345.67890   -38.78901    0.30416   -38.48485    3234.56    165.45
+    1000   2567.89012   -37.98765    0.33298   -37.65467    3456.78    166.23
+Loop time of 1.234 on 16 procs for 1000 steps with 8 atoms
+
+Performance: 69.855 ns/day, 0.344 hours/ns

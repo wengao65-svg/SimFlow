@@ -1,0 +1,51 @@
+&CONTROL
+  calculation  = '{{ calculation | default("scf") }}'
+  restart_mode = '{{ restart_mode | default("from_scratch") }}'
+  prefix       = '{{ prefix | default("pw") }}'
+  pseudo_dir   = '{{ pseudo_dir | default("./pseudopotentials") }}'
+  outdir       = '{{ outdir | default("./tmp") }}'
+  verbosity    = '{{ verbosity | default("high") }}'
+  tstress      = .{{ tstress | default("true") }}.
+  tprnfor      = .{{ tprnfor | default("true") }}.
+/
+
+&SYSTEM
+  ibrav     = {{ ibrav | default(1) }}
+  celldm(1) = {{ celldm1 | default(10.2) }}
+  nat       = {{ nat | default(2) }}
+  ntyp      = {{ ntyp | default(1) }}
+  ecutwfc   = {{ ecutwfc | default(60.0) }}
+  ecutrho   = {{ ecutrho | default(600.0) }}
+  occupations = '{{ occupations | default("smearing") }}'
+  smearing  = '{{ smearing | default("gaussian") }}'
+  degauss   = {{ degauss | default(0.01) }}
+  {% if input_dft %}input_dft  = '{{ input_dft }}'{% endif %}
+/
+
+&ELECTRONS
+  conv_thr    = {{ conv_thr | default(1.0d-8) }}
+  mixing_beta = {{ mixing_beta | default(0.7) }}
+  electron_maxstep = {{ electron_maxstep | default(100) }}
+  diagonalization  = '{{ diagonalization | default("david") }}'
+/
+
+{% if calculation == "relax" or calculation == "vc-relax" %}
+&IONS
+  ion_dynamics = '{{ ion_dynamics | default("bfgs") }}'
+/
+{% endif %}
+{% if calculation == "vc-relax" %}
+&CELL
+  cell_dynamics = '{{ cell_dynamics | default("bfgs") }}'
+/
+{% endif %}
+
+ATOMIC_SPECIES
+{{ element | default("Si") }}  {{ mass | default("28.086") }}  {{ pseudo_file | default("Si.pbe-n-kjpaw_psl.1.0.0.UPF") }}
+
+ATOMIC_POSITIONS {{ atomic_positions_type | default("crystal") }}
+{{ atom_1 | default("Si  0.0  0.0  0.0") }}
+{{ atom_2 | default("Si  0.25  0.25  0.25") }}
+
+K_POINTS {{ k_points_type | default("automatic") }}
+{{ k_points | default("4 4 4 0 0 0") }}

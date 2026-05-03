@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name={{ job_name | default("lammps_job") }}
+#SBATCH --nodes={{ nodes | default(1) }}
+#SBATCH --ntasks={{ ntasks | default(16) }}
+#SBATCH --time={{ walltime | default("04:00:00") }}
+#SBATCH --partition={{ partition | default("normal") }}
+#SBATCH --output={{ output | default("lammps.out") }}
+#SBATCH --error={{ error | default("lammps.err") }}
+{% if account %}#SBATCH --account={{ account }}
+{% endif %}{% if mem %}#SBATCH --mem={{ mem }}
+{% endif %}
+# Load modules
+{% for module in modules | default(["lammps/2Aug2023"]) %}
+module load {{ module }}
+{% endfor %}
+
+cd {{ work_dir | default("$SLURM_SUBMIT_DIR") }}
+
+# Run LAMMPS
+{{ mpi_launcher | default("mpirun") }} -np {{ ntasks }} {{ lammps_executable | default("lmp") }} -in {{ input_file | default("in.lammps") }}
+
+echo "Job completed at $(date)"

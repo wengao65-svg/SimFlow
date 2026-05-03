@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "description": "SimFlow notification policy: maps events to channels and severity levels",
+  "default_channel": "console",
+  "events": {
+    "stage_complete": {
+      "level": "info",
+      "channels": ["console"],
+      "template": "stage_complete.md",
+      "description": "A workflow stage completed successfully"
+    },
+    "stage_failed": {
+      "level": "error",
+      "channels": ["console"],
+      "template": "stage_failed.md",
+      "description": "A workflow stage failed"
+    },
+    "approval_required": {
+      "level": "warning",
+      "channels": ["console"],
+      "template": "approval_required.md",
+      "description": "An approval gate requires human confirmation"
+    },
+    "workflow_complete": {
+      "level": "info",
+      "channels": ["console"],
+      "template": "workflow_complete.md",
+      "description": "Entire workflow completed"
+    },
+    "checkpoint_created": {
+      "level": "debug",
+      "channels": ["console"],
+      "template": "checkpoint_created.md",
+      "description": "A checkpoint was created"
+    }
+  },
+  "channels": {
+    "console": {
+      "enabled": true,
+      "description": "In-conversation console output (default)"
+    },
+    "email": {
+      "enabled": false,
+      "description": "Email notification (requires SMTP configuration)",
+      "requires": ["SMTP_HOST", "SMTP_PORT", "NOTIFICATION_EMAIL"]
+    },
+    "webhook": {
+      "enabled": false,
+      "description": "Webhook POST notification (requires URL configuration)",
+      "requires": ["SIMFLOW_WEBHOOK_URL"]
+    }
+  },
+  "escalation": {
+    "stage_failed": {
+      "after_minutes": 0,
+      "action": "notify_immediately"
+    },
+    "approval_required": {
+      "after_minutes": 30,
+      "action": "remind"
+    }
+  }
+}

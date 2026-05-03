@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<modeling>
+ <generator>
+  <i name="program" type="string">vasp</i>
+  <i name="version" type="string">6.3.0</i>
+ </generator>
+ <incar>
+  <i type="int" name="ENCUT">520</i>
+  <i type="int" name="ISPIN">1</i>
+  <i type="string" name="PREC">Accurate</i>
+  <i type="int" name="NSW">0</i>
+  <i type="int" name="IBRION">-1</i>
+  <i type="float" name="EDIFF">1.0e-06</i>
+  <i type="float" name="SIGMA">0.05</i>
+ </incar>
+ <parameters>
+  <separator name="electronic">
+   <i type="int" name="NELM">200</i>
+   <i type="float" name="EDIFF">1.0e-06</i>
+  </separator>
+  <separator name="ionic">
+   <i type="int" name="NSW">0</i>
+  </separator>
+ </parameters>
+ <atominfo>
+  <atoms>2</atoms>
+  <types>1</types>
+  <array name="atomtypes">
+   <dimension dim="1">atomspertype</dimension>
+   <field type="string">element</field>
+   <field type="int">atomspertype</field>
+   <field type="float">mass</field>
+   <field type="float">valence</field>
+   <field type="string">pseudopotential</field>
+   <set>
+    <rc><c>Si</c><c>2</c><c>28.085</c><c>4.00</c><c>Si</c></rc>
+   </set>
+  </array>
+ </atominfo>
+ <structure name="initialpos">
+  <crystal>
+   <var name="scale">1.000000</var>
+   <basis>
+    <v1>  0.000000   2.715000   2.715000 </v1>
+    <v2>  2.715000   0.000000   2.715000 </v2>
+    <v3>  2.715000   2.715000   0.000000 </v3>
+   </basis>
+  </crystal>
+  <varray name="positions">
+   <v>     0.000000     0.000000     0.000000 </v>
+   <v>     0.250000     0.250000     0.250000 </v>
+  </varray>
+ </structure>
+ <calculation>
+  <energy>
+   <i name="e_fr_energy">   -5.37621452</i>
+   <i name="e_wo_entrp">   -5.37571452</i>
+   <i name="e_0_energy">   -5.37596452</i>
+  </energy>
+  <varray name="forces">
+   <v>     0.00000000     0.00000000     0.00000000 </v>
+   <v>     0.00000000     0.00000000     0.00000000 </v>
+  </varray>
+  <stress>
+   <v>   0.012345   0.000000   0.000000 </v>
+   <v>   0.000000   0.012345   0.000000 </v>
+   <v>   0.000000   0.000000   0.012345 </v>
+  </stress>
+ </calculation>
+ <structure name="finalpos">
+  <crystal>
+   <var name="scale">1.000000</var>
+   <basis>
+    <v1>  0.000000   2.715000   2.715000 </v1>
+    <v2>  2.715000   0.000000   2.715000 </v2>
+    <v3>  2.715000   2.715000   0.000000 </v3>
+   </basis>
+  </crystal>
+  <varray name="positions">
+   <v>     0.000000     0.000000     0.000000 </v>
+   <v>     0.250000     0.250000     0.250000 </v>
+  </varray>
+ </structure>
+</modeling>

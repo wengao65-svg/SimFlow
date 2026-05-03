@@ -1,0 +1,135 @@
+"""HPC MCP Server.
+
+Provides HPC job management tools.
+Supports multiple schedulers: slurm, pbs, local, ssh.
+Default mode: dry-run only. Real submission requires approval gate.
+"""
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+sys.path.insert(0, str(Path(__file__).parent))
+
+from connectors.slurm import SlurmConnector
+from connectors.pbs import PBSConnector
+from connectors.local import LocalConnector
+from connectors.ssh import SSHConnector
+
+
+_CONNECTORS = {
+    "slurm": SlurmConnector,
+    "pbs": PBSConnector,
+    "local": LocalConnector,
+    "ssh": SSHConnector,
+}
+
+_default = SlurmConnector()
+
+
+def _get_connector(scheduler: str = "auto"):
+    """Get a connector instance, with auto-detection and fallback."""
+    if scheduler == "auto":
+        return _default
+    cls = _CONNECTORS.get(scheduler)
+    if cls is None:
+        return None
+    try:
+        return cls()
+    except Exception:
+        return _default
+
+
+def handle_dry_run(params: dict) -> dict:
+    """Validate a job script without submitting."""
+    script_path = params.get("script_path", "")
+    manifest_path = params.get("manifest_path", "")
+    base_dir = params.get("base_dir", ".")
+    scheduler = params.get("scheduler", "auto")
+    if not script_path:
+        return {"status": "error", "message": "script_path is required"}
+
+    connector = _get_connector(scheduler)
+    if connector is None:
+        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+
+    result = connector.dry_run(script_path, manifest_path, base_dir)
+    return {"status": "success", "data": result}
+
+
+def handle_prepare(params: dict) -> dict:
+    """Prepare a job script (generate SLURM script)."""
+    from runtime.lib.hpc import generate_slurm_script
+
+    job_name = params.get("job_name", "simflow_job")
+    executable = params.get("executable", "vasp_std")
+    nodes = params.get("nodes", 1)
+    ntasks = params.get("ntasks", 16)
+    walltime = params.get("walltime", "04:00:00")
+
+    script = generate_slurm_script(
+        job_name=job_name,
+        executable=executable,
+        nodes=nodes,
+        ntasks=ntasks,
+        time=walltime,
+    )
+    return {"status": "success", "data": {"script": script, "job_name": job_name}}
+
+
+def handle_status(params: dict) -> dict:
+    """Check job status."""
+    job_id = params.get("job_id", "")
+    scheduler = params.get("scheduler", "auto")
+    if not job_id:
+        return {"status": "error", "message": "job_id is required"}
+
+    connector = _get_connector(scheduler)
+    if connector is None:
+        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+
+    result = connector.status(job_id)
+    return result
+
+
+def handle_submit(params: dict) -> dict:
+    """Submit a job (requires scheduler parameter)."""
+    script_path = params.get("script_path", "")
+    scheduler = params.get("scheduler", "auto")
+    if not script_path:
+        return {"status": "error", "message": "script_path is required"}
+
+    connector = _get_connector(scheduler)
+    if connector is None:
+        return {"status": "error", "message": f"Unknown scheduler: {scheduler}"}
+
+    result = connector.submit(script_path)
+    return result
+
+
+TOOLS = {
+    "dry_run": handle_dry_run,
+    "prepare": handle_prepare,
+    "status": handle_status,
+    "submit": handle_submit,
+}
+
+
+def handle_request(request: dict) -> dict:
+    tool = request.get("tool")
+    params = request.get("params", {})
+    if tool not in TOOLS:
+        return {"status": "error", "message": f"Unknown tool: {tool}"}
+    try:
+        return TOOLS[tool](params)
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+if __name__ == "__main__":
+    for line in sys.stdin:
+        request = json.loads(line)
+        response = handle_request(request)
+        print(json.dumps(response))
+        sys.stdout.flush()

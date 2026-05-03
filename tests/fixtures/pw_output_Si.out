@@ -1,0 +1,90 @@
+     Program PWSCF v.7.2 starts on 15Jan2024 at 10: 0: 0
+
+     This program is part of the open-source Quantum ESPRESSO suite
+     for quantum simulation of materials
+
+     Parallel version (MPI), running on    16 processors
+
+     Reading input from pw.in
+
+     Current dimensions of program PWSCF:
+     max atoms =       10, max types =       10
+
+     atomic species   valence    mass     pseudopotential
+        Si             4.00    28.086     Si( 1.00)
+
+     bravais-lattice index =            2
+     lattice parameter (alat) =      10.2000  a.u.
+     unit-cell volume =            265.3020 (a.u.)^3
+
+     Number of k-points =     4
+                       cart. coord. in units 2pi/alat
+        k(    1) = (   0.0000000   0.0000000   0.0000000), wk =   0.1250000
+        k(    2) = (   0.5000000   0.5000000   0.0000000), wk =   0.3750000
+        k(    3) = (   0.5000000   0.0000000   0.5000000), wk =   0.3750000
+        k(    4) = (   0.0000000   0.5000000   0.5000000), wk =   0.1250000
+
+     Starting scf calculation at  10: 0: 5
+
+     iteration #  1     ecut=    60.00 Ry     beta= 0.70
+     Davidson diagonalization with overlap
+     ethr =  1.00E-02,  avg # of iterations =  2.0
+
+     total cpu time spent up to now is        0.5 secs
+
+     total energy              =     -10.98813012 Ry
+     Harris-Foulkes estimate   =     -10.98813012 Ry
+     estimated scf accuracy    <       0.00123456 Ry
+
+     iteration #  2     ecut=    60.00 Ry     beta= 0.70
+     Davidson diagonalization with overlap
+     ethr =  1.00E-03,  avg # of iterations =  1.0
+
+     total energy              =     -10.98876543 Ry
+     Harris-Foulkes estimate   =     -10.98876543 Ry
+     estimated scf accuracy    <       0.00001234 Ry
+
+     iteration #  3     ecut=    60.00 Ry     beta= 0.70
+     Davidson diagonalization with overlap
+     ethr =  1.00E-06,  avg # of iterations =  1.0
+
+     total energy              =     -10.98876654 Ry
+     Harris-Foulkes estimate   =     -10.98876654 Ry
+     estimated scf accuracy    <       0.00000001 Ry
+
+     convergence has been achieved in   3 iterations
+
+     End of self-consistent calculation
+
+          k = 0.0000 0.0000 0.0000 (   123 PWs)   bands (ev):
+
+   -5.4321  6.7890  6.7890  6.7890  8.9012  8.9012  8.9012 12.3456
+
+     highest occupied, lowest unoccupied level (ev):     6.7890    8.9012
+
+!    total energy              =     -10.98876654 Ry
+     Harris-Foulkes estimate   =     -10.98876654 Ry
+     estimated scf accuracy    <       0.00000001 Ry
+
+     total all-electron energy =      -10.98876654 Ry
+
+     Computing stress (Symmetrized)
+
+   P=  0.0000   0.0000   0.0000   0.0000   0.0000   0.0000 (kbar)
+
+     Writing output data file pw.save/
+
+     init_run     :      0.12s CPU      0.15s WALL (       1 calls)
+     electrons    :      2.34s CPU      3.45s WALL (       1 calls)
+
+     Called by init_run:
+     wfcinit      :      0.05s CPU      0.06s WALL (       1 calls)
+
+     Called by electrons:
+     c_bands      :      1.23s CPU      2.34s WALL (       4 calls)
+     sum_band     :      0.45s CPU      0.56s WALL (       4 calls)
+
+     PWSCF        :     3.12s CPU         4.56s WALL
+
+
+   This run was terminated on  15Jan2024 at 10: 0:10
