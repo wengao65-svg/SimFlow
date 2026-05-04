@@ -1,0 +1,61 @@
+&GLOBAL
+  PROJECT {{ project_name | default(H2O_energy) }}
+  RUN_TYPE ENERGY
+  PRINT_LEVEL {{ print_level | default(LOW) }}
+&END GLOBAL
+
+&FORCE_EVAL
+  METHOD QS
+  &DFT
+    BASIS_SET_FILE_NAME {{ basis_set_file | default(BASIS_MOLOPT) }}
+    POTENTIAL_FILE_NAME {{ potential_file | default(POTENTIAL) }}
+    CHARGE {{ charge | default(0) }}
+    MULTIPLICITY {{ multiplicity | default(1) }}
+    &QS
+      EPS_DEFAULT {{ qs_eps_default | default(1.0E-8) }}
+    &END QS
+    &MGRID
+      CUTOFF {{ cutoff | default(400) }}
+      REL_CUTOFF {{ rel_cutoff | default(50) }}
+    &END MGRID
+    &SCF
+      MAX_SCF {{ max_scf | default(50) }}
+      EPS_SCF {{ eps_scf | default(1.0E-6) }}
+      SCF_GUESS {{ scf_guess | default(ATOMIC) }}
+      &OT ON
+        MINIMIZER {{ ot_minimizer | default(DIIS) }}
+        PRECONDITIONER {{ ot_preconditioner | default(FULL_SINGLE_INVERSE) }}
+      &END OT
+      &OUTER_SCF
+        MAX_SCF {{ outer_max_scf | default(20) }}
+        EPS_SCF {{ outer_eps_scf | default(1.0E-6) }}
+      &END OUTER_SCF
+      &PRINT
+        &RESTART OFF
+        &END RESTART
+      &END PRINT
+    &END SCF
+    &XC
+      &XC_FUNCTIONAL {{ xc_functional | default(PBE) }}
+      &END XC_FUNCTIONAL
+    &END XC
+  &END DFT
+  &SUBSYS
+    &CELL
+      ABC {{ cell_a | default(15.49466) }} {{ cell_b | default(15.49466) }} {{ cell_c | default(15.49466) }}
+      PERIODIC {{ periodic | default(XYZ) }}
+    &END CELL
+    &TOPOLOGY
+      COORD_FILE_NAME {{ coord_file | default(last_frame.xyz) }}
+      COORD_FILE_FORMAT {{ coord_format | default(XYZ) }}
+    &END TOPOLOGY
+    &KIND O
+      BASIS_SET {{ o_basis_set | default(DZVP-MOLOPT-SR-GTH) }}
+      POTENTIAL {{ o_potential | default(GTH-PBE-q6) }}
+    &END KIND
+    &KIND H
+      BASIS_SET {{ h_basis_set | default(DZVP-MOLOPT-SR-GTH) }}
+      POTENTIAL {{ h_potential | default(GTH-PBE-q1) }}
+    &END KIND
+  &END SUBSYS
+&END FORCE_EVAL
