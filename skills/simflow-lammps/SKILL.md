@@ -1,3 +1,8 @@
+---
+name: simflow-lammps
+description: Handle LAMMPS-specific setup and execution guidance in SimFlow.
+---
+
 # SimFlow LAMMPS — LAMMPS 专用 Skill
 
 ## 触发条件

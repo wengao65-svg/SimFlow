@@ -1,3 +1,8 @@
+---
+name: simflow-team
+description: Coordinate parallel specialist skills working on one SimFlow objective.
+---
+
 # SimFlow Team — 并行团队 Skill
 
 ## 触发条件

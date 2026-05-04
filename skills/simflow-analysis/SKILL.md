@@ -1,3 +1,8 @@
+---
+name: simflow-analysis
+description: Analyze completed simulation outputs and produce structured findings.
+---
+
 # SimFlow Analysis — 数据分析 Skill
 
 ## 触发条件

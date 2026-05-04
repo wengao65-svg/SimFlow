@@ -1,3 +1,8 @@
+---
+name: simflow-vasp
+description: Handle VASP-specific setup and execution guidance in SimFlow.
+---
+
 # SimFlow VASP — VASP 专用 Skill
 
 ## 触发条件

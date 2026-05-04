@@ -1,3 +1,8 @@
+---
+name: simflow-handoff
+description: Package artifacts and context for SimFlow handoff and delivery.
+---
+
 # SimFlow Handoff — 交付与上下文移交 Skill
 
 ## 触发条件

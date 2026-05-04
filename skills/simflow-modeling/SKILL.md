@@ -1,3 +1,8 @@
+---
+name: simflow-modeling
+description: Build or transform structures used by downstream simulation workflows.
+---
+
 # SimFlow Modeling — 建模 Skill
 
 ## 触发条件

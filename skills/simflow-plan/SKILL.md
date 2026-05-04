@@ -1,3 +1,8 @@
+---
+name: simflow-plan
+description: Develop simulation study plans before execution begins.
+---
+
 # SimFlow Plan — 方案规划 Skill
 
 ## 触发条件

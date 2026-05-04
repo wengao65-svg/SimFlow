@@ -1,3 +1,8 @@
+---
+name: simflow
+description: Route computational simulation requests into the SimFlow workflow.
+---
+
 # SimFlow — 总入口 Skill
 
 ## 触发条件

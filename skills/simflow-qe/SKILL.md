@@ -1,3 +1,8 @@
+---
+name: simflow-qe
+description: Handle Quantum ESPRESSO-specific setup and execution guidance in SimFlow.
+---
+
 # SimFlow QE — Quantum ESPRESSO 专用 Skill
 
 ## 触发条件

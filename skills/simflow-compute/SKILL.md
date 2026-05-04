@@ -1,3 +1,8 @@
+---
+name: simflow-compute
+description: Prepare compute execution details before simulation jobs are run.
+---
+
 # SimFlow Compute — 计算执行准备 Skill
 
 ## 触发条件
