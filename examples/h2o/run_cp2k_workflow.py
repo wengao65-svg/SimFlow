@@ -29,14 +29,17 @@ from lib.cp2k_input import (
 )
 from lib.parsers.cp2k_parser import CP2KParser
 
-# === HPC Configuration ===
-HPC_HOST = "hpc"
-REMOTE_BASE = "simflow/h2o_cp2k"
-CP2K_ENV = "source /public/home/ac4iry5343/apprepo/cp2k/v2025.1-oneapi2024/scripts/env.sh"
-CP2K_EXE = "/public/home/ac4iry5343/apprepo/cp2k/v2025.1-oneapi2024/app/bin/cp2k.psmp"
-SLURM_PARTITION = "kshctest"
-SLURM_WALLTIME = "02:00:00"
-SLURM_NTASKS = 64
+# === HPC Configuration (set via environment variables) ===
+HPC_HOST = os.environ.get("SIMFLOW_HPC_HOST", "hpc")
+REMOTE_BASE = os.environ.get("SIMFLOW_REMOTE_BASE", "simflow/h2o_cp2k")
+CP2K_ENV = os.environ.get("SIMFLOW_CP2K_ENV", "")
+CP2K_EXE = os.environ.get("SIMFLOW_CP2K_EXE", "cp2k.psmp")
+SLURM_PARTITION = os.environ.get("SIMFLOW_PARTITION", "kshctest")
+SLURM_WALLTIME = os.environ.get("SIMFLOW_WALLTIME", "02:00:00")
+SLURM_NTASKS = int(os.environ.get("SIMFLOW_NTASKS", "64"))
+
+if not CP2K_ENV:
+    raise SystemExit("Error: SIMFLOW_CP2K_ENV not set (e.g. 'source /path/to/cp2k/env.sh')")
 
 # === Local paths ===
 CIF_FILE = SCRIPT_DIR / "H2O.cif"

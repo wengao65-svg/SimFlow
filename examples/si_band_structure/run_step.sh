@@ -10,8 +10,8 @@
 set -e
 
 STEP=${1:?Usage: $0 <relax|scf|bands>}
-HPC_HOST="hpc"
-HPC_BASE="/public/home/ac4iry5343/simflow/si_band"
+HPC_HOST="${SIMFLOW_HPC_HOST:-hpc}"
+HPC_BASE="${SIMFLOW_HPC_BASE:?Error: SIMFLOW_HPC_BASE not set}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Si DFT Step: ${STEP} ==="

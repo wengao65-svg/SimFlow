@@ -41,6 +41,7 @@ Codex / OMX Host
 | Software | Use Case |
 |----------|----------|
 | VASP | DFT, AIMD |
+| CP2K | AIMD, DFT (Quickstep) |
 | Quantum ESPRESSO | DFT |
 | LAMMPS | Classical MD |
 | Gaussian | Quantum chemistry |
@@ -87,7 +88,7 @@ simflow/
 │   └── scripts/               # CLI scripts for workflow operations
 ├── templates/                 # Input file templates (VASP, QE, LAMMPS, SLURM)
 ├── schemas/                   # 8 JSON schemas for validation
-├── tests/                     # Unit, MCP, E2E tests (134 tests)
+├── tests/                     # Unit, MCP, E2E tests (309 tests)
 ├── docs/                      # 16 documentation files
 └── scripts/                   # Scaffold and utility scripts
 ```
@@ -106,6 +107,7 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 
 ## Documentation
 
+- [Installation Guide](docs/installation.md)
 - [User Guide](docs/user_guide.md)
 - [Technical Design](docs/technical-design.md)
 - [Workflow Design](docs/workflow-layer-design.md)
