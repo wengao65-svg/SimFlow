@@ -2,7 +2,12 @@
 """Si band structure DFT workflow: relax → scf → bands.
 
 Uses SimFlow for state tracking and SSH HPC connector for job submission.
-Runs on HPC: cancon.hpccube.com via SLURM with VASP 6.4.2-dtk24.04.
+Requires: SSH host configured, VASP installed on HPC.
+
+Environment variables:
+    SIMFLOW_HPC_HOST   SSH host alias (default: hpc)
+    SIMFLOW_HPC_BASE   Remote working directory (required)
+    SIMFLOW_VASP_ENV   Path to VASP env.sh on HPC (required)
 """
 
 import json
@@ -20,42 +25,29 @@ sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
 from lib.state import init_workflow, update_stage, read_state
 from lib.template import render_string
 
-# === Configuration ===
-HPC_HOST = "hpc"
-HPC_USER = "ac4iry5343"
-HPC_BASE = f"/public/home/{HPC_USER}/simflow/si_band"
-VASP_ENV = "/public/home/ac4iry5343/apprepo/vasp/6.4.2-dtk24.04_all_nohdf5/scripts/env.sh"
+# === Configuration (set via environment variables) ===
+HPC_HOST = os.environ.get("SIMFLOW_HPC_HOST", "hpc")
+HPC_BASE = os.environ.get("SIMFLOW_HPC_BASE", "")
+VASP_ENV = os.environ.get("SIMFLOW_VASP_ENV", "")
+
+if not HPC_BASE:
+    raise SystemExit("Error: SIMFLOW_HPC_BASE not set (e.g. /public/home/<user>/simflow/si_band)")
+if not VASP_ENV:
+    raise SystemExit("Error: SIMFLOW_VASP_ENV not set (e.g. /path/to/vasp/env.sh)")
 
 STEPS = ["relax", "scf", "bands"]
 SLURM_TEMPLATE = """#!/bin/bash
 #SBATCH -N 1
-#SBATCH --ntasks-per-node=4
-#SBATCH -c 8
+#SBATCH --ntasks-per-node={{ ntasks_per_node }}
+#SBATCH -c {{ cpus_per_task }}
 #SBATCH -J Si-{{ step }}
-#SBATCH --gres=dcu:4
-#SBATCH -p kshdtest
+#SBATCH -p {{ partition }}
 #SBATCH -t {{ walltime }}
 
-module purge
 source {{ vasp_env }}
 
-VASP_EXE=vasp_std
-
-config=config.${SLURM_JOB_ID}
-echo -e "-genv OMP_NUM_THREADS 6 \\c" > $config
-for i in $(scontrol show hostnames $SLURM_NODELIST)
-do
-  for ((j=0; j<4; j++))
-  do
-    echo "-host $i -env HIP_VISIBLE_DEVICES $j -n 1 numactl --cpunodebind=$j --membind=$j $VASP_EXE" >> $config
-  done
-done
-
-ulimit -s unlimited
-export NCCL_IB_HCA="mlx5_0"
-export HSA_FORCE_FINE_GRAIN_PCIE=1
-
-mpirun -configfile $config
+cd $SLURM_SUBMIT_DIR
+mpirun -np {{ ntasks }} vasp_std
 """
 
 
@@ -106,6 +98,10 @@ def setup_hpc_directory(step: str):
         "step": step,
         "walltime": "00:30:00",
         "vasp_env": VASP_ENV,
+        "partition": os.environ.get("SIMFLOW_PARTITION", "kshdtest"),
+        "ntasks": os.environ.get("SIMFLOW_NTASKS", "4"),
+        "ntasks_per_node": os.environ.get("SIMFLOW_NTASKS_PER_NODE", "4"),
+        "cpus_per_task": os.environ.get("SIMFLOW_CPUS_PER_TASK", "8"),
     })
     slurm_path = str(local_dir / "vasp.slurm")
     with open(slurm_path, "w") as f:

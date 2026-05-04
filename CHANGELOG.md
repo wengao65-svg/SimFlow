@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.7.0 (2026-05-04)
+
+### Added
+- **CP2K Module** — Complete CP2K input generation and output parsing
+  - `runtime/lib/cp2k_input.py`: AIMD NVT and DFT single-point input builders, multi-element KIND blocks (H–Ca), EXTXYZ trajectory format (CP2K 2026), CIF→XYZ conversion
+  - `runtime/lib/parsers/cp2k_parser.py`: .log parser (CP2K v2025.1+), .ener parser, trajectory parser (XYZ + EXTXYZ)
+  - 46 CP2K-specific tests, 4 test fixtures
+  - CP2K skill definition (`skills/simflow-cp2k/`)
+  - CP2K templates (`templates/cp2k/`)
+  - H2O AIMD→DFT closed-loop example (`examples/h2o/`)
+- **Si Band Structure Example** — VASP relax→SCF→bands workflow (`examples/si_band_structure/`)
+- **Installation Guide** — `docs/installation.md` covering dependencies, installation, HPC setup, troubleshooting
+
+### Changed
+- All HPC configuration now uses environment variables instead of hardcoded paths
+- `.gitignore` expanded to exclude generated outputs, large binaries, and local settings
+
+## v0.6.0 (2026-05-03)
+
+### Added
+- VASP enhancements, SLURM connector, file handoff
+
 ## v0.5.0 (2026-05-03)
 
 ### Added
