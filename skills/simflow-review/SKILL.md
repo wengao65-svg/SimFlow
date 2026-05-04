@@ -1,3 +1,8 @@
+---
+name: simflow-review
+description: Review prior work and identify gaps before simulation planning continues.
+---
+
 # SimFlow Review — 综述与研究空白分析 Skill
 
 ## 触发条件

@@ -1,3 +1,8 @@
+---
+name: simflow-verify
+description: Verify workflow state, artifacts, and readiness checks in SimFlow.
+---
+
 # SimFlow Verify — 统一验证 Skill
 
 ## 触发条件

@@ -1,3 +1,8 @@
+---
+name: simflow-ralph
+description: Drive long-running SimFlow work forward across steps and checkpoints.
+---
+
 # SimFlow Ralph — 持续推进 Skill
 
 ## 触发条件

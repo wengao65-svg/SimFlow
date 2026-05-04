@@ -1,3 +1,8 @@
+---
+name: simflow-pipeline
+description: Advance a SimFlow workflow across its staged execution pipeline.
+---
+
 # SimFlow Pipeline — 工作流推进 Skill
 
 ## 触发条件

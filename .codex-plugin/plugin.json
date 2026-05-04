@@ -1,26 +1,7 @@
 {
   "name": "simflow",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "Codex-native computational simulation domain workflow layer",
-  "type": "workflow-layer",
-  "skills_path": "skills/",
-  "mcp_config": "mcp/.mcp.json",
-  "agents_path": "agents/",
-  "workflow_path": "workflow/",
-  "runtime_path": "runtime/",
-  "schemas_path": "schemas/",
-  "templates_path": "templates/",
-  "permissions": {
-    "file_system": true,
-    "network": false,
-    "hpc_submit": false,
-    "credential_access": false
-  },
-  "entry_points": {
-    "primary": "skills/simflow/SKILL.md",
-    "intake": "skills/simflow-intake/SKILL.md",
-    "pipeline": "skills/simflow-pipeline/SKILL.md",
-    "stage": "skills/simflow-stage/SKILL.md"
-  },
-  "state_directory": ".simflow/"
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
 }

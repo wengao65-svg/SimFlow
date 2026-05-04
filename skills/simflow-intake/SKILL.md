@@ -1,3 +1,8 @@
+---
+name: simflow-intake
+description: Capture research goals and initialize a SimFlow workflow.
+---
+
 # SimFlow Intake — 入口分析 Skill
 
 ## 触发条件

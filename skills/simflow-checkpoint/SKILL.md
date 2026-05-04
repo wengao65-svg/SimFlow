@@ -1,3 +1,8 @@
+---
+name: simflow-checkpoint
+description: Create, inspect, and restore workflow checkpoints within SimFlow.
+---
+
 # SimFlow Checkpoint — Checkpoint 管理 Skill
 
 ## 触发条件

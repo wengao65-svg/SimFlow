@@ -1,3 +1,8 @@
+---
+name: simflow-cp2k
+description: Generate CP2K inputs and interpret CP2K outputs for SimFlow workflows.
+---
+
 # SimFlow CP2K -- CP2K input generation and output parsing
 
 ## Trigger conditions

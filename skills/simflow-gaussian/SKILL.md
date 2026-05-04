@@ -1,3 +1,8 @@
+---
+name: simflow-gaussian
+description: Handle Gaussian-specific setup and execution guidance in SimFlow.
+---
+
 # SimFlow Gaussian — Gaussian 专用 Skill
 
 ## 触发条件

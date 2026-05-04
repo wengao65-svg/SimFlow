@@ -1,3 +1,8 @@
+---
+name: simflow-input-generation
+description: Generate simulation input files from approved workflow plans.
+---
+
 # SimFlow Input Generation — 输入文件生成 Skill
 
 ## 触发条件

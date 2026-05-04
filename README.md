@@ -107,6 +107,7 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 
 ## Documentation
 
+- [Codex 快速上手](docs/quickstart_codex.md)
 - [Installation Guide](docs/installation.md)
 - [User Guide](docs/user_guide.md)
 - [Technical Design](docs/technical-design.md)

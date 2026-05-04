@@ -158,7 +158,10 @@ notifications/
 ```text
 .codex-plugin/plugin.json
 .codex/config.toml
-.codex/hooks.json
+.mcp.json
+.agents/plugins/marketplace.json
+.agents/skills
+hooks/internal_workflow_hooks.json
 AGENTS.md
 package.json
 README.md
@@ -565,7 +568,7 @@ tests/runtime/
 1. 创建 MCP 配置：
 
 ```text
-mcp/.mcp.json
+.mcp.json
 ```
 
 2. 创建核心状态工具 MCP：
@@ -610,7 +613,7 @@ mcp/shared/errors.js
 ## 交付物
 
 ```text
-mcp/.mcp.json
+.mcp.json
 mcp/servers/*
 mcp/shared/*
 schemas/mcp-capability.schema.json

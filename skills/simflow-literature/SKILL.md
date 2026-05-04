@@ -1,3 +1,8 @@
+---
+name: simflow-literature
+description: Run literature discovery and synthesis for simulation research tasks.
+---
+
 # SimFlow Literature — 文献调研阶段 Skill
 
 ## 触发条件

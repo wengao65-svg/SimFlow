@@ -1,3 +1,8 @@
+---
+name: simflow-visualization
+description: Create visual outputs and summaries from simulation results.
+---
+
 # SimFlow Visualization — 可视化 Skill
 
 ## 触发条件

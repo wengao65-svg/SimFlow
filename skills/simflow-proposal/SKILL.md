@@ -1,3 +1,8 @@
+---
+name: simflow-proposal
+description: Design a computational research proposal from the user goal and constraints.
+---
+
 # SimFlow Proposal — 计算研究方案设计 Skill
 
 ## 触发条件

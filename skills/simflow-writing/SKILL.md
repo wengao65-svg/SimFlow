@@ -1,3 +1,8 @@
+---
+name: simflow-writing
+description: Write reports and narrative deliverables from SimFlow artifacts.
+---
+
 # SimFlow Writing — 写作 Skill
 
 ## 触发条件

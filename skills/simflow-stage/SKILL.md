@@ -1,3 +1,8 @@
+---
+name: simflow-stage
+description: Execute or coordinate a single workflow stage inside SimFlow.
+---
+
 # SimFlow Stage — 单阶段执行 Skill
 
 ## 触发条件
