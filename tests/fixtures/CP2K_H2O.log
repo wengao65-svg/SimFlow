@@ -1,0 +1,33 @@
+ CP2K| version string:                  CP2K version 2025.1
+ CP2K| source code revision number:           12345678
+
+ GLOBAL| Run type                                         MD
+ GLOBAL| Project name                               H2O_aimd_nvt
+
+ SCF run converged in    8 iterations
+
+ ENERGY| Total FORCE_EVAL ( QS ) energy [hartree]          -34.123456789012
+
+ MD| Step number                                                               1
+ MD| Time [fs]                                                 0.500000
+ MD| Temperature [K]                             300.000000           300.000000
+
+ SCF run converged in    7 iterations
+
+ ENERGY| Total FORCE_EVAL ( QS ) energy [hartree]          -34.123450000000
+
+ MD| Step number                                                               2
+ MD| Time [fs]                                                 1.000000
+ MD| Temperature [K]                             301.230000           300.615000
+
+ SCF run converged in    8 iterations
+
+ ENERGY| Total FORCE_EVAL ( QS ) energy [hartree]          -34.123448000000
+
+ MD| Step number                                                               3
+ MD| Time [fs]                                                 1.500000
+ MD| Temperature [K]                             299.450000           300.226667
+
+ The number of warnings for this run is :            0
+
+ PROGRAM ENDED AT 2026-05-04 12:00:00.000
