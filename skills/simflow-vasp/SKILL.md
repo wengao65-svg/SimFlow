@@ -11,6 +11,53 @@ description: Handle VASP-specific setup, validation, tool orchestration, parsing
 
 Use it to classify the user request, identify missing inputs and predecessor calculations, choose available local tools, generate SimFlow reports, register artifacts, and create checkpoints.
 
+## Trigger conditions
+
+- User requests VASP input setup, validation, output parsing, troubleshooting, or workflow orchestration.
+- A SimFlow stage selects VASP as the target simulation engine.
+- User mentions INCAR, POSCAR, POTCAR metadata, KPOINTS, OUTCAR, OSZICAR, vasprun.xml, CHGCAR, DOSCAR, EIGENVAL, NEB, or AIMD with VASP.
+
+## Input conditions
+
+- A natural-language VASP task or SimFlow stage context.
+- Optional local paths to VASP input/output files or a SimFlow workspace.
+- Optional task type such as relax, static, scf, dos, bands, aimd, neb_basic, validation, parsing, or troubleshooting.
+
+## Output artifacts
+
+- `reports/vasp/input_manifest.json`
+- `reports/vasp/validation_report.json`
+- `reports/vasp/compute_plan.json`
+- `reports/vasp/analysis_report.json`
+- `reports/vasp/handoff_artifact.json`
+
+## Status write rules
+
+- Update the active SimFlow stage state with the selected VASP task and validation result.
+- Register every generated report through the SimFlow artifact registry.
+- Record whether any real compute or licensed VASP resource would require an approval gate before use.
+
+## Checkpoint rules
+
+- Create a checkpoint after successful orchestration, validation, parsing, or troubleshooting report generation.
+- Create a failure checkpoint when required inputs are missing or validation blocks progression.
+- Associate checkpoints with the current workflow, stage, and job metadata when available.
+
+## Prohibited actions
+
+- Do not generate, copy, distribute, snapshot, or print POTCAR content.
+- Do not assume the user owns a VASP license.
+- Do not submit real HPC jobs from this skill.
+- Do not bypass verification gates or checkpoint rules.
+- Do not expand this skill into a complete INCAR tag database.
+- Do not modify the Codex plugin adapter layer.
+
+## Manual confirmation scenarios
+
+- Real HPC submission, external cluster access, or paid/high-cost computation is requested.
+- The task requires credentials, licensed VASP assets, or access to private files outside the workspace.
+- Existing input/output files would be overwritten.
+
 ## Covered Tasks
 
 - Relaxation: `relax`

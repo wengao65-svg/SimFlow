@@ -1,7 +1,41 @@
 {
   "name": "simflow",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Codex-native computational simulation domain workflow layer",
+  "author": {
+    "name": "SimFlow Maintainers",
+    "email": "maintainers@example.com",
+    "url": "https://github.com/simflow"
+  },
+  "homepage": "https://github.com/simflow/simflow",
+  "repository": "https://github.com/simflow/simflow",
+  "license": "MIT",
+  "keywords": [
+    "simulation",
+    "dft",
+    "aimd",
+    "molecular-dynamics",
+    "materials-science",
+    "mcp"
+  ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "SimFlow",
+    "shortDescription": "Computational simulation workflows for Codex.",
+    "longDescription": "SimFlow provides Codex skills and MCP tools for dry-run-first DFT, AIMD, and MD research workflows, including state, artifact, checkpoint, literature, structure, HPC planning, and parser utilities.",
+    "developerName": "SimFlow Maintainers",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write",
+      "MCP"
+    ],
+    "defaultPrompt": [
+      "Use SimFlow to plan a VASP DFT workflow.",
+      "Use SimFlow to build a CP2K AIMD plan.",
+      "Use SimFlow to inspect simulation outputs."
+    ],
+    "brandColor": "#2563EB"
+  }
 }

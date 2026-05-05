@@ -9,7 +9,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.mock import MockStructureConnector
@@ -83,6 +85,11 @@ TOOLS = {
     "get": handle_get,
 }
 
+TOOL_DESCRIPTIONS = {
+    "search": "Search structure databases with mock/dry-run fallback by default.",
+    "get": "Fetch structure data by material or database identifier.",
+}
+
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
@@ -90,4 +97,6 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_server(TOOLS)
+    from mcp.shared.stdio_server import run_mcp_server
+
+    run_mcp_server("structure", TOOLS, TOOL_DESCRIPTIONS)

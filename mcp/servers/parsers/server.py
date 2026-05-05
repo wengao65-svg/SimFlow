@@ -7,12 +7,15 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime"))
 
 from lib.parsers.vasp_parser import VASPParser
 from lib.parsers.qe_parser import QEParser
 from lib.parsers.lammps_parser import LAMMPSParser
 from lib.parsers.gaussian_parser import GaussianParser
+from mcp.shared.stdio_server import run_mcp_server
 
 PARSERS = {
     "vasp": VASPParser,
@@ -56,6 +59,11 @@ TOOLS = {
     "check_convergence": handle_check_convergence,
 }
 
+TOOL_DESCRIPTIONS = {
+    "parse": "Parse computational chemistry output files into structured data.",
+    "check_convergence": "Check calculation convergence from supported output files.",
+}
+
 
 def handle_request(request: dict) -> dict:
     tool = request.get("tool")
@@ -69,8 +77,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        request = json.loads(line)
-        response = handle_request(request)
-        print(json.dumps(response))
-        sys.stdout.flush()
+    run_mcp_server("parsers", TOOLS, TOOL_DESCRIPTIONS)
