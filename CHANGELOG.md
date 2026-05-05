@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.3 (2026-05-05)
+
+### Fixed
+- Fix MCP Python package import collision by making the repository `mcp/` tree an explicit package and preserving plugin-root import precedence during MCP startup.
+- Add regression coverage for third-party `mcp` packages appearing earlier in `PYTHONPATH`.
+- Print full MCP startup stderr from plugin validation to make import failures easier to diagnose.
+
 ## v0.8.2 (2026-05-05)
 
 ### Changed

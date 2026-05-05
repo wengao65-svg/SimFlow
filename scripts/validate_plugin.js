@@ -168,7 +168,7 @@ function validateMcpStdio(name, server, pluginRoot) {
   const stderr = (result.stderr || '').trim();
   check(`${name} MCP stdio has no startup stderr`, stderr.length === 0);
   if (stderr) {
-    console.error(`    ${stderr.split('\n')[0]}`);
+    console.error(stderr.split('\n').map(line => `    ${line}`).join('\n'));
   }
   const lines = (result.stdout || '').trim().split('\n').filter(Boolean);
   let initializeOk = false;

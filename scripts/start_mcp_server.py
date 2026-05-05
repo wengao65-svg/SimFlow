@@ -24,6 +24,12 @@ SERVER_PATHS = {
 }
 
 
+def _prepend_sys_path(path: Path) -> None:
+    resolved = str(path)
+    sys.path[:] = [entry for entry in sys.path if entry != resolved]
+    sys.path.insert(0, resolved)
+
+
 def _fail(message: str, code: int = 2) -> None:
     print(message, file=sys.stderr)
     raise SystemExit(code)
@@ -44,6 +50,10 @@ def main(argv: list[str]) -> int:
     server_path = plugin_root / relative_server_path
     if not server_path.is_file():
         _fail(f"SimFlow MCP server file not found: {server_path}", code=1)
+
+    _prepend_sys_path(plugin_root)
+    _prepend_sys_path(plugin_root / "runtime")
+    _prepend_sys_path(plugin_root)
 
     env = os.environ.copy()
     python_path_entries = [str(plugin_root), str(plugin_root / "runtime")]
