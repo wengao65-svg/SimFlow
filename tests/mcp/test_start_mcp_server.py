@@ -2,6 +2,7 @@
 """Tests for Codex-style SimFlow MCP startup wrapper."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -36,11 +37,15 @@ def _mcp_payload() -> str:
     ])
 
 
-def _run_from_non_plugin_cwd(server_name: str) -> subprocess.CompletedProcess[str]:
+def _run_from_non_plugin_cwd(
+    server_name: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     with tempfile.TemporaryDirectory() as tmpdir:
         return subprocess.run(
             [sys.executable, str(STARTER), server_name],
             cwd=tmpdir,
+            env=env,
             input=_mcp_payload(),
             text=True,
             capture_output=True,
@@ -56,6 +61,27 @@ def test_all_mcp_servers_initialize_from_non_plugin_cwd():
         lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
         assert lines[0]["result"]["serverInfo"]["name"] == server_name
         assert len(lines[1]["result"]["tools"]) > 0
+
+
+def test_mcp_startup_prefers_repo_package_when_third_party_mcp_exists():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fake_mcp = Path(tmpdir) / "mcp"
+        fake_mcp.mkdir()
+        (fake_mcp / "__init__.py").write_text(
+            "raise RuntimeError('third-party mcp package was imported')\n",
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        existing_pythonpath = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = tmpdir if not existing_pythonpath else f"{tmpdir}{os.pathsep}{existing_pythonpath}"
+
+        result = _run_from_non_plugin_cwd("simflow_state", env=env)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    assert lines[0]["result"]["serverInfo"]["name"] == "simflow_state"
+    assert len(lines[1]["result"]["tools"]) > 0
 
 
 def test_invalid_mcp_server_name_writes_only_stderr():
