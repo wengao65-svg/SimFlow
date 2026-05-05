@@ -2,50 +2,64 @@
   "simflow_state": {
     "command": "python3",
     "args": [
-      "mcp/servers/simflow_state/server.py"
+      "./scripts/start_mcp_server.py",
+      "simflow_state"
     ],
+    "cwd": ".",
     "description": "Workflow state management"
   },
   "artifact_store": {
     "command": "python3",
     "args": [
-      "mcp/servers/artifact_store/server.py"
+      "./scripts/start_mcp_server.py",
+      "artifact_store"
     ],
+    "cwd": ".",
     "description": "Artifact storage and retrieval"
   },
   "checkpoint_store": {
     "command": "python3",
     "args": [
-      "mcp/servers/checkpoint_store/server.py"
+      "./scripts/start_mcp_server.py",
+      "checkpoint_store"
     ],
+    "cwd": ".",
     "description": "Checkpoint management"
   },
   "literature": {
     "command": "python3",
     "args": [
-      "mcp/servers/literature/server.py"
+      "./scripts/start_mcp_server.py",
+      "literature"
     ],
+    "cwd": ".",
     "description": "Literature search and management"
   },
   "structure": {
     "command": "python3",
     "args": [
-      "mcp/servers/structure/server.py"
+      "./scripts/start_mcp_server.py",
+      "structure"
     ],
+    "cwd": ".",
     "description": "Crystal structure operations"
   },
   "hpc": {
     "command": "python3",
     "args": [
-      "mcp/servers/hpc/server.py"
+      "./scripts/start_mcp_server.py",
+      "hpc"
     ],
+    "cwd": ".",
     "description": "HPC job management through dry-run-first safety gates"
   },
   "parsers": {
     "command": "python3",
     "args": [
-      "mcp/servers/parsers/server.py"
+      "./scripts/start_mcp_server.py",
+      "parsers"
     ],
+    "cwd": ".",
     "description": "Computational chemistry output parsers"
   }
 }

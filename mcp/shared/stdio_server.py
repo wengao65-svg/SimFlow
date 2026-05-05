@@ -78,7 +78,7 @@ def run_mcp_server(
     server_name: str,
     tools: Dict[str, Callable],
     descriptions: Optional[Dict[str, str]] = None,
-    version: str = "0.8.0",
+    version: str = "0.8.1",
 ) -> None:
     """Run a JSON-RPC stdio MCP server.
 

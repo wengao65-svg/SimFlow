@@ -30,6 +30,7 @@ const REQUIRED_ENTRIES = [
   'hooks',
   'notifications',
   'docs',
+  'scripts',
   'AGENTS.md',
   'README.md',
   'LICENSE',
