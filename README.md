@@ -48,26 +48,37 @@ Codex / OMX Host
 
 ## Quick Start
 
-Build the local Codex marketplace wrapper:
+Install SimFlow directly from this repository as both the Codex marketplace and plugin root:
 
 ```bash
-npm run build:marketplace
-```
-
-Start Codex from the wrapper root:
-
-```bash
-cd /home/gaofeng/test/SimFlow-marketplace
+git clone <repo> ~/simflow
+cd ~/simflow
+npm install
+npm run validate
+codex plugin marketplace add ~/simflow
 codex
 ```
 
-Then verify installation and tools inside Codex:
+Then install SimFlow inside Codex:
 
 ```text
 /plugins
+```
+
+Select and install `simflow`, then verify tools and skills:
+
+```text
 /mcp
 $simflow
 ```
+
+Remote marketplace installation is also supported when the repository contains `.agents/plugins/marketplace.json`:
+
+```bash
+codex plugin marketplace add <org>/simflow --ref <version>
+```
+
+`npm run build:marketplace` remains available for maintainers who want a clean wrapper at publish time, for example to publish a separate marketplace repository or release artifact. The wrapper is optional and is not part of the default user installation path.
 
 `/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, or natural-language tasks.
 

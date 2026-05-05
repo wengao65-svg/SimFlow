@@ -10,13 +10,18 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN_PATH = path.join(ROOT, '.codex-plugin', 'plugin.json');
 const MCP_PATH = path.join(ROOT, '.mcp.json');
-const DEFAULT_WRAPPER_ROOT = '/home/gaofeng/test/SimFlow-marketplace';
-const WRAPPER_ROOT = path.resolve(process.env.SIMFLOW_MARKETPLACE_ROOT || DEFAULT_WRAPPER_ROOT);
-const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketplace.json');
-const WRAPPER_PLUGIN_PATH = path.join(WRAPPER_ROOT, 'plugins', 'simflow');
+const ROOT_MARKETPLACE_PATH = path.join(ROOT, '.agents', 'plugins', 'marketplace.json');
+const WRAPPER_ROOT = process.env.SIMFLOW_MARKETPLACE_ROOT
+  ? path.resolve(process.env.SIMFLOW_MARKETPLACE_ROOT)
+  : null;
+const WRAPPER_MARKETPLACE_PATH = WRAPPER_ROOT
+  ? path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketplace.json')
+  : null;
+const WRAPPER_PLUGIN_PATH = WRAPPER_ROOT ? path.join(WRAPPER_ROOT, 'plugins', 'simflow') : null;
 const SKILLS_LINK_PATH = path.join(ROOT, '.agents', 'skills');
 
 const REQUIRED_FILES = [
+  '.agents/plugins/marketplace.json',
   '.codex-plugin/plugin.json',
   '.codex/config.toml',
   '.mcp.json',
@@ -24,6 +29,7 @@ const REQUIRED_FILES = [
   'AGENTS.md',
   'package.json',
   'README.md',
+  'scripts/start_mcp_server.py',
 ];
 
 const REQUIRED_DIRS = [
@@ -33,13 +39,16 @@ const REQUIRED_DIRS = [
   'workflow/workflows',
   'workflow/gates',
   'workflow/policies',
+  'mcp',
   'mcp/servers',
+  'runtime',
   'runtime/lib',
   'runtime/scripts',
   'schemas',
   'hooks',
   'notifications',
   'templates',
+  'scripts',
 ];
 
 const REQUIRED_STAGES = [
@@ -181,6 +190,51 @@ function validateMcpStdio(name, server, pluginRoot) {
   check(`${name} MCP tools/list returns tools`, toolsOk);
 }
 
+function validatePluginRoot(label, pluginRoot) {
+  check(`${label} exists`, fs.existsSync(pluginRoot));
+  if (!fs.existsSync(pluginRoot)) {
+    return;
+  }
+  const stat = fs.lstatSync(pluginRoot);
+  check(`${label} is a real directory`, stat.isDirectory() && !stat.isSymbolicLink());
+  check(`${label} has .codex-plugin/plugin.json`, fs.existsSync(path.join(pluginRoot, '.codex-plugin', 'plugin.json')));
+  check(`${label} has .mcp.json`, fs.existsSync(path.join(pluginRoot, '.mcp.json')));
+  check(`${label} has skills`, fs.existsSync(path.join(pluginRoot, 'skills', 'simflow', 'SKILL.md')));
+  check(`${label} has mcp directory`, fs.existsSync(path.join(pluginRoot, 'mcp')));
+  check(`${label} has runtime directory`, fs.existsSync(path.join(pluginRoot, 'runtime')));
+  check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
+}
+
+function validateMarketplace(marketplacePath, marketplaceRoot, expectedSourcePath, expectedPluginRoot, label) {
+  try {
+    const marketplace = readJson(marketplacePath);
+    console.log(`  ${label} root: ${marketplaceRoot}`);
+    check(`${label} has name`, typeof marketplace.name === 'string' && marketplace.name.length > 0);
+    check(`${label} has plugins array`, Array.isArray(marketplace.plugins) && marketplace.plugins.length > 0);
+
+    const simflow = Array.isArray(marketplace.plugins)
+      ? marketplace.plugins.find(pluginEntry => pluginEntry.name === 'simflow')
+      : null;
+    check(`${label} includes simflow entry`, !!simflow);
+
+    if (simflow) {
+      check(`${label} simflow source is local`, simflow.source?.source === 'local');
+      check(`${label} simflow path is ${expectedSourcePath}`, simflow.source?.path === expectedSourcePath);
+      check(`${label} simflow has installation policy`, typeof simflow.policy?.installation === 'string' && simflow.policy.installation.length > 0);
+      check(`${label} simflow has authentication policy`, typeof simflow.policy?.authentication === 'string' && simflow.policy.authentication.length > 0);
+      check(`${label} simflow has category`, typeof simflow.category === 'string' && simflow.category.length > 0);
+
+      if (simflow.source?.path === expectedSourcePath) {
+        const resolved = path.resolve(marketplaceRoot, simflow.source.path);
+        check(`${label} simflow path resolves to expected plugin root`, resolved === expectedPluginRoot);
+        validatePluginRoot(`${label} plugin root`, resolved);
+      }
+    }
+  } catch (error) {
+    check(`${label} marketplace.json is valid JSON`, false);
+  }
+}
+
 console.log('=== SimFlow Codex Plugin Validation ===\n');
 
 console.log('--- Required Files ---');
@@ -244,48 +298,25 @@ try {
     if (Array.isArray(server?.args) && server.args.length > 0) {
       check(`${name} startup wrapper exists in source`, fs.existsSync(path.join(ROOT, server.args[0])));
     }
-    const pluginRoot = fs.existsSync(WRAPPER_PLUGIN_PATH) ? WRAPPER_PLUGIN_PATH : ROOT;
-    validateMcpStdio(name, server, pluginRoot);
+    validateMcpStdio(name, server, ROOT);
   });
   console.log(`  Found ${serverNames.length} MCP servers`);
 } catch (error) {
   check('.mcp.json is valid JSON', false);
 }
 
-console.log('\n--- Marketplace Wrapper ---');
-try {
-  const marketplace = readJson(MARKETPLACE_PATH);
-  console.log(`  Wrapper root: ${WRAPPER_ROOT}`);
-  check('marketplace has name', typeof marketplace.name === 'string' && marketplace.name.length > 0);
-  check('marketplace has plugins array', Array.isArray(marketplace.plugins) && marketplace.plugins.length > 0);
+console.log('\n--- Root Marketplace ---');
+validateMarketplace(ROOT_MARKETPLACE_PATH, ROOT, './', ROOT, 'root marketplace');
 
-  const simflow = Array.isArray(marketplace.plugins)
-    ? marketplace.plugins.find(pluginEntry => pluginEntry.name === 'simflow')
-    : null;
-  check('marketplace includes simflow entry', !!simflow);
-
-  if (simflow) {
-    check('simflow source is local', simflow.source?.source === 'local');
-    check('simflow path is ./plugins/simflow', simflow.source?.path === './plugins/simflow');
-    check('simflow has installation policy', typeof simflow.policy?.installation === 'string' && simflow.policy.installation.length > 0);
-    check('simflow has authentication policy', typeof simflow.policy?.authentication === 'string' && simflow.policy.authentication.length > 0);
-    check('simflow has category', typeof simflow.category === 'string' && simflow.category.length > 0);
-
-    if (simflow.source?.path === './plugins/simflow') {
-      const resolved = path.resolve(WRAPPER_ROOT, simflow.source.path);
-      check('simflow marketplace path resolves to wrapper plugin dir', resolved === WRAPPER_PLUGIN_PATH);
-      check('simflow wrapper plugin path exists', fs.existsSync(resolved));
-      if (fs.existsSync(resolved)) {
-        const stat = fs.lstatSync(resolved);
-        check('simflow wrapper plugin path is a real directory', stat.isDirectory() && !stat.isSymbolicLink());
-        check('simflow wrapper plugin has plugin.json', fs.existsSync(path.join(resolved, '.codex-plugin', 'plugin.json')));
-        check('simflow wrapper plugin has skills', fs.existsSync(path.join(resolved, 'skills', 'simflow', 'SKILL.md')));
-        check('simflow wrapper plugin has .mcp.json', fs.existsSync(path.join(resolved, '.mcp.json')));
-      }
-    }
-  }
-} catch (error) {
-  check('marketplace.json is valid JSON', false);
+if (WRAPPER_ROOT) {
+  console.log('\n--- Optional Marketplace Wrapper ---');
+  validateMarketplace(
+    WRAPPER_MARKETPLACE_PATH,
+    WRAPPER_ROOT,
+    './plugins/simflow',
+    WRAPPER_PLUGIN_PATH,
+    'wrapper marketplace',
+  );
 }
 
 console.log('\n--- Codex Hooks Separation ---');

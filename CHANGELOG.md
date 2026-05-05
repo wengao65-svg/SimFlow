@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.2 (2026-05-05)
+
+### Changed
+- SimFlow now defaults to using the existing repository root as both the Codex marketplace root and plugin root.
+- Added repository-root `.agents/plugins/marketplace.json` with the `simflow` entry pointing to `./`.
+- Updated Codex quickstart documentation so normal installation uses `codex plugin marketplace add ~/simflow`; `build:marketplace` is retained only as an optional clean wrapper publishing path.
+- Updated plugin validation to check the repository-root marketplace by default and validate generated wrappers only when `SIMFLOW_MARKETPLACE_ROOT` is set.
+
 ## v0.8.0 (2026-05-05)
 
 ### Added
