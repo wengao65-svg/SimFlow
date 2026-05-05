@@ -101,7 +101,33 @@ function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function validateMcpStdio(name, server) {
+function resolvePluginRelativePath(pluginRoot, relativePath) {
+  return path.resolve(pluginRoot, relativePath);
+}
+
+function resolveMcpCwd(pluginRoot, server) {
+  if (typeof server?.cwd !== 'string' || server.cwd.length === 0) {
+    return pluginRoot;
+  }
+  if (path.isAbsolute(server.cwd)) {
+    return server.cwd;
+  }
+  return resolvePluginRelativePath(pluginRoot, server.cwd);
+}
+
+function resolveMcpArgs(pluginRoot, server) {
+  const args = Array.isArray(server?.args) ? [...server.args] : [];
+  if (args.length === 0) {
+    return args;
+  }
+  const first = args[0];
+  if (typeof first === 'string' && first.startsWith('./')) {
+    args[0] = resolvePluginRelativePath(pluginRoot, first);
+  }
+  return args;
+}
+
+function validateMcpStdio(name, server, pluginRoot) {
   if (!server || server.command !== 'python3' || !Array.isArray(server.args) || server.args.length === 0) {
     check(`${name} MCP stdio config is runnable`, false);
     return;
@@ -122,8 +148,10 @@ function validateMcpStdio(name, server) {
     JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'shutdown', params: {} }),
     '',
   ].join('\n');
-  const result = spawnSync(server.command, server.args, {
-    cwd: ROOT,
+  const commandArgs = resolveMcpArgs(pluginRoot, server);
+  const commandCwd = resolveMcpCwd(pluginRoot, server);
+  const result = spawnSync(server.command, commandArgs, {
+    cwd: commandCwd,
     input,
     encoding: 'utf-8',
     timeout: 5000,
@@ -210,11 +238,14 @@ try {
   serverNames.forEach(name => {
     const server = servers[name];
     check(`${name} uses python3 command`, server?.command === 'python3');
-    check(`${name} has args`, Array.isArray(server?.args) && server.args.length > 0);
+    check(`${name} uses MCP startup wrapper`, Array.isArray(server?.args) && server.args[0] === './scripts/start_mcp_server.py');
+    check(`${name} passes server name to startup wrapper`, Array.isArray(server?.args) && server.args[1] === name);
+    check(`${name} has plugin-root cwd`, server?.cwd === '.');
     if (Array.isArray(server?.args) && server.args.length > 0) {
-      check(`${name} server path exists`, fs.existsSync(path.join(ROOT, server.args[0])));
+      check(`${name} startup wrapper exists in source`, fs.existsSync(path.join(ROOT, server.args[0])));
     }
-    validateMcpStdio(name, server);
+    const pluginRoot = fs.existsSync(WRAPPER_PLUGIN_PATH) ? WRAPPER_PLUGIN_PATH : ROOT;
+    validateMcpStdio(name, server, pluginRoot);
   });
   console.log(`  Found ${serverNames.length} MCP servers`);
 } catch (error) {
