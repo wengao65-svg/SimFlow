@@ -1,9 +1,11 @@
 {
   "name": "simflow",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Codex-native computational simulation domain workflow layer",
   "private": true,
   "scripts": {
+    "build:marketplace": "node scripts/build_marketplace_wrapper.js",
+    "validate": "npm run validate:all",
     "validate:plugin": "node scripts/validate_plugin.js",
     "validate:skills": "node scripts/validate_skills.js",
     "validate:schemas": "node scripts/validate_schemas.js",
@@ -14,7 +16,8 @@
     "test:runtime": "cd runtime && python -m pytest tests/ -v",
     "test:e2e": "python -m pytest tests/e2e/ -v",
     "test:mcp": "python -m pytest tests/mcp/ -v",
-    "test:all": "python -m pytest tests/ -v"
+    "test:all": "python -m pytest tests/ -v",
+    "test": "npm run test:all"
   },
   "devDependencies": {
     "ajv": "^8.12.0"

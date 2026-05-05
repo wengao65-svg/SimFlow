@@ -1,53 +1,51 @@
 {
-  "mcpServers": {
-    "simflow_state": {
-      "command": "python",
-      "args": [
-        "mcp/servers/simflow_state/server.py"
-      ],
-      "description": "Workflow state management"
-    },
-    "artifact_store": {
-      "command": "python",
-      "args": [
-        "mcp/servers/artifact_store/server.py"
-      ],
-      "description": "Artifact storage and retrieval"
-    },
-    "checkpoint_store": {
-      "command": "python",
-      "args": [
-        "mcp/servers/checkpoint_store/server.py"
-      ],
-      "description": "Checkpoint management"
-    },
-    "literature": {
-      "command": "python",
-      "args": [
-        "mcp/servers/literature/server.py"
-      ],
-      "description": "Literature search and management"
-    },
-    "structure": {
-      "command": "python",
-      "args": [
-        "mcp/servers/structure/server.py"
-      ],
-      "description": "Crystal structure operations"
-    },
-    "hpc": {
-      "command": "python",
-      "args": [
-        "mcp/servers/hpc/server.py"
-      ],
-      "description": "HPC job management (dry-run only)"
-    },
-    "parsers": {
-      "command": "python",
-      "args": [
-        "mcp/servers/parsers/server.py"
-      ],
-      "description": "Computational chemistry output parsers"
-    }
+  "simflow_state": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/simflow_state/server.py"
+    ],
+    "description": "Workflow state management"
+  },
+  "artifact_store": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/artifact_store/server.py"
+    ],
+    "description": "Artifact storage and retrieval"
+  },
+  "checkpoint_store": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/checkpoint_store/server.py"
+    ],
+    "description": "Checkpoint management"
+  },
+  "literature": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/literature/server.py"
+    ],
+    "description": "Literature search and management"
+  },
+  "structure": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/structure/server.py"
+    ],
+    "description": "Crystal structure operations"
+  },
+  "hpc": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/hpc/server.py"
+    ],
+    "description": "HPC job management through dry-run-first safety gates"
+  },
+  "parsers": {
+    "command": "python3",
+    "args": [
+      "mcp/servers/parsers/server.py"
+    ],
+    "description": "Computational chemistry output parsers"
   }
 }

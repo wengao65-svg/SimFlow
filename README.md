@@ -48,21 +48,28 @@ Codex / OMX Host
 
 ## Quick Start
 
+Build the local Codex marketplace wrapper:
+
 ```bash
-# Build a structure
-simflow-modeling build_structure --type diamond --element Si --lattice-const 5.43
-
-# Run DFT workflow
-simflow-dft init --structure Si.cif
-simflow-dft generate_inputs --code vasp --functional PBE
-simflow hpc submit --script-path job.sh --scheduler slurm
-
-# Search literature
-simflow-mcp literature search --query "perovskite solar cell"
-
-# Search structures
-simflow-mcp structure search --formula "SiO2" --backend cod
+npm run build:marketplace
 ```
+
+Start Codex from the wrapper root:
+
+```bash
+cd /home/gaofeng/test/SimFlow-marketplace
+codex
+```
+
+Then verify installation and tools inside Codex:
+
+```text
+/plugins
+/mcp
+$simflow
+```
+
+`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, or natural-language tasks.
 
 ## Project Structure
 

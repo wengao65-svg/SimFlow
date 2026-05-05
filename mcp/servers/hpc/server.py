@@ -9,7 +9,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.slurm import SlurmConnector
@@ -116,6 +118,13 @@ TOOLS = {
     "submit": handle_submit,
 }
 
+TOOL_DESCRIPTIONS = {
+    "dry_run": "Validate an HPC job script without submitting it.",
+    "prepare": "Prepare a scheduler job script for review.",
+    "status": "Check scheduler job status through safe connector abstractions.",
+    "submit": "Submit a job only when SimFlow approval and safety gates allow it.",
+}
+
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
@@ -123,4 +132,6 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_server(TOOLS)
+    from mcp.shared.stdio_server import run_mcp_server
+
+    run_mcp_server("hpc", TOOLS, TOOL_DESCRIPTIONS)

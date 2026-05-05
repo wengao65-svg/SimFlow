@@ -7,16 +7,25 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime"))
 
 from tools.create import execute as create
 from tools.list import execute as list_checkpoints
 from tools.restore import execute as restore
+from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
     "create": create,
     "list": list_checkpoints,
     "restore": restore,
+}
+
+TOOL_DESCRIPTIONS = {
+    "create": "Create a SimFlow checkpoint for a workflow stage.",
+    "list": "List SimFlow checkpoints.",
+    "restore": "Restore workflow state from a SimFlow checkpoint.",
 }
 
 
@@ -32,8 +41,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        request = json.loads(line)
-        response = handle_request(request)
-        print(json.dumps(response))
-        sys.stdout.flush()
+    run_mcp_server("checkpoint_store", TOOLS, TOOL_DESCRIPTIONS)

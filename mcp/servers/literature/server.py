@@ -9,7 +9,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "runtime"))
+ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "runtime"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from connectors.mock import MockLiteratureConnector
@@ -86,6 +88,11 @@ TOOLS = {
     "get_metadata": handle_get_metadata,
 }
 
+TOOL_DESCRIPTIONS = {
+    "search": "Search literature sources with mock/dry-run fallback by default.",
+    "get_metadata": "Fetch literature metadata by DOI with safe fallback behavior.",
+}
+
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
@@ -93,4 +100,6 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_server(TOOLS)
+    from mcp.shared.stdio_server import run_mcp_server
+
+    run_mcp_server("literature", TOOLS, TOOL_DESCRIPTIONS)

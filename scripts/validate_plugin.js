@@ -5,18 +5,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const PLUGIN_PATH = path.join(ROOT, '.codex-plugin', 'plugin.json');
 const MCP_PATH = path.join(ROOT, '.mcp.json');
-const MARKETPLACE_PATH = path.join(ROOT, '.agents', 'plugins', 'marketplace.json');
+const DEFAULT_WRAPPER_ROOT = '/home/gaofeng/test/SimFlow-marketplace';
+const WRAPPER_ROOT = path.resolve(process.env.SIMFLOW_MARKETPLACE_ROOT || DEFAULT_WRAPPER_ROOT);
+const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketplace.json');
+const WRAPPER_PLUGIN_PATH = path.join(WRAPPER_ROOT, 'plugins', 'simflow');
 const SKILLS_LINK_PATH = path.join(ROOT, '.agents', 'skills');
 
 const REQUIRED_FILES = [
   '.codex-plugin/plugin.json',
   '.codex/config.toml',
   '.mcp.json',
-  '.agents/plugins/marketplace.json',
   'hooks/internal_workflow_hooks.json',
   'AGENTS.md',
   'package.json',
@@ -84,6 +87,72 @@ function existsWithinRoot(relativePath) {
   return fs.existsSync(path.join(ROOT, relativePath));
 }
 
+function getMcpServers(mcp) {
+  if (mcp && typeof mcp === 'object' && mcp.mcp_servers && typeof mcp.mcp_servers === 'object') {
+    return mcp.mcp_servers;
+  }
+  if (mcp && typeof mcp === 'object' && mcp.mcpServers && typeof mcp.mcpServers === 'object') {
+    return mcp.mcpServers;
+  }
+  return mcp && typeof mcp === 'object' ? mcp : {};
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateMcpStdio(name, server) {
+  if (!server || server.command !== 'python3' || !Array.isArray(server.args) || server.args.length === 0) {
+    check(`${name} MCP stdio config is runnable`, false);
+    return;
+  }
+  const input = [
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'simflow-validator', version: '0.1.0' },
+      },
+    }),
+    JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }),
+    JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'shutdown', params: {} }),
+    '',
+  ].join('\n');
+  const result = spawnSync(server.command, server.args, {
+    cwd: ROOT,
+    input,
+    encoding: 'utf-8',
+    timeout: 5000,
+  });
+  const stderr = (result.stderr || '').trim();
+  check(`${name} MCP stdio has no startup stderr`, stderr.length === 0);
+  if (stderr) {
+    console.error(`    ${stderr.split('\n')[0]}`);
+  }
+  const lines = (result.stdout || '').trim().split('\n').filter(Boolean);
+  let initializeOk = false;
+  let toolsOk = false;
+  for (const line of lines) {
+    try {
+      const response = JSON.parse(line);
+      if (response.id === 1 && response.result?.serverInfo?.name === name) {
+        initializeOk = true;
+      }
+      if (response.id === 2 && Array.isArray(response.result?.tools) && response.result.tools.length > 0) {
+        toolsOk = true;
+      }
+    } catch (_error) {
+      // Handled by checks below.
+    }
+  }
+  check(`${name} MCP initialize response is valid`, initializeOk);
+  check(`${name} MCP tools/list returns tools`, toolsOk);
+}
+
 console.log('=== SimFlow Codex Plugin Validation ===\n');
 
 console.log('--- Required Files ---');
@@ -105,6 +174,14 @@ try {
   check('plugin.json has description', typeof plugin.description === 'string' && plugin.description.length > 0);
   check('plugin.json has skills path', typeof plugin.skills === 'string' && plugin.skills.startsWith('./'));
   check('plugin.json has MCP path', typeof plugin.mcpServers === 'string' && plugin.mcpServers.startsWith('./'));
+  check('plugin.json has author metadata', isPlainObject(plugin.author) && typeof plugin.author.name === 'string' && plugin.author.name.length > 0);
+  check('plugin.json has license', typeof plugin.license === 'string' && plugin.license.length > 0);
+  check('plugin.json has keywords', Array.isArray(plugin.keywords) && plugin.keywords.length > 0);
+  check('plugin.json has interface block', isPlainObject(plugin.interface));
+  check('plugin.json interface has displayName', typeof plugin.interface?.displayName === 'string' && plugin.interface.displayName.length > 0);
+  check('plugin.json interface has shortDescription', typeof plugin.interface?.shortDescription === 'string' && plugin.interface.shortDescription.length > 0);
+  check('plugin.json interface has category', typeof plugin.interface?.category === 'string' && plugin.interface.category.length > 0);
+  check('plugin.json does not expose internal workflow hooks as Codex hooks', !('hooks' in plugin));
 
   if (typeof plugin.skills === 'string' && plugin.skills.startsWith('./')) {
     const skillsPath = path.join(ROOT, plugin.skills);
@@ -126,17 +203,28 @@ try {
 console.log('\n--- Root MCP Configuration ---');
 try {
   const mcp = readJson(MCP_PATH);
-  check('.mcp.json has mcpServers', !!mcp.mcpServers && typeof mcp.mcpServers === 'object');
-  const serverNames = Object.keys(mcp.mcpServers || {});
-  check('.mcp.json registers at least 7 servers', serverNames.length >= 7);
+  const servers = getMcpServers(mcp);
+  check('.mcp.json uses supported server map format', isPlainObject(servers));
+  const serverNames = Object.keys(servers || {});
+  check('.mcp.json registers exactly 7 SimFlow servers', serverNames.length === 7);
+  serverNames.forEach(name => {
+    const server = servers[name];
+    check(`${name} uses python3 command`, server?.command === 'python3');
+    check(`${name} has args`, Array.isArray(server?.args) && server.args.length > 0);
+    if (Array.isArray(server?.args) && server.args.length > 0) {
+      check(`${name} server path exists`, fs.existsSync(path.join(ROOT, server.args[0])));
+    }
+    validateMcpStdio(name, server);
+  });
   console.log(`  Found ${serverNames.length} MCP servers`);
 } catch (error) {
   check('.mcp.json is valid JSON', false);
 }
 
-console.log('\n--- Marketplace ---');
+console.log('\n--- Marketplace Wrapper ---');
 try {
   const marketplace = readJson(MARKETPLACE_PATH);
+  console.log(`  Wrapper root: ${WRAPPER_ROOT}`);
   check('marketplace has name', typeof marketplace.name === 'string' && marketplace.name.length > 0);
   check('marketplace has plugins array', Array.isArray(marketplace.plugins) && marketplace.plugins.length > 0);
 
@@ -147,19 +235,31 @@ try {
 
   if (simflow) {
     check('simflow source is local', simflow.source?.source === 'local');
-    check('simflow path is ./-prefixed', typeof simflow.source?.path === 'string' && simflow.source.path.startsWith('./'));
+    check('simflow path is ./plugins/simflow', simflow.source?.path === './plugins/simflow');
     check('simflow has installation policy', typeof simflow.policy?.installation === 'string' && simflow.policy.installation.length > 0);
     check('simflow has authentication policy', typeof simflow.policy?.authentication === 'string' && simflow.policy.authentication.length > 0);
     check('simflow has category', typeof simflow.category === 'string' && simflow.category.length > 0);
 
-    if (typeof simflow.source?.path === 'string' && simflow.source.path.startsWith('./')) {
-      const resolved = path.resolve(path.dirname(MARKETPLACE_PATH), simflow.source.path);
-      check('simflow marketplace path exists', fs.existsSync(resolved));
+    if (simflow.source?.path === './plugins/simflow') {
+      const resolved = path.resolve(WRAPPER_ROOT, simflow.source.path);
+      check('simflow marketplace path resolves to wrapper plugin dir', resolved === WRAPPER_PLUGIN_PATH);
+      check('simflow wrapper plugin path exists', fs.existsSync(resolved));
+      if (fs.existsSync(resolved)) {
+        const stat = fs.lstatSync(resolved);
+        check('simflow wrapper plugin path is a real directory', stat.isDirectory() && !stat.isSymbolicLink());
+        check('simflow wrapper plugin has plugin.json', fs.existsSync(path.join(resolved, '.codex-plugin', 'plugin.json')));
+        check('simflow wrapper plugin has skills', fs.existsSync(path.join(resolved, 'skills', 'simflow', 'SKILL.md')));
+        check('simflow wrapper plugin has .mcp.json', fs.existsSync(path.join(resolved, '.mcp.json')));
+      }
     }
   }
 } catch (error) {
   check('marketplace.json is valid JSON', false);
 }
+
+console.log('\n--- Codex Hooks Separation ---');
+check('internal workflow hook registry exists', existsWithinRoot('hooks/internal_workflow_hooks.json'));
+check('Codex lifecycle hooks are not configured', !existsWithinRoot('hooks/hooks.json'));
 
 console.log('\n--- Skills Discovery Layer ---');
 try {
