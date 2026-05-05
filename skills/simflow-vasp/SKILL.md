@@ -1,51 +1,75 @@
 ---
 name: simflow-vasp
-description: Handle VASP-specific setup and execution guidance in SimFlow.
+description: Handle VASP-specific setup, validation, tool orchestration, parsing, and troubleshooting in SimFlow.
 ---
 
-# SimFlow VASP — VASP 专用 Skill
+# SimFlow VASP Skill
 
-## 触发条件
+## Role
 
-- 用户提到 VASP 计算相关任务
-- input_generation 或 analysis 阶段使用 VASP
-- 用户请求解析 VASP 输出文件
+`simflow-vasp` is a VASP workflow orchestration layer for common tasks. It is not a VASP parameter encyclopedia, not a VASPKIT replacement, and not a py4vasp replacement.
 
-## 输入条件
+Use it to classify the user request, identify missing inputs and predecessor calculations, choose available local tools, generate SimFlow reports, register artifacts, and create checkpoints.
 
-- POSCAR / INCAR / KPOINTS / POTCAR（输入生成时）
-- OUTCAR / OSZICAR / vasprun.xml（输出解析时）
+## Covered Tasks
 
-## 输出 Artifact
+- Relaxation: `relax`
+- Static SCF: `static`, `scf`
+- Density of states: `dos`
+- Band structure: `band`, `bands`
+- AIMD: `aimd`, `md`
+- Basic NEB setup checks: `neb`, `neb_basic`
+- Input checks for surface, adsorption, and defect models
+- Output parsing and convergence checks
+- Troubleshooting for common VASP errors, warnings, and workflow questions
 
-- 输入生成：INCAR, KPOINTS, POTCAR 路径
-- 输出解析：`vasp_results.json`
-- 收敛检查：`convergence_report.json`
+## Tool Policy
 
-## 状态写入规则
+- Prefer existing SimFlow runtime, templates, validators, parsers, artifact registry, state, and checkpoint helpers.
+- Detect local VASPKIT with `runtime.lib.vasp_tools`; use it only as an optional helper for common pre/post-processing plans.
+- Prefer `py4vasp` when `vaspout.h5` exists and `py4vasp` imports successfully.
+- Fall back to SimFlow parsers for `vasprun.xml`, `OUTCAR`, `OSZICAR`, and `EIGENVAL` when py4vasp is unavailable or fails.
+- When parameter semantics, workflow steps, or version behavior are uncertain, use official VASP Wiki and py4vasp documentation through `runtime.lib.vasp_lookup`; do not invent answers from memory.
 
-- 注册 VASP 相关 artifact
-- 更新对应阶段状态
+## Required Outputs
 
-## Checkpoint 规则
+For common task orchestration, produce and register:
 
-- 遵循所属阶段的 checkpoint 策略
+- `reports/vasp/input_manifest.json`
+- `reports/vasp/validation_report.json`
+- `reports/vasp/compute_plan.json`
+- `reports/vasp/analysis_report.json`
+- `reports/vasp/handoff_artifact.json`
 
-## 验证项
+Each run must update SimFlow state and create a stage checkpoint.
 
-- INCAR 参数一致性
-- KPOINTS 与 POSCAR 兼容
-- POTCAR 元素顺序与 POSCAR 一致
-- OUTCAR 收敛性
-- OSZICAR 能量单调下降（优化）
+## Validation Focus
 
-## 禁止事项
+- POSCAR/POTCAR element order consistency using metadata only.
+- KPOINTS mode compatibility with task type, especially mesh vs line-mode.
+- DOS and band workflows require predecessor static SCF output, especially `CHGCAR`.
+- AIMD inputs must use MD-style ionic settings such as `IBRION=0` and `NSW>0`.
+- NEB basic checks must confirm image-directory structure.
+- Surface, adsorption, and defect tasks should report structural risks rather than silently accepting incomplete inputs.
+- Real HPC submission must remain blocked unless the existing `hpc_submit` approval gate passes.
 
-- 不要硬编码 POTCAR 路径
-- 不要忽略 ENCUT 与 POTCAR 兼容性
-- 不要跳过收敛检查
+## Prohibited Actions
 
-## 需要人工确认的场景
+- Do not generate, copy, distribute, snapshot, or print POTCAR content.
+- Do not assume the user owns a VASP license.
+- Do not submit real HPC jobs from this skill.
+- Do not bypass verification gates or checkpoint rules.
+- Do not expand this skill into a complete INCAR tag database.
+- Do not modify the Codex plugin adapter layer.
 
-- POTCAR 路径不确定时
-- 收敛标准未达到时
+## Scripts
+
+- `scripts/generate_vasp_inputs.py`: generate common-task INCAR/KPOINTS/POSCAR and POTCAR metadata instructions.
+- `scripts/orchestrate_vasp_task.py`: classify and orchestrate common VASP tasks, write reports, register artifacts, and checkpoint.
+- `scripts/validate_vasp_outputs.py`: validate output convergence with fallback parser support.
+- `scripts/troubleshoot_vasp.py`: produce source-backed troubleshooting summaries from official docs.
+- `scripts/plot_band_structure.py`: plot parsed band data when available.
+
+## Handoff
+
+At session end or handoff, report current workflow state, produced VASP artifacts, latest checkpoint, validation risks, and whether approval is needed before any real compute submission.

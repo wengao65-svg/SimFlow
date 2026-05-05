@@ -1,0 +1,11 @@
+# SimFlow VASP static SCF profile
+SYSTEM = {{ job_name | default("vasp_static") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-6") }}
+NSW = 0
+IBRION = -1
+ISMEAR = {{ ismear | default(0) }}
+SIGMA = {{ sigma | default(0.05) }}
+LWAVE = {{ lwave | default(".FALSE.") }}
+LCHARG = .TRUE.

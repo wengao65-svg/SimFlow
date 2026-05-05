@@ -1,0 +1,13 @@
+# SimFlow VASP band profile; requires prior SCF CHGCAR and line-mode KPOINTS
+SYSTEM = {{ job_name | default("vasp_band") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-6") }}
+NSW = 0
+IBRION = -1
+ICHARG = 11
+ISMEAR = 0
+SIGMA = {{ sigma | default(0.05) }}
+LORBIT = 11
+LWAVE = .FALSE.
+LCHARG = .FALSE.

@@ -1,0 +1,13 @@
+# SimFlow VASP relax profile
+SYSTEM = {{ job_name | default("vasp_relax") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-6") }}
+EDIFFG = {{ ediffg | default("-0.01") }}
+NSW = {{ nsw | default(100) }}
+IBRION = 2
+ISIF = {{ isif | default(2) }}
+ISMEAR = {{ ismear | default(0) }}
+SIGMA = {{ sigma | default(0.05) }}
+LWAVE = .FALSE.
+LCHARG = .FALSE.

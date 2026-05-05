@@ -1,0 +1,15 @@
+# SimFlow VASP AIMD profile
+SYSTEM = {{ job_name | default("vasp_aimd") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-5") }}
+NSW = {{ nsw | default(1000) }}
+IBRION = 0
+POTIM = {{ potim | default(1.0) }}
+TEBEG = {{ tebeg | default(300) }}
+TEEND = {{ teend | default(300) }}
+MDALGO = {{ mdalgo | default(2) }}
+ISMEAR = 0
+SIGMA = 0.05
+LWAVE = .FALSE.
+LCHARG = .FALSE.

@@ -2,6 +2,16 @@
 
 ## VASP Skills
 
+`simflow-vasp` is an orchestration layer for common VASP workflows. It routes
+tasks, validates inputs, plans optional VASPKIT/py4vasp usage, writes reports,
+and registers SimFlow artifacts. It does not replace VASP, VASPKIT, py4vasp,
+or the official VASP Wiki.
+
+Safety boundaries:
+- POTCAR content is never generated, copied, printed, or distributed by SimFlow.
+- VASPKIT and py4vasp are optional local tools with parser fallbacks.
+- Real HPC submission remains blocked unless the existing approval gate passes.
+
 ### generate_vasp_inputs
 
 Generate VASP input files (INCAR, KPOINTS, POSCAR, POTCAR).
@@ -39,6 +49,24 @@ Band structure calculation along high-symmetry paths.
 ### run_dos
 
 Density of states calculation.
+
+### orchestrate_vasp_task
+
+Generate VASP workflow reports without submitting jobs.
+
+```bash
+python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
+  --task band \
+  --base-dir ./workflow \
+  --calc-dir ./band
+```
+
+Outputs:
+- `reports/vasp/input_manifest.json`
+- `reports/vasp/validation_report.json`
+- `reports/vasp/compute_plan.json`
+- `reports/vasp/analysis_report.json`
+- `reports/vasp/handoff_artifact.json`
 
 ## Quantum ESPRESSO Skills
 

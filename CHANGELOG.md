@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.8.0 (2026-05-05)
+
+### Added
+- **VASP Orchestration Layer** — `simflow-vasp` now routes common VASP tasks instead of acting as a thin task note
+  - Common-task coverage for relax, static SCF, DOS, band structure, AIMD, NEB basic, and surface/adsorption/defect input checks
+  - New runtime adapters for VASPKIT detection/planning, py4vasp-first post-processing, official VASP Wiki/py4vasp lookup, task validation, and VASP workflow report generation
+  - New VASP orchestration scripts for report generation and troubleshooting summaries with official-source links
+  - Common VASP task templates for relax, static, DOS, band, AIMD, and NEB basic
+  - New tests covering task routing, fallback behavior, metadata-only POTCAR handling, safety gate behavior, and artifact/checkpoint writes
+
+### Changed
+- `skills/simflow-vasp/SKILL.md` now explicitly defines the skill as a tool orchestration layer rather than a VASP/VASPKIT/py4vasp replacement
+- `runtime/scripts/parse_vasp.py` now prefers `py4vasp` when `vaspout.h5` is present and falls back to SimFlow parsers otherwise
+- `skills/simflow-vasp/scripts/generate_vasp_inputs.py` now emits POTCAR metadata/instructions only and avoids generating or distributing POTCAR content
+
 ## v0.7.0 (2026-05-04)
 
 ### Added

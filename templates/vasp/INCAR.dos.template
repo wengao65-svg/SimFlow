@@ -1,0 +1,14 @@
+# SimFlow VASP DOS profile; requires prior SCF CHGCAR
+SYSTEM = {{ job_name | default("vasp_dos") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-6") }}
+NSW = 0
+IBRION = -1
+ICHARG = 11
+ISMEAR = {{ ismear | default(-5) }}
+SIGMA = {{ sigma | default(0.05) }}
+LORBIT = 11
+NEDOS = {{ nedos | default(2001) }}
+LWAVE = .FALSE.
+LCHARG = .FALSE.

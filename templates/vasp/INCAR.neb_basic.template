@@ -1,0 +1,14 @@
+# SimFlow VASP basic NEB profile
+SYSTEM = {{ job_name | default("vasp_neb") }}
+PREC = Accurate
+ENCUT = {{ encut | default(520) }}
+EDIFF = {{ ediff | default("1E-5") }}
+EDIFFG = {{ ediffg | default("-0.03") }}
+NSW = {{ nsw | default(200) }}
+IBRION = 3
+POTIM = 0
+IMAGES = {{ images | default(1) }}
+SPRING = {{ spring | default(-5) }}
+LCLIMB = {{ lclimb | default(".TRUE.") }}
+ISMEAR = 0
+SIGMA = 0.05
