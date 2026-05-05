@@ -1,6 +1,6 @@
 """VASP output file parser.
 
-Handles OUTCAR, OSZICAR, and EIGENVAL files. Extracts convergence info,
+Handles OUTCAR, OSZICAR, vasprun.xml, and EIGENVAL files. Extracts convergence info,
 energies, forces, stress, and eigenvalues.
 """
 
@@ -27,6 +27,8 @@ class VASPParser(BaseParser):
             return self._parse_outcar(content, result)
         elif fname == "EIGENVAL" or fname.startswith("EIGENVAL"):
             return self._parse_eigenval(content, result)
+        elif fname == "vasprun.xml" or fname.startswith("vasprun"):
+            return self._parse_vasprun_xml(content, result)
         else:
             result.errors.append(f"Unknown VASP file type: {file_path}")
             return result
@@ -82,6 +84,43 @@ class VASPParser(BaseParser):
         else:
             result.job_type = "relaxation"
 
+        return result
+
+    def _parse_vasprun_xml(self, content: str, result: ParseResult) -> ParseResult:
+        """Parse minimal vasprun.xml data for fallback analysis."""
+        e0_matches = re.findall(r'<i\s+name="e_0_energy">\s*([\d.Ee+-]+)\s*</i>', content)
+        free_matches = re.findall(r'<i\s+name="e_fr_energy">\s*([\d.Ee+-]+)\s*</i>', content)
+        if e0_matches:
+            result.final_energy = float(e0_matches[-1])
+            result.total_energy = float(e0_matches[0])
+        elif free_matches:
+            result.final_energy = float(free_matches[-1])
+            result.total_energy = float(free_matches[0])
+
+        encut = re.search(r'<i[^>]*name="ENCUT"[^>]*>\s*([\d.Ee+-]+)\s*</i>', content)
+        if encut:
+            result.parameters["encut"] = float(encut.group(1))
+
+        nsw = re.search(r'<i[^>]*name="NSW"[^>]*>\s*([\d.Ee+-]+)\s*</i>', content)
+        if nsw:
+            result.parameters["nsw"] = int(float(nsw.group(1)))
+            result.job_type = "scf" if result.parameters["nsw"] == 0 else "relaxation"
+
+        forces = []
+        force_blocks = re.findall(r'<varray\s+name="forces"\s*>(.*?)</varray>', content, flags=re.S)
+        if force_blocks:
+            for row in re.findall(r"<v>\s*([^<]+)\s*</v>", force_blocks[-1]):
+                parts = row.split()
+                if len(parts) >= 3:
+                    force = [float(parts[0]), float(parts[1]), float(parts[2])]
+                    forces.append({"vector": force, "norm": math.sqrt(sum(x * x for x in force))})
+        if forces:
+            result.forces = forces
+            result.metadata["max_force"] = max(f["norm"] for f in forces)
+
+        result.converged = result.final_energy is not None and "error" not in content.lower()
+        if result.job_type == "unknown":
+            result.job_type = "scf"
         return result
 
     def _parse_outcar(self, content: str, result: ParseResult) -> ParseResult:

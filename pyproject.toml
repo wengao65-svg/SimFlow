@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simflow"
-version = "0.7.0"
+version = "0.8.0"
 description = "Codex-native computational simulation domain workflow layer"
 readme = "README.md"
 license = {text = "MIT"}
