@@ -6,13 +6,12 @@
 .simflow/
 ├── state/
 │   ├── workflow.json      # Overall workflow state
-│   ├── stages/
-│   │   ├── relax.json     # Per-stage state
-│   │   ├── scf.json
-│   │   └── bands.json
-│   ├── jobs/
-│   │   └── job_001.json   # HPC job tracking
-│   └── artifacts.json     # Artifact registry
+│   ├── stages.json        # Stage status registry
+│   ├── artifacts.json     # Artifact registry
+│   ├── checkpoints.json   # Checkpoint registry
+│   ├── jobs.json          # HPC job tracking
+│   ├── verification.json  # Gate verification state
+│   └── summary.json       # Project status summary
 ├── artifacts/
 │   ├── initial_structure.cif
 │   ├── relaxed_structure.cif
@@ -20,6 +19,8 @@
 ├── checkpoints/
 │   ├── relax_001.tar.gz
 │   └── scf_001.tar.gz
+├── reports/
+│   └── status_summary.md
 ├── extensions/
 │   └── skills/            # Custom skill overrides
 ├── logs/
@@ -29,10 +30,14 @@
 
 ## State Lifecycle
 
-1. **Initialize**: `init_workflow` creates workflow.json and stage stubs
+1. **Initialize**: `simflow_state.init_workflow` creates the `.simflow/` tree, required state registries, and status summary files
 2. **Running**: Stage transitions update stage status
 3. **Completed**: Artifacts registered, checkpoint created
 4. **Recovery**: Load last checkpoint, resume from that stage
+
+## Host State Boundary
+
+`.omx/` is owned by oh-my-codex / the host session. SimFlow may read `.omx/` for host context, but `.omx/` is never the SimFlow workflow state root. Initializing SimFlow in a project that already contains `.omx/` must leave `.omx/` untouched and create or update only `.simflow/` for workflow state.
 
 ## Recovery Strategy
 

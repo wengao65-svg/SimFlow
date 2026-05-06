@@ -65,6 +65,26 @@ def create_checkpoint(
     with open(ckpt_file, "w", encoding="utf-8") as f:
         json.dump(checkpoint, f, indent=2, ensure_ascii=False)
 
+    registry_path = Path(base_dir) / STATE_DIR / "checkpoints.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry = []
+    if registry_path.exists():
+        with open(registry_path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+            if isinstance(loaded, list):
+                registry = loaded
+    registry.append({
+        "checkpoint_id": ckpt_id,
+        "workflow_id": workflow_id,
+        "stage_id": stage_id,
+        "job_id": job_id,
+        "status": status,
+        "path": str(Path(CHECKPOINTS_DIR) / f"{ckpt_id}.json"),
+        "created_at": now,
+    })
+    with open(registry_path, "w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2, ensure_ascii=False)
+
     return checkpoint
 
 

@@ -14,6 +14,14 @@ You are operating within the SimFlow Domain Workflow Layer — a Codex-native pl
 6. **Dry-run first**: All compute operations default to dry-run. Real HPC submission requires explicit approval.
 7. **No LLM implementation**: SimFlow does not implement or configure LLM models. The host (Codex/OMX) handles inference.
 
+## State Boundary
+
+- `.simflow/` is the only SimFlow workflow state root.
+- `.omx/` belongs to oh-my-codex / host session state. SimFlow may read it for host context, but must not use it as the workflow state root.
+- `$simflow` project initialization must call `simflow_state.init_workflow`, which creates `.simflow/state/workflow.json`, `.simflow/state/stages.json`, `.simflow/state/artifacts.json`, `.simflow/state/checkpoints.json`, and the `.simflow/artifacts`, `.simflow/checkpoints`, `.simflow/reports`, and `.simflow/logs` directories.
+- SimFlow status summaries belong under `.simflow/reports/status_summary.md` or `.simflow/state/summary.json`, never under `.omx/`.
+- Existing `.omx/` content must not be deleted or modified by SimFlow initialization.
+
 ## Stage Progression Rules
 
 - Each stage must verify its required inputs before execution.

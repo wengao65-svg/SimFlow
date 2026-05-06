@@ -39,6 +39,39 @@ class TestState:
         assert state["workflow_type"] == "dft"
         assert state["current_stage"] == "literature"
         assert state["status"] == "initialized"
+        sf = Path(self.base_dir) / ".simflow"
+        for path in [
+            sf / "state" / "workflow.json",
+            sf / "state" / "stages.json",
+            sf / "state" / "artifacts.json",
+            sf / "state" / "checkpoints.json",
+            sf / "artifacts",
+            sf / "checkpoints",
+            sf / "reports",
+            sf / "logs",
+        ]:
+            assert path.exists()
+        assert read_state(self.base_dir, "stages.json") == {}
+        assert read_state(self.base_dir, "artifacts.json") == []
+        assert read_state(self.base_dir, "checkpoints.json") == []
+        summary = read_state(self.base_dir, "summary.json")
+        assert summary["state_root"] == ".simflow"
+        assert (sf / "reports" / "status_summary.md").is_file()
+
+    def test_init_workflow_ignores_existing_omx_state(self):
+        omx = Path(self.base_dir) / ".omx"
+        omx.mkdir()
+        host_summary = omx / "simflow_status_summary.md"
+        host_summary.write_text("host session summary\n", encoding="utf-8")
+        host_state = omx / "session.json"
+        host_state.write_text('{"owner":"oh-my-codex"}\n', encoding="utf-8")
+
+        init_workflow("custom", "literature", self.base_dir)
+
+        assert (Path(self.base_dir) / ".simflow" / "state" / "workflow.json").is_file()
+        assert (Path(self.base_dir) / ".simflow" / "reports" / "status_summary.md").is_file()
+        assert host_summary.read_text(encoding="utf-8") == "host session summary\n"
+        assert host_state.read_text(encoding="utf-8") == '{"owner":"oh-my-codex"}\n'
 
     def test_read_write_state(self):
         data = {"test": True}
@@ -63,6 +96,7 @@ if __name__ == "__main__":
     try:
         t.test_ensure_simflow_dir()
         t.test_init_workflow()
+        t.test_init_workflow_ignores_existing_omx_state()
         t.test_read_write_state()
         t.test_update_stage()
         t.test_read_nonexistent_state()

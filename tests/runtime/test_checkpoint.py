@@ -4,6 +4,7 @@
 import shutil
 import sys
 import tempfile
+import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
@@ -26,6 +27,9 @@ class TestCheckpoint:
         assert ckpt["checkpoint_id"].startswith("ckpt_")
         assert ckpt["workflow_id"] == "wf_test1234"
         assert ckpt["status"] == "success"
+        registry_path = Path(self.base_dir) / ".simflow" / "state" / "checkpoints.json"
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        assert registry[0]["checkpoint_id"] == ckpt["checkpoint_id"]
 
     def test_list_checkpoints(self):
         create_checkpoint("wf_test", "literature", "First", self.base_dir)
