@@ -1,4 +1,4 @@
-# SimFlow v0.8.3 Codex Quick Start
+# SimFlow v0.8.4 Codex Quick Start
 
 This guide uses the Codex plugin installation path. SimFlow is not exposed as a primary CLI; users interact with it through Codex plugins, skills, and MCP tools.
 
@@ -10,19 +10,38 @@ This guide uses the Codex plugin installation path. SimFlow is not exposed as a 
 
 ## 1. Install from the SimFlow repository
 
-The SimFlow repository root is both the Codex marketplace root and the plugin root. Clone it, install development dependencies, and validate the plugin structure:
+Clone SimFlow, install development dependencies, and register the local Codex marketplace wrapper:
 
 ```bash
 git clone <repo> ~/simflow
 cd ~/simflow
 npm install
-npm run validate
+npm run install:codex
 ```
 
-The repository includes:
+`npm run install:codex` builds a wrapper marketplace at:
+
+```text
+~/.cache/simflow/codex-marketplace
+```
+
+Then it runs the equivalent of:
+
+```bash
+codex plugin marketplace remove simflow-local || true
+codex plugin marketplace add ~/.cache/simflow/codex-marketplace
+```
+
+The wrapper contains:
 
 ```text
 .agents/plugins/marketplace.json
+plugins/simflow/
+```
+
+Inside `plugins/simflow/`, the copied plugin root includes:
+
+```text
 .codex-plugin/plugin.json
 .mcp.json
 skills/
@@ -31,24 +50,25 @@ runtime/
 scripts/start_mcp_server.py
 ```
 
-The default marketplace entry points back to this repository root:
+The wrapper marketplace entry points at the copied plugin directory:
 
 ```json
 {
   "name": "simflow",
   "source": {
     "source": "local",
-    "path": "./"
+    "path": "./plugins/simflow"
   }
 }
 ```
 
+The source repository root is not the default marketplace root. Current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`, so the repository `.agents/plugins/marketplace.json` is intentionally not the user install path.
+
 ## 2. Install with `/plugins`
 
-Register the local marketplace and start Codex:
+Start Codex:
 
 ```bash
-codex plugin marketplace add ~/simflow
 codex
 ```
 
@@ -66,13 +86,13 @@ Expected blocking result:
 
 ## 3. Remote marketplace installation
 
-Remote installation is supported when the remote repository contains `.agents/plugins/marketplace.json`:
+Remote installation is supported when the remote repository is a wrapper marketplace with `.agents/plugins/marketplace.json` and a real `plugins/simflow/` directory:
 
 ```bash
 codex plugin marketplace add <org>/simflow --ref <version>
 ```
 
-This uses the same repository-root plugin layout as the local install path.
+The remote marketplace entry must use `source.path: "./plugins/simflow"`.
 
 ## 4. Optional clean marketplace wrapper
 
@@ -85,7 +105,7 @@ npm run build:marketplace
 The default wrapper is:
 
 ```text
-/home/gaofeng/test/SimFlow-marketplace
+~/.cache/simflow/codex-marketplace
 ```
 
 It contains:
@@ -95,7 +115,7 @@ It contains:
 plugins/simflow/
 ```
 
-`plugins/simflow` is a real copied plugin directory, not a symlink. This wrapper is optional and is not required for normal user installation.
+`plugins/simflow` is a real copied plugin directory, not a symlink. This same wrapper structure is used by the default `npm run install:codex` flow.
 
 ## 5. Verify MCP with `/mcp`
 
@@ -115,7 +135,7 @@ Expected blocking result: Codex initializes and lists these SimFlow MCP servers:
 - `hpc`
 - `parsers`
 
-If `/mcp` does not list them, run `npm run validate:plugin` from the source repository to check the manifest, root marketplace, and JSON-RPC stdio initialization.
+If `/mcp` does not list them, run `npm run validate:plugin` from the source repository to check the manifest, marketplace path rules, and JSON-RPC stdio initialization.
 
 ## 6. Verify skills by triggering them
 
@@ -131,11 +151,17 @@ $simflow
 $simflow-vasp
 ```
 
+```text
+@simflow
+```
+
 Or a natural-language task:
 
 ```text
 Use SimFlow to plan a dry-run VASP relaxation workflow for silicon.
 ```
+
+`/simflow` is not a SimFlow invocation path. Use `/plugins` to install the plugin, `/mcp` to inspect MCP servers, and skill routing such as `$simflow`, `$simflow-vasp`, or `@simflow` for SimFlow work.
 
 `/skills` may be used as an enhanced check when the current Codex build supports it, but it is not a release-blocking acceptance criterion.
 
@@ -152,15 +178,15 @@ npm run validate
 - `.codex-plugin/plugin.json` metadata and interface fields
 - root `.mcp.json`
 - JSON-RPC stdio MCP initialization and `tools/list`
-- repository-root `.agents/plugins/marketplace.json`
-- repository-root plugin structure
+- marketplace local source paths reject empty, `.`, and `./`
+- wrapper marketplace structure when `SIMFLOW_MARKETPLACE_ROOT` is set
 - separation between SimFlow workflow hooks and Codex lifecycle hooks
 
 To validate an optional wrapper after building it:
 
 ```bash
 npm run build:marketplace
-SIMFLOW_MARKETPLACE_ROOT=/home/gaofeng/test/SimFlow-marketplace npm run validate:plugin
+SIMFLOW_MARKETPLACE_ROOT=~/.cache/simflow/codex-marketplace npm run validate:plugin
 ```
 
 ## Hook separation

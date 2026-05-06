@@ -48,14 +48,13 @@ Codex / OMX Host
 
 ## Quick Start
 
-Install SimFlow directly from this repository as both the Codex marketplace and plugin root:
+Build and register the local Codex marketplace wrapper:
 
 ```bash
 git clone <repo> ~/simflow
 cd ~/simflow
 npm install
-npm run validate
-codex plugin marketplace add ~/simflow
+npm run install:codex
 codex
 ```
 
@@ -72,15 +71,26 @@ Select and install `simflow`, then verify tools and skills:
 $simflow
 ```
 
-Remote marketplace installation is also supported when the repository contains `.agents/plugins/marketplace.json`:
+SimFlow skills are invoked through Codex skill routing, for example `$simflow`, `$simflow-vasp`, `@simflow`, or a natural-language request. `/simflow` is not a SimFlow invocation path.
+
+`npm run install:codex` generates a wrapper marketplace at `~/.cache/simflow/codex-marketplace` and registers that wrapper with Codex. The wrapper has the Codex marketplace shape:
+
+```text
+.agents/plugins/marketplace.json
+plugins/simflow/
+```
+
+The marketplace entry uses `source.path: "./plugins/simflow"`. The source repository root is not the default marketplace root because current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`.
+
+Remote marketplace installation is supported when the remote repository is a wrapper marketplace with a real `plugins/simflow/` directory:
 
 ```bash
 codex plugin marketplace add <org>/simflow --ref <version>
 ```
 
-`npm run build:marketplace` remains available for maintainers who want a clean wrapper at publish time, for example to publish a separate marketplace repository or release artifact. The wrapper is optional and is not part of the default user installation path.
+`npm run build:marketplace` remains available for maintainers who want a clean wrapper at publish time, for example to publish a separate marketplace repository or release artifact. `plugins/simflow` is copied as a real directory, not a symlink.
 
-`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, or natural-language tasks.
+`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, `@simflow`, or natural-language tasks.
 
 ## Project Structure
 
