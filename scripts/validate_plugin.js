@@ -205,17 +205,55 @@ function validatePluginRoot(label, pluginRoot) {
   check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
 }
 
-function validateMarketplace(marketplacePath, marketplaceRoot, expectedSourcePath, expectedPluginRoot, label) {
+function validateMarketplaceSourcePaths(marketplace, marketplaceRoot, label) {
+  if (!Array.isArray(marketplace.plugins)) {
+    return;
+  }
+  for (const pluginEntry of marketplace.plugins) {
+    if (pluginEntry.source?.source !== 'local') {
+      continue;
+    }
+    const sourcePath = pluginEntry.source?.path;
+    const pluginName = pluginEntry.name || '<unnamed>';
+    const hasSourcePath = typeof sourcePath === 'string' && sourcePath.trim().length > 0;
+    check(`${label} ${pluginName} local source.path is not empty`, hasSourcePath);
+    if (!hasSourcePath) {
+      console.error('    Local marketplace entries must use the ./plugins/simflow wrapper path.');
+      continue;
+    }
+    const normalizedSourcePath = sourcePath.trim();
+    const resolvesToMarketplaceRoot = path.resolve(marketplaceRoot, normalizedSourcePath) === marketplaceRoot;
+    const isRepositoryRootPath = normalizedSourcePath === './' || normalizedSourcePath === '.';
+    check(
+      `${label} ${pluginName} local source.path uses ./plugins/simflow wrapper`,
+      !isRepositoryRootPath && !resolvesToMarketplaceRoot,
+    );
+    if (isRepositoryRootPath || resolvesToMarketplaceRoot) {
+      console.error('    source.path: "./" is not accepted by current Codex CLI builds; use ./plugins/simflow in a wrapper marketplace.');
+    }
+  }
+}
+
+function validateMarketplace(marketplacePath, marketplaceRoot, expectedSourcePath, expectedPluginRoot, label, options = {}) {
   try {
     const marketplace = readJson(marketplacePath);
     console.log(`  ${label} root: ${marketplaceRoot}`);
     check(`${label} has name`, typeof marketplace.name === 'string' && marketplace.name.length > 0);
-    check(`${label} has plugins array`, Array.isArray(marketplace.plugins) && marketplace.plugins.length > 0);
+    const requiresSimflowPlugin = options.requiresSimflowPlugin !== false;
+    check(
+      `${label} has plugins array${requiresSimflowPlugin ? '' : ' (may be empty)'}`,
+      Array.isArray(marketplace.plugins) && (requiresSimflowPlugin ? marketplace.plugins.length > 0 : true),
+    );
+    validateMarketplaceSourcePaths(marketplace, marketplaceRoot, label);
 
     const simflow = Array.isArray(marketplace.plugins)
       ? marketplace.plugins.find(pluginEntry => pluginEntry.name === 'simflow')
       : null;
-    check(`${label} includes simflow entry`, !!simflow);
+    if (requiresSimflowPlugin) {
+      check(`${label} includes simflow entry`, !!simflow);
+    } else {
+      check(`${label} does not expose simflow from the source repository root`, !simflow);
+    }
 
     if (simflow) {
       check(`${label} simflow source is local`, simflow.source?.source === 'local');
@@ -306,7 +344,9 @@ try {
 }
 
 console.log('\n--- Root Marketplace ---');
-validateMarketplace(ROOT_MARKETPLACE_PATH, ROOT, './', ROOT, 'root marketplace');
+validateMarketplace(ROOT_MARKETPLACE_PATH, ROOT, './plugins/simflow', path.join(ROOT, 'plugins', 'simflow'), 'root marketplace', {
+  requiresSimflowPlugin: false,
+});
 
 if (WRAPPER_ROOT) {
   console.log('\n--- Optional Marketplace Wrapper ---');

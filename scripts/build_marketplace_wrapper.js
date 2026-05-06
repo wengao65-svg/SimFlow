@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const DEFAULT_WRAPPER = '/home/gaofeng/test/SimFlow-marketplace';
+const DEFAULT_WRAPPER = path.join(process.env.HOME || process.cwd(), '.cache', 'simflow', 'codex-marketplace');
 const WRAPPER_ROOT = path.resolve(process.argv[2] || DEFAULT_WRAPPER);
 const PLUGIN_ROOT = path.join(WRAPPER_ROOT, 'plugins', 'simflow');
 const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketplace.json');
@@ -89,7 +89,7 @@ function build() {
   const marketplace = {
     name: 'simflow-local',
     interface: {
-      displayName: 'SimFlow Local Plugins',
+      displayName: 'SimFlow',
     },
     plugins: [
       {

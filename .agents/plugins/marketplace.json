@@ -1,20 +1,7 @@
 {
-  "name": "simflow",
+  "name": "simflow-source",
   "interface": {
-    "displayName": "SimFlow"
+    "displayName": "SimFlow Source Repository"
   },
-  "plugins": [
-    {
-      "name": "simflow",
-      "source": {
-        "source": "local",
-        "path": "./"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    }
-  ]
+  "plugins": []
 }

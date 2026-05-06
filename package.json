@@ -1,10 +1,11 @@
 {
   "name": "simflow",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Codex-native computational simulation domain workflow layer",
   "private": true,
   "scripts": {
     "build:marketplace": "node scripts/build_marketplace_wrapper.js",
+    "install:codex": "node scripts/install_codex.js",
     "validate": "npm run validate:all",
     "validate:plugin": "node scripts/validate_plugin.js",
     "validate:skills": "node scripts/validate_skills.js",
