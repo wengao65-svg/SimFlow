@@ -9,6 +9,13 @@ from typing import Any, Optional
 
 SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
+REQUIRED_STATE_FILES = {
+    "stages.json": {},
+    "artifacts.json": [],
+    "checkpoints.json": [],
+    "verification.json": {},
+    "jobs.json": [],
+}
 
 
 def get_simflow_path(base_dir: str = ".") -> Path:
@@ -34,6 +41,15 @@ def ensure_simflow_dir(base_dir: str = ".") -> Path:
     return sf
 
 
+def write_report(content: str, base_dir: str = ".", report_file: str = "status_summary.md") -> Path:
+    """Write a report file under .simflow/reports/."""
+    ensure_simflow_dir(base_dir)
+    path = Path(base_dir) / SIMFLOW_DIR / "reports" / report_file
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return path
+
+
 def read_state(base_dir: str = ".", state_file: str = "workflow.json") -> dict:
     """Read a state file from .simflow/state/."""
     path = Path(base_dir) / STATE_DIR / state_file
@@ -53,7 +69,11 @@ def write_state(data: dict, base_dir: str = ".", state_file: str = "workflow.jso
 
 
 def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> dict:
-    """Initialize a new workflow state."""
+    """Initialize a new workflow state under .simflow/.
+
+    .omx belongs to the host session layer and is never used as SimFlow's
+    workflow state root.
+    """
     import uuid
     now = datetime.now(timezone.utc).isoformat()
     wf_id = f"wf_{uuid.uuid4().hex[:8]}"
@@ -68,10 +88,32 @@ def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> 
         "updated_at": now,
     }
     write_state(state, base_dir)
-    write_state({}, base_dir, "stages.json")
-    write_state([], base_dir, "artifacts.json")
-    write_state({}, base_dir, "verification.json")
-    write_state([], base_dir, "jobs.json")
+    for state_file, default_value in REQUIRED_STATE_FILES.items():
+        write_state(default_value, base_dir, state_file)
+    summary = {
+        "workflow_id": wf_id,
+        "workflow_type": workflow_type,
+        "current_stage": entry_point,
+        "status": "initialized",
+        "state_root": ".simflow",
+        "summary_report": ".simflow/reports/status_summary.md",
+        "created_at": now,
+        "updated_at": now,
+    }
+    write_state(summary, base_dir, "summary.json")
+    write_report(
+        "\n".join([
+            "# SimFlow Status Summary",
+            "",
+            f"- Workflow ID: {wf_id}",
+            f"- Workflow type: {workflow_type}",
+            f"- Current stage: {entry_point}",
+            "- Status: initialized",
+            "- State root: .simflow",
+            "",
+        ]),
+        base_dir,
+    )
     return state
 
 
