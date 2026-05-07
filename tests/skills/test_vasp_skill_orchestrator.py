@@ -65,6 +65,28 @@ def test_orchestrator_neb_basic_artifacts_even_when_validation_fails():
         assert (root / ".simflow/checkpoints").is_dir()
 
 
+def test_orchestrator_initializes_project_with_existing_omx():
+    module = _load_module()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        omx = root / ".omx"
+        omx.mkdir()
+        host_file = omx / "simflow_status_summary.md"
+        host_file.write_text("host session\n", encoding="utf-8")
+        _write_inputs(root, "IBRION = -1\nNSW = 0\n")
+
+        result = module.orchestrate_vasp_task("relax", str(root))
+
+        assert result["status"] == "success"
+        assert (root / ".simflow/state/workflow.json").is_file()
+        assert (root / ".simflow/state/artifacts.json").is_file()
+        assert (root / ".simflow/state/checkpoints.json").is_file()
+        assert (root / "reports/vasp/input_manifest.json").is_file()
+        assert host_file.read_text(encoding="utf-8") == "host session\n"
+        for report in (root / "reports/vasp").glob("*.json"):
+            json.loads(report.read_text(encoding="utf-8"))
+
+
 def test_troubleshoot_no_fetch_has_official_sources():
     from runtime.lib.vasp_lookup import summarize_troubleshooting
 

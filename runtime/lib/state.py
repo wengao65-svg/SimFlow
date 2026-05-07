@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_STATE_FILES = {
     "stages.json": {},
     "artifacts.json": [],
@@ -18,14 +19,59 @@ REQUIRED_STATE_FILES = {
 }
 
 
+class ProjectRootError(ValueError):
+    """Raised when a SimFlow state operation targets an invalid project root."""
+
+
+def get_plugin_root() -> Path:
+    """Return the SimFlow plugin root used for imports and bundled assets."""
+    return PLUGIN_ROOT
+
+
+def is_plugin_root(path: str | Path) -> bool:
+    """Return whether a path is the SimFlow plugin root/cache root."""
+    root = Path(path).expanduser().resolve()
+    if root == PLUGIN_ROOT:
+        return True
+    return (
+        (root / ".codex-plugin" / "plugin.json").is_file()
+        and (root / "skills" / "simflow" / "SKILL.md").is_file()
+        and (root / "runtime" / "lib" / "state.py").is_file()
+    )
+
+
+def resolve_project_root(
+    project_root: Optional[str] = None,
+    base_dir: Optional[str] = None,
+    *,
+    reject_plugin_root: bool = True,
+) -> Path:
+    """Resolve the project root where .simflow state should be written.
+
+    plugin_root is only for importing SimFlow code. project_root is the user's
+    working project and is the only valid root for workflow state.
+    """
+    candidate = project_root if project_root is not None else base_dir
+    if candidate is None:
+        candidate = "."
+    resolved = Path(candidate).expanduser().resolve()
+    if reject_plugin_root and is_plugin_root(resolved):
+        raise ProjectRootError(
+            "Refusing to use the SimFlow plugin root/cache as project_root. "
+            "Pass the user's current project directory as project_root."
+        )
+    return resolved
+
+
 def get_simflow_path(base_dir: str = ".") -> Path:
     """Get the .simflow directory path."""
-    return Path(base_dir) / SIMFLOW_DIR
+    return resolve_project_root(base_dir=base_dir) / SIMFLOW_DIR
 
 
-def ensure_simflow_dir(base_dir: str = ".") -> Path:
+def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) -> Path:
     """Ensure .simflow directory structure exists."""
-    sf = get_simflow_path(base_dir)
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    sf = root / SIMFLOW_DIR
     dirs = [
         sf / "state",
         sf / "plans",
@@ -41,40 +87,60 @@ def ensure_simflow_dir(base_dir: str = ".") -> Path:
     return sf
 
 
-def write_report(content: str, base_dir: str = ".", report_file: str = "status_summary.md") -> Path:
+def write_report(
+    content: str,
+    base_dir: str = ".",
+    report_file: str = "status_summary.md",
+    project_root: Optional[str] = None,
+) -> Path:
     """Write a report file under .simflow/reports/."""
-    ensure_simflow_dir(base_dir)
-    path = Path(base_dir) / SIMFLOW_DIR / "reports" / report_file
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    ensure_simflow_dir(project_root=str(root))
+    path = root / SIMFLOW_DIR / "reports" / report_file
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return path
 
 
-def read_state(base_dir: str = ".", state_file: str = "workflow.json") -> dict:
+def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_root: Optional[str] = None) -> dict:
     """Read a state file from .simflow/state/."""
-    path = Path(base_dir) / STATE_DIR / state_file
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    path = root / STATE_DIR / state_file
     if not path.exists():
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def write_state(data: dict, base_dir: str = ".", state_file: str = "workflow.json") -> Path:
+def write_state(
+    data: dict,
+    base_dir: str = ".",
+    state_file: str = "workflow.json",
+    project_root: Optional[str] = None,
+) -> Path:
     """Write a state file to .simflow/state/."""
-    ensure_simflow_dir(base_dir)
-    path = Path(base_dir) / STATE_DIR / state_file
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    ensure_simflow_dir(project_root=str(root))
+    path = root / STATE_DIR / state_file
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     return path
 
 
-def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> dict:
+def init_workflow(
+    workflow_type: str,
+    entry_point: str,
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> dict:
     """Initialize a new workflow state under .simflow/.
 
     .omx belongs to the host session layer and is never used as SimFlow's
     workflow state root.
     """
     import uuid
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     now = datetime.now(timezone.utc).isoformat()
     wf_id = f"wf_{uuid.uuid4().hex[:8]}"
     state = {
@@ -87,9 +153,9 @@ def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> 
         "created_at": now,
         "updated_at": now,
     }
-    write_state(state, base_dir)
+    write_state(state, project_root=str(root))
     for state_file, default_value in REQUIRED_STATE_FILES.items():
-        write_state(default_value, base_dir, state_file)
+        write_state(default_value, project_root=str(root), state_file=state_file)
     summary = {
         "workflow_id": wf_id,
         "workflow_type": workflow_type,
@@ -100,7 +166,7 @@ def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> 
         "created_at": now,
         "updated_at": now,
     }
-    write_state(summary, base_dir, "summary.json")
+    write_state(summary, project_root=str(root), state_file="summary.json")
     write_report(
         "\n".join([
             "# SimFlow Status Summary",
@@ -112,14 +178,36 @@ def init_workflow(workflow_type: str, entry_point: str, base_dir: str = ".") -> 
             "- State root: .simflow",
             "",
         ]),
-        base_dir,
+        project_root=str(root),
     )
     return state
 
 
-def update_stage(stage_name: str, status: str, base_dir: str = ".", **kwargs: Any) -> dict:
+def ensure_workflow_initialized(
+    workflow_type: str = "custom",
+    entry_point: str = "literature",
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> dict:
+    """Ensure project_root has a SimFlow workflow state tree and return state."""
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    state = read_state(project_root=str(root))
+    if state:
+        ensure_simflow_dir(project_root=str(root))
+        return state
+    return init_workflow(workflow_type, entry_point, project_root=str(root))
+
+
+def update_stage(
+    stage_name: str,
+    status: str,
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+    **kwargs: Any,
+) -> dict:
     """Update a stage's state."""
-    stages = read_state(base_dir, "stages.json")
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    stages = read_state(project_root=str(root), state_file="stages.json")
     now = datetime.now(timezone.utc).isoformat()
     if stage_name not in stages:
         stages[stage_name] = {
@@ -141,5 +229,5 @@ def update_stage(stage_name: str, status: str, base_dir: str = ".", **kwargs: An
     for k, v in kwargs.items():
         if k in stages[stage_name]:
             stages[stage_name][k] = v
-    write_state(stages, base_dir, "stages.json")
+    write_state(stages, project_root=str(root), state_file="stages.json")
     return stages[stage_name]

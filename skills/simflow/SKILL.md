@@ -25,7 +25,9 @@ description: Route computational simulation requests into the SimFlow workflow.
 
 ## 状态写入规则
 
+- 写任何 SimFlow state/report/artifact/checkpoint 前，必须先获取用户当前项目目录 `pwd`，并把它作为 `project_root` 传给 MCP tool 或 runtime helper
 - `$simflow` 初始化当前项目时，必须调用 MCP tool `simflow_state.init_workflow`
+- `simflow_state.init_workflow` 必须使用 `project_root`，不得依赖 MCP server 的 cwd
 - `simflow_state.init_workflow` 必须创建并维护 `.simflow/` 作为 SimFlow workflow 主状态目录
 - 必须写入 `.simflow/state/workflow.json`
 - 必须创建 `.simflow/state/stages.json`
@@ -44,6 +46,7 @@ description: Route computational simulation requests into the SimFlow workflow.
 - 不要直接跳到具体阶段执行
 - 不要假设用户选择的软件
 - 不要把 `.omx/`、`.codex/` 或 host session 目录当作 `.simflow/` 的替代品
+- 不要把 SimFlow plugin root、Codex plugin cache root 或 MCP server cwd 当作 `project_root`
 - 不要删除或修改已有 `.omx/`
 - 不要把 `simflow_status_summary.md` 写入 `.omx/`
 

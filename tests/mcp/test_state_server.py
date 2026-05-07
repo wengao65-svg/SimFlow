@@ -53,6 +53,16 @@ def test_init_workflow_tool_uses_simflow_not_omx():
         assert host_file.read_text(encoding="utf-8") == "host-owned\n"
 
 
+def test_init_workflow_tool_rejects_missing_project_root_from_plugin_root():
+    """MCP cwd is plugin_root; init must not silently write there."""
+    from tools.init_workflow import execute
+
+    result = execute({"workflow_type": "custom", "entry_point": "literature"})
+
+    assert result["status"] == "error"
+    assert "project_root" in result["message"]
+
+
 def test_state_read_write():
     """Test state read/write cycle."""
     from runtime.lib.state import init_workflow, read_state, write_state

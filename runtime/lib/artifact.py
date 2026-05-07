@@ -2,11 +2,11 @@
 
 import hashlib
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from .state import ensure_workflow_initialized, resolve_project_root
 
 ARTIFACTS_DIR = ".simflow/artifacts"
 STATE_FILE = ".simflow/state/artifacts.json"
@@ -21,18 +21,21 @@ def _compute_checksum(file_path: str) -> str:
     return h.hexdigest()
 
 
-def _read_artifacts(base_dir: str = ".") -> list:
+def _read_artifacts(base_dir: str = ".", project_root: Optional[str] = None) -> list:
     """Read the artifacts registry."""
-    path = Path(base_dir) / STATE_FILE
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    path = root / STATE_FILE
     if not path.exists():
         return []
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def _write_artifacts(artifacts: list, base_dir: str = ".") -> None:
+def _write_artifacts(artifacts: list, base_dir: str = ".", project_root: Optional[str] = None) -> None:
     """Write the artifacts registry."""
-    path = Path(base_dir) / STATE_FILE
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    ensure_workflow_initialized(project_root=str(root))
+    path = root / STATE_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(artifacts, f, indent=2, ensure_ascii=False)
@@ -47,10 +50,13 @@ def register_artifact(
     parent_artifacts: Optional[list] = None,
     parameters: Optional[dict] = None,
     software: Optional[str] = None,
+    project_root: Optional[str] = None,
 ) -> dict:
     """Register a new artifact."""
     import uuid
-    artifacts = _read_artifacts(base_dir)
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    ensure_workflow_initialized(project_root=str(root))
+    artifacts = _read_artifacts(project_root=str(root))
     now = datetime.now(timezone.utc).isoformat()
     art_id = f"art_{uuid.uuid4().hex[:8]}"
 
@@ -61,8 +67,11 @@ def register_artifact(
 
     # Compute checksum if file exists
     checksum = None
-    if path and os.path.exists(os.path.join(base_dir, path)):
-        checksum = _compute_checksum(os.path.join(base_dir, path))
+    if path:
+        artifact_path = Path(path)
+        full_path = artifact_path if artifact_path.is_absolute() else root / artifact_path
+        if full_path.exists():
+            checksum = _compute_checksum(str(full_path))
 
     artifact = {
         "artifact_id": art_id,
@@ -80,22 +89,22 @@ def register_artifact(
         "created_at": now,
     }
     artifacts.append(artifact)
-    _write_artifacts(artifacts, base_dir)
+    _write_artifacts(artifacts, project_root=str(root))
     return artifact
 
 
-def get_artifact(artifact_id: str, base_dir: str = ".") -> Optional[dict]:
+def get_artifact(artifact_id: str, base_dir: str = ".", project_root: Optional[str] = None) -> Optional[dict]:
     """Get an artifact by ID."""
-    artifacts = _read_artifacts(base_dir)
+    artifacts = _read_artifacts(base_dir, project_root=project_root)
     for a in artifacts:
         if a["artifact_id"] == artifact_id:
             return a
     return None
 
 
-def list_artifacts(stage: Optional[str] = None, base_dir: str = ".") -> list:
+def list_artifacts(stage: Optional[str] = None, base_dir: str = ".", project_root: Optional[str] = None) -> list:
     """List artifacts, optionally filtered by stage."""
-    artifacts = _read_artifacts(base_dir)
+    artifacts = _read_artifacts(base_dir, project_root=project_root)
     if stage:
         return [a for a in artifacts if a["stage"] == stage]
     return artifacts
