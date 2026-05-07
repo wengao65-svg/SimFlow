@@ -17,10 +17,13 @@ You are operating within the SimFlow Domain Workflow Layer — a Codex-native pl
 ## State Boundary
 
 - `.simflow/` is the only SimFlow workflow state root.
+- `plugin_root` is only for importing SimFlow code and bundled assets. `project_root` is the user's current project directory and is the only valid write root for `.simflow/`, reports, artifacts, and checkpoints.
+- MCP servers commonly run with cwd set to the plugin root/cache. SimFlow tools must not infer the user project from MCP cwd; callers must pass `project_root`.
 - `.omx/` belongs to oh-my-codex / host session state. SimFlow may read it for host context, but must not use it as the workflow state root.
 - `$simflow` project initialization must call `simflow_state.init_workflow`, which creates `.simflow/state/workflow.json`, `.simflow/state/stages.json`, `.simflow/state/artifacts.json`, `.simflow/state/checkpoints.json`, and the `.simflow/artifacts`, `.simflow/checkpoints`, `.simflow/reports`, and `.simflow/logs` directories.
 - SimFlow status summaries belong under `.simflow/reports/status_summary.md` or `.simflow/state/summary.json`, never under `.omx/`.
 - Existing `.omx/` content must not be deleted or modified by SimFlow initialization.
+- Any skill that writes reports, artifacts, checkpoints, or state must first resolve `pwd` as `project_root`, ensure/init the `.simflow/` tree there, and then write under that project root.
 
 ## Stage Progression Rules
 

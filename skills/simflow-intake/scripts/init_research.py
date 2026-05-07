@@ -14,7 +14,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.state import init_workflow
-from runtime.lib.utils import generate_id, safe_filename
 
 
 DEFAULT_STAGES = {
@@ -85,19 +84,11 @@ def init_research(input_file: str = None, input_text: str = None,
     if wf_type not in DEFAULT_STAGES:
         wf_type = "dft"
 
-    # Generate workflow ID
-    workflow_id = generate_id("wf")
-    project_dir = Path(output_dir) / ".simflow"
-    project_dir.mkdir(parents=True, exist_ok=True)
-
     # Initialize workflow state
     stages = DEFAULT_STAGES[wf_type]
-    state = init_workflow(
-        workflow_id=workflow_id,
-        workflow_type=wf_type,
-        stages=stages,
-        project_dir=str(project_dir),
-    )
+    state = init_workflow(wf_type, stages[0], project_root=output_dir)
+    workflow_id = state["workflow_id"]
+    project_dir = Path(output_dir) / ".simflow"
 
     # Write research metadata
     metadata = {
@@ -111,7 +102,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "stages": stages,
         "current_stage": stages[0],
     }
-    (project_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+    (project_dir / "state" / "research_metadata.json").write_text(json.dumps(metadata, indent=2))
 
     return {
         "status": "success",

@@ -39,6 +39,10 @@
 
 `.omx/` is owned by oh-my-codex / the host session. SimFlow may read `.omx/` for host context, but `.omx/` is never the SimFlow workflow state root. Initializing SimFlow in a project that already contains `.omx/` must leave `.omx/` untouched and create or update only `.simflow/` for workflow state.
 
+## Project Root Boundary
+
+SimFlow distinguishes `plugin_root` from `project_root`. `plugin_root` is the installed plugin or cache directory used to import SimFlow code. `project_root` is the user's current working project and is where `.simflow/`, `reports/`, artifacts, and checkpoints are written. MCP servers may run with cwd set to `plugin_root`, so MCP tools must receive an explicit `project_root` and must reject attempts to write workflow state to the plugin root or plugin cache.
+
 ## Recovery Strategy
 
 1. Find the last completed stage checkpoint

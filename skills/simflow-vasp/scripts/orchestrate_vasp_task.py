@@ -14,7 +14,7 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from runtime.lib.state import ensure_simflow_dir, init_workflow, read_state
+from runtime.lib.state import ensure_workflow_initialized, resolve_project_root
 from runtime.lib.vasp_workflows import build_vasp_task_plan, write_vasp_artifacts
 
 
@@ -27,20 +27,19 @@ def orchestrate_vasp_task(
     """Build VASP orchestration reports, artifacts, and checkpoint."""
     options = dict(options or {})
     options["calc_dir"] = calc_dir
-    ensure_simflow_dir(base_dir)
-    state = read_state(base_dir)
-    if not state:
-        state = init_workflow("dft", "input_generation", base_dir)
+    project_root = resolve_project_root(project_root=base_dir)
+    state = ensure_workflow_initialized("dft", "input_generation", project_root=str(project_root))
 
-    plan = build_vasp_task_plan(task, base_dir, options)
-    written = write_vasp_artifacts(plan, base_dir, workflow_id=state.get("workflow_id"))
+    plan = build_vasp_task_plan(task, str(project_root), options)
+    written = write_vasp_artifacts(plan, str(project_root), workflow_id=state.get("workflow_id"))
     return {"status": "success", "plan": plan, "written": written}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Orchestrate common VASP tasks without submitting jobs")
     parser.add_argument("--task", required=True, help="Task request or task name")
-    parser.add_argument("--base-dir", default=".", help="Workflow root")
+    parser.add_argument("--base-dir", default=".", help="Project root where SimFlow writes .simflow and reports")
+    parser.add_argument("--project-root", help="Project root where SimFlow writes .simflow and reports")
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to base-dir")
     parser.add_argument("--options", default="{}", help="JSON options")
     args = parser.parse_args()
@@ -48,7 +47,7 @@ def main() -> None:
     try:
         result = orchestrate_vasp_task(
             task=args.task,
-            base_dir=args.base_dir,
+            base_dir=args.project_root or args.base_dir,
             calc_dir=args.calc_dir,
             options=json.loads(args.options),
         )

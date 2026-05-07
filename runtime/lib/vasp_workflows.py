@@ -11,7 +11,7 @@ from .artifact import register_artifact
 from .checkpoint import create_checkpoint
 from .gates import check_gate
 from .hpc import estimate_resources
-from .state import ensure_simflow_dir, read_state, update_stage, write_state
+from .state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
 from .vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
 from .vasp_tools import detect_vaspkit, plan_vaspkit_task
 from .vasp_validation import validate_vasp_inputs
@@ -91,6 +91,7 @@ def _write_json(base_dir: Path, relative_path: str, data: dict[str, Any]) -> str
     path = base_dir / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    json.loads(path.read_text(encoding="utf-8"))
     return relative_path
 
 
@@ -112,7 +113,7 @@ def _analysis_report(task: str, calc_dir: Path) -> dict[str, Any]:
 def build_vasp_task_plan(task: str, base_dir: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a complete dry-run VASP orchestration plan."""
     options = options or {}
-    root = Path(base_dir)
+    root = resolve_project_root(project_root=base_dir)
     calc_dir = root / options.get("calc_dir", ".")
     files = [p.name for p in calc_dir.iterdir()] if calc_dir.exists() else []
     classification = classify_vasp_request(task, files)
@@ -153,9 +154,8 @@ def build_vasp_task_plan(task: str, base_dir: str, options: dict[str, Any] | Non
 
 def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str | None = None) -> dict[str, Any]:
     """Write VASP reports and register them as SimFlow artifacts."""
-    root = Path(base_dir)
-    ensure_simflow_dir(str(root))
-    state = read_state(str(root))
+    root = resolve_project_root(project_root=base_dir)
+    state = ensure_workflow_initialized("dft", "input_generation", project_root=str(root))
     workflow_id = workflow_id or state.get("workflow_id", "wf_vasp")
     stage = "input_generation"
 
@@ -190,7 +190,7 @@ def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str |
             name=name,
             artifact_type="report" if name != "handoff_artifact" else "handoff",
             stage=stage,
-            base_dir=str(root),
+            project_root=str(root),
             path=rel_path,
             parameters={"task": plan["task"]},
             software="vasp",
@@ -200,10 +200,14 @@ def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str |
         workflow_id=workflow_id,
         stage_id=stage,
         description=f"VASP {plan['task']} orchestration reports written",
-        base_dir=str(root),
+        project_root=str(root),
         status="success" if plan["validation_report"].get("status") in {"pass", "skip"} else "failed",
     )
-    update_stage(stage, "completed", str(root), outputs=list(files.values()), checkpoint_id=checkpoint["checkpoint_id"])
-    write_state({"latest_vasp_task": plan["task"], "latest_checkpoint": checkpoint["checkpoint_id"]}, str(root), "vasp.json")
+    update_stage(stage, "completed", project_root=str(root), outputs=list(files.values()), checkpoint_id=checkpoint["checkpoint_id"])
+    write_state(
+        {"latest_vasp_task": plan["task"], "latest_checkpoint": checkpoint["checkpoint_id"]},
+        project_root=str(root),
+        state_file="vasp.json",
+    )
 
     return {"files": files, "artifacts": artifacts, "checkpoint": checkpoint}

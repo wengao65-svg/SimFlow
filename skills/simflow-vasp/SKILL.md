@@ -33,6 +33,8 @@ Use it to classify the user request, identify missing inputs and predecessor cal
 
 ## Status write rules
 
+- Before writing any report, artifact, checkpoint, or state, get the user's current project directory with `pwd` and pass it as `project_root` to SimFlow MCP tools or runtime helpers.
+- If the project has no `.simflow/`, initialize or ensure it in `project_root` before writing VASP reports.
 - Update the active SimFlow stage state with the selected VASP task and validation result.
 - Register every generated report through the SimFlow artifact registry.
 - Record whether any real compute or licensed VASP resource would require an approval gate before use.
@@ -51,6 +53,8 @@ Use it to classify the user request, identify missing inputs and predecessor cal
 - Do not bypass verification gates or checkpoint rules.
 - Do not expand this skill into a complete INCAR tag database.
 - Do not modify the Codex plugin adapter layer.
+- Do not write SimFlow workflow state to the plugin root, Codex plugin cache, MCP server cwd, or `.omx/`.
+- Do not write SimFlow workflow state to the plugin root, Codex plugin cache, MCP server cwd, or `.omx/`.
 
 ## Manual confirmation scenarios
 
@@ -89,6 +93,7 @@ For common task orchestration, produce and register:
 - `reports/vasp/handoff_artifact.json`
 
 Each run must update SimFlow state and create a stage checkpoint.
+Report writers must create parent directories before writing `reports/vasp/*.json`, use Python JSON serialization, and read back each JSON file after writing to validate it.
 
 ## Validation Focus
 
