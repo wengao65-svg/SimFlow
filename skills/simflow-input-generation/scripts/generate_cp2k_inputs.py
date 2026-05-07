@@ -5,8 +5,8 @@ Reads a CIF structure file, converts to XYZ, and generates CP2K input
 for AIMD NVT or DFT single-point calculations.
 
 Usage:
-    python generate_cp2k_inputs.py --cif structure.cif --job-type aimd_nvt -o /tmp/cp2k
-    python generate_cp2k_inputs.py --cif structure.cif --job-type energy -o /tmp/cp2k \
+    python generate_cp2k_inputs.py --cif structure.cif --job-type aimd_nvt -o cp2k-out
+    python generate_cp2k_inputs.py --cif structure.cif --job-type energy -o cp2k-out \
         --params '{"coord_file": "last_frame.xyz"}'
 """
 

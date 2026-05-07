@@ -161,6 +161,7 @@ function validateMcpStdio(name, server, pluginRoot) {
   const commandCwd = resolveMcpCwd(pluginRoot, server);
   const result = spawnSync(server.command, commandArgs, {
     cwd: commandCwd,
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
     input,
     encoding: 'utf-8',
     timeout: 5000,
@@ -188,6 +189,30 @@ function validateMcpStdio(name, server, pluginRoot) {
   }
   check(`${name} MCP initialize response is valid`, initializeOk);
   check(`${name} MCP tools/list returns tools`, toolsOk);
+}
+
+function validateMcpConfig(label, pluginRoot, mcpPath) {
+  try {
+    const mcp = readJson(mcpPath);
+    const servers = getMcpServers(mcp);
+    check(`${label} uses supported server map format`, isPlainObject(servers));
+    const serverNames = Object.keys(servers || {});
+    check(`${label} registers exactly 7 SimFlow servers`, serverNames.length === 7);
+    serverNames.forEach(name => {
+      const server = servers[name];
+      check(`${label} ${name} uses python3 command`, server?.command === 'python3');
+      check(`${label} ${name} uses MCP startup wrapper`, Array.isArray(server?.args) && server.args[0] === './scripts/start_mcp_server.py');
+      check(`${label} ${name} passes server name to startup wrapper`, Array.isArray(server?.args) && server.args[1] === name);
+      check(`${label} ${name} has plugin-root cwd`, server?.cwd === '.');
+      if (Array.isArray(server?.args) && server.args.length > 0) {
+        check(`${label} ${name} startup wrapper exists`, fs.existsSync(path.join(pluginRoot, server.args[0])));
+      }
+      validateMcpStdio(name, server, pluginRoot);
+    });
+    console.log(`  Found ${serverNames.length} MCP servers in ${label}`);
+  } catch (error) {
+    check(`${label} is valid JSON`, false);
+  }
 }
 
 function validatePluginRoot(label, pluginRoot) {
@@ -321,27 +346,7 @@ try {
 }
 
 console.log('\n--- Root MCP Configuration ---');
-try {
-  const mcp = readJson(MCP_PATH);
-  const servers = getMcpServers(mcp);
-  check('.mcp.json uses supported server map format', isPlainObject(servers));
-  const serverNames = Object.keys(servers || {});
-  check('.mcp.json registers exactly 7 SimFlow servers', serverNames.length === 7);
-  serverNames.forEach(name => {
-    const server = servers[name];
-    check(`${name} uses python3 command`, server?.command === 'python3');
-    check(`${name} uses MCP startup wrapper`, Array.isArray(server?.args) && server.args[0] === './scripts/start_mcp_server.py');
-    check(`${name} passes server name to startup wrapper`, Array.isArray(server?.args) && server.args[1] === name);
-    check(`${name} has plugin-root cwd`, server?.cwd === '.');
-    if (Array.isArray(server?.args) && server.args.length > 0) {
-      check(`${name} startup wrapper exists in source`, fs.existsSync(path.join(ROOT, server.args[0])));
-    }
-    validateMcpStdio(name, server, ROOT);
-  });
-  console.log(`  Found ${serverNames.length} MCP servers`);
-} catch (error) {
-  check('.mcp.json is valid JSON', false);
-}
+validateMcpConfig('root .mcp.json', ROOT, MCP_PATH);
 
 console.log('\n--- Root Marketplace ---');
 validateMarketplace(ROOT_MARKETPLACE_PATH, ROOT, './plugins/simflow', path.join(ROOT, 'plugins', 'simflow'), 'root marketplace', {
@@ -356,6 +361,12 @@ if (WRAPPER_ROOT) {
     './plugins/simflow',
     WRAPPER_PLUGIN_PATH,
     'wrapper marketplace',
+  );
+  console.log('\n--- Optional Marketplace Wrapper MCP Configuration ---');
+  validateMcpConfig(
+    'wrapper plugin .mcp.json',
+    WRAPPER_PLUGIN_PATH,
+    path.join(WRAPPER_PLUGIN_PATH, '.mcp.json'),
   );
 }
 

@@ -6,6 +6,7 @@ Supports two modes:
 """
 
 import os
+import posixpath
 import subprocess
 from pathlib import Path
 
@@ -77,7 +78,8 @@ class SSHConnector(BaseHPCConnector):
         if not result["valid"]:
             return {"success": False, "errors": result["issues"]}
 
-        remote_path = "/tmp/simflow_job_{}".format(os.path.basename(script_path))
+        remote_tmp = os.environ.get("SIMFLOW_REMOTE_TMPDIR") or "{}tmp".format(os.sep)
+        remote_path = posixpath.join(remote_tmp, "simflow_job_{}".format(os.path.basename(script_path)))
         try:
             # Copy script to remote
             scp_cmd = self._scp_cmd(

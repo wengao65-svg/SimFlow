@@ -1,0 +1,54 @@
+name: Publish Codex Marketplace
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+      - name: Validate plugin metadata
+        run: npm run validate
+
+      - name: Build Codex marketplace branch payload
+        run: npm run build:codex-marketplace
+
+      - name: Validate Codex marketplace branch payload
+        run: SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin
+
+      - name: Publish codex-marketplace branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm run publish:codex-marketplace -- --no-build

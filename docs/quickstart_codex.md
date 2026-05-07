@@ -8,31 +8,16 @@ This guide uses the Codex plugin installation path. SimFlow is not exposed as a 
 - Node.js 18+
 - OpenAI Codex installed
 
-## 1. Install from the SimFlow repository
+## 1. Install the published marketplace
 
-Clone SimFlow, install development dependencies, and register the local Codex marketplace wrapper:
-
-```bash
-git clone <repo> ~/simflow
-cd ~/simflow
-npm install
-npm run install:codex
-```
-
-`npm run install:codex` builds a wrapper marketplace at:
-
-```text
-~/.cache/simflow/codex-marketplace
-```
-
-Then it runs the equivalent of:
+Regular users install SimFlow from the published `codex-marketplace` branch. They do not need to clone the source repository.
 
 ```bash
-codex plugin marketplace remove simflow-local || true
-codex plugin marketplace add ~/.cache/simflow/codex-marketplace
+codex plugin marketplace add <org>/simflow --ref codex-marketplace
+codex
 ```
 
-The wrapper contains:
+The `codex-marketplace` branch contains the Codex marketplace wrapper:
 
 ```text
 .agents/plugins/marketplace.json
@@ -47,7 +32,12 @@ Inside `plugins/simflow/`, the copied plugin root includes:
 skills/
 mcp/
 runtime/
+schemas/
+templates/
+workflow/
 scripts/start_mcp_server.py
+README.md
+LICENSE
 ```
 
 The wrapper marketplace entry points at the copied plugin directory:
@@ -62,15 +52,9 @@ The wrapper marketplace entry points at the copied plugin directory:
 }
 ```
 
-The source repository root is not the default marketplace root. Current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`, so the repository `.agents/plugins/marketplace.json` is intentionally not the user install path.
+The source repository `main` branch is not the user install path. Current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`, so SimFlow publishes an auto-generated marketplace wrapper on the `codex-marketplace` branch.
 
 ## 2. Install with `/plugins`
-
-Start Codex:
-
-```bash
-codex
-```
 
 In Codex:
 
@@ -84,40 +68,60 @@ Expected blocking result:
 - The `simflow` plugin is visible.
 - The plugin can be installed and enabled without manifest or path errors.
 
-## 3. Remote marketplace installation
-
-Remote installation is supported when the remote repository is a wrapper marketplace with `.agents/plugins/marketplace.json` and a real `plugins/simflow/` directory:
+## 3. Update SimFlow
 
 ```bash
-codex plugin marketplace add <org>/simflow --ref <version>
+codex plugin marketplace upgrade simflow-marketplace
 ```
 
-The remote marketplace entry must use `source.path: "./plugins/simflow"`.
+After upgrading, restart Codex or open a new thread. If needed, use `/plugins` to update or reinstall `simflow`.
 
-## 4. Optional clean marketplace wrapper
+## 4. Developer local debugging
 
-Maintainers can still generate a clean wrapper for publishing to a separate marketplace repository or as a release artifact:
+Developers can still test from a source checkout:
 
 ```bash
-npm run build:marketplace
+git clone <repo> ~/simflow
+cd ~/simflow
+npm install
+npm run install:codex
+codex
 ```
 
-The default wrapper is:
+`npm run install:codex` builds a local wrapper marketplace at:
 
 ```text
 ~/.cache/simflow/codex-marketplace
 ```
 
-It contains:
+Then it runs the equivalent of:
 
-```text
-.agents/plugins/marketplace.json
-plugins/simflow/
+```bash
+codex plugin marketplace remove simflow-local || true
+codex plugin marketplace add ~/.cache/simflow/codex-marketplace
 ```
 
-`plugins/simflow` is a real copied plugin directory, not a symlink. This same wrapper structure is used by the default `npm run install:codex` flow.
+This local debugging path uses the same wrapper shape as the published branch.
 
-## 5. Verify MCP with `/mcp`
+## 5. Publish the marketplace branch
+
+Maintainers publish from `main` to the same repository's `codex-marketplace` branch:
+
+```bash
+npm run build:codex-marketplace
+npm run publish:codex-marketplace
+```
+
+`npm run build:codex-marketplace` writes:
+
+```text
+dist/codex-marketplace/.agents/plugins/marketplace.json
+dist/codex-marketplace/plugins/simflow/
+```
+
+`publish:codex-marketplace` replaces the branch contents with that generated wrapper and pushes it. The branch intentionally excludes tests, `node_modules`, caches, `.simflow`, `dist`, POTCAR files, and other local or restricted-license artifacts.
+
+## 6. Verify MCP with `/mcp`
 
 After installing the plugin, run:
 
@@ -137,7 +141,7 @@ Expected blocking result: Codex initializes and lists these SimFlow MCP servers:
 
 If `/mcp` does not list them, run `npm run validate:plugin` from the source repository to check the manifest, marketplace path rules, and JSON-RPC stdio initialization.
 
-## 6. Verify skills by triggering them
+## 7. Verify skills by triggering them
 
 Blocking skill acceptance is based on valid `SKILL.md` frontmatter plus real trigger behavior after plugin install.
 
@@ -152,7 +156,7 @@ $simflow-vasp
 ```
 
 ```text
-@simflow
+@simflow-vasp
 ```
 
 Or a natural-language task:
@@ -161,11 +165,11 @@ Or a natural-language task:
 Use SimFlow to plan a dry-run VASP relaxation workflow for silicon.
 ```
 
-`/simflow` is not a SimFlow invocation path. Use `/plugins` to install the plugin, `/mcp` to inspect MCP servers, and skill routing such as `$simflow`, `$simflow-vasp`, or `@simflow` for SimFlow work.
+`/simflow` is not a SimFlow invocation path. Use `/plugins` to install the plugin, `/mcp` to inspect MCP servers, and skill routing such as `$simflow`, `$simflow-vasp`, or `@simflow-vasp` for SimFlow work.
 
 `/skills` may be used as an enhanced check when the current Codex build supports it, but it is not a release-blocking acceptance criterion.
 
-## 7. Run repository validation
+## 8. Run repository validation
 
 From the SimFlow source repository:
 
@@ -185,8 +189,8 @@ npm run validate
 To validate an optional wrapper after building it:
 
 ```bash
-npm run build:marketplace
-SIMFLOW_MARKETPLACE_ROOT=~/.cache/simflow/codex-marketplace npm run validate:plugin
+npm run build:codex-marketplace
+SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin
 ```
 
 ## Hook separation
