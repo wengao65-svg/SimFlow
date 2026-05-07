@@ -48,13 +48,10 @@ Codex / OMX Host
 
 ## Quick Start
 
-Build and register the local Codex marketplace wrapper:
+Install the published SimFlow Codex marketplace:
 
 ```bash
-git clone <repo> ~/simflow
-cd ~/simflow
-npm install
-npm run install:codex
+codex plugin marketplace add <org>/simflow --ref codex-marketplace
 codex
 ```
 
@@ -71,9 +68,28 @@ Select and install `simflow`, then verify tools and skills:
 $simflow
 ```
 
-SimFlow skills are invoked through Codex skill routing, for example `$simflow`, `$simflow-vasp`, `@simflow`, or a natural-language request. `/simflow` is not a SimFlow invocation path.
+Update the marketplace when a new SimFlow version is published:
 
-`npm run install:codex` generates a wrapper marketplace at `~/.cache/simflow/codex-marketplace` and registers that wrapper with Codex. The wrapper has the Codex marketplace shape:
+```bash
+codex plugin marketplace upgrade simflow-marketplace
+codex
+```
+
+After upgrading, restart Codex or open a new thread. If needed, use `/plugins` to update or reinstall `simflow`.
+
+Developer local debugging uses the source checkout and local wrapper installer:
+
+```bash
+git clone <repo> ~/simflow
+cd ~/simflow
+npm install
+npm run install:codex
+codex
+```
+
+SimFlow skills are invoked through Codex skill routing, for example `$simflow`, `$simflow-vasp`, `@simflow-vasp`, or a natural-language request. `/simflow` is not a SimFlow invocation path.
+
+`npm run install:codex` is for developer local debugging. It generates a wrapper marketplace at `~/.cache/simflow/codex-marketplace` and registers that wrapper with Codex. The published `codex-marketplace` branch has the same Codex marketplace shape:
 
 ```text
 .agents/plugins/marketplace.json
@@ -82,15 +98,16 @@ plugins/simflow/
 
 The marketplace entry uses `source.path: "./plugins/simflow"`. The source repository root is not the default marketplace root because current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`.
 
-Remote marketplace installation is supported when the remote repository is a wrapper marketplace with a real `plugins/simflow/` directory:
+Maintainers build and publish the Codex marketplace branch from `main`:
 
 ```bash
-codex plugin marketplace add <org>/simflow --ref <version>
+npm run build:codex-marketplace
+npm run publish:codex-marketplace
 ```
 
-`npm run build:marketplace` remains available for maintainers who want a clean wrapper at publish time, for example to publish a separate marketplace repository or release artifact. `plugins/simflow` is copied as a real directory, not a symlink.
+`npm run build:marketplace` remains available as a local wrapper build command. `plugins/simflow` is copied as a real directory, not a symlink.
 
-`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, `@simflow`, or natural-language tasks.
+`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, `@simflow-vasp`, or natural-language tasks.
 
 ## Project Structure
 

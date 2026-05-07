@@ -154,10 +154,10 @@ print("SimFlow OK")
 | Variable | Required | Purpose | Example |
 |----------|----------|---------|---------|
 | `SIMFLOW_HPC_HOST` | For HPC | SSH host alias | `hpc` |
-| `SIMFLOW_HPC_BASE` | For HPC | Remote working directory | `/home/user/simflow/jobs` |
-| `SIMFLOW_CP2K_ENV` | For CP2K | Path to CP2K env.sh on HPC | `source /opt/cp2k/env.sh` |
+| `SIMFLOW_HPC_BASE` | For HPC | Remote working directory | `simflow/jobs` |
+| `SIMFLOW_CP2K_ENV` | For CP2K | Path to CP2K env.sh on HPC | `source $CP2K_ROOT/env.sh` |
 | `SIMFLOW_CP2K_EXE` | For CP2K | CP2K executable path on HPC | `cp2k.psmp` |
-| `SIMFLOW_VASP_ENV` | For VASP | Path to VASP env.sh on HPC | `source /opt/vasp/env.sh` |
+| `SIMFLOW_VASP_ENV` | For VASP | Path to VASP env.sh on HPC | `source $VASP_ROOT/env.sh` |
 | `SIMFLOW_PARTITION` | For SLURM | SLURM partition name | `cpu` |
 | `SIMFLOW_NTASKS` | For SLURM | Number of MPI tasks | `32` |
 | `MP_API_KEY` | Optional | Materials Project API key | `your-api-key` |
@@ -189,9 +189,9 @@ ssh hpc hostname
 # On HPC: CP2K should be installed and accessible
 # Set environment variables locally:
 export SIMFLOW_HPC_HOST="hpc"
-export SIMFLOW_HPC_BASE="/home/$USER/simflow/cp2k_jobs"
-export SIMFLOW_CP2K_ENV="source /opt/cp2k/v2025.1/scripts/env.sh"
-export SIMFLOW_CP2K_EXE="/opt/cp2k/v2025.1/bin/cp2k.psmp"
+export SIMFLOW_HPC_BASE="simflow/cp2k_jobs"
+export SIMFLOW_CP2K_ENV="source $CP2K_ROOT/scripts/env.sh"
+export SIMFLOW_CP2K_EXE="$CP2K_ROOT/bin/cp2k.psmp"
 export SIMFLOW_PARTITION="cpu"
 export SIMFLOW_NTASKS="64"
 
@@ -203,8 +203,8 @@ python examples/h2o/run_cp2k_workflow.py --dry-run
 
 ```bash
 export SIMFLOW_HPC_HOST="hpc"
-export SIMFLOW_HPC_BASE="/home/$USER/simflow/vasp_jobs"
-export SIMFLOW_VASP_ENV="source /opt/vasp/6.4.2/env.sh"
+export SIMFLOW_HPC_BASE="simflow/vasp_jobs"
+export SIMFLOW_VASP_ENV="source $VASP_ROOT/env.sh"
 export SIMFLOW_PARTITION="gpu"
 export SIMFLOW_NTASKS="16"
 ```

@@ -14,39 +14,57 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_WRAPPER = path.join(process.env.HOME || process.cwd(), '.cache', 'simflow', 'codex-marketplace');
-const WRAPPER_ROOT = path.resolve(process.argv[2] || DEFAULT_WRAPPER);
+const args = process.argv.slice(2);
+const wrapperArg = args.find(arg => !arg.startsWith('--'));
+const nameArg = args.find(arg => arg.startsWith('--marketplace-name='));
+const MARKETPLACE_NAME = (nameArg ? nameArg.split('=')[1] : process.env.SIMFLOW_MARKETPLACE_NAME) || 'simflow-local';
+const WRAPPER_ROOT = path.resolve(wrapperArg || DEFAULT_WRAPPER);
 const PLUGIN_ROOT = path.join(WRAPPER_ROOT, 'plugins', 'simflow');
 const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketplace.json');
 
 const REQUIRED_ENTRIES = [
-  '.codex-plugin',
-  'skills',
-  '.mcp.json',
-  'mcp',
-  'runtime',
-  'schemas',
-  'templates',
-  'workflow',
-  'hooks',
-  'notifications',
-  'docs',
-  'scripts',
-  'AGENTS.md',
-  'README.md',
-  'LICENSE',
-  'package.json',
-  'pyproject.toml',
+  { source: '.codex-plugin/plugin.json', target: '.codex-plugin/plugin.json' },
+  { source: '.mcp.json', target: '.mcp.json' },
+  { source: 'skills', target: 'skills' },
+  { source: 'mcp', target: 'mcp' },
+  { source: 'runtime', target: 'runtime' },
+  { source: 'schemas', target: 'schemas' },
+  { source: 'templates', target: 'templates' },
+  { source: 'workflow', target: 'workflow' },
+  { source: 'scripts/start_mcp_server.py', target: 'scripts/start_mcp_server.py' },
+  { source: 'docs/quickstart_codex.md', target: 'docs/quickstart_codex.md' },
+  { source: 'docs/state-and-checkpoint.md', target: 'docs/state-and-checkpoint.md' },
+  { source: 'docs/installation.md', target: 'docs/installation.md' },
+  { source: 'docs/user_guide.md', target: 'docs/user_guide.md' },
+  { source: 'docs/mcp-design.md', target: 'docs/mcp-design.md' },
+  { source: 'docs/skill-design.md', target: 'docs/skill-design.md' },
+  { source: 'docs/credentials-policy.md', target: 'docs/credentials-policy.md' },
+  { source: 'AGENTS.md', target: 'AGENTS.md' },
+  { source: 'README.md', target: 'README.md' },
+  { source: 'LICENSE', target: 'LICENSE' },
 ];
 
 const EXCLUDED_NAMES = new Set([
   '.git',
   '.git-data',
+  '.github',
   '.simflow',
+  '.omx',
   '.pytest_cache',
+  '.mypy_cache',
   '__pycache__',
   'node_modules',
   'plugins',
+  'dist',
+  '.cache',
+  'cache',
+  'tests',
 ]);
+
+function isBlockedName(name) {
+  const upper = name.toUpperCase();
+  return upper === 'POTCAR' || upper.startsWith('POTCAR.');
+}
 
 function copyRecursive(source, target) {
   const stat = fs.lstatSync(source);
@@ -56,7 +74,7 @@ function copyRecursive(source, target) {
   if (stat.isDirectory()) {
     fs.mkdirSync(target, { recursive: true });
     for (const entry of fs.readdirSync(source)) {
-      if (EXCLUDED_NAMES.has(entry) || entry.endsWith('.pyc')) {
+      if (EXCLUDED_NAMES.has(entry) || entry.endsWith('.pyc') || isBlockedName(entry)) {
         continue;
       }
       copyRecursive(path.join(source, entry), path.join(target, entry));
@@ -79,15 +97,15 @@ function build() {
   fs.mkdirSync(PLUGIN_ROOT, { recursive: true });
 
   for (const entry of REQUIRED_ENTRIES) {
-    const source = path.join(ROOT, entry);
+    const source = path.join(ROOT, entry.source);
     if (!fs.existsSync(source)) {
       continue;
     }
-    copyRecursive(source, path.join(PLUGIN_ROOT, entry));
+    copyRecursive(source, path.join(PLUGIN_ROOT, entry.target));
   }
 
   const marketplace = {
-    name: 'simflow-local',
+    name: MARKETPLACE_NAME,
     interface: {
       displayName: 'SimFlow',
     },
@@ -114,6 +132,12 @@ function build() {
   }
   if (!fs.existsSync(path.join(PLUGIN_ROOT, '.codex-plugin', 'plugin.json'))) {
     throw new Error('Built plugin is missing .codex-plugin/plugin.json');
+  }
+  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_mcp_server.py'))) {
+    throw new Error('Built plugin is missing scripts/start_mcp_server.py');
+  }
+  if (fs.existsSync(path.join(PLUGIN_ROOT, 'tests'))) {
+    throw new Error('Built plugin must not contain tests');
   }
   console.log(`Built SimFlow marketplace wrapper at ${WRAPPER_ROOT}`);
 }

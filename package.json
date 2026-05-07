@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "build:marketplace": "node scripts/build_marketplace_wrapper.js",
+    "build:codex-marketplace": "node scripts/build_marketplace_wrapper.js dist/codex-marketplace --marketplace-name=simflow-marketplace",
     "install:codex": "node scripts/install_codex.js",
+    "publish:codex-marketplace": "node scripts/publish_codex_marketplace.js",
     "validate": "npm run validate:all",
     "validate:plugin": "node scripts/validate_plugin.js",
     "validate:skills": "node scripts/validate_skills.js",
