@@ -1,0 +1,16 @@
+{
+  "name": "checkpoint_on_stage_boundary",
+  "description": "阶段边界 checkpoint 策略：每个阶段完成后自动创建 checkpoint",
+  "scope": "all_stages",
+  "rules": [
+    {
+      "condition": "stage_completed",
+      "action": "create_checkpoint",
+      "parameters": {
+        "include_state": true,
+        "include_artifacts": true,
+        "include_logs": true
+      }
+    }
+  ]
+}

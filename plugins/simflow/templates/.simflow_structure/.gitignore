@@ -1,0 +1,4 @@
+# SimFlow state - typically not committed
+logs/
+*.tmp
+*.bak

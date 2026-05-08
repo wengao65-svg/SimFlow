@@ -1,0 +1,18 @@
+{
+  "name": "resource_exceeds_budget",
+  "description": "资源超预算审批门：资源估算超出合理范围时触发",
+  "type": "approval",
+  "conditions": [
+    "resource_estimate_available",
+    "budget_threshold_defined"
+  ],
+  "thresholds": {
+    "cpu_hours": 10000,
+    "memory_gb": 500,
+    "storage_gb": 1000
+  },
+  "actions_on_approve": ["proceed_to_modeling"],
+  "actions_on_reject": ["suggest_optimization", "revise_parameters"],
+  "auto_approve": false,
+  "timeout_minutes": 30
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkflowDefinition",
+  "description": "SimFlow workflow definition schema (dft.json, aimd.json, md.json)",
+  "type": "object",
+  "required": ["workflow_name", "workflow_type", "stages", "entry_point"],
+  "properties": {
+    "workflow_name": {
+      "type": "string",
+      "description": "Workflow identifier name"
+    },
+    "workflow_type": {
+      "type": "string",
+      "enum": ["dft", "aimd", "md", "custom"],
+      "description": "Workflow category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable workflow description"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "required"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Stage name matching workflow/stages/*.json"
+          },
+          "required": {
+            "type": "boolean",
+            "default": true
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Stage names that must complete before this one"
+          }
+        }
+      },
+      "description": "Ordered list of workflow stages"
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "stage", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "stage": {"type": "string"},
+          "type": {"type": "string", "enum": ["approval", "verification", "safety"]}
+        }
+      },
+      "description": "Gates applied during workflow execution"
+    },
+    "policies": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Policy names from workflow/policies/"
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "First stage to execute"
+    },
+    "exit_points": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Terminal stages"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "author": {"type": "string"},
+        "version": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Verification",
+  "description": "Stage verification result",
+  "type": "object",
+  "required": ["stage", "timestamp", "results"],
+  "properties": {
+    "stage": {
+      "type": "string",
+      "description": "Stage being verified"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["validator", "status"],
+        "properties": {
+          "validator": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "fail", "warning"] },
+          "message": { "type": "string" },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "overall": {
+      "type": "string",
+      "enum": ["pass", "fail", "warning"]
+    }
+  }
+}

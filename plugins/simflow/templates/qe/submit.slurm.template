@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name={{ job_name | default("qe_job") }}
+#SBATCH --nodes={{ nodes | default(1) }}
+#SBATCH --ntasks={{ ntasks | default(16) }}
+#SBATCH --time={{ walltime | default("04:00:00") }}
+#SBATCH --partition={{ partition | default("normal") }}
+#SBATCH --output={{ output | default("qe.out") }}
+#SBATCH --error={{ error | default("qe.err") }}
+{% if account %}#SBATCH --account={{ account }}
+{% endif %}{% if mem %}#SBATCH --mem={{ mem }}
+{% endif %}
+# Load modules
+{% for module in modules | default(["quantum-espresso/7.2"]) %}
+module load {{ module }}
+{% endfor %}
+
+cd {{ work_dir | default("$SLURM_SUBMIT_DIR") }}
+
+# Run pw.x
+{{ mpi_launcher | default("mpirun") }} -np {{ ntasks }} {{ pw_executable | default("pw.x") }} -in {{ input_file | default("pw.in") }}
+
+echo "Job completed at $(date)"

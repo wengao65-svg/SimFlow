@@ -1,0 +1,22 @@
+{
+  "name": "artifact_versioning",
+  "description": "Artifact 版本化策略：所有 artifact 必须版本化并记录 lineage",
+  "scope": "all_stages",
+  "rules": [
+    {
+      "condition": "artifact_created",
+      "action": "assign_version",
+      "parameters": { "scheme": "semantic" }
+    },
+    {
+      "condition": "artifact_created",
+      "action": "record_lineage",
+      "parameters": { "include_inputs": true, "include_parameters": true }
+    },
+    {
+      "condition": "artifact_modified",
+      "action": "increment_version",
+      "parameters": { "preserve_history": true }
+    }
+  ]
+}

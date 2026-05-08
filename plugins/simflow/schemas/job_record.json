@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JobRecord",
+  "description": "HPC job record",
+  "type": "object",
+  "required": ["job_id", "workflow_id", "stage", "status", "created_at"],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "HPC job ID"
+    },
+    "workflow_id": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["prepared", "dry_run", "submitted", "running", "completed", "failed", "cancelled"]
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": true
+    },
+    "script_path": {
+      "type": "string"
+    },
+    "hpc_config": {
+      "type": "object",
+      "properties": {
+        "scheduler": { "type": "string", "enum": ["slurm", "pbs", "lsf", "local"] },
+        "partition": { "type": "string" },
+        "nodes": { "type": "integer" },
+        "cpus_per_node": { "type": "integer" },
+        "memory_gb": { "type": "number" },
+        "walltime_hours": { "type": "number" }
+      }
+    },
+    "submitted_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

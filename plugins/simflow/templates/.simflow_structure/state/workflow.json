@@ -1,0 +1,10 @@
+{
+  "workflow_id": null,
+  "workflow_type": null,
+  "current_stage": null,
+  "status": "initialized",
+  "plan": null,
+  "entry_point": null,
+  "created_at": null,
+  "updated_at": null
+}

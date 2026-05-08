@@ -1,0 +1,14 @@
+{
+  "name": "writing",
+  "description": "写作阶段：生成报告、论文草稿、方法章节、结果讨论、补充材料",
+  "default_agent": "writer",
+  "default_skill": "simflow-writing",
+  "required_inputs": ["all_stage_artifacts"],
+  "optional_inputs": ["journal_style"],
+  "expected_outputs": ["manuscript.md", "methods.md", "results.md", "supplementary.md"],
+  "artifact_types": ["manuscript", "methods", "results", "supplementary"],
+  "validators": ["section_completeness", "figure_reference", "citation_reference", "reproducibility"],
+  "approval_gates": ["structure_adjustment", "key_conclusion_review"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

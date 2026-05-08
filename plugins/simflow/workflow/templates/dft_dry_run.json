@@ -1,0 +1,42 @@
+{
+  "name": "dft_dry_run",
+  "description": "DFT 工作流 dry-run 示例：Si 体相结构优化",
+  "workflow_type": "dft",
+  "software": "vasp",
+  "dry_run": true,
+  "stages": [
+    {
+      "name": "proposal",
+      "inputs": {
+        "research_goal": "Si bulk structure optimization with PBE functional",
+        "system_info": "Si, Fd-3m, a=5.43A"
+      },
+      "expected_outputs": ["proposal.md", "parameter_table.json", "resource_estimate.json"]
+    },
+    {
+      "name": "modeling",
+      "inputs": {
+        "proposal": "proposal.md",
+        "structure": "conventional cell of Si"
+      },
+      "expected_outputs": ["POSCAR", "model.json"]
+    },
+    {
+      "name": "input_generation",
+      "inputs": {
+        "model": "POSCAR",
+        "parameters": "parameter_table.json",
+        "software": "vasp"
+      },
+      "expected_outputs": ["INCAR", "KPOINTS", "POTCAR", "input_manifest.json"]
+    },
+    {
+      "name": "compute",
+      "inputs": {
+        "manifest": "input_manifest.json"
+      },
+      "expected_outputs": ["job_script.sh", "dry_run_report.json"],
+      "dry_run_only": true
+    }
+  ]
+}

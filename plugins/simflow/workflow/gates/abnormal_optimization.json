@@ -1,0 +1,13 @@
+{
+  "name": "abnormal_optimization",
+  "description": "异常优化审批门：结构优化结果异常时触发",
+  "type": "approval",
+  "conditions": [
+    "optimization_completed",
+    "structure_validated"
+  ],
+  "actions_on_approve": ["accept_structure", "proceed_to_input_generation"],
+  "actions_on_reject": ["suggest_remodeling", "iterate_to_modeling"],
+  "auto_approve": false,
+  "timeout_minutes": 30
+}

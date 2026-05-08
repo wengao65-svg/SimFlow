@@ -1,0 +1,14 @@
+{
+  "name": "visualization",
+  "description": "可视化阶段：生成结构图、能量曲线、RDF、MSD、温度曲线、收敛图",
+  "default_agent": "visualizer",
+  "default_skill": "simflow-visualization",
+  "required_inputs": ["data_summary.json"],
+  "optional_inputs": ["structure_file", "trajectory_file"],
+  "expected_outputs": ["figures", "figure_list.json", "captions"],
+  "artifact_types": ["figure", "figure_list", "caption"],
+  "validators": ["data_traceability", "caption_completeness", "format_compliance", "axis_labels"],
+  "approval_gates": ["ambiguous_visualization"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

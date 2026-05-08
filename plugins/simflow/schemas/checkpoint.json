@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Checkpoint",
+  "description": "Workflow checkpoint for recovery",
+  "type": "object",
+  "required": ["checkpoint_id", "workflow_id", "stage_id", "created_at"],
+  "properties": {
+    "checkpoint_id": {
+      "type": "string",
+      "pattern": "^ckpt_\\d{3}_[a-z_]+$",
+      "description": "Checkpoint identifier"
+    },
+    "workflow_id": {
+      "type": "string",
+      "description": "Associated workflow ID"
+    },
+    "stage_id": {
+      "type": "string",
+      "description": "Stage at checkpoint time"
+    },
+    "job_id": {
+      "type": ["string", "null"],
+      "description": "Associated job ID (if applicable)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable checkpoint description"
+    },
+    "state_snapshot": {
+      "type": "object",
+      "description": "Workflow state at checkpoint time"
+    },
+    "artifact_versions": {
+      "type": "object",
+      "description": "Artifact versions at checkpoint time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "partial"],
+      "description": "Checkpoint status"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

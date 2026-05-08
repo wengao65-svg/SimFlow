@@ -1,0 +1,30 @@
+{
+  "stage_name": "{{ stage_name }}",
+  "description": "{{ description }}",
+  "default_agent": "{{ default_agent }}",
+  "default_skill": "{{ default_skill }}",
+  "required_inputs": [
+    "{{ input_1 }}"
+  ],
+  "optional_inputs": [],
+  "expected_outputs": [
+    "{{ output_1 }}"
+  ],
+  "artifact_types": [
+    "{{ artifact_type_1 }}"
+  ],
+  "validators": [
+    "{{ validator_1 }}"
+  ],
+  "approval_gates": [],
+  "checkpoint_policy": {
+    "auto_checkpoint": true,
+    "on_failure": true,
+    "on_success": true
+  },
+  "recovery_policy": {
+    "retry_count": 1,
+    "retry_from_checkpoint": true,
+    "fallback_action": "abort"
+  }
+}

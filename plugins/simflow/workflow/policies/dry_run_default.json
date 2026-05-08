@@ -1,0 +1,17 @@
+{
+  "name": "dry_run_default",
+  "description": "默认 dry-run 策略：所有计算操作默认为 dry-run 模式",
+  "scope": "compute",
+  "rules": [
+    {
+      "condition": "compute_stage_entered",
+      "action": "set_dry_run_mode",
+      "parameters": { "mode": true }
+    },
+    {
+      "condition": "user_requests_real_submit",
+      "action": "trigger_approval_gate",
+      "parameters": { "gate": "hpc_submit" }
+    }
+  ]
+}

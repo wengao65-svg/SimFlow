@@ -1,0 +1,20 @@
+{
+  "name": "simflow-marketplace",
+  "interface": {
+    "displayName": "SimFlow"
+  },
+  "plugins": [
+    {
+      "name": "simflow",
+      "source": {
+        "source": "local",
+        "path": "./plugins/simflow"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

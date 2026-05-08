@@ -1,0 +1,17 @@
+{
+  "name": "approval_for_external_submit",
+  "description": "外部提交审批策略：所有真实外部提交必须经过审批",
+  "scope": "compute",
+  "rules": [
+    {
+      "condition": "external_submit_requested",
+      "action": "trigger_approval_gate",
+      "parameters": { "gate": "hpc_submit" }
+    },
+    {
+      "condition": "approval_pending",
+      "action": "hold_submission",
+      "parameters": { "timeout_minutes": 60 }
+    }
+  ]
+}

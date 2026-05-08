@@ -1,0 +1,14 @@
+{
+  "name": "analysis",
+  "description": "结果分析阶段：解析能量、力、收敛、轨迹、RDF、MSD、扩散系数等",
+  "default_agent": "data_analyst",
+  "default_skill": "simflow-analysis",
+  "required_inputs": ["compute_output"],
+  "optional_inputs": ["analysis_goals"],
+  "expected_outputs": ["analysis_report.md", "data_summary.json"],
+  "artifact_types": ["analysis_report", "data_summary"],
+  "validators": ["output_completeness", "convergence_check", "trajectory_integrity", "statistical_significance"],
+  "approval_gates": ["convergence_failure", "unexpected_results"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

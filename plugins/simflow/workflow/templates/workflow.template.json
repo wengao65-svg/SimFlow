@@ -1,0 +1,30 @@
+{
+  "workflow_name": "{{ workflow_name }}",
+  "workflow_type": "{{ workflow_type }}",
+  "description": "{{ description }}",
+  "stages": [
+    {
+      "name": "{{ first_stage }}",
+      "required": true
+    },
+    {
+      "name": "{{ second_stage }}",
+      "required": true,
+      "depends_on": ["{{ first_stage }}"]
+    }
+  ],
+  "gates": [],
+  "policies": [
+    "dry_run_default",
+    "checkpoint_on_stage_boundary",
+    "artifact_versioning",
+    "no_credential_storage"
+  ],
+  "entry_point": "{{ first_stage }}",
+  "exit_points": ["{{ last_stage }}"],
+  "metadata": {
+    "author": "{{ author }}",
+    "version": "0.1.0",
+    "created_at": "{{ created_at }}"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "input_generation",
+  "description": "输入文件生成阶段：生成 VASP/QE/LAMMPS/Gaussian 输入文件",
+  "default_agent": "input_generator",
+  "default_skill": "simflow-input-generation",
+  "required_inputs": ["model.json", "parameter_table.json"],
+  "optional_inputs": ["software_preference"],
+  "expected_outputs": ["input_files", "input_manifest.json"],
+  "artifact_types": ["input_files", "input_manifest"],
+  "validators": ["file_existence", "parameter_consistency", "format_correctness", "path_reference"],
+  "approval_gates": ["parameter_adjustment"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "independent_stage_entry",
+  "description": "独立阶段进入策略：每个阶段支持独立进入，前提是输入满足",
+  "scope": "all_stages",
+  "rules": [
+    {
+      "condition": "stage_entered_independently",
+      "action": "validate_inputs",
+      "parameters": { "check_required": true, "check_optional": false }
+    },
+    {
+      "condition": "inputs_satisfied",
+      "action": "allow_stage_execution"
+    },
+    {
+      "condition": "inputs_not_satisfied",
+      "action": "report_missing_inputs",
+      "parameters": { "suggest_sources": true }
+    }
+  ]
+}

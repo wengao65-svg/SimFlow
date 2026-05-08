@@ -1,0 +1,13 @@
+{
+  "name": "key_conclusion_review",
+  "description": "关键结论审阅审批门：关键结论需要人工审阅时触发",
+  "type": "approval",
+  "conditions": [
+    "conclusions_written",
+    "evidence_traceable"
+  ],
+  "actions_on_approve": ["accept_conclusions"],
+  "actions_on_reject": ["revise_conclusions", "request_additional_analysis"],
+  "auto_approve": false,
+  "timeout_minutes": 60
+}

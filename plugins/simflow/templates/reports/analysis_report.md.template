@@ -1,0 +1,73 @@
+# 分析报告
+
+## 1. 概要
+
+- 工作流 ID：{{ workflow_id }}
+- 分析阶段：{{ stage }}
+- 分析时间：{{ timestamp }}
+- 计算软件：{{ software }}
+
+## 2. 收敛性分析
+
+### 2.1 电子收敛
+
+- 最终能量：{{ final_energy }} eV
+- 能量收敛：{{ energy_converged }}
+- 最终能量差：{{ energy_change }} eV
+
+### 2.2 离子收敛
+
+- 最终力：{{ max_force }} eV/Å
+- 力收敛：{{ force_converged }}
+- 最终应力：{{ stress }} kB
+
+### 2.3 几何优化
+
+- 优化步数：{{ optimization_steps }}
+- 最终结构变化：{{ structural_change }}
+
+## 3. 能量分析
+
+| 指标 | 值 | 单位 |
+|------|------|------|
+| 总能量 | {{ total_energy }} | eV |
+| 形成能 | {{ formation_energy }} | eV/atom |
+| 带隙 | {{ band_gap }} | eV |
+| 费米能级 | {{ fermi_level }} | eV |
+
+## 4. 轨迹分析（如适用）
+
+- 轨迹步数：{{ trajectory_steps }}
+- 温度：{{ temperature }} K
+- 压力：{{ pressure }} GPa
+- 均方位移（MSD）：{{ msd }} Å²
+- 扩散系数：{{ diffusion_coefficient }} cm²/s
+
+## 5. 结构分析
+
+### 5.1 径向分布函数（RDF）
+
+{{ rdf_analysis }}
+
+### 5.2 键长分析
+
+{{ bond_analysis }}
+
+## 6. 可视化
+
+{% for figure in figures %}
+### {{ figure.title }}
+![{{ figure.caption }}]({{ figure.path }})
+{% endfor %}
+
+## 7. 结论
+
+{{ conclusions }}
+
+## 8. 参考数据
+
+| 对比项 | 本计算 | 文献值 | 偏差 |
+|--------|--------|--------|------|
+{% for ref in reference_data %}
+| {{ ref.property }} | {{ ref.calculated }} | {{ ref.literature }} | {{ ref.deviation }} |
+{% endfor %}
