@@ -44,13 +44,17 @@ let errors = 0;
 let warnings = 0;
 
 function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n*/);
-  if (!match) {
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== '---' || /^---\s+name:/.test(lines[0])) {
+    return null;
+  }
+  const closeIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+  if (closeIndex === -1) {
     return null;
   }
 
   const fields = {};
-  for (const line of match[1].split('\n')) {
+  for (const line of lines.slice(1, closeIndex)) {
     const separator = line.indexOf(':');
     if (separator === -1) {
       continue;
@@ -62,7 +66,7 @@ function parseFrontmatter(content) {
 
   return {
     fields,
-    body: content.slice(match[0].length),
+    body: lines.slice(closeIndex + 1).join('\n'),
   };
 }
 
