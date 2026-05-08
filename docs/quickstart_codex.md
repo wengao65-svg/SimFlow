@@ -1,4 +1,4 @@
-# SimFlow v0.8.5 Codex Quick Start
+# SimFlow v0.8.6 Codex Quick Start
 
 This guide uses the Codex plugin installation path. SimFlow is not exposed as a primary CLI; users interact with it through Codex plugins, skills, and MCP tools.
 

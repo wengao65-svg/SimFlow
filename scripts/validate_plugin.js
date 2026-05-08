@@ -215,6 +215,50 @@ function validateMcpConfig(label, pluginRoot, mcpPath) {
   }
 }
 
+function parseSkillFrontmatter(content) {
+  const lines = content.split(/\r?\n/);
+  const result = {
+    fields: {},
+    firstLineOk: lines[0] === '---',
+    singleLineFrontmatter: /^---\s+name:/.test(lines[0] || ''),
+    hasClosingDelimiter: false,
+  };
+  const closeIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+  if (closeIndex === -1) {
+    return result;
+  }
+  result.hasClosingDelimiter = true;
+  for (const line of lines.slice(1, closeIndex)) {
+    const separator = line.indexOf(':');
+    if (separator === -1) {
+      continue;
+    }
+    result.fields[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+  }
+  return result;
+}
+
+function validateSkillFrontmatterDirectory(label, skillsDir) {
+  check(`${label} skills directory exists`, fs.existsSync(skillsDir));
+  if (!fs.existsSync(skillsDir)) {
+    return;
+  }
+  const skillNames = fs.readdirSync(skillsDir)
+    .filter(skillName => fs.existsSync(path.join(skillsDir, skillName, 'SKILL.md')));
+  check(`${label} has bundled skills`, skillNames.length > 0);
+  skillNames.forEach(skillName => {
+    const skillFile = path.join(skillsDir, skillName, 'SKILL.md');
+    const content = fs.readFileSync(skillFile, 'utf-8');
+    const parsed = parseSkillFrontmatter(content);
+    check(`${label} ${skillName} frontmatter starts with standalone ---`, parsed.firstLineOk);
+    check(`${label} ${skillName} does not use single-line frontmatter`, !parsed.singleLineFrontmatter);
+    check(`${label} ${skillName} frontmatter has standalone closing ---`, parsed.hasClosingDelimiter);
+    check(`${label} ${skillName} frontmatter name is non-empty`, typeof parsed.fields.name === 'string' && parsed.fields.name.length > 0);
+    check(`${label} ${skillName} frontmatter description is non-empty`, typeof parsed.fields.description === 'string' && parsed.fields.description.length > 0);
+    check(`${label} ${skillName} frontmatter name matches directory`, parsed.fields.name === skillName, true);
+  });
+}
+
 function validatePluginRoot(label, pluginRoot) {
   check(`${label} exists`, fs.existsSync(pluginRoot));
   if (!fs.existsSync(pluginRoot)) {
@@ -353,6 +397,9 @@ validateMarketplace(ROOT_MARKETPLACE_PATH, ROOT, './plugins/simflow', path.join(
   requiresSimflowPlugin: false,
 });
 
+console.log('\n--- Root Skill Frontmatter ---');
+validateSkillFrontmatterDirectory('root plugin', path.join(ROOT, 'skills'));
+
 if (WRAPPER_ROOT) {
   console.log('\n--- Optional Marketplace Wrapper ---');
   validateMarketplace(
@@ -368,6 +415,8 @@ if (WRAPPER_ROOT) {
     WRAPPER_PLUGIN_PATH,
     path.join(WRAPPER_PLUGIN_PATH, '.mcp.json'),
   );
+  console.log('\n--- Optional Marketplace Wrapper Skill Frontmatter ---');
+  validateSkillFrontmatterDirectory('wrapper plugin', path.join(WRAPPER_PLUGIN_PATH, 'skills'));
 }
 
 console.log('\n--- Codex Hooks Separation ---');

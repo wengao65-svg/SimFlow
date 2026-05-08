@@ -91,6 +91,57 @@ function writeJson(filePath, data) {
   fs.renameSync(`${filePath}.tmp`, filePath);
 }
 
+function parseSkillFrontmatter(content, skillName) {
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== '---') {
+    throw new Error(`${skillName} SKILL.md must start with a standalone --- frontmatter delimiter`);
+  }
+  if (/^---\s+name:/.test(lines[0])) {
+    throw new Error(`${skillName} SKILL.md uses single-line frontmatter`);
+  }
+  const closeIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+  if (closeIndex === -1) {
+    throw new Error(`${skillName} SKILL.md is missing a standalone closing --- frontmatter delimiter`);
+  }
+  const fields = {};
+  for (const line of lines.slice(1, closeIndex)) {
+    const separator = line.indexOf(':');
+    if (separator === -1) {
+      continue;
+    }
+    fields[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+  }
+  if (!fields.name) {
+    throw new Error(`${skillName} SKILL.md frontmatter name must not be empty`);
+  }
+  if (fields.name !== skillName) {
+    throw new Error(`${skillName} SKILL.md frontmatter name must match its directory`);
+  }
+  if (!fields.description) {
+    throw new Error(`${skillName} SKILL.md frontmatter description must not be empty`);
+  }
+}
+
+function validateSkillCopies() {
+  const sourceSkillsDir = path.join(ROOT, 'skills');
+  const targetSkillsDir = path.join(PLUGIN_ROOT, 'skills');
+  const skillNames = fs.readdirSync(sourceSkillsDir)
+    .filter(skillName => fs.existsSync(path.join(sourceSkillsDir, skillName, 'SKILL.md')));
+  for (const skillName of skillNames) {
+    const sourceSkill = path.join(sourceSkillsDir, skillName, 'SKILL.md');
+    const targetSkill = path.join(targetSkillsDir, skillName, 'SKILL.md');
+    if (!fs.existsSync(targetSkill)) {
+      throw new Error(`Built plugin is missing ${skillName}/SKILL.md`);
+    }
+    const sourceContent = fs.readFileSync(sourceSkill);
+    const targetContent = fs.readFileSync(targetSkill);
+    if (!sourceContent.equals(targetContent)) {
+      throw new Error(`${skillName}/SKILL.md changed during marketplace wrapper build`);
+    }
+    parseSkillFrontmatter(targetContent.toString('utf-8'), skillName);
+  }
+}
+
 function build() {
   fs.mkdirSync(path.dirname(PLUGIN_ROOT), { recursive: true });
   fs.rmSync(PLUGIN_ROOT, { recursive: true, force: true });
@@ -139,6 +190,7 @@ function build() {
   if (fs.existsSync(path.join(PLUGIN_ROOT, 'tests'))) {
     throw new Error('Built plugin must not contain tests');
   }
+  validateSkillCopies();
   console.log(`Built SimFlow marketplace wrapper at ${WRAPPER_ROOT}`);
 }
 
