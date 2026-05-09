@@ -13,17 +13,35 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.state import init_workflow
+from runtime.lib.state import init_workflow, write_state
 
 
-DEFAULT_STAGES = {
-    "dft": ["proposal", "literature_review", "modeling", "input_generation",
-            "compute", "analysis", "visualization", "writing", "review"],
-    "aimd": ["proposal", "literature_review", "modeling", "input_generation",
-             "compute", "analysis", "visualization", "writing", "review"],
-    "md": ["proposal", "literature_review", "modeling", "input_generation",
-           "compute", "analysis", "visualization", "writing", "review"],
-}
+WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
+
+
+def load_workflow_definition(workflow_type: str) -> dict:
+    """Load the canonical workflow definition for a workflow type."""
+    normalized = (workflow_type or "dft").lower()
+    path = WORKFLOWS_DIR / f"{normalized}.json"
+    if not path.exists():
+        path = WORKFLOWS_DIR / "dft.json"
+        normalized = "dft"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    stages = data.get("stages", [])
+    if not isinstance(stages, list) or not stages:
+        raise ValueError(f"Workflow {normalized} has no stages")
+    return {
+        "workflow_type": normalized,
+        "path": str(path),
+        "name": data.get("name", normalized),
+        "stages": [stage["name"] if isinstance(stage, dict) else stage for stage in stages],
+        "stage_dependencies": data.get("stage_dependencies", {}),
+        "entry_points": data.get("entry_points", []),
+        "default_entry": data.get("default_entry") or data.get("entry_point") or (
+            stages[0]["name"] if isinstance(stages[0], dict) else stages[0]
+        ),
+    }
+
 
 
 def parse_research_input(input_text: str) -> dict:
@@ -67,42 +85,49 @@ def parse_research_input(input_text: str) -> dict:
 def init_research(input_file: str = None, input_text: str = None,
                   workflow_type: str = None, output_dir: str = ".") -> dict:
     """Initialize a new research workflow."""
-    # Parse input
     if input_file:
-        content = Path(input_file).read_text()
+        content = Path(input_file).read_text(encoding="utf-8")
         parsed = parse_research_input(content)
     elif input_text:
         parsed = parse_research_input(input_text)
     else:
-        parsed = {"research_goal": "New research", "workflow_type": "dft",
-                  "software": "vasp", "material": "unknown", "parameters": {}}
+        parsed = {
+            "research_goal": "New research",
+            "workflow_type": "dft",
+            "software": "vasp",
+            "material": "unknown",
+            "parameters": {},
+        }
 
     if workflow_type:
         parsed["workflow_type"] = workflow_type
 
-    wf_type = parsed["workflow_type"]
-    if wf_type not in DEFAULT_STAGES:
-        wf_type = "dft"
+    workflow = load_workflow_definition(parsed.get("workflow_type", "dft"))
+    wf_type = workflow["workflow_type"]
+    stages = workflow["stages"]
+    entry_point = workflow["default_entry"]
 
-    # Initialize workflow state
-    stages = DEFAULT_STAGES[wf_type]
-    state = init_workflow(wf_type, stages[0], project_root=output_dir)
+    state = init_workflow(wf_type, entry_point, project_root=output_dir)
     workflow_id = state["workflow_id"]
     project_dir = Path(output_dir) / ".simflow"
 
-    # Write research metadata
     metadata = {
         "workflow_id": workflow_id,
         "workflow_type": wf_type,
+        "workflow_name": workflow["name"],
+        "workflow_definition": workflow["path"],
+        "entry_point": entry_point,
+        "entry_points": workflow["entry_points"],
+        "stage_dependencies": workflow["stage_dependencies"],
+        "stages": stages,
+        "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],
         "software": parsed.get("software", "vasp"),
         "parameters": parsed.get("parameters", {}),
         "created_at": datetime.now().isoformat(),
-        "stages": stages,
-        "current_stage": stages[0],
     }
-    (project_dir / "state" / "research_metadata.json").write_text(json.dumps(metadata, indent=2))
+    write_state(metadata, project_root=output_dir, state_file="metadata.json")
 
     return {
         "status": "success",
@@ -110,7 +135,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "workflow_type": wf_type,
         "project_dir": str(project_dir),
         "stages": stages,
-        "current_stage": stages[0],
+        "current_stage": entry_point,
         "metadata": metadata,
     }
 
