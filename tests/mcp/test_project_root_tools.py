@@ -70,3 +70,12 @@ def test_mcp_tools_reject_plugin_root_default():
 
     assert artifact_list.execute({})["status"] == "error"
     assert checkpoint_list.execute({})["status"] == "error"
+
+
+
+def test_mcp_tools_reject_explicit_plugin_root():
+    artifact_list = _load_tool("artifact_list_plugin_root_tool", "mcp/servers/artifact_store/tools/list.py")
+    checkpoint_list = _load_tool("checkpoint_list_plugin_root_tool", "mcp/servers/checkpoint_store/tools/list.py")
+
+    assert artifact_list.execute({"project_root": str(ROOT)})["status"] == "error"
+    assert checkpoint_list.execute({"project_root": str(ROOT)})["status"] == "error"

@@ -8,14 +8,19 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 from lib.state import (
+    ProjectRootError,
     ensure_simflow_dir,
+    get_plugin_root,
     init_workflow,
     read_state,
-    write_state,
+    resolve_project_root,
     update_stage,
+    write_state,
 )
 
 
@@ -31,7 +36,21 @@ class TestState:
         sf = ensure_simflow_dir(self.base_dir)
         assert sf.exists()
         assert (sf / "state").exists()
+        assert (sf / "plans").exists()
         assert (sf / "artifacts").exists()
+        assert (sf / "checkpoints").exists()
+        assert (sf / "reports").exists()
+        for path in [
+            sf / "state" / "workflow.json",
+            sf / "state" / "stages.json",
+            sf / "state" / "artifacts.json",
+            sf / "state" / "checkpoints.json",
+            sf / "state" / "summary.json",
+            sf / "state" / "metadata.json",
+        ]:
+            assert path.exists()
+        assert not (sf / "metadata.json").exists()
+        assert not (sf / "workflow_state.json").exists()
 
     def test_init_workflow(self):
         state = init_workflow("dft", "literature", self.base_dir)
@@ -45,6 +64,9 @@ class TestState:
             sf / "state" / "stages.json",
             sf / "state" / "artifacts.json",
             sf / "state" / "checkpoints.json",
+            sf / "state" / "summary.json",
+            sf / "state" / "metadata.json",
+            sf / "plans",
             sf / "artifacts",
             sf / "checkpoints",
             sf / "reports",
@@ -54,9 +76,12 @@ class TestState:
         assert read_state(self.base_dir, "stages.json") == {}
         assert read_state(self.base_dir, "artifacts.json") == []
         assert read_state(self.base_dir, "checkpoints.json") == []
+        assert read_state(self.base_dir, "metadata.json") == {}
         summary = read_state(self.base_dir, "summary.json")
         assert summary["state_root"] == ".simflow"
         assert (sf / "reports" / "status_summary.md").is_file()
+        assert not (sf / "metadata.json").exists()
+        assert not (sf / "workflow_state.json").exists()
 
     def test_init_workflow_ignores_existing_omx_state(self):
         omx = Path(self.base_dir) / ".omx"
@@ -88,6 +113,22 @@ class TestState:
     def test_read_nonexistent_state(self):
         result = read_state(self.base_dir, "nonexistent.json")
         assert result == {}
+
+    def test_resolve_project_root_rejects_plugin_root(self):
+        with pytest.raises(ProjectRootError):
+            resolve_project_root(project_root=str(get_plugin_root()))
+
+    def test_resolve_project_root_rejects_plugin_cache_shape(self):
+        fake_plugin_root = Path(self.base_dir) / "simflow-cache"
+        (fake_plugin_root / ".codex-plugin").mkdir(parents=True)
+        (fake_plugin_root / "skills" / "simflow").mkdir(parents=True)
+        (fake_plugin_root / "runtime" / "lib").mkdir(parents=True)
+        (fake_plugin_root / ".codex-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+        (fake_plugin_root / "skills" / "simflow" / "SKILL.md").write_text("# SimFlow\n", encoding="utf-8")
+        (fake_plugin_root / "runtime" / "lib" / "state.py").write_text("# marker\n", encoding="utf-8")
+
+        with pytest.raises(ProjectRootError):
+            resolve_project_root(project_root=str(fake_plugin_root))
 
 
 if __name__ == "__main__":
