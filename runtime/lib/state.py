@@ -10,12 +10,15 @@ from typing import Any, Optional
 SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
-REQUIRED_STATE_FILES = {
+CANONICAL_STATE_FILES = {
+    "workflow.json": {},
     "stages.json": {},
     "artifacts.json": [],
     "checkpoints.json": [],
     "verification.json": {},
     "jobs.json": [],
+    "summary.json": {"state_root": ".simflow"},
+    "metadata.json": {},
 }
 
 
@@ -68,8 +71,21 @@ def get_simflow_path(base_dir: str = ".") -> Path:
     return resolve_project_root(base_dir=base_dir) / SIMFLOW_DIR
 
 
+def _ensure_canonical_state_files(root: Path) -> None:
+    """Ensure all canonical backbone state files exist under .simflow/state/."""
+    state_dir = root / STATE_DIR
+    state_dir.mkdir(parents=True, exist_ok=True)
+    for state_file, default_value in CANONICAL_STATE_FILES.items():
+        path = state_dir / state_file
+        if path.exists():
+            continue
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(default_value, f, indent=2, ensure_ascii=False)
+
+
+
 def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) -> Path:
-    """Ensure .simflow directory structure exists."""
+    """Ensure .simflow directory structure and canonical backbone state files exist."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     sf = root / SIMFLOW_DIR
     dirs = [
@@ -84,6 +100,7 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
+    _ensure_canonical_state_files(root)
     return sf
 
 
@@ -154,7 +171,9 @@ def init_workflow(
         "updated_at": now,
     }
     write_state(state, project_root=str(root))
-    for state_file, default_value in REQUIRED_STATE_FILES.items():
+    for state_file, default_value in CANONICAL_STATE_FILES.items():
+        if state_file in ("workflow.json", "summary.json"):
+            continue
         write_state(default_value, project_root=str(root), state_file=state_file)
     summary = {
         "workflow_id": wf_id,
