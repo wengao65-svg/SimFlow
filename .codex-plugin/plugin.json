@@ -1,6 +1,6 @@
 {
   "name": "simflow",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "Codex-native computational simulation domain workflow layer",
   "author": {
     "name": "SimFlow Maintainers",
