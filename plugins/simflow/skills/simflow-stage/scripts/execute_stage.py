@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runtime.lib.state import read_state, update_stage
 from runtime.lib.utils import now_iso
 
-# Map stage names to the skill scripts that implement them
+WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
+
 STAGE_SCRIPTS = {
     "modeling": [
         "skills/simflow-modeling/scripts/build_structure.py",
@@ -40,18 +41,37 @@ STAGE_SCRIPTS = {
 }
 
 
+def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
+    """Resolve the project root from either a project root or .simflow path."""
+    path = Path(workflow_dir).expanduser().resolve()
+    return path.parent if path.name == ".simflow" else path
+
+
+def load_workflow_stages(workflow_type: str) -> list[str]:
+    """Load canonical workflow stages from the workflow definition."""
+    normalized = (workflow_type or "dft").lower()
+    path = WORKFLOWS_DIR / f"{normalized}.json"
+    if not path.exists():
+        path = WORKFLOWS_DIR / "dft.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    loaded = data.get("stages", [])
+    return [stage["name"] if isinstance(stage, dict) else stage for stage in loaded]
+
+
 def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
                   dry_run: bool = True) -> dict:
     """Execute a single workflow stage."""
-    wf_dir = Path(workflow_dir)
-    state = read_state(str(wf_dir))
+    project_root = resolve_project_root_from_workflow_dir(workflow_dir)
+    state = read_state(project_root=str(project_root), state_file="workflow.json")
 
     if not state:
         return {"status": "error", "message": "No workflow state found"}
 
-    stages = state.get("stages", [])
+    metadata = read_state(project_root=str(project_root), state_file="metadata.json")
+    workflow_type = metadata.get("workflow_type", state.get("workflow_type", "dft"))
+    stages = load_workflow_stages(workflow_type)
     if stage_name not in stages:
-        return {"status": "error", "message": "Unknown stage: {}".format(stage_name)}
+        return {"status": "error", "message": f"Unknown stage: {stage_name}"}
 
     params = params or {}
     scripts = STAGE_SCRIPTS.get(stage_name, [])
@@ -61,15 +81,16 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
         "dry_run": dry_run,
         "started_at": now_iso(),
         "scripts": [],
+        "params": params,
     }
 
     if dry_run:
+        update_stage(stage_name, "pending", project_root=str(project_root))
         result["status"] = "dry_run_complete"
-        result["scripts"] = [{"script": s, "status": "would_execute"} for s in scripts]
-        result["message"] = "Would execute {} scripts for stage: {}".format(len(scripts), stage_name)
+        result["scripts"] = [{"script": script, "status": "would_execute"} for script in scripts]
+        result["message"] = f"Would execute {len(scripts)} scripts for stage: {stage_name}"
     else:
-        update_stage(str(wf_dir), stage_name, "in_progress")
-
+        update_stage(stage_name, "in_progress", project_root=str(project_root))
         for script_path in scripts:
             full_path = Path(__file__).resolve().parents[3] / script_path
             if full_path.exists():
@@ -83,8 +104,9 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
                     "script": script_path,
                     "status": "not_found",
                 })
-
-        result["status"] = "executed"
+        update_stage(stage_name, "completed", project_root=str(project_root))
+        result["status"] = "completed"
+        result["message"] = f"Executed {len(scripts)} scripts for stage: {stage_name}"
 
     result["completed_at"] = now_iso()
     return result

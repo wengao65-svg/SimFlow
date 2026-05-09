@@ -350,4 +350,3 @@ def _read_coord_elements(coord_path: Path, coord_format: str) -> list[str]:
 
 def _check(name: str, passed: bool, message: str) -> dict[str, Any]:
     return {"check": name, "passed": bool(passed), "message": message}
-
