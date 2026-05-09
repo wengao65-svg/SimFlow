@@ -11,7 +11,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.lib.state import read_state
-from init_research import init_research, load_workflow_definition
+from init_research import init_research, load_workflow_definition, parse_research_input
 
 
 def test_load_workflow_definition_dft():
@@ -26,6 +26,28 @@ def test_load_workflow_definition_fallback_to_dft():
     workflow = load_workflow_definition("unknown")
     assert workflow["workflow_type"] == "dft"
     assert workflow["default_entry"] == "literature"
+
+
+
+def test_parse_research_input_collects_offline_source_inputs():
+    parsed = parse_research_input(
+        "\n".join([
+            "goal: study Si surface",
+            "pdfs: papers/a.pdf, papers/b.pdf",
+            "bibtex: refs/references.bib",
+            "dois: 10.1000/alpha; 10.1000/beta",
+            "note: Focus on slab convergence, then adsorption",
+            'sources: [{"type": "note", "title": "manual-gap", "text": "Check vacancy formation"}]',
+        ])
+    )
+
+    assert parsed["source_inputs"]["pdf"] == ["papers/a.pdf", "papers/b.pdf"]
+    assert parsed["source_inputs"]["bibtex"] == ["refs/references.bib"]
+    assert parsed["source_inputs"]["doi"] == ["10.1000/alpha", "10.1000/beta"]
+    assert parsed["source_inputs"]["note"] == ["Focus on slab convergence, then adsorption"]
+    assert parsed["source_inputs"]["sources"] == [
+        {"type": "note", "title": "manual-gap", "text": "Check vacancy formation"}
+    ]
 
 
 def test_init_research_writes_canonical_metadata_for_dft():
@@ -86,3 +108,39 @@ def test_init_research_uses_workflow_default_entry_for_aimd():
             "visualization",
             "writing",
         ]
+        assert metadata["research_sources"]["total_items"] == 0
+
+
+
+def test_init_research_writes_normalized_research_sources_to_metadata():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        result = init_research(
+            input_text="\n".join([
+                "goal: study Si surface",
+                "material: Si(001)",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha, 10.1000/beta",
+                "note: Focus on slab convergence first",
+                'sources: [{"type": "note", "title": "manual-gap", "text": "Check vacancy formation references"}]',
+            ]),
+            output_dir=tmpdir,
+        )
+        metadata = read_state(tmpdir, "metadata.json")
+        research_sources = metadata["research_sources"]
+
+        assert result["status"] == "success"
+        assert research_sources["counts"] == {"pdf": 1, "bibtex": 1, "doi": 2, "note": 2}
+        assert research_sources["total_items"] == 6
+        assert research_sources["items"][0]["path"] == "papers/surface.pdf"
+        assert research_sources["items"][1]["path"] == "refs/references.bib"
+        assert research_sources["items"][2]["doi"] == "10.1000/alpha"
+        assert research_sources["items"][5]["label"] == "manual-gap"

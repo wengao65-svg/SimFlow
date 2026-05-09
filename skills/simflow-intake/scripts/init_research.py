@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from runtime.lib.research_sources import empty_research_source_inputs, normalize_research_sources
 from runtime.lib.state import init_workflow, write_state
 
 
@@ -44,6 +45,48 @@ def load_workflow_definition(workflow_type: str) -> dict:
 
 
 
+def parse_inline_values(value: str) -> list[str]:
+    """Parse comma-delimited or JSON-array inline values."""
+    stripped = value.strip()
+    if not stripped:
+        return []
+    if stripped.startswith("["):
+        loaded = json.loads(stripped)
+        if isinstance(loaded, list):
+            return [str(item).strip() for item in loaded if str(item).strip()]
+        return [str(loaded).strip()]
+    return [item.strip() for item in stripped.replace(";", ",").split(",") if item.strip()]
+
+
+
+def parse_inline_notes(value: str) -> list[str]:
+    """Parse inline manual notes without splitting prose text."""
+    stripped = value.strip()
+    if not stripped:
+        return []
+    if stripped.startswith("["):
+        loaded = json.loads(stripped)
+        if isinstance(loaded, list):
+            return [str(item).strip() for item in loaded if str(item).strip()]
+        return [str(loaded).strip()]
+    return [stripped]
+
+
+
+def parse_inline_source_objects(value: str) -> list[dict]:
+    """Parse JSON source objects for explicit research-source declarations."""
+    stripped = value.strip()
+    if not stripped:
+        return []
+    loaded = json.loads(stripped)
+    if isinstance(loaded, dict):
+        return [loaded]
+    if isinstance(loaded, list):
+        return loaded
+    raise ValueError("sources must be a JSON object or array")
+
+
+
 def parse_research_input(input_text: str) -> dict:
     """Parse structured research input text into components."""
     lines = input_text.strip().split("\n")
@@ -54,6 +97,7 @@ def parse_research_input(input_text: str) -> dict:
         "software": "vasp",
         "workflow_type": "dft",
         "parameters": {},
+        "source_inputs": empty_research_source_inputs(),
     }
 
     for line in lines:
@@ -78,6 +122,16 @@ def parse_research_input(input_text: str) -> dict:
                     result["parameters"] = json.loads(value)
                 except json.JSONDecodeError:
                     result["parameters"] = {"raw": value}
+            elif key in ("pdf", "pdfs", "paper", "papers"):
+                result["source_inputs"]["pdf"].extend(parse_inline_values(value))
+            elif key in ("bib", "bibtex", "references", "reference_files"):
+                result["source_inputs"]["bibtex"].extend(parse_inline_values(value))
+            elif key in ("doi", "dois"):
+                result["source_inputs"]["doi"].extend(parse_inline_values(value))
+            elif key in ("note", "notes", "manual_note", "manual_notes"):
+                result["source_inputs"]["note"].extend(parse_inline_notes(value))
+            elif key in ("sources", "research_sources"):
+                result["source_inputs"]["sources"].extend(parse_inline_source_objects(value))
 
     return result
 
@@ -110,6 +164,10 @@ def init_research(input_file: str = None, input_text: str = None,
     state = init_workflow(wf_type, entry_point, project_root=output_dir)
     workflow_id = state["workflow_id"]
     project_dir = Path(output_dir) / ".simflow"
+    research_sources = normalize_research_sources(
+        parsed.get("source_inputs"),
+        project_root=output_dir,
+    )
 
     metadata = {
         "workflow_id": workflow_id,
@@ -125,6 +183,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "material": parsed["material"],
         "software": parsed.get("software", "vasp"),
         "parameters": parsed.get("parameters", {}),
+        "research_sources": research_sources,
         "created_at": datetime.now().isoformat(),
     }
     write_state(metadata, project_root=output_dir, state_file="metadata.json")
