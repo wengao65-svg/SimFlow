@@ -1,0 +1,17 @@
+ CP2K| version string:                  CP2K version 2026.1
+ GLOBAL| Run type                                         MD
+ GLOBAL| Project name                               MD_SAMPLE
+
+ SCF run converged in    6 iterations
+ ENERGY| Total FORCE_EVAL ( QS ) energy [hartree]          -17.100000000000
+ MD| Step number                                                               1
+ MD| Temperature [K]                             298.500000           298.500000
+
+ SCF run converged in    5 iterations
+ ENERGY| Total FORCE_EVAL ( QS ) energy [hartree]          -17.050000000000
+ MD| Step number                                                               2
+ MD| Temperature [K]                             301.200000           299.850000
+
+ The number of warnings for this run is :            0
+
+ PROGRAM ENDED AT 2026-05-09 12:00:00.000

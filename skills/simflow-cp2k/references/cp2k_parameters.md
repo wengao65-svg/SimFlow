@@ -1,99 +1,55 @@
-# CP2K Key Parameters Reference
+# CP2K Common Parameters
 
-## Input File Structure
+This note is a SimFlow-maintained quick reference for common-task orchestration.
+It is not a full CP2K parameter catalog.
 
-CP2K uses Fortran-namelist-style blocks: `&SECTION` / `&END SECTION`.
+## GLOBAL
 
-## GLOBAL Section
+- `PROJECT`: output name prefix
+- `RUN_TYPE`: `ENERGY`, `GEO_OPT`, `CELL_OPT`, or `MD`
+- `PRINT_LEVEL`: usually `LOW` for orchestration defaults
 
-| Parameter | Description | Typical Values |
-|-----------|-------------|----------------|
-| PROJECT | Job name (prefix for output files) | any string |
-| RUN_TYPE | Calculation type | MD, ENERGY, GEO_OPT, CELL_OPT |
-| PRINT_LEVEL | Output verbosity | LOW, MEDIUM, HIGH |
+## FORCE_EVAL / DFT
 
-## FORCE_EVAL / DFT Section
+- `BASIS_SET_FILE_NAME`: usually a symbolic library name such as `BASIS_MOLOPT`
+- `POTENTIAL_FILE_NAME`: usually a symbolic library name such as `POTENTIAL`
+- `CHARGE`
+- `MULTIPLICITY`
 
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| BASIS_SET_FILE_NAME | Basis set library file | BASIS_MOLOPT, GTH_BASIS_SETS |
-| POTENTIAL_FILE_NAME | Pseudopotential library | POTENTIAL |
-| CHARGE | Total system charge | 0 (neutral) |
-| MULTIPLICITY | Spin multiplicity | 1 (closed shell) |
+## QS / MGRID / SCF / OT / XC
 
-## QS (Quickstep) Section
+- `EPS_DEFAULT`
+- `CUTOFF`
+- `REL_CUTOFF`
+- `MAX_SCF`
+- `EPS_SCF`
+- `SCF_GUESS`
+- `MINIMIZER`
+- `PRECONDITIONER`
+- `XC_FUNCTIONAL`
 
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| EPS_DEFAULT | Quickstep precision | 1.0E-6 to 1.0E-14 |
-| EXTRAPOLATION | Wavefunction extrapolation | ASPC, LINEAR, NONE |
-| EXTRAPOLATION_ORDER | Extrapolation order | 1-4 |
+These are the minimum common-task knobs that SimFlow validates for the CP2K orchestration layer.
 
-## MGRID (Multi-grid) Section
+## SUBSYS
 
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| CUTOFF | Plane-wave cutoff (Ry) | 300-600 |
-| REL_CUTOFF | Relative cutoff (Ry) | 40-80 |
+- `CELL`
+- `TOPOLOGY`
+  - `COORD_FILE_NAME`
+  - `COORD_FILE_FORMAT`
+- `KIND` blocks for every element present in the structure
 
-## SCF Section
+## MOTION
 
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| MAX_SCF | Max SCF iterations | 20-100 |
-| EPS_SCF | SCF convergence threshold | 1.0E-5 to 1.0E-8 |
-| SCF_GUESS | Initial guess | ATOMIC, RESTART |
+For common SimFlow coverage:
 
-## OT (Orbital Transformation) Section
+- `ENERGY`: no `MOTION`
+- `GEO_OPT`: `MOTION / GEO_OPT`
+- `CELL_OPT`: `MOTION / CELL_OPT`
+- `AIMD`: `MOTION / MD`
 
-| Parameter | Description | Typical Values |
-|-----------|-------------|----------------|
-| MINIMIZER | OT minimizer | DIIS, CG, BROYDEN |
-| PRECONDITIONER | Preconditioner | FULL_SINGLE_INVERSE, FULL_KINETIC |
+## Restart / Continuation
 
-## XC Section
+- `EXT_RESTART / RESTART_FILE_NAME`
+- `SCF_GUESS RESTART`
 
-| Parameter | Description | Typical Values |
-|-----------|-------------|----------------|
-| XC_FUNCTIONAL | Exchange-correlation functional | PBE, PADE, BLYP, TPSS |
-
-## MOTION/MD Section
-
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| ENSEMBLE | MD ensemble | NVT, NVE, NPT, NPH_I |
-| STEPS | Number of MD steps | 100-100000 |
-| TIMESTEP | Time step (fs) | 0.5-2.0 |
-| TEMPERATURE | Target temperature (K) | 100-2000 |
-
-## THERMOSTAT Section
-
-| Parameter | Description | Typical Values |
-|-----------|-------------|----------------|
-| TYPE | Thermostat type | CSVR, NOSE |
-| TIMECON | Thermostat time constant (fs) | 50-500 |
-
-## Basis Sets for H and O (DFT)
-
-| Element | Basis Set | Potential |
-|---------|-----------|-----------|
-| H | DZVP-MOLOPT-SR-GTH | GTH-PBE-q1 |
-| O | DZVP-MOLOPT-SR-GTH | GTH-PBE-q6 |
-| H (TZ) | TZV2P-GTH | GTH-PBE-q1 |
-| O (TZ) | TZV2P-GTH | GTH-PBE-q6 |
-
-## Output Files
-
-| File | Content |
-|------|---------|
-| `<project>.log` | Main output (energy, convergence, warnings) |
-| `<project>-1.ener` | Per-step energy: step, time, kinetic, temp, potential, cons_qty, used_time |
-| `<project>-pos-1.xyz` | MD trajectory (extended XYZ) |
-| `<project>-1.restart` | Restart file for continuation |
-| `<project>-vel-1.xyz` | Velocity trajectory |
-
-## Convergence Indicators
-
-- Normal end: `PROGRAM ENDED AT` in .log
-- SCF converged: `SCF run converged` in .log
-- Error: `ABORT` / `SEGMENTATION FAULT` in .log
+SimFlow only checks restart intent and referenced file presence. It does not expose the full restart control surface.
