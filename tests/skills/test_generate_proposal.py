@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for proposal and parameter-table generation."""
+"""Tests for proposal artifact generation."""
 
 import csv
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -24,8 +25,7 @@ from generate_review import generate_review
 from init_research import init_research
 
 
-
-def test_generate_proposal_writes_markdown_csv_and_registry_entries():
+def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         pdf_path = project_root / "papers" / "surface.pdf"
@@ -54,25 +54,34 @@ def test_generate_proposal_writes_markdown_csv_and_registry_entries():
         result = generate_proposal(str(project_root / ".simflow"))
         proposal_path = project_root / ".simflow" / "plans" / "proposal.md"
         parameter_table_path = project_root / ".simflow" / "plans" / "parameter_table.csv"
+        research_questions_path = project_root / ".simflow" / "plans" / "research_questions.json"
         proposal_content = proposal_path.read_text(encoding="utf-8")
         proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
         review_artifacts = list_artifacts(stage="review", project_root=tmpdir)
+        research_questions = json.loads(research_questions_path.read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
         assert proposal_path.is_file()
         assert parameter_table_path.is_file()
+        assert research_questions_path.is_file()
         assert "# Proposal" in proposal_content
         assert "Goal: study Si surface reconstruction" in proposal_content
         assert "- encut: 520" in proposal_content
         assert "- kmesh: 4x4x1" in proposal_content
         assert "Focus on dimer buckling evidence" in proposal_content
-        assert len(proposal_artifacts) == 2
+        assert len(proposal_artifacts) == 3
         assert proposal_artifacts[0]["name"] == "proposal.md"
         assert proposal_artifacts[0]["path"] == ".simflow/plans/proposal.md"
         assert proposal_artifacts[0]["lineage"]["parent_artifacts"] == [artifact["artifact_id"] for artifact in review_artifacts]
         assert proposal_artifacts[1]["name"] == "parameter_table.csv"
         assert proposal_artifacts[1]["path"] == ".simflow/plans/parameter_table.csv"
         assert proposal_artifacts[1]["lineage"]["parent_artifacts"] == [proposal_artifacts[0]["artifact_id"]]
+        assert proposal_artifacts[2]["name"] == "research_questions.json"
+        assert proposal_artifacts[2]["path"] == ".simflow/plans/research_questions.json"
+        assert proposal_artifacts[2]["lineage"]["parent_artifacts"] == [
+            proposal_artifacts[0]["artifact_id"],
+            proposal_artifacts[1]["artifact_id"],
+        ]
 
         with parameter_table_path.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
@@ -84,6 +93,13 @@ def test_generate_proposal_writes_markdown_csv_and_registry_entries():
         assert rows[4]["parameter"] == "kmesh"
         assert rows[4]["value"] == "4x4x1"
 
+        assert research_questions["software"] == "vasp"
+        assert research_questions["material"] == "Si(001)"
+        assert research_questions["research_goal"] == "study Si surface reconstruction"
+        assert len(research_questions["questions"]) >= 3
+        assert research_questions["questions"][0]["category"] == "goal"
+        assert "study Si surface reconstruction" in research_questions["questions"][0]["question"]
+        assert research_questions["questions"][1]["parameter_keys"] == ["encut", "kmesh"]
 
 
 def test_generate_proposal_requires_registered_review_artifacts():
@@ -109,7 +125,6 @@ def test_generate_proposal_requires_registered_review_artifacts():
 
         assert result["status"] == "error"
         assert result["message"] == "Missing review artifacts: review_summary.md, gap_analysis.md"
-
 
 
 def test_generate_proposal_errors_without_workflow_state():
