@@ -17,6 +17,7 @@ sys.path.insert(0, str(PIPELINE_DIR))
 sys.path.insert(0, str(HANDOFF_DIR))
 sys.path.insert(0, str(ROOT))
 
+from runtime.lib.artifact import list_artifacts
 from runtime.lib.state import read_state
 from init_research import init_research
 from generate_plan import generate_plan
@@ -28,9 +29,24 @@ def test_backbone_workflow_e2e():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         simflow_dir = project_root / ".simflow"
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
 
         intake = init_research(
-            input_text="goal: study Si surface\nmaterial: Si(001)\nsoftware: vasp\n",
+            input_text="\n".join([
+                "goal: study Si surface",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+                "note: Focus on dimer buckling evidence",
+            ]),
             output_dir=tmpdir,
         )
         assert intake["status"] == "success"
@@ -43,25 +59,39 @@ def test_backbone_workflow_e2e():
         assert (simflow_dir / "plans" / "workflow_plan.json").is_file()
         assert workflow_after_plan["plan"] == "plans/workflow_plan.json"
 
-        pipeline = run_pipeline(str(simflow_dir), target_stage="review", dry_run=False)
+        pipeline = run_pipeline(str(simflow_dir), target_stage="proposal", dry_run=False)
         workflow_after_pipeline = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         checkpoints = read_state(tmpdir, "checkpoints.json")
+        artifacts = list_artifacts(project_root=tmpdir)
+        artifact_names = [artifact["name"] for artifact in artifacts]
         assert pipeline["status"] == "success"
-        assert [item["stage"] for item in pipeline["results"]] == ["literature", "review"]
+        assert [item["stage"] for item in pipeline["results"]] == ["literature", "review", "proposal"]
         assert stages_state["literature"]["status"] == "completed"
         assert stages_state["review"]["status"] == "completed"
-        assert workflow_after_pipeline["current_stage"] == "review"
+        assert stages_state["proposal"]["status"] == "completed"
+        assert workflow_after_pipeline["current_stage"] == "proposal"
         assert len(checkpoints) == 1
         assert checkpoints[0]["checkpoint_id"] == pipeline["checkpoint_id"]
+        assert checkpoints[0]["stage_id"] == "proposal"
+        assert artifact_names == [
+            "literature_matrix.json",
+            "literature_matrix.csv",
+            "review_summary.md",
+            "gap_analysis.md",
+            "proposal.md",
+            "parameter_table.csv",
+        ]
 
         handoff = generate_handoff(str(simflow_dir))
         summary = handoff["handoff"]
         assert handoff["status"] == "success"
-        assert summary["current_stage"] == "review"
-        assert summary["completed_stages"] == ["literature", "review"]
-        assert summary["pending_stages"][0] == "proposal"
+        assert summary["current_stage"] == "proposal"
+        assert summary["completed_stages"] == ["literature", "review", "proposal"]
+        assert summary["pending_stages"][0] == "modeling"
         assert summary["latest_checkpoint"]["checkpoint_id"] == pipeline["checkpoint_id"]
+        assert summary["latest_checkpoint"]["stage_id"] == "proposal"
         assert summary["plan_reference"] == "plans/workflow_plan.json"
-        assert summary["artifacts_count"] == 4
-        assert sorted(summary["artifacts_by_stage"].keys()) == ["literature", "review"]
+        assert summary["artifacts_count"] == 6
+        assert sorted(summary["artifacts_by_stage"].keys()) == ["literature", "proposal", "review"]
+        assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv"]
