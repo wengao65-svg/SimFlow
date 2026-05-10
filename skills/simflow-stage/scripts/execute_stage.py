@@ -19,11 +19,6 @@ from runtime.lib.utils import now_iso
 WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
 
 STAGE_SCRIPTS = {
-    "modeling": [
-        "skills/simflow-modeling/scripts/build_structure.py",
-        "skills/simflow-modeling/scripts/make_supercell.py",
-        "skills/simflow-modeling/scripts/validate_structure.py",
-    ],
     "input_generation": [
         "skills/simflow-vasp/scripts/generate_vasp_inputs.py",
         "skills/simflow-lammps/scripts/generate_lammps_inputs.py",
@@ -56,6 +51,13 @@ RESEARCH_STAGE_RUNNERS = {
     },
 }
 
+STAGE_RUNNERS = {
+    "modeling": {
+        "script": "skills/simflow-modeling/scripts/run_modeling_stage.py",
+        "function": "run_modeling_stage",
+    },
+}
+
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
     """Resolve the project root from either a project root or .simflow path."""
@@ -75,15 +77,14 @@ def load_workflow_stages(workflow_type: str) -> list[str]:
 
 
 
-def _load_stage_runner(stage_name: str):
-    """Load a stage generator function from a script file."""
-    runner = RESEARCH_STAGE_RUNNERS[stage_name]
-    script_path = Path(__file__).resolve().parents[3] / runner["script"]
+def _load_runner(script: str, function_name: str, stage_name: str):
+    """Load a function from a script file."""
+    script_path = Path(__file__).resolve().parents[3] / script
     spec = importlib.util.spec_from_file_location(f"simflow_{stage_name}_runner", script_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    return getattr(module, runner["function"]), runner["script"]
+    return getattr(module, function_name), script
 
 
 
@@ -113,6 +114,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
     params = params or {}
     scripts = STAGE_SCRIPTS.get(stage_name, [])
     research_runner = RESEARCH_STAGE_RUNNERS.get(stage_name)
+    stage_runner = STAGE_RUNNERS.get(stage_name)
 
     result = {
         "stage": stage_name,
@@ -124,7 +126,11 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
 
     if dry_run:
         update_stage(stage_name, "pending", project_root=str(project_root))
-        planned_scripts = scripts or ([research_runner["script"]] if research_runner else [])
+        planned_scripts = scripts
+        if stage_runner:
+            planned_scripts = [stage_runner["script"]]
+        elif research_runner:
+            planned_scripts = [research_runner["script"]]
         result["status"] = "dry_run_complete"
         result["scripts"] = [{"script": script, "status": "would_execute"} for script in planned_scripts]
         result["message"] = f"Would execute {len(planned_scripts)} scripts for stage: {stage_name}"
@@ -134,7 +140,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
     update_stage(stage_name, "in_progress", project_root=str(project_root))
 
     if research_runner:
-        runner, script_path = _load_stage_runner(stage_name)
+        runner, script_path = _load_runner(research_runner["script"], research_runner["function"], stage_name)
         output_dir = params.get("output_dir")
         generator_result = runner(str(project_root / ".simflow"), output_dir)
         result["scripts"].append({
@@ -165,6 +171,45 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict = None,
         result["status"] = "completed"
         result["artifacts"] = artifacts
         result["message"] = f"Executed stage generator for stage: {stage_name}"
+        result["completed_at"] = now_iso()
+        return result
+
+    if stage_runner:
+        runner, script_path = _load_runner(stage_runner["script"], stage_runner["function"], stage_name)
+        stage_result = runner(str(project_root / ".simflow"), params=params, dry_run=False)
+        result["scripts"].append({
+            "script": script_path,
+            "status": "executed" if stage_result.get("status") == "success" else "failed",
+        })
+        if stage_result.get("status") != "success":
+            update_stage(stage_name, "failed", project_root=str(project_root), error_message=stage_result.get("message"))
+            _update_workflow_progress(project_root, state, stage_name, stages, "failed")
+            result["status"] = "error"
+            result["message"] = stage_result.get("message", f"Failed to execute stage: {stage_name}")
+            result["completed_at"] = now_iso()
+            return result
+
+        artifacts = stage_result.get("artifacts", [])
+        artifact_ids = [artifact["artifact_id"] for artifact in artifacts]
+        inputs = stage_result.get("inputs")
+        if inputs is None:
+            parent_artifacts = []
+            for artifact in artifacts:
+                parent_artifacts.extend(artifact.get("lineage", {}).get("parent_artifacts", []))
+            inputs = sorted(set(parent_artifacts))
+        update_stage(
+            stage_name,
+            "completed",
+            project_root=str(project_root),
+            outputs=artifact_ids,
+            inputs=inputs,
+        )
+        _update_workflow_progress(project_root, state, stage_name, stages, "completed")
+        result["status"] = "completed"
+        result["artifacts"] = artifacts
+        if "manifest" in stage_result:
+            result["manifest"] = stage_result["manifest"]
+        result["message"] = f"Executed stage runner for stage: {stage_name}"
         result["completed_at"] = now_iso()
         return result
 
