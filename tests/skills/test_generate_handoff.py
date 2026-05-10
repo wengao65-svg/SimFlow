@@ -94,22 +94,58 @@ def _write_backbone_state(tmpdir: str):
     write_state(
         [
             {
+                "artifact_id": "art_lit01",
+                "name": "literature_matrix.json",
+                "type": "literature_matrix",
+                "version": "v1.0.0",
+                "stage": "literature",
+                "path": ".simflow/artifacts/literature/literature_matrix.json",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            },
+            {
+                "artifact_id": "art_lit02",
+                "name": "literature_matrix.csv",
+                "type": "literature_matrix_csv",
+                "version": "v1.0.0",
+                "stage": "literature",
+                "path": ".simflow/artifacts/literature/literature_matrix.csv",
+                "created_at": "2026-01-01T00:05:00+00:00",
+            },
+            {
                 "artifact_id": "art_review01",
-                "name": "review-notes",
-                "type": "report",
+                "name": "review_summary.md",
+                "type": "review_summary",
                 "version": "v1.0.0",
                 "stage": "review",
-                "path": "reports/review.json",
+                "path": ".simflow/reports/review/review_summary.md",
                 "created_at": "2026-01-02T00:00:00+00:00",
             },
             {
+                "artifact_id": "art_review02",
+                "name": "gap_analysis.md",
+                "type": "gap_analysis",
+                "version": "v1.0.0",
+                "stage": "review",
+                "path": ".simflow/reports/review/gap_analysis.md",
+                "created_at": "2026-01-02T00:05:00+00:00",
+            },
+            {
                 "artifact_id": "art_prop01",
-                "name": "proposal-draft",
-                "type": "plan",
+                "name": "proposal.md",
+                "type": "proposal",
                 "version": "v1.0.0",
                 "stage": "proposal",
-                "path": "plans/proposal.md",
+                "path": ".simflow/plans/proposal.md",
                 "created_at": "2026-01-03T00:00:00+00:00",
+            },
+            {
+                "artifact_id": "art_prop02",
+                "name": "parameter_table.csv",
+                "type": "parameter_table",
+                "version": "v1.0.0",
+                "stage": "proposal",
+                "path": ".simflow/plans/parameter_table.csv",
+                "created_at": "2026-01-03T00:05:00+00:00",
             },
         ],
         project_root=tmpdir,
@@ -159,9 +195,15 @@ def test_generate_handoff_uses_canonical_registries():
         assert handoff["completed_stages"] == ["literature", "review"]
         assert handoff["in_progress_stages"] == ["proposal"]
         assert handoff["pending_stages"] == ["modeling", "input_generation", "compute", "analysis", "visualization", "writing"]
-        assert handoff["artifacts_count"] == 2
+        assert handoff["artifacts_count"] == 6
+        assert set(handoff["artifacts_by_stage"].keys()) == {"literature", "review", "proposal"}
+        assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["literature"]] == ["literature_matrix.json", "literature_matrix.csv"]
+        assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["review"]] == ["review_summary.md", "gap_analysis.md"]
+        assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv"]
         assert handoff["latest_checkpoint"]["checkpoint_id"] == "ckpt_002_review"
         assert handoff["plan_reference"] == "plans/workflow_plan.json"
+        assert handoff["next_steps"] == ["Continue stage: proposal"]
+        assert handoff["progress_pct"] == 22.2
         assert "legacy_stage" not in handoff["completed_stages"]
         assert handoff["workflow_type"] == "dft"
 
@@ -177,9 +219,15 @@ def test_generate_handoff_writes_markdown_summary_with_backbone_fields():
 
         assert result["status"] == "success"
         assert result["handoff"]["output_file"] == str(output_path)
+        assert "### literature" in content
+        assert "### review" in content
+        assert "### proposal" in content
+        assert "literature_matrix.json" in content
+        assert "proposal.md" in content
         assert "Current stage: proposal" in content
-        assert "Artifact count: 2" in content
+        assert "Artifact count: 6" in content
         assert "Plan reference: plans/workflow_plan.json" in content
+        assert "Continue stage: proposal" in content
         assert "ckpt_002_review" in content
 
 
