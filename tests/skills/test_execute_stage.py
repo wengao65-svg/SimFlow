@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for simflow-stage canonical state behavior."""
 
+import importlib.util
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -19,6 +21,10 @@ from runtime.lib.state import init_workflow, read_state, write_state
 from execute_stage import execute_stage
 from init_research import init_research
 from run_pipeline import run_pipeline
+
+
+VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"
+CP2K_FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
 
 
 def _write_metadata(tmpdir: str, workflow_type: str = "dft"):
@@ -205,6 +211,96 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
         assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
+
+
+
+def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+
+        analysis_result = execute_stage(str(project_root / ".simflow"), "analysis", dry_run=False)
+        visualization_result = execute_stage(str(project_root / ".simflow"), "visualization", dry_run=False)
+        analysis_artifacts = list_artifacts(stage="analysis", project_root=tmpdir)
+        visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
+
+        assert pipeline_result["status"] == "success"
+        assert analysis_result["status"] == "completed"
+        assert analysis_result["manifest"]["status"] == "waiting_for_outputs"
+        assert visualization_result["status"] == "completed"
+        assert visualization_result["manifest"]["status"] == "waiting_for_outputs"
+        assert {artifact["name"] for artifact in analysis_artifacts} == {"analysis_report.json", "analysis_report.md"}
+        assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
+        assert (project_root / ".simflow" / "reports" / "analysis" / "analysis_report.json").is_file()
+        assert (project_root / ".simflow" / "reports" / "visualization" / "figures_manifest.json").is_file()
+
+
+
+def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        compute_dir = project_root / ".simflow" / "artifacts" / "compute"
+        shutil.copy2(VASP_RUN_XML, compute_dir / "vasprun.xml")
+        (compute_dir / "OSZICAR").write_text(
+            " 1 F= -.100000 E0= -.100000 d E =0.000000\n 2 F= -.200000 E0= -.200000 d E =0.000000\n",
+            encoding="utf-8",
+        )
+
+        analysis_result = execute_stage(str(project_root / ".simflow"), "analysis", dry_run=False)
+        visualization_result = execute_stage(str(project_root / ".simflow"), "visualization", dry_run=False)
+        visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
+
+        assert pipeline_result["status"] == "success"
+        assert analysis_result["status"] == "completed"
+        assert analysis_result["manifest"]["status"] == "completed"
+        assert analysis_result["manifest"]["source_files"]
+        assert visualization_result["status"] == "completed"
+        if importlib.util.find_spec("matplotlib") is None:
+            assert visualization_result["manifest"]["status"] == "skipped_optional_dependency"
+            assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
+        else:
+            assert visualization_result["manifest"]["status"] == "completed"
+            assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json", "energy_convergence.png"}
+            assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
 
 
 
