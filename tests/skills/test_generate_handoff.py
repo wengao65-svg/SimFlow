@@ -147,6 +147,15 @@ def _write_backbone_state(tmpdir: str):
                 "path": ".simflow/plans/parameter_table.csv",
                 "created_at": "2026-01-03T00:05:00+00:00",
             },
+            {
+                "artifact_id": "art_prop03",
+                "name": "research_questions.json",
+                "type": "research_questions",
+                "version": "v1.0.0",
+                "stage": "proposal",
+                "path": ".simflow/plans/research_questions.json",
+                "created_at": "2026-01-03T00:10:00+00:00",
+            },
         ],
         project_root=tmpdir,
         state_file="artifacts.json",
@@ -195,11 +204,11 @@ def test_generate_handoff_uses_canonical_registries():
         assert handoff["completed_stages"] == ["literature", "review"]
         assert handoff["in_progress_stages"] == ["proposal"]
         assert handoff["pending_stages"] == ["modeling", "input_generation", "compute", "analysis", "visualization", "writing"]
-        assert handoff["artifacts_count"] == 6
+        assert handoff["artifacts_count"] == 7
         assert set(handoff["artifacts_by_stage"].keys()) == {"literature", "review", "proposal"}
         assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["literature"]] == ["literature_matrix.json", "literature_matrix.csv"]
         assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["review"]] == ["review_summary.md", "gap_analysis.md"]
-        assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv"]
+        assert [artifact["name"] for artifact in handoff["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv", "research_questions.json"]
         assert handoff["latest_checkpoint"]["checkpoint_id"] == "ckpt_002_review"
         assert handoff["plan_reference"] == "plans/workflow_plan.json"
         assert handoff["next_steps"] == ["Continue stage: proposal"]
@@ -225,7 +234,7 @@ def test_generate_handoff_writes_markdown_summary_with_backbone_fields():
         assert "literature_matrix.json" in content
         assert "proposal.md" in content
         assert "Current stage: proposal" in content
-        assert "Artifact count: 6" in content
+        assert "Artifact count: 7" in content
         assert "Plan reference: plans/workflow_plan.json" in content
         assert "Continue stage: proposal" in content
         assert "ckpt_002_review" in content

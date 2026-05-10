@@ -81,6 +81,7 @@ def test_backbone_workflow_e2e():
             "gap_analysis.md",
             "proposal.md",
             "parameter_table.csv",
+            "research_questions.json",
         ]
 
         handoff = generate_handoff(str(simflow_dir))
@@ -92,6 +93,6 @@ def test_backbone_workflow_e2e():
         assert summary["latest_checkpoint"]["checkpoint_id"] == pipeline["checkpoint_id"]
         assert summary["latest_checkpoint"]["stage_id"] == "proposal"
         assert summary["plan_reference"] == "plans/workflow_plan.json"
-        assert summary["artifacts_count"] == 6
+        assert summary["artifacts_count"] == 7
         assert sorted(summary["artifacts_by_stage"].keys()) == ["literature", "proposal", "review"]
-        assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv"]
+        assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv", "research_questions.json"]
