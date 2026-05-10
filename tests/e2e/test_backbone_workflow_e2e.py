@@ -63,4 +63,5 @@ def test_backbone_workflow_e2e():
         assert summary["pending_stages"][0] == "proposal"
         assert summary["latest_checkpoint"]["checkpoint_id"] == pipeline["checkpoint_id"]
         assert summary["plan_reference"] == "plans/workflow_plan.json"
-        assert summary["artifacts_count"] == 0
+        assert summary["artifacts_count"] == 4
+        assert sorted(summary["artifacts_by_stage"].keys()) == ["literature", "review"]

@@ -6,12 +6,16 @@ import tempfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
+INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(INTAKE_DIR))
 sys.path.insert(0, str(ROOT))
 
+from runtime.lib.artifact import list_artifacts
 from runtime.lib.state import init_workflow, read_state, write_state
 from run_pipeline import run_pipeline
+from init_research import init_research
 
 
 DFT_STAGES = [
@@ -94,12 +98,12 @@ def test_run_pipeline_execute_starts_after_completed_current_stage():
         init_workflow("dft", "literature", tmpdir)
         _write_metadata(tmpdir)
         workflow = read_state(tmpdir, "workflow.json")
-        workflow["current_stage"] = "review"
+        workflow["current_stage"] = "modeling"
         write_state(workflow, project_root=tmpdir, state_file="workflow.json")
         write_state(
             {
-                "review": {
-                    "stage_name": "review",
+                "modeling": {
+                    "stage_name": "modeling",
                     "status": "completed",
                     "agent": None,
                     "inputs": [],
@@ -114,6 +118,49 @@ def test_run_pipeline_execute_starts_after_completed_current_stage():
             state_file="stages.json",
         )
 
-        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="modeling", dry_run=False)
+        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="analysis", dry_run=False)
 
-        assert [item["stage"] for item in result["results"]] == ["proposal", "modeling"]
+        assert [item["stage"] for item in result["results"]] == ["input_generation", "compute", "analysis"]
+
+
+
+def test_run_pipeline_execute_runs_research_generators_through_review():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "parameters: {\"encut\": 520}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+                "note: Focus on dimer buckling evidence",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="review", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        literature_artifacts = list_artifacts(stage="literature", project_root=tmpdir)
+        review_artifacts = list_artifacts(stage="review", project_root=tmpdir)
+
+        assert result["status"] == "success"
+        assert [item["stage"] for item in result["results"]] == ["literature", "review"]
+        assert result["results"][0]["artifacts"][0]["name"] == "literature_matrix.json"
+        assert result["results"][1]["artifacts"][0]["name"] == "review_summary.md"
+        assert workflow["current_stage"] == "review"
+        assert stages_state["literature"]["status"] == "completed"
+        assert stages_state["review"]["status"] == "completed"
+        assert len(literature_artifacts) == 2
+        assert len(review_artifacts) == 2
+        assert stages_state["review"]["inputs"] == [literature_artifacts[0]["artifact_id"]]
+        assert (project_root / ".simflow" / "reports" / "review" / "review_summary.md").is_file()

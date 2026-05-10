@@ -6,12 +6,16 @@ import tempfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-stage" / "scripts"
+INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(INTAKE_DIR))
 sys.path.insert(0, str(ROOT))
 
+from runtime.lib.artifact import list_artifacts
 from runtime.lib.state import init_workflow, read_state, write_state
 from execute_stage import execute_stage
+from init_research import init_research
 
 
 def _write_metadata(tmpdir: str, workflow_type: str = "dft"):
@@ -63,11 +67,52 @@ def test_execute_stage_execute_updates_canonical_stages_state():
         _write_metadata(tmpdir, "dft")
 
         result = execute_stage(str(Path(tmpdir) / ".simflow"), "modeling", params={"supercell": "2x2x1"}, dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
 
         assert result["status"] == "completed"
         assert result["params"] == {"supercell": "2x2x1"}
+        assert workflow["current_stage"] == "modeling"
+        assert workflow["status"] == "in_progress"
         assert stages_state["modeling"]["status"] == "completed"
         assert any(script["status"] == "available" for script in result["scripts"])
         assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
+
+
+
+def test_execute_stage_execute_generates_literature_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "literature", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        artifacts = list_artifacts(stage="literature", project_root=tmpdir)
+
+        assert result["status"] == "completed"
+        assert workflow["current_stage"] == "literature"
+        assert workflow["status"] == "in_progress"
+        assert stages_state["literature"]["status"] == "completed"
+        assert len(stages_state["literature"]["outputs"]) == 2
+        assert len(artifacts) == 2
+        assert {artifact["name"] for artifact in artifacts} == {"literature_matrix.json", "literature_matrix.csv"}
+        assert (project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.json").is_file()
+        assert result["artifacts"][0]["stage"] == "literature"
