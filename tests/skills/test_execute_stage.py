@@ -114,6 +114,100 @@ def test_execute_stage_execute_runs_modeling_runner_and_registers_artifacts():
 
 
 
+def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="modeling", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "input_generation", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
+        input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
+
+        assert pipeline_result["status"] == "success"
+        assert result["status"] == "completed"
+        assert result["manifest"]["software"] == "vasp"
+        assert result["manifest"]["task"] == "scf"
+        assert result["manifest"]["missing_optional_inputs"] == ["POTCAR"]
+        assert workflow["current_stage"] == "input_generation"
+        assert workflow["status"] == "in_progress"
+        assert stages_state["input_generation"]["status"] == "completed"
+        assert stages_state["input_generation"]["inputs"] == [artifact["artifact_id"] for artifact in modeling_artifacts]
+        assert any(artifact["name"] == "input_manifest.json" for artifact in input_generation_artifacts)
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "INCAR").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "KPOINTS").is_file()
+        assert (project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json").is_file()
+
+
+
+def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="input_generation", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "compute", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
+        compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
+
+        assert pipeline_result["status"] == "success"
+        assert result["status"] == "completed"
+        assert result["manifest"]["software"] == "vasp"
+        assert result["manifest"]["dry_run"] is True
+        assert result["manifest"]["real_submit"] is False
+        assert workflow["current_stage"] == "compute"
+        assert workflow["status"] == "in_progress"
+        assert stages_state["compute"]["status"] == "completed"
+        assert stages_state["compute"]["inputs"] == [artifact["artifact_id"] for artifact in input_generation_artifacts]
+        assert {artifact["name"] for artifact in compute_artifacts} == {"compute_plan.json", "job_script.sh", "dry_run_report.json"}
+        assert (project_root / ".simflow" / "reports" / "compute" / "compute_plan.json").is_file()
+        assert (project_root / ".simflow" / "reports" / "compute" / "dry_run_report.json").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
+        assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
+        assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
+
+
+
 def test_execute_stage_execute_generates_literature_artifacts():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)

@@ -56,6 +56,14 @@ STAGE_RUNNERS = {
         "script": "skills/simflow-modeling/scripts/run_modeling_stage.py",
         "function": "run_modeling_stage",
     },
+    "input_generation": {
+        "script": "skills/simflow-input-generation/scripts/run_input_generation_stage.py",
+        "function": "run_input_generation_stage",
+    },
+    "compute": {
+        "script": "skills/simflow-compute/scripts/run_compute_stage.py",
+        "function": "run_compute_stage",
+    },
 }
 
 
