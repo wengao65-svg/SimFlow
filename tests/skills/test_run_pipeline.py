@@ -164,3 +164,45 @@ def test_run_pipeline_execute_runs_research_generators_through_review():
         assert len(review_artifacts) == 2
         assert stages_state["review"]["inputs"] == [literature_artifacts[0]["artifact_id"]]
         assert (project_root / ".simflow" / "reports" / "review" / "review_summary.md").is_file()
+
+
+def test_run_pipeline_execute_runs_modeling_stage_through_canonical_runner():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="modeling", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
+        modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
+
+        assert result["status"] == "success"
+        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling"]
+        assert result["results"][-1]["artifacts"][0]["name"] == "structure_manifest.json"
+        assert workflow["current_stage"] == "modeling"
+        assert workflow["status"] == "in_progress"
+        assert stages_state["modeling"]["status"] == "completed"
+        assert stages_state["modeling"]["inputs"] == [artifact["artifact_id"] for artifact in proposal_artifacts]
+        assert len(stages_state["modeling"]["outputs"]) == 2
+        assert {artifact["name"] for artifact in modeling_artifacts} == {"structure_manifest.json", "POSCAR"}
+        assert (project_root / ".simflow" / "reports" / "modeling" / "structure_manifest.json").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "modeling" / "POSCAR").is_file()
