@@ -72,6 +72,43 @@ def test_generate_literature_matrix_writes_json_csv_and_registry_entries():
 
 
 
+def test_generate_literature_matrix_enriches_doi_rows_when_backend_requested():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si bulk properties",
+                "material: Si",
+                "pdfs: papers/surface.pdf",
+                "dois: 10.1103/PhysRevB.97.165202",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = generate_literature_matrix(str(project_root / ".simflow"), enrich_backend="mock")
+        matrix = result["matrix"]
+        doi_row = next(row for row in matrix["rows"] if row["source_type"] == "doi")
+
+        assert result["status"] == "success"
+        assert matrix["enrichment"] == {
+            "backend": "mock",
+            "enabled": True,
+            "attempted": 1,
+            "enriched": 1,
+            "failed": 0,
+            "errors": [],
+        }
+        assert doi_row["title"] == "First-principles study of silicon crystal structure"
+        assert doi_row["journal"] == "Physical Review B"
+        assert doi_row["year"] == 2018
+        assert doi_row["enrichment_source"] == "mock"
+
+
+
 def test_generate_literature_matrix_ignores_legacy_metadata_file():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
@@ -101,6 +138,37 @@ def test_generate_literature_matrix_ignores_legacy_metadata_file():
         assert metadata["research_sources"]["counts"] == {"pdf": 1, "bibtex": 0, "doi": 0, "note": 0}
         assert matrix["source_counts"] == {"pdf": 1, "bibtex": 0, "doi": 0, "note": 0}
         assert matrix["row_count"] == 1
+
+
+
+def test_generate_literature_matrix_degrades_when_enrichment_backend_is_unknown():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si bulk properties",
+                "material: Si",
+                "pdfs: papers/surface.pdf",
+                "dois: 10.1103/PhysRevB.97.165202",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = generate_literature_matrix(str(project_root / ".simflow"), enrich_backend="unknown")
+        matrix = result["matrix"]
+        doi_row = next(row for row in matrix["rows"] if row["source_type"] == "doi")
+
+        assert result["status"] == "success"
+        assert matrix["enrichment"]["backend"] == "unknown"
+        assert matrix["enrichment"]["enriched"] == 0
+        assert matrix["enrichment"]["failed"] == 1
+        assert matrix["enrichment"]["errors"] == ["Unknown backend: unknown"]
+        assert doi_row["title"] == ""
+        assert doi_row["enrichment_source"] == ""
 
 
 

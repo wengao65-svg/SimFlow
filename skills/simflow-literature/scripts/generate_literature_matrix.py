@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.artifact import register_artifact
+from runtime.lib.literature_adapter import enrich_research_sources
 from runtime.lib.state import read_state
 from runtime.lib.utils import generate_id
 
@@ -31,10 +32,12 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 
-def build_literature_rows(research_sources: dict, metadata: dict) -> list[dict]:
+def build_literature_rows(research_sources: dict, metadata: dict, enrichment: dict | None = None) -> list[dict]:
     """Build matrix rows from the normalized research-source bundle."""
+    metadata_by_source = (enrichment or {}).get("metadata_by_source", {})
     rows = []
     for item in research_sources.get("items", []):
+        enriched = metadata_by_source.get(item["source_id"], {})
         rows.append({
             "source_id": item["source_id"],
             "source_type": item["type"],
@@ -43,6 +46,12 @@ def build_literature_rows(research_sources: dict, metadata: dict) -> list[dict]:
             "notes": item.get("text", "") if item.get("type") == "note" else "",
             "research_goal": metadata.get("research_goal", ""),
             "material": metadata.get("material", ""),
+            "title": enriched.get("title", ""),
+            "authors": enriched.get("authors", []),
+            "year": enriched.get("year"),
+            "journal": enriched.get("journal", enriched.get("venue", "")),
+            "url": enriched.get("url", ""),
+            "enrichment_source": enriched.get("source", ""),
         })
     return rows
 
@@ -57,7 +66,7 @@ def resolve_output_dir(project_root: Path, output_dir: str | None) -> Path:
 
 
 
-def generate_literature_matrix(workflow_dir: str, output_dir: str = None) -> dict:
+def generate_literature_matrix(workflow_dir: str, output_dir: str = None, enrich_backend: str | None = None) -> dict:
     """Generate literature matrix JSON and CSV artifacts."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     state = read_state(project_root=str(project_root), state_file="workflow.json")
@@ -66,7 +75,16 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None) -> dic
 
     metadata = read_state(project_root=str(project_root), state_file="metadata.json")
     research_sources = metadata.get("research_sources") or EMPTY_SOURCE_BUNDLE
-    rows = build_literature_rows(research_sources, metadata)
+    enrichment = enrich_research_sources(research_sources, backend=enrich_backend) if enrich_backend else {
+        "backend": None,
+        "enabled": False,
+        "attempted": 0,
+        "enriched": 0,
+        "failed": 0,
+        "metadata_by_source": {},
+        "errors": [],
+    }
+    rows = build_literature_rows(research_sources, metadata, enrichment)
 
     matrix = {
         "matrix_id": generate_id("litmatrix"),
@@ -78,6 +96,14 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None) -> dic
         "software": metadata.get("software", "vasp"),
         "source_counts": research_sources.get("counts", EMPTY_SOURCE_BUNDLE["counts"]),
         "row_count": len(rows),
+        "enrichment": {
+            "backend": enrichment.get("backend"),
+            "enabled": enrichment.get("enabled", False),
+            "attempted": enrichment.get("attempted", 0),
+            "enriched": enrichment.get("enriched", 0),
+            "failed": enrichment.get("failed", 0),
+            "errors": enrichment.get("errors", []),
+        },
         "rows": rows,
     }
 
@@ -90,7 +116,10 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None) -> dic
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["source_id", "source_type", "label", "locator", "notes", "research_goal", "material"],
+            fieldnames=[
+                "source_id", "source_type", "label", "locator", "notes", "research_goal", "material",
+                "title", "authors", "year", "journal", "url", "enrichment_source",
+            ],
         )
         writer.writeheader()
         writer.writerows(rows)
@@ -134,10 +163,11 @@ def main():
     parser = argparse.ArgumentParser(description="Generate literature matrix artifacts")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output-dir", help="Optional output directory for literature artifacts")
+    parser.add_argument("--enrich-backend", help="Optional literature backend for DOI enrichment")
     args = parser.parse_args()
 
     try:
-        result = generate_literature_matrix(args.workflow_dir, args.output_dir)
+        result = generate_literature_matrix(args.workflow_dir, args.output_dir, args.enrich_backend)
         print(json.dumps(result, indent=2))
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}))
