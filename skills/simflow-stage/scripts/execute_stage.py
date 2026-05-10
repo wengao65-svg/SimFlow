@@ -64,6 +64,14 @@ STAGE_RUNNERS = {
         "script": "skills/simflow-compute/scripts/run_compute_stage.py",
         "function": "run_compute_stage",
     },
+    "analysis": {
+        "script": "skills/simflow-analysis/scripts/run_analysis_stage.py",
+        "function": "run_analysis_stage",
+    },
+    "visualization": {
+        "script": "skills/simflow-visualization/scripts/run_visualization_stage.py",
+        "function": "run_visualization_stage",
+    },
 }
 
 
