@@ -5,6 +5,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
 INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +31,8 @@ DFT_STAGES = [
     "visualization",
     "writing",
 ]
+
+H2O_CIF = ROOT / "examples" / "h2o" / "H2O.cif"
 
 
 def _write_metadata(tmpdir: str):
@@ -118,9 +122,10 @@ def test_run_pipeline_execute_starts_after_completed_current_stage():
             state_file="stages.json",
         )
 
-        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="analysis", dry_run=False)
+        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="analysis", dry_run=True)
 
         assert [item["stage"] for item in result["results"]] == ["input_generation", "compute", "analysis"]
+        assert all(item["status"] == "dry_run_complete" for item in result["results"])
 
 
 
@@ -206,3 +211,87 @@ def test_run_pipeline_execute_runs_modeling_stage_through_canonical_runner():
         assert {artifact["name"] for artifact in modeling_artifacts} == {"structure_manifest.json", "POSCAR"}
         assert (project_root / ".simflow" / "reports" / "modeling" / "structure_manifest.json").is_file()
         assert (project_root / ".simflow" / "artifacts" / "modeling" / "POSCAR").is_file()
+
+
+def test_run_pipeline_execute_runs_precompute_vasp_chain():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
+        compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
+
+        assert result["status"] == "success"
+        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling", "input_generation", "compute"]
+        assert workflow["current_stage"] == "compute"
+        assert workflow["status"] == "in_progress"
+        assert stages_state["input_generation"]["status"] == "completed"
+        assert stages_state["compute"]["status"] == "completed"
+        assert any(artifact["name"] == "input_manifest.json" for artifact in input_generation_artifacts)
+        assert {artifact["name"] for artifact in compute_artifacts} == {"compute_plan.json", "job_script.sh", "dry_run_report.json"}
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "INCAR").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "KPOINTS").is_file()
+        assert (project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json").is_file()
+        assert (project_root / ".simflow" / "reports" / "compute" / "compute_plan.json").is_file()
+        assert (project_root / ".simflow" / "reports" / "compute" / "dry_run_report.json").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
+
+
+@pytest.mark.skipif(not H2O_CIF.exists(), reason="H2O.cif not available")
+def test_run_pipeline_execute_runs_precompute_cp2k_chain():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{water, title={Water Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study liquid water energetics",
+                "material: H2O",
+                "software: cp2k",
+                f"parameters: {{\"task\": \"energy\", \"structure_file\": \"{H2O_CIF}\"}}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/beta",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
+
+        assert result["status"] == "success"
+        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling", "input_generation", "compute"]
+        assert workflow["current_stage"] == "compute"
+        assert {artifact["name"] for artifact in compute_artifacts} == {"compute_plan.json", "job_script.sh", "dry_run_report.json"}
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "energy.inp").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "structure.xyz").is_file()
+        assert (project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json").is_file()
+        assert (project_root / ".simflow" / "reports" / "compute" / "compute_plan.json").is_file()
+        assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
