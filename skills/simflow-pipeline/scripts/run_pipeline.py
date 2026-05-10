@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "simflow-stage" / "scripts"))
 
 from runtime.lib.checkpoint import create_checkpoint
 from runtime.lib.state import read_state, update_stage, write_state
-from runtime.lib.utils import now_iso
+from execute_stage import execute_stage
 
 WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
 
@@ -97,31 +98,19 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         }
 
     results = []
-    for stage_name in stages_to_run:
-        if dry_run:
-            update_stage(stage_name, "pending", project_root=str(project_root))
-            stage_result = {
-                "stage": stage_name,
-                "status": "dry_run_complete",
-                "dry_run": True,
-                "started_at": now_iso(),
-                "message": f"Would execute stage: {stage_name}",
-            }
-        else:
-            update_stage(stage_name, "in_progress", project_root=str(project_root))
-            update_stage(stage_name, "completed", project_root=str(project_root))
-            stage_result = {
-                "stage": stage_name,
-                "status": "completed",
-                "dry_run": False,
-                "started_at": now_iso(),
-                "message": f"Executed stage: {stage_name}",
-            }
-        results.append(stage_result)
-
     checkpoint = None
-    if not dry_run:
-        final_stage = stages_to_run[-1]
+    failed = False
+
+    for stage_name in stages_to_run:
+        stage_result = execute_stage(str(project_root / ".simflow"), stage_name, params={}, dry_run=dry_run)
+        results.append(stage_result)
+        if stage_result.get("status") == "error":
+            failed = True
+            if stop_on_failure:
+                break
+
+    if not dry_run and results and not failed:
+        final_stage = results[-1]["stage"]
         checkpoint = create_checkpoint(
             state.get("workflow_id", "unknown"),
             final_stage,
@@ -129,13 +118,14 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
             project_root=str(project_root),
         )
         update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
+        state = read_state(project_root=str(project_root), state_file="workflow.json")
         state["current_stage"] = final_stage
         state["status"] = "completed" if final_stage == stages[-1] else "in_progress"
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
         write_state(state, project_root=str(project_root), state_file="workflow.json")
 
     return {
-        "status": "success",
+        "status": "error" if failed else "success",
         "workflow_dir": workflow_dir,
         "current_stage": current_stage,
         "target_stage": target_stage or stages_to_run[-1],
@@ -143,6 +133,7 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         "dry_run": dry_run,
         "results": results,
         "checkpoint_id": checkpoint["checkpoint_id"] if checkpoint else None,
+        "message": results[-1].get("message") if failed and results else None,
     }
 
 
