@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
 import sys
 from datetime import datetime, timezone
@@ -17,6 +18,22 @@ sys.path.insert(0, str(ROOT))
 from runtime.lib.artifact import list_artifacts, register_artifact
 from runtime.lib.proposal_contract import load_proposal_contract
 from runtime.lib.state import read_state
+
+
+def _load_function(relative_script: str, function_name: str, module_name: str):
+    script_path = ROOT / relative_script
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return getattr(module, function_name)
+
+
+BUILD_REPRODUCIBILITY_PACKAGE = _load_function(
+    "skills/simflow-writing/scripts/build_reproducibility_package.py",
+    "build_reproducibility_package",
+    "simflow_build_reproducibility_package",
+)
 
 
 REQUIRED_ARTIFACTS = {
@@ -194,8 +211,12 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
 
     methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
     results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+    reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
+    reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
     methods_rel = _relative_path(project_root, methods_path)
     results_rel = _relative_path(project_root, results_path)
+    reproducibility_package_rel = _relative_path(project_root, reproducibility_package_path)
+    reproducibility_manifest_rel = _relative_path(project_root, reproducibility_manifest_path)
 
     manifest: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -206,7 +227,12 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "visualization_status": figures_manifest.get("status"),
         "source_artifact_ids": parent_artifact_ids,
         "status": "planned" if dry_run else "completed",
-        "outputs": [methods_rel, results_rel],
+        "outputs": [
+            methods_rel,
+            results_rel,
+            reproducibility_package_rel,
+            reproducibility_manifest_rel,
+        ],
     }
 
     if dry_run:
@@ -214,7 +240,12 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             "status": "dry_run_complete",
             "manifest": manifest,
             "inputs": parent_artifact_ids,
-            "planned_outputs": [methods_rel, results_rel],
+            "planned_outputs": [
+                methods_rel,
+                results_rel,
+                reproducibility_package_rel,
+                reproducibility_manifest_rel,
+            ],
         }
 
     methods_path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,10 +323,18 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         },
         software=contract.get("software"),
     )
+    reproducibility_result = BUILD_REPRODUCIBILITY_PACKAGE(
+        str(project_root / ".simflow"),
+        parent_artifact_ids=[methods_artifact["artifact_id"], results_artifact["artifact_id"], *parent_artifact_ids],
+        software=contract.get("software"),
+        write_manifest_json=True,
+    )
+    if reproducibility_result.get("status") != "success":
+        return {"status": "error", "message": "Failed to build reproducibility package"}
 
     return {
         "status": "success",
-        "artifacts": [methods_artifact, results_artifact],
+        "artifacts": [methods_artifact, results_artifact, *reproducibility_result["artifacts"]],
         "manifest": manifest,
         "inputs": parent_artifact_ids,
     }

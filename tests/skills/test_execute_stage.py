@@ -335,6 +335,7 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         artifacts = list_artifacts(stage="writing", project_root=tmpdir)
         methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+        reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
 
         assert precompute_result["status"] == "success"
         assert postcompute_result["status"] == "success"
@@ -345,10 +346,16 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 2
-        assert {artifact["name"] for artifact in artifacts} == {"methods.md", "results.md"}
+        assert len(stages_state["writing"]["outputs"]) == 4
+        assert {artifact["name"] for artifact in artifacts} == {
+            "methods.md",
+            "results.md",
+            "reproducibility_package.md",
+            "reproducibility_manifest.json",
+        }
         assert methods_path.is_file()
         assert results_path.is_file()
+        assert reproducibility_package_path.is_file()
         assert "degraded or waiting" in results_path.read_text(encoding="utf-8")
 
 
