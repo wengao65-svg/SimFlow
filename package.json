@@ -1,6 +1,6 @@
 {
   "name": "simflow",
-  "version": "0.8.7",
+  "version": "0.8.11",
   "description": "Codex-native computational simulation domain workflow layer",
   "private": true,
   "scripts": {
