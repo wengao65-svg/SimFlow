@@ -304,6 +304,55 @@ def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs
 
 
 
+def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study Si surface reconstruction",
+                "material: Si(001)",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+                "dois: 10.1000/alpha",
+            ]),
+            output_dir=tmpdir,
+        )
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        postcompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "writing", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        artifacts = list_artifacts(stage="writing", project_root=tmpdir)
+        methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
+        results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+
+        assert precompute_result["status"] == "success"
+        assert postcompute_result["status"] == "success"
+        assert result["status"] == "completed"
+        assert result["manifest"]["analysis_status"] == "waiting_for_outputs"
+        assert result["manifest"]["visualization_status"] == "waiting_for_outputs"
+        assert workflow["current_stage"] == "writing"
+        assert workflow["status"] == "completed"
+        assert stages_state["writing"]["status"] == "completed"
+        assert len(stages_state["writing"]["inputs"]) == 7
+        assert len(stages_state["writing"]["outputs"]) == 2
+        assert {artifact["name"] for artifact in artifacts} == {"methods.md", "results.md"}
+        assert methods_path.is_file()
+        assert results_path.is_file()
+        assert "degraded or waiting" in results_path.read_text(encoding="utf-8")
+
+
+
 def test_execute_stage_execute_generates_literature_artifacts():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)

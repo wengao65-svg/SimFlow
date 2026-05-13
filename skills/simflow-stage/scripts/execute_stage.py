@@ -72,6 +72,10 @@ STAGE_RUNNERS = {
         "script": "skills/simflow-visualization/scripts/run_visualization_stage.py",
         "function": "run_visualization_stage",
     },
+    "writing": {
+        "script": "skills/simflow-writing/scripts/run_writing_stage.py",
+        "function": "run_writing_stage",
+    },
 }
 
 
