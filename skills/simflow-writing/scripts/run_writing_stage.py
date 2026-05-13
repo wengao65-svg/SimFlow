@@ -34,6 +34,11 @@ BUILD_REPRODUCIBILITY_PACKAGE = _load_function(
     "build_reproducibility_package",
     "simflow_build_reproducibility_package",
 )
+GENERATE_FINAL_HANDOFF = _load_function(
+    "skills/simflow-handoff/scripts/generate_final_handoff.py",
+    "generate_final_handoff",
+    "simflow_generate_final_handoff",
+)
 
 
 REQUIRED_ARTIFACTS = {
@@ -213,10 +218,14 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
     reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
     reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
+    final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
+    final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
     methods_rel = _relative_path(project_root, methods_path)
     results_rel = _relative_path(project_root, results_path)
     reproducibility_package_rel = _relative_path(project_root, reproducibility_package_path)
     reproducibility_manifest_rel = _relative_path(project_root, reproducibility_manifest_path)
+    final_handoff_markdown_rel = _relative_path(project_root, final_handoff_markdown_path)
+    final_handoff_json_rel = _relative_path(project_root, final_handoff_json_path)
 
     manifest: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -231,8 +240,10 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             methods_rel,
             results_rel,
             reproducibility_package_rel,
-            reproducibility_manifest_rel,
+            final_handoff_markdown_rel,
+            final_handoff_json_rel,
         ],
+        "auxiliary_outputs": [reproducibility_manifest_rel],
     }
 
     if dry_run:
@@ -244,8 +255,10 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
                 methods_rel,
                 results_rel,
                 reproducibility_package_rel,
-                reproducibility_manifest_rel,
+                final_handoff_markdown_rel,
+                final_handoff_json_rel,
             ],
+            "auxiliary_outputs": [reproducibility_manifest_rel],
         }
 
     methods_path.parent.mkdir(parents=True, exist_ok=True)
@@ -332,9 +345,35 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     if reproducibility_result.get("status") != "success":
         return {"status": "error", "message": "Failed to build reproducibility package"}
 
+    reproducibility_manifest_artifact = next(
+        artifact for artifact in reproducibility_result["artifacts"] if artifact["name"] == "reproducibility_manifest.json"
+    )
+    reproducibility_package_artifact = next(
+        artifact for artifact in reproducibility_result["artifacts"] if artifact["name"] == "reproducibility_package.md"
+    )
+    final_handoff_result = GENERATE_FINAL_HANDOFF(
+        str(project_root / ".simflow"),
+        source_artifact_ids=parent_artifact_ids,
+        parent_artifact_ids=[
+            methods_artifact["artifact_id"],
+            results_artifact["artifact_id"],
+            reproducibility_package_artifact["artifact_id"],
+            reproducibility_manifest_artifact["artifact_id"],
+            *parent_artifact_ids,
+        ],
+        software=contract.get("software"),
+    )
+    if final_handoff_result.get("status") != "success":
+        return {"status": "error", "message": "Failed to build final handoff deliverables"}
+
     return {
         "status": "success",
-        "artifacts": [methods_artifact, results_artifact, *reproducibility_result["artifacts"]],
+        "artifacts": [
+            methods_artifact,
+            results_artifact,
+            reproducibility_package_artifact,
+            *final_handoff_result["artifacts"],
+        ],
         "manifest": manifest,
         "inputs": parent_artifact_ids,
     }

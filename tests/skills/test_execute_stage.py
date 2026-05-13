@@ -336,6 +336,8 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
         reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
+        final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
+        final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
 
         assert precompute_result["status"] == "success"
         assert postcompute_result["status"] == "success"
@@ -346,16 +348,32 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 4
+        assert len(stages_state["writing"]["outputs"]) == 5
         assert {artifact["name"] for artifact in artifacts} == {
             "methods.md",
             "results.md",
             "reproducibility_package.md",
             "reproducibility_manifest.json",
+            "final_handoff.md",
+            "final_handoff.json",
+        }
+        stage_output_names = {
+            artifact["name"]
+            for artifact in artifacts
+            if artifact["artifact_id"] in stages_state["writing"]["outputs"]
+        }
+        assert stage_output_names == {
+            "methods.md",
+            "results.md",
+            "reproducibility_package.md",
+            "final_handoff.md",
+            "final_handoff.json",
         }
         assert methods_path.is_file()
         assert results_path.is_file()
         assert reproducibility_package_path.is_file()
+        assert final_handoff_markdown_path.is_file()
+        assert final_handoff_json_path.is_file()
         assert "degraded or waiting" in results_path.read_text(encoding="utf-8")
 
 

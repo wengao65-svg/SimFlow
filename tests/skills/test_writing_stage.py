@@ -63,6 +63,8 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
         reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
         reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
+        final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
+        final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
 
         assert precompute_result["status"] == "success"
         assert postcompute_result["status"] == "success"
@@ -70,16 +72,39 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert result["manifest"]["analysis_status"] == "waiting_for_outputs"
         assert result["manifest"]["visualization_status"] == "waiting_for_outputs"
         assert len(result["inputs"]) == 7
+        assert {artifact["name"] for artifact in result["artifacts"]} == {
+            "methods.md",
+            "results.md",
+            "reproducibility_package.md",
+            "final_handoff.md",
+            "final_handoff.json",
+        }
         assert {artifact["name"] for artifact in writing_artifacts} == {
             "methods.md",
             "results.md",
             "reproducibility_package.md",
             "reproducibility_manifest.json",
+            "final_handoff.md",
+            "final_handoff.json",
+        }
+        assert len(result["artifacts"]) == 5
+        assert {
+            artifact["name"]
+            for artifact in writing_artifacts
+            if artifact["artifact_id"] in {output["artifact_id"] for output in result["artifacts"]}
+        } == {
+            "methods.md",
+            "results.md",
+            "reproducibility_package.md",
+            "final_handoff.md",
+            "final_handoff.json",
         }
         assert methods_path.is_file()
         assert results_path.is_file()
         assert reproducibility_package_path.is_file()
         assert reproducibility_manifest_path.is_file()
+        assert final_handoff_markdown_path.is_file()
+        assert final_handoff_json_path.is_file()
 
         methods_text = methods_path.read_text(encoding="utf-8")
         results_text = results_path.read_text(encoding="utf-8")
