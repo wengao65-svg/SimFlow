@@ -1,14 +1,27 @@
 {
   "name": "writing",
-  "description": "写作阶段：生成报告、论文草稿、方法章节、结果讨论、补充材料",
+  "description": "写作与可复现交付阶段：汇总 proposal、结构、计算计划、分析与可视化产物，生成可写作与最终交付材料",
   "default_agent": "writer",
   "default_skill": "simflow-writing",
-  "required_inputs": ["all_stage_artifacts"],
-  "optional_inputs": ["journal_style"],
-  "expected_outputs": ["manuscript.md", "methods.md", "results.md", "supplementary.md"],
-  "artifact_types": ["manuscript", "methods", "results", "supplementary"],
-  "validators": ["section_completeness", "figure_reference", "citation_reference", "reproducibility"],
-  "approval_gates": ["structure_adjustment", "key_conclusion_review"],
+  "required_inputs": [
+    "proposal.md",
+    "parameter_table.csv",
+    "structure_manifest.json",
+    "compute_plan.json",
+    "analysis_report.json",
+    "figures_manifest.json"
+  ],
+  "optional_inputs": ["research_questions.json", "journal_style", "checkpoint_registry"],
+  "expected_outputs": [
+    "methods.md",
+    "results.md",
+    "reproducibility_package.md",
+    "final_handoff.md",
+    "final_handoff.json"
+  ],
+  "artifact_types": ["methods", "results", "reproducibility_package", "final_handoff", "final_handoff_summary"],
+  "validators": ["artifact_traceability", "figure_reference", "citation_reference", "reproducibility"],
+  "approval_gates": ["key_conclusion_review"],
   "checkpoint_policy": "on_completion",
   "recovery_policy": "restart"
 }
