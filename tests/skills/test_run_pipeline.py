@@ -448,6 +448,7 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
             "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         stage_output_names = {
             artifact["name"]

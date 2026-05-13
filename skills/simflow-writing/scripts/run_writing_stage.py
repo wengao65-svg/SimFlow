@@ -39,6 +39,11 @@ GENERATE_FINAL_HANDOFF = _load_function(
     "generate_final_handoff",
     "simflow_generate_final_handoff",
 )
+VERIFY_WORKFLOW = _load_function(
+    "skills/simflow-verify/scripts/verify_workflow.py",
+    "verify_workflow",
+    "simflow_verify_workflow",
+)
 
 
 REQUIRED_ARTIFACTS = {
@@ -220,12 +225,14 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
     final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
     final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
+    verification_report_path = project_root / ".simflow" / "reports" / "verify" / "verification_report.json"
     methods_rel = _relative_path(project_root, methods_path)
     results_rel = _relative_path(project_root, results_path)
     reproducibility_package_rel = _relative_path(project_root, reproducibility_package_path)
     reproducibility_manifest_rel = _relative_path(project_root, reproducibility_manifest_path)
     final_handoff_markdown_rel = _relative_path(project_root, final_handoff_markdown_path)
     final_handoff_json_rel = _relative_path(project_root, final_handoff_json_path)
+    verification_report_rel = _relative_path(project_root, verification_report_path)
 
     manifest: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -243,7 +250,7 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             final_handoff_markdown_rel,
             final_handoff_json_rel,
         ],
-        "auxiliary_outputs": [reproducibility_manifest_rel],
+        "auxiliary_outputs": [reproducibility_manifest_rel, verification_report_rel],
     }
 
     if dry_run:
@@ -258,7 +265,7 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
                 final_handoff_markdown_rel,
                 final_handoff_json_rel,
             ],
-            "auxiliary_outputs": [reproducibility_manifest_rel],
+            "auxiliary_outputs": [reproducibility_manifest_rel, verification_report_rel],
         }
 
     methods_path.parent.mkdir(parents=True, exist_ok=True)
@@ -365,6 +372,31 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     )
     if final_handoff_result.get("status") != "success":
         return {"status": "error", "message": "Failed to build final handoff deliverables"}
+
+    verification_parent_artifact_ids = [
+        methods_artifact["artifact_id"],
+        results_artifact["artifact_id"],
+        reproducibility_package_artifact["artifact_id"],
+        reproducibility_manifest_artifact["artifact_id"],
+        *(artifact["artifact_id"] for artifact in final_handoff_result["artifacts"]),
+        *parent_artifact_ids,
+    ]
+    verification_result = VERIFY_WORKFLOW(
+        str(project_root / ".simflow"),
+        params={
+            "parent_artifact_ids": verification_parent_artifact_ids,
+            "source_artifact_ids": parent_artifact_ids,
+            "software": contract.get("software"),
+        },
+        dry_run=False,
+    )
+    if verification_result.get("status") != "success":
+        return {"status": "error", "message": "Failed to build verification report"}
+
+    manifest["verification_status"] = verification_result.get("verification_status")
+    manifest["verification_report"] = verification_report_rel
+    if verification_result.get("verification_status") in {"warning", "fail"}:
+        manifest["status"] = "completed_with_warnings"
 
     return {
         "status": "success",
