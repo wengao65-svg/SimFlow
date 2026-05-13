@@ -65,12 +65,15 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
         final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
         final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
+        verification_report_path = project_root / ".simflow" / "reports" / "verify" / "verification_report.json"
 
         assert precompute_result["status"] == "success"
         assert postcompute_result["status"] == "success"
         assert result["status"] == "success"
         assert result["manifest"]["analysis_status"] == "waiting_for_outputs"
         assert result["manifest"]["visualization_status"] == "waiting_for_outputs"
+        assert result["manifest"]["verification_status"] in {"pass", "warning"}
+        assert result["manifest"]["verification_report"] == ".simflow/reports/verify/verification_report.json"
         assert len(result["inputs"]) == 7
         assert {artifact["name"] for artifact in result["artifacts"]} == {
             "methods.md",
@@ -86,6 +89,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
             "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         assert len(result["artifacts"]) == 5
         assert {
@@ -105,6 +109,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert reproducibility_manifest_path.is_file()
         assert final_handoff_markdown_path.is_file()
         assert final_handoff_json_path.is_file()
+        assert verification_report_path.is_file()
 
         methods_text = methods_path.read_text(encoding="utf-8")
         results_text = results_path.read_text(encoding="utf-8")

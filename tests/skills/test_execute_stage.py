@@ -356,6 +356,7 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
             "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         stage_output_names = {
             artifact["name"]
