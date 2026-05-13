@@ -1,0 +1,39 @@
+# Reproducibility Package
+
+## Workflow Snapshot
+
+- Workflow ID: {{ workflow_id }}
+- Workflow type: {{ workflow_type }}
+- Current stage: {{ current_stage }}
+- Generated at: {{ generated_at }}
+
+## Artifact Index
+
+| Artifact ID | Name | Stage | Type | Path |
+|-------------|------|-------|------|------|
+{{ artifact_rows }}
+
+## Execution Truth
+
+- Dry-run default: {{ dry_run_default }}
+- Real submit executed: {{ real_submit_executed }}
+- Approval required for real submit: {{ approval_required_for_real_submit }}
+
+## Compute and Analysis Provenance
+
+- Structure manifest: {{ structure_manifest_ref }}
+- Compute plan: {{ compute_plan_ref }}
+- Analysis report: {{ analysis_report_ref }}
+- Figures manifest: {{ figures_manifest_ref }}
+
+## Checkpoints
+
+{{ checkpoint_rows }}
+
+## Reproduction Notes
+
+{{ reproduction_notes }}
+
+## Known Limitations
+
+{{ known_limitations }}

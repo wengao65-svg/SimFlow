@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 STAGES_DIR = Path(__file__).resolve().parents[2] / "workflow" / "stages"
+TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates" / "reports"
 
 REQUIRED_STAGES = [
     "literature", "review", "proposal", "modeling",
@@ -12,7 +13,7 @@ REQUIRED_STAGES = [
 ]
 
 
-MILESTONE_C_STAGE_EXPECTATIONS = {
+MILESTONE_D_STAGE_EXPECTATIONS = {
     "modeling": {
         "required_inputs": ["proposal.md", "parameter_table.csv", "research_questions.json"],
         "expected_outputs": ["structure_manifest.json", "structure_file", "modeling_report.md"],
@@ -33,7 +34,31 @@ MILESTONE_C_STAGE_EXPECTATIONS = {
         "expected_outputs": ["figures", "figures_manifest.json"],
         "artifact_types": ["figure", "figures_manifest"],
     },
+    "writing": {
+        "required_inputs": [
+            "proposal.md",
+            "parameter_table.csv",
+            "structure_manifest.json",
+            "compute_plan.json",
+            "analysis_report.json",
+            "figures_manifest.json",
+        ],
+        "expected_outputs": [
+            "methods.md",
+            "results.md",
+            "reproducibility_package.md",
+            "final_handoff.md",
+            "final_handoff.json",
+        ],
+        "artifact_types": ["methods", "results", "reproducibility_package", "final_handoff", "final_handoff_summary"],
+    },
 }
+
+
+MILESTONE_D_TEMPLATE_FILES = [
+    "reproducibility_package.md.template",
+    "final_handoff.md.template",
+]
 
 
 def _load_stage(name: str) -> dict:
@@ -81,12 +106,18 @@ def test_stage_has_inputs_outputs():
         assert isinstance(outputs, list), f"Stage {name} outputs not a list"
 
 
-def test_milestone_c_stage_contracts_are_aligned():
-    for name, expected in MILESTONE_C_STAGE_EXPECTATIONS.items():
+def test_milestone_d_stage_contracts_are_aligned():
+    for name, expected in MILESTONE_D_STAGE_EXPECTATIONS.items():
         data = _load_stage(name)
         assert data.get("required_inputs") == expected["required_inputs"]
         assert data.get("expected_outputs") == expected["expected_outputs"]
         assert data.get("artifact_types") == expected["artifact_types"]
+
+
+def test_milestone_d_templates_exist():
+    for name in MILESTONE_D_TEMPLATE_FILES:
+        path = TEMPLATES_DIR / name
+        assert path.exists(), f"Missing template: {name}"
 
 
 if __name__ == "__main__":
