@@ -1,0 +1,20 @@
+{
+  "name": "simflow-claude-dev",
+  "description": "Development marketplace for the SimFlow Claude Code adapter.",
+  "owner": {
+    "name": "SimFlow Maintainers",
+    "email": "maintainers@example.com"
+  },
+  "plugins": [
+    {
+      "name": "simflow",
+      "source": "./",
+      "description": "Claude Code computational simulation workflows for dry-run-first DFT, AIMD, and MD research.",
+      "author": {
+        "name": "SimFlow Maintainers",
+        "email": "maintainers@example.com"
+      },
+      "strict": true
+    }
+  ]
+}

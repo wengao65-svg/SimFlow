@@ -1,0 +1,22 @@
+{
+  "name": "simflow",
+  "version": "0.8.11",
+  "description": "Claude Code computational simulation workflow layer for dry-run-first DFT, AIMD, and MD research.",
+  "author": {
+    "name": "SimFlow Maintainers",
+    "email": "maintainers@example.com",
+    "url": "https://github.com/simflow"
+  },
+  "homepage": "https://github.com/simflow/simflow",
+  "repository": "https://github.com/simflow/simflow",
+  "license": "MIT",
+  "keywords": [
+    "simulation",
+    "dft",
+    "aimd",
+    "molecular-dynamics",
+    "materials-science",
+    "mcp"
+  ],
+  "mcpServers": "./.claude.mcp.json"
+}
