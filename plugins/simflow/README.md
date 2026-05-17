@@ -48,6 +48,8 @@ Codex / OMX Host
 
 ## Quick Start
 
+### Codex
+
 Install the published SimFlow Codex marketplace:
 
 ```bash
@@ -109,6 +111,31 @@ npm run publish:codex-marketplace
 
 `/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, `@simflow-vasp`, or natural-language tasks.
 
+### Claude Code
+
+Install the published SimFlow Claude marketplace branch with Claude's source ref syntax:
+
+```bash
+claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+For a git URL, use `#claude-marketplace`:
+
+```bash
+claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+```
+
+Developer local debugging uses the generated Claude marketplace wrapper:
+
+```bash
+npm run build:claude-marketplace
+claude plugin marketplace add ./dist/claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+Claude plugin skills are namespaced, for example `/simflow:simflow`, `/simflow:simflow-vasp`, `/simflow:simflow-cp2k`, and `/simflow:simflow-writing`. The Claude adapter is a parallel distribution layer; it does not replace the Codex marketplace, Codex install/update flow, MCP startup wrapper, or workflow business logic.
+
 ## Project Structure
 
 ```
@@ -153,6 +180,7 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 ## Documentation
 
 - [Codex 快速上手](docs/quickstart_codex.md)
+- [Claude Code Quick Start](docs/quickstart_claude.md)
 - [Installation Guide](docs/installation.md)
 - [User Guide](docs/user_guide.md)
 - [Technical Design](docs/technical-design.md)
