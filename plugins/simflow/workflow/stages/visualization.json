@@ -1,0 +1,14 @@
+{
+  "name": "visualization",
+  "description": "可视化阶段：消费 analysis_report.json，生成 figure artifacts 与 figures_manifest.json",
+  "default_agent": "visualizer",
+  "default_skill": "simflow-visualization",
+  "required_inputs": ["analysis_report.json"],
+  "optional_inputs": ["structure_file", "trajectory_file"],
+  "expected_outputs": ["figures", "figures_manifest.json"],
+  "artifact_types": ["figure", "figures_manifest"],
+  "validators": ["data_traceability", "caption_completeness", "format_compliance", "axis_labels"],
+  "approval_gates": ["ambiguous_visualization"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

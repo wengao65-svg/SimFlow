@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name={{ job_name | default("gaussian_job") }}
+#SBATCH --nodes={{ nodes | default(1) }}
+#SBATCH --ntasks={{ ntasks | default(8) }}
+#SBATCH --time={{ walltime | default("04:00:00") }}
+#SBATCH --partition={{ partition | default("normal") }}
+#SBATCH --output={{ output | default("gaussian.out") }}
+#SBATCH --error={{ error | default("gaussian.err") }}
+{% if account %}#SBATCH --account={{ account }}
+{% endif %}{% if mem %}#SBATCH --mem={{ mem }}
+{% endif %}
+# Load modules
+{% for module in modules | default(["gaussian/g16"]) %}
+module load {{ module }}
+{% endfor %}
+
+cd {{ work_dir | default("$SLURM_SUBMIT_DIR") }}
+
+# Set Gaussian scratch directory
+export GAUSS_SCRDIR={{ scratch_dir | default("/tmp") }}
+
+# Run Gaussian
+{{ gaussian_executable | default("g16") }} {{ input_file | default("job.com") }}
+
+echo "Job completed at $(date)"

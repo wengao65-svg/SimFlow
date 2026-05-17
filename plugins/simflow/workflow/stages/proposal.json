@@ -1,0 +1,14 @@
+{
+  "name": "proposal",
+  "description": "方案设计阶段：设计 DFT/AIMD/MD 计算方案、参数、对照组、资源预算",
+  "default_agent": "strategist",
+  "default_skill": "simflow-proposal",
+  "required_inputs": ["research_goal"],
+  "optional_inputs": ["gap_analysis.md", "system_info"],
+  "expected_outputs": ["proposal.md", "parameter_table.json", "resource_estimate.json"],
+  "artifact_types": ["proposal", "parameter_table", "resource_estimate"],
+  "validators": ["goal_clarity", "parameter_rationality", "resource_reasonableness", "control_group_completeness"],
+  "approval_gates": ["resource_exceeds_budget"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "literature",
+  "description": "文献调研阶段：检索、筛选、元数据整理、引用 artifact 生成",
+  "default_agent": "literature_reviewer",
+  "default_skill": "simflow-literature",
+  "required_inputs": ["research_keywords"],
+  "optional_inputs": ["time_range", "database_preference", "language_preference"],
+  "expected_outputs": ["literature_matrix.json", "references.bib", "screening_report.md"],
+  "artifact_types": ["literature_matrix", "references", "screening_report"],
+  "validators": ["citation_completeness", "deduplication", "coverage_check"],
+  "approval_gates": [],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

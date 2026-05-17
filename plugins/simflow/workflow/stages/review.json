@@ -1,0 +1,14 @@
+{
+  "name": "review",
+  "description": "综述分析阶段：整合文献、提炼趋势、识别研究空白",
+  "default_agent": "synthesizer",
+  "default_skill": "simflow-review",
+  "required_inputs": ["literature_matrix.json", "references.bib"],
+  "optional_inputs": [],
+  "expected_outputs": ["review.md", "gap_analysis.md"],
+  "artifact_types": ["review", "gap_analysis"],
+  "validators": ["topic_coverage", "gap_evidence", "citation_consistency"],
+  "approval_gates": [],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

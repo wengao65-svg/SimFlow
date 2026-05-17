@@ -1,0 +1,70 @@
+# 工作流交付摘要
+
+## 基本信息
+
+- 生成时间：{{ generated_at }}
+- 工作流 ID：{{ workflow_id }}
+- 工作流类型：{{ workflow_type }}
+- 当前状态：{{ status }}
+
+## 进度概览
+
+### 已完成阶段
+{% for stage in completed_stages %}
+- [x] {{ stage }}
+{% endfor %}
+
+### 进行中阶段
+{% for stage in in_progress_stages %}
+- [ ] {{ stage }} (进行中)
+{% endfor %}
+
+### 失败阶段
+{% for stage in failed_stages %}
+- [!] {{ stage }} (失败: {{ stage.error }})
+{% endfor %}
+
+## 产物清单
+
+{% for stage, artifacts in artifacts_by_stage.items() %}
+### {{ stage }}
+| 产物 ID | 名称 | 类型 | 版本 |
+|---------|------|------|------|
+{% for art in artifacts %}
+| {{ art.artifact_id }} | {{ art.name }} | {{ art.type }} | {{ art.version }} |
+{% endfor %}
+{% endfor %}
+
+## 最新 Checkpoint
+
+- ID：{{ checkpoint_id }}
+- 阶段：{{ checkpoint_stage }}
+- 创建时间：{{ checkpoint_time }}
+
+## 验证结果
+
+{% for verification in verifications %}
+- {{ verification.stage }}: {{ verification.status }}
+{% endfor %}
+
+## 风险提示
+
+{% for risk in risks %}
+- {{ risk }}
+{% endfor %}
+
+## 下一步建议
+
+{% for step in next_steps %}
+- {{ step }}
+{% endfor %}
+
+## 需要审批的操作
+
+{% if needs_approval %}
+{% for action in approval_actions %}
+- [ ] {{ action }}
+{% endfor %}
+{% else %}
+无需审批
+{% endif %}

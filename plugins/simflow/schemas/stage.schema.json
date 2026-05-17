@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StageDefinition",
+  "description": "SimFlow stage definition schema (workflow/stages/*.json)",
+  "type": "object",
+  "required": ["name", "description", "skill", "inputs", "outputs"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Stage identifier"
+    },
+    "description": {
+      "type": "string",
+      "description": "Stage purpose"
+    },
+    "required": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this stage is required in its workflow"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Bound skill name (e.g., simflow-modeling)"
+    },
+    "agent": {
+      "type": "string",
+      "description": "Bound agent role"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "required": {"type": "boolean", "default": true},
+          "description": {"type": "string"}
+        }
+      },
+      "description": "Required input artifacts"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      },
+      "description": "Produced output artifacts"
+    },
+    "validators": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Validator functions to run on completion"
+    },
+    "checkpoint_policy": {
+      "type": "string",
+      "enum": ["on_complete", "on_failure", "always", "never"],
+      "default": "on_complete",
+      "description": "When to create checkpoints"
+    },
+    "handoff_output": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to generate handoff summary"
+    },
+    "mcp_tools": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "MCP tools used by this stage"
+    },
+    "gates": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Gates that apply to this stage"
+    }
+  }
+}

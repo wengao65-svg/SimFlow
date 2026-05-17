@@ -1,0 +1,21 @@
+{
+  "gate_name": "{{ gate_name }}",
+  "description": "{{ description }}",
+  "type": "{{ gate_type }}",
+  "trigger": {
+    "stage": "{{ stage_name }}",
+    "event": "{{ event }}"
+  },
+  "conditions": [
+    {
+      "field": "{{ field }}",
+      "operator": "{{ operator }}",
+      "value": "{{ value }}"
+    }
+  ],
+  "action": "{{ action }}",
+  "approval_required": {{ approval_required }},
+  "message": "{{ message }}",
+  "timeout_minutes": {{ timeout_minutes }},
+  "on_timeout": "{{ on_timeout }}"
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MCPCapability",
+  "description": "SimFlow MCP server capability declaration schema",
+  "type": "object",
+  "required": ["server_name", "tools", "transport"],
+  "properties": {
+    "server_name": {
+      "type": "string",
+      "description": "MCP server identifier"
+    },
+    "description": {
+      "type": "string",
+      "description": "Server purpose"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "parameters"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string", "const": "object"},
+              "properties": {"type": "object"},
+              "required": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          },
+          "returns": {"type": "object"}
+        }
+      },
+      "description": "Available tools"
+    },
+    "transport": {
+      "type": "string",
+      "enum": ["stdio", "sse", "http"],
+      "description": "Communication transport"
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["none", "api_key", "token", "ssh_key"]
+        },
+        "env_var": {"type": "string"},
+        "required": {"type": "boolean", "default": false}
+      },
+      "description": "Authentication requirements"
+    },
+    "caching": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "ttl_seconds": {"type": "integer", "default": 300}
+      }
+    },
+    "connectors": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Available connector modules"
+    }
+  }
+}

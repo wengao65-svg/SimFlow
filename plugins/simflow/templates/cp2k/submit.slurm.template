@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name={{ job_name | default(cp2k_job) }}
+#SBATCH --nodes={{ nodes | default(1) }}
+#SBATCH --ntasks={{ ntasks | default(16) }}
+#SBATCH --time={{ walltime | default(04:00:00) }}
+#SBATCH --partition={{ partition | default(normal) }}
+#SBATCH --output={{ output | default(job.out) }}
+#SBATCH --error={{ error | default(job.err) }}
+{% if account %}
+#SBATCH --account={{ account }}
+{% endif %}
+{% if mem %}
+#SBATCH --mem={{ mem }}
+{% endif %}
+
+{% for module in modules %}
+module load {{ module }}
+{% endfor %}
+
+{{ mpi_launcher | default(mpirun) }} -np {{ ntasks | default(16) }} {{ cp2k_exe | default(cp2k.psmp) }} -i {{ input_file | default(input.inp) }} -o {{ output_file | default(output.log) }}

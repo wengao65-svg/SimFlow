@@ -1,0 +1,14 @@
+{
+  "name": "analysis",
+  "description": "结果分析阶段：解析 VASP/CP2K 输出并生成 canonical analysis report 供可视化消费",
+  "default_agent": "data_analyst",
+  "default_skill": "simflow-analysis",
+  "required_inputs": ["compute_plan.json"],
+  "optional_inputs": ["compute_output", "analysis_goals"],
+  "expected_outputs": ["analysis_report.json", "analysis_report.md"],
+  "artifact_types": ["analysis_report", "analysis_markdown"],
+  "validators": ["output_completeness", "convergence_check", "trajectory_integrity", "statistical_significance"],
+  "approval_gates": ["convergence_failure", "unexpected_results"],
+  "checkpoint_policy": "on_completion",
+  "recovery_policy": "restart"
+}

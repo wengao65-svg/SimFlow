@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustomSkillBinding",
+  "description": "SimFlow custom skill binding schema (.simflow/extensions/skills/)",
+  "type": "object",
+  "required": ["skill_name", "binding_type"],
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "pattern": "^simflow-[a-z0-9-]+$",
+      "description": "Skill being bound"
+    },
+    "binding_type": {
+      "type": "string",
+      "enum": ["override", "extend", "disable"],
+      "description": "How this binding modifies the skill"
+    },
+    "overrides": {
+      "type": "object",
+      "properties": {
+        "scripts": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "Override script paths (original -> replacement)"
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "Override template paths"
+        },
+        "references": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "Override reference paths"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Override default parameters"
+        }
+      }
+    },
+    "extends": {
+      "type": "object",
+      "properties": {
+        "additional_scripts": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "additional_references": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "author": {"type": "string"},
+        "reason": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

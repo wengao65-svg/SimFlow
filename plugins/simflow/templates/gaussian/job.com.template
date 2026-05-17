@@ -1,0 +1,11 @@
+%chk={{ checkpoint | default("job.chk") }}
+%mem={{ memory | default("4GB") }}
+%nproc={{ nproc | default(8) }}
+#p {{ method | default("B3LYP") }}/{{ basis_set | default("6-311G(d,p)") }} {{ job_keyword | default("Opt Freq") }}
+
+{{ title | default("Gaussian job") }}
+
+{{ charge | default(0) }} {{ multiplicity | default(1) }}
+{{ geometry | default("Si   0.000000   0.000000   0.000000") }}
+
+

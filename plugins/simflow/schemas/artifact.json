@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artifact",
+  "description": "Artifact metadata and lineage",
+  "type": "object",
+  "required": ["artifact_id", "name", "type", "version", "stage", "created_at"],
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^art_[a-z0-9]{8}$",
+      "description": "Unique artifact identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Artifact file name"
+    },
+    "type": {
+      "type": "string",
+      "description": "Artifact type (e.g., literature_matrix, proposal, figure)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version"
+    },
+    "stage": {
+      "type": "string",
+      "description": "Stage that produced this artifact"
+    },
+    "path": {
+      "type": "string",
+      "description": "Relative path to the artifact file"
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "parent_artifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Parent artifact IDs"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters used to generate this artifact"
+        },
+        "software": {
+          "type": ["string", "null"],
+          "description": "Software used (if applicable)"
+        }
+      }
+    },
+    "checksum": {
+      "type": ["string", "null"],
+      "description": "File checksum for integrity verification"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

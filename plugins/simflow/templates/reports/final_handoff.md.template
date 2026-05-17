@@ -1,0 +1,40 @@
+# Final Handoff
+
+## Delivery Summary
+
+- Workflow ID: {{ workflow_id }}
+- Workflow type: {{ workflow_type }}
+- Status: {{ workflow_status }}
+- Generated at: {{ generated_at }}
+
+## Deliverables
+
+- Methods: {{ methods_ref }}
+- Results: {{ results_ref }}
+- Reproducibility package: {{ reproducibility_package_ref }}
+- Final handoff summary: {{ final_handoff_summary_ref }}
+
+## Stage Completion
+
+{{ stage_completion_rows }}
+
+## Risks and Open Items
+
+{{ risk_rows }}
+
+## Decisions Needed
+
+{{ decision_rows }}
+
+## Next Actions
+
+{{ next_step_rows }}
+
+## Traceability
+
+- Proposal: {{ proposal_ref }}
+- Parameter table: {{ parameter_table_ref }}
+- Structure manifest: {{ structure_manifest_ref }}
+- Compute plan: {{ compute_plan_ref }}
+- Analysis report: {{ analysis_report_ref }}
+- Figures manifest: {{ figures_manifest_ref }}
