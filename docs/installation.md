@@ -97,7 +97,29 @@ npm install
 
 ### Method 3: Claude Code plugin
 
-SimFlow is designed as a Codex-native plugin. Place the `simflow/` directory in your Claude Code project and the skills, templates, and MCP servers are automatically available.
+SimFlow also ships a Claude Code adapter as a separate distribution layer from the Codex marketplace. Install the published Claude marketplace branch with Claude's ref syntax:
+
+```bash
+claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+For a git URL, use `#ref`:
+
+```bash
+claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+For local testing from a source checkout:
+
+```bash
+npm run build:claude-marketplace
+claude plugin marketplace add ./dist/claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+Claude plugin skills are namespaced, for example `/simflow:simflow`, `/simflow:simflow-vasp`, `/simflow:simflow-cp2k`, and `/simflow:simflow-writing`. `claude plugin marketplace add` supports `--scope` and `--sparse`; it does not use a `--ref` option.
 
 ## Verification
 

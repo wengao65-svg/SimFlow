@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Add a Claude Code adapter as a parallel distribution layer with `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.claude.mcp.json`, Claude marketplace wrapper build/publish scripts, validation, and quickstart/release documentation.
+
+### Unchanged
+- Codex marketplace packaging, `.codex-plugin/plugin.json`, Codex install/update scripts, MCP startup wrapper, and VASP/CP2K/Writing workflow business logic are unchanged.
+
 ## v0.8.3 (2026-05-05)
 
 ### Fixed
