@@ -79,3 +79,62 @@ def test_mcp_tools_reject_explicit_plugin_root():
 
     assert artifact_list.execute({"project_root": str(ROOT)})["status"] == "error"
     assert checkpoint_list.execute({"project_root": str(ROOT)})["status"] == "error"
+
+
+def test_mcp_write_tools_reject_missing_project_root():
+    init = _load_tool("state_init_missing_project_root_tool", "mcp/servers/simflow_state/tools/init_workflow.py")
+    write = _load_tool("state_write_missing_project_root_tool", "mcp/servers/simflow_state/tools/write_state.py")
+    update = _load_tool("state_update_missing_project_root_tool", "mcp/servers/simflow_state/tools/update_stage.py")
+    register = _load_tool("artifact_register_missing_project_root_tool", "mcp/servers/artifact_store/tools/register.py")
+    create = _load_tool("checkpoint_create_missing_project_root_tool", "mcp/servers/checkpoint_store/tools/create.py")
+    restore = _load_tool("checkpoint_restore_missing_project_root_tool", "mcp/servers/checkpoint_store/tools/restore.py")
+
+    calls = [
+        init.execute({"workflow_type": "custom", "entry_point": "literature_review"}),
+        write.execute({"data": {"workflow_id": "wf_test"}}),
+        update.execute({"stage_name": "proposal", "status": "in_progress"}),
+        register.execute({"name": "result", "type": "report", "stage": "analysis"}),
+        create.execute({"workflow_id": "wf_test", "stage_id": "analysis"}),
+        restore.execute({"checkpoint_id": "ckpt_001_analysis"}),
+    ]
+
+    for result in calls:
+        assert result["status"] == "error"
+        assert "project_root" in result["message"]
+
+
+def test_mcp_write_tools_reject_base_dir_alias():
+    init = _load_tool("state_init_base_dir_tool", "mcp/servers/simflow_state/tools/init_workflow.py")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = init.execute({
+            "workflow_type": "custom",
+            "entry_point": "literature_review",
+            "base_dir": tmpdir,
+        })
+
+        assert result["status"] == "error"
+        assert "project_root" in result["message"]
+        assert not (Path(tmpdir) / ".simflow").exists()
+
+
+def test_mcp_write_tools_reject_explicit_plugin_root():
+    init = _load_tool("state_init_plugin_root_tool", "mcp/servers/simflow_state/tools/init_workflow.py")
+    write = _load_tool("state_write_plugin_root_tool", "mcp/servers/simflow_state/tools/write_state.py")
+    update = _load_tool("state_update_plugin_root_tool", "mcp/servers/simflow_state/tools/update_stage.py")
+    register = _load_tool("artifact_register_plugin_root_tool", "mcp/servers/artifact_store/tools/register.py")
+    create = _load_tool("checkpoint_create_plugin_root_tool", "mcp/servers/checkpoint_store/tools/create.py")
+    restore = _load_tool("checkpoint_restore_plugin_root_tool", "mcp/servers/checkpoint_store/tools/restore.py")
+
+    calls = [
+        init.execute({"project_root": str(ROOT), "workflow_type": "custom"}),
+        write.execute({"project_root": str(ROOT), "data": {"workflow_id": "wf_test"}}),
+        update.execute({"project_root": str(ROOT), "stage_name": "proposal", "status": "in_progress"}),
+        register.execute({"project_root": str(ROOT), "name": "result", "type": "report", "stage": "analysis"}),
+        create.execute({"project_root": str(ROOT), "workflow_id": "wf_test", "stage_id": "analysis"}),
+        restore.execute({"project_root": str(ROOT), "checkpoint_id": "ckpt_001_analysis"}),
+    ]
+
+    for result in calls:
+        assert result["status"] == "error"
+        assert "project_root" in result["message"]
