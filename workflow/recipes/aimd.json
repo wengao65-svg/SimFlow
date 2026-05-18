@@ -1,0 +1,14 @@
+{
+  "name": "aimd",
+  "recipe_type": "aimd",
+  "intent": "Reference path for ab initio molecular dynamics studies with traceable setup, execution, trajectory analysis, and claims.",
+  "description": "Example AIMD recipe. It is guidance, not a mandatory executor DAG.",
+  "tags": ["aimd", "molecular_dynamics", "reference_recipe"],
+  "applicable_software": ["vasp", "cp2k", "quantum_espresso", "custom"],
+  "stages": ["proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["structure_manifest", "calculation_manifest", "input_validation_report", "dry_run_report", "trajectory_outputs", "analysis_outputs"],
+  "recommended_checks": ["temperature and timestep rationale", "thermostat settings documented", "trajectory completeness", "equilibration caveats", "input/output hashes"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record ensemble, timestep, temperature control, trajectory status, analysis scripts, and incomplete sampling caveats."],
+  "metadata": {"schema_version": "1.0.0"}
+}

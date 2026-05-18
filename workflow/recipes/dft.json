@@ -1,0 +1,14 @@
+{
+  "name": "dft",
+  "recipe_type": "dft",
+  "intent": "Reference path for density-functional-theory studies while preserving open stage entry and evidence traceability.",
+  "description": "Example DFT recipe. It is guidance, not a mandatory executor DAG.",
+  "tags": ["dft", "electronic_structure", "reference_recipe"],
+  "applicable_software": ["vasp", "quantum_espresso", "cp2k", "abinit", "custom"],
+  "stages": ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["calculation_manifest", "input_validation_report", "dry_run_report", "analysis_outputs", "claim_evidence_map"],
+  "recommended_checks": ["pseudopotential or basis provenance", "k-point and cutoff rationale", "convergence evidence", "input/output hashes", "claim traceability"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record selected functional, convergence settings, software command, inputs, outputs, and any incomplete calculations."],
+  "metadata": {"schema_version": "1.0.0"}
+}

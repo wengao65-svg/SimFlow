@@ -1,0 +1,14 @@
+{
+  "name": "phonon",
+  "recipe_type": "phonon",
+  "intent": "Reference path for phonon calculations while leaving software and method choices open.",
+  "description": "Example phonon recipe. It is guidance, not a mandatory executor DAG.",
+  "tags": ["phonon", "vibrational_properties", "reference_recipe"],
+  "applicable_software": ["phonopy", "vasp", "quantum_espresso", "cp2k", "custom"],
+  "stages": ["proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["supercell_or_displacement_manifest", "calculation_manifest", "input_validation_report", "dry_run_report", "phonon_outputs", "figure_manifest"],
+  "recommended_checks": ["supercell rationale", "displacement method recorded", "force convergence", "imaginary mode caveats", "plot/data lineage"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record displacement generation, force calculations, post-processing scripts, figures, and any unstable modes."],
+  "metadata": {"schema_version": "1.0.0"}
+}
