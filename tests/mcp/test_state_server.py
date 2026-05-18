@@ -57,7 +57,7 @@ def test_init_workflow_tool_uses_simflow_not_omx():
         result = execute({
             "workflow_type": "custom",
             "entry_point": "literature",
-            "base_dir": tmpdir,
+            "project_root": tmpdir,
         })
 
         assert result["status"] == "success"
