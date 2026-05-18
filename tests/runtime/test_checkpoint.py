@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 from lib.checkpoint import create_checkpoint, list_checkpoints, restore_checkpoint, get_latest_checkpoint
+from lib.artifact import register_artifact
 from lib.state import init_workflow
 
 
@@ -27,9 +28,28 @@ class TestCheckpoint:
         assert ckpt["checkpoint_id"].startswith("ckpt_")
         assert ckpt["workflow_id"] == "wf_test1234"
         assert ckpt["status"] == "success"
+        assert "lineage_snapshot" in ckpt
         registry_path = Path(self.base_dir) / ".simflow" / "state" / "checkpoints.json"
         registry = json.loads(registry_path.read_text(encoding="utf-8"))
         assert registry[0]["checkpoint_id"] == ckpt["checkpoint_id"]
+
+    def test_checkpoint_captures_lineage_snapshot(self):
+        parent = register_artifact("input.json", "input_manifest", "computation", self.base_dir)
+        child = register_artifact(
+            "analysis.json",
+            "custom_analysis",
+            "analysis_visualization",
+            self.base_dir,
+            parent_artifacts=[parent["artifact_id"]],
+        )
+
+        ckpt = create_checkpoint("wf_test", "analysis_visualization", "After analysis", self.base_dir)
+        links = ckpt["lineage_snapshot"]["links"]
+        assert any(
+            link["parent_artifact_id"] == parent["artifact_id"]
+            and link["child_artifact_id"] == child["artifact_id"]
+            for link in links
+        )
 
     def test_list_checkpoints(self):
         create_checkpoint("wf_test", "literature", "First", self.base_dir)
