@@ -1,56 +1,50 @@
 ---
 name: simflow
-description: Route computational simulation requests into the SimFlow workflow.
+description: Route computational simulation research requests into SimFlow's workflow layer.
 ---
 
-# SimFlow — 总入口 Skill
+# SimFlow
 
 ## 触发条件
 
-- 用户提到计算模拟、DFT、AIMD、MD、第一性原理、分子动力学等关键词
-- 用户请求启动一个计算模拟研究项目
-- 用户询问 SimFlow 能做什么
+- 用户提出计算模拟、材料计算、分子模拟、第一性原理、DFT、AIMD、MD、文献综述、建模、计算、分析或科研写作任务。
+- 用户希望让 Codex/Claude Code 在开放科研任务中保留状态、证据、artifact、checkpoint、lineage、gate 或 handoff。
+- 用户询问 SimFlow 的能力、项目初始化、阶段状态或安全边界。
 
 ## 输入条件
 
-- 用户自然语言描述的研究目标（必需）
-- 可选：体系信息、软件偏好、计算资源
+- 用户的研究目标、当前阶段、已有文件、约束条件或期望交付物。
+- 可选：文献、结构文件、计算输入/输出、分析脚本、图表、写作草稿、软件偏好或计算资源信息。
+- 如果需要写入状态，先解析当前工作目录作为 `project_root`，不得使用 plugin root 或 MCP server cwd。
 
 ## 输出 Artifact
 
-- `workflow_choice.json` — 选择的工作流类型（dft/aimd/md/custom）
-- `intake_summary.json` — 入口分析摘要
-- `.simflow/reports/status_summary.md` — 当前项目状态摘要
-- `.simflow/state/summary.json` — 结构化项目状态摘要
+- 入口摘要、阶段建议、recipe/tag 建议、风险说明或 handoff notes。
+- `.simflow/` 状态记录、artifact metadata、checkpoint、lineage link 或 gate decision。
+- 用户请求的任意科研交付物，只要其证据来源和生成过程可追溯。
 
 ## 状态写入规则
 
-- 写任何 SimFlow state/report/artifact/checkpoint 前，必须先获取用户当前项目目录 `pwd`，并把它作为 `project_root` 传给 MCP tool 或 runtime helper
-- `$simflow` 初始化当前项目时，必须调用 MCP tool `simflow_state.init_workflow`
-- `simflow_state.init_workflow` 必须使用 `project_root`，不得依赖 MCP server 的 cwd
-- `simflow_state.init_workflow` 必须创建并维护 `.simflow/` 作为 SimFlow workflow 主状态目录
-- 必须写入 `.simflow/state/workflow.json`
-- 必须创建 `.simflow/state/stages.json`
-- 必须创建 `.simflow/state/artifacts.json`
-- 必须创建 `.simflow/state/checkpoints.json`
-- 项目状态摘要必须写入 `.simflow/reports/status_summary.md` 或 `.simflow/state/summary.json`
-- `.omx/` 属于 oh-my-codex / host session 状态；可以读取上下文，但不得作为 SimFlow workflow 主状态目录，不得写入 SimFlow 主状态摘要
+- `.simflow/` 是唯一 SimFlow workflow 状态根，所有写操作必须显式传 `project_root`。
+- SimFlow 只记录阶段、证据、artifact、checkpoint、lineage、handoff 和 gate；科学判断、检索、建模、编码、分析和写作由 agent 负责。
+- DFT、AIMD、MD、phonon、NEB、defect 等是 recipe/tag，不是顶层硬编码 workflow 限制。
+- 用户显式指令优先于默认阶段建议，但不得绕过安全和可追溯性硬边界。
 
 ## Checkpoint 规则
 
-- 不在此 skill 创建 checkpoint
-- 由后续 simflow-intake 或 simflow-plan 创建
+- 重要阶段边界、证据边界、审查边界或失败边界需要 checkpoint。
+- checkpoint 应说明当前阶段、关键 artifact、lineage、未解决风险和下一步。
+- 不把未完成、未验证或未批准的工作 checkpoint 成已完成状态。
 
 ## 禁止事项
 
-- 不要直接跳到具体阶段执行
-- 不要假设用户选择的软件
-- 不要把 `.omx/`、`.codex/` 或 host session 目录当作 `.simflow/` 的替代品
-- 不要把 SimFlow plugin root、Codex plugin cache root 或 MCP server cwd 当作 `project_root`
-- 不要删除或修改已有 `.omx/`
-- 不要把 `simflow_status_summary.md` 写入 `.omx/`
+- 不要把 SimFlow 当作中心化 executor，替 agent 决定唯一文献源、软件、parser、builder、plotter 或报告结构。
+- 不要编造文献、计算结果、数据、图表、citation、收敛状态或作业状态。
+- 不要保存 credentials，不要泄露 licensed/proprietary 文件。
+- 不要在未通过 approval gate 时提交真实 local、remote 或 HPC job。
 
 ## 需要人工确认的场景
 
-- 用户的研究目标不明确时
-- 无法判断应使用 DFT/AIMD/MD 时
+- 研究目标、阶段入口、交付格式或证据标准不明确。
+- 涉及真实执行、远程系统、HPC、licensed/proprietary 文件、credentials、破坏性操作或高成本资源。
+- 结论依赖缺失、不完整、未验证或相互矛盾的证据。
