@@ -1,123 +1,106 @@
 #!/usr/bin/env python3
-"""Tests for workflow stage definitions."""
+"""Tests for open workflow stage definitions."""
 
 import json
 from pathlib import Path
 
 STAGES_DIR = Path(__file__).resolve().parents[2] / "workflow" / "stages"
-TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates" / "reports"
 
-REQUIRED_STAGES = [
-    "literature", "review", "proposal", "modeling",
-    "input_generation", "compute", "analysis", "visualization", "writing",
+CANONICAL_STAGES = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
 ]
 
-
-MILESTONE_D_STAGE_EXPECTATIONS = {
-    "modeling": {
-        "required_inputs": ["proposal.md", "parameter_table.csv", "research_questions.json"],
-        "expected_outputs": ["structure_manifest.json", "structure_file", "modeling_report.md"],
-        "artifact_types": ["structure_manifest", "structure", "modeling_report"],
-    },
-    "compute": {
-        "required_inputs": ["input_manifest.json"],
-        "expected_outputs": ["compute_plan.json", "job_script.sh", "dry_run_report.json"],
-        "artifact_types": ["compute_plan", "job_script", "dry_run_report"],
-    },
-    "analysis": {
-        "required_inputs": ["compute_plan.json"],
-        "expected_outputs": ["analysis_report.json", "analysis_report.md"],
-        "artifact_types": ["analysis_report", "analysis_markdown"],
-    },
-    "visualization": {
-        "required_inputs": ["analysis_report.json"],
-        "expected_outputs": ["figures", "figures_manifest.json"],
-        "artifact_types": ["figure", "figures_manifest"],
-    },
-    "writing": {
-        "required_inputs": [
-            "proposal.md",
-            "parameter_table.csv",
-            "structure_manifest.json",
-            "compute_plan.json",
-            "analysis_report.json",
-            "figures_manifest.json",
-        ],
-        "expected_outputs": [
-            "methods.md",
-            "results.md",
-            "reproducibility_package.md",
-            "final_handoff.md",
-            "final_handoff.json",
-        ],
-        "artifact_types": ["methods", "results", "reproducibility_package", "final_handoff", "final_handoff_summary"],
-    },
+LEGACY_ALIAS_STAGES = {
+    "literature": "literature_review",
+    "review": "literature_review",
+    "input_generation": "computation",
+    "compute": "computation",
+    "analysis": "analysis_visualization",
+    "visualization": "analysis_visualization",
 }
 
-
-MILESTONE_D_TEMPLATE_FILES = [
-    "reproducibility_package.md.template",
-    "final_handoff.md.template",
+GUIDANCE_LIST_FIELDS = [
+    "acceptable_inputs",
+    "evidence_outputs",
+    "recommended_skills",
+    "suggested_checks",
+    "approval_triggers",
+    "handoff_notes",
 ]
+
+
+def _stage_paths() -> list[Path]:
+    return sorted(STAGES_DIR.glob("*.json"))
 
 
 def _load_stage(name: str) -> dict:
     return json.loads((STAGES_DIR / f"{name}.json").read_text())
 
 
-def test_all_stages_exist():
-    for name in REQUIRED_STAGES:
+def test_all_canonical_stages_exist():
+    for name in CANONICAL_STAGES:
         path = STAGES_DIR / f"{name}.json"
-        assert path.exists(), f"Missing stage: {name}"
+        assert path.exists(), f"Missing canonical stage: {name}"
 
 
-def test_stage_json_valid():
-    for name in REQUIRED_STAGES:
+def test_legacy_alias_stages_remain_available():
+    for name, canonical in LEGACY_ALIAS_STAGES.items():
         data = _load_stage(name)
-        assert isinstance(data, dict), f"Stage {name} is not a dict"
+        assert data.get("legacy_alias") is True
+        assert data.get("canonical_stage") == canonical
 
 
-def test_stage_has_required_fields():
-    for name in REQUIRED_STAGES:
-        data = _load_stage(name)
-        assert "name" in data, f"Stage {name} missing 'name'"
-        assert "description" in data, f"Stage {name} missing 'description'"
-        assert "default_skill" in data or "skill" in data, f"Stage {name} missing skill"
+def test_all_stage_json_valid():
+    paths = _stage_paths()
+    assert paths, "No stage files found"
+    for path in paths:
+        data = json.loads(path.read_text())
+        assert isinstance(data, dict), f"Stage {path.name} is not a dict"
 
 
 def test_stage_name_matches_filename():
-    for name in REQUIRED_STAGES:
+    for path in _stage_paths():
+        data = json.loads(path.read_text())
+        assert data["name"] == path.stem, f"Stage {path.name} name mismatch: {data.get('name')}"
+
+
+def test_stage_has_open_guidance_contract():
+    for path in _stage_paths():
+        data = json.loads(path.read_text())
+        assert data.get("intent"), f"Stage {path.name} missing intent"
+        for field in GUIDANCE_LIST_FIELDS:
+            assert field in data, f"Stage {path.name} missing {field}"
+            assert isinstance(data[field], list), f"Stage {path.name} {field} is not a list"
+        assert data["evidence_outputs"], f"Stage {path.name} must define evidence outputs"
+        assert data["handoff_notes"], f"Stage {path.name} must define handoff notes"
+
+
+def test_computation_stages_have_approval_triggers():
+    required = {"real_hpc_submit", "remote_execution", "local_job_submit"}
+    for name in ["computation", "compute"]:
         data = _load_stage(name)
-        assert data["name"] == name, f"Stage {name} name mismatch: {data.get('name')}"
+        triggers = set(data.get("approval_triggers", []))
+        assert required.issubset(triggers), f"{name} missing compute approval triggers"
 
 
-def test_stage_has_skill():
-    for name in REQUIRED_STAGES:
-        data = _load_stage(name)
-        assert "default_skill" in data or "skill" in data, f"Stage {name} missing skill"
-
-
-def test_stage_has_inputs_outputs():
-    for name in REQUIRED_STAGES:
-        data = _load_stage(name)
-        inputs = data.get("inputs") or data.get("required_inputs") or []
-        outputs = data.get("outputs") or data.get("expected_outputs") or []
-        assert isinstance(inputs, list), f"Stage {name} inputs not a list"
-        assert isinstance(outputs, list), f"Stage {name} outputs not a list"
-
-
-def test_milestone_d_stage_contracts_are_aligned():
-    for name, expected in MILESTONE_D_STAGE_EXPECTATIONS.items():
-        data = _load_stage(name)
-        assert data.get("required_inputs") == expected["required_inputs"]
-        assert data.get("expected_outputs") == expected["expected_outputs"]
-        assert data.get("artifact_types") == expected["artifact_types"]
-
-
-def test_milestone_d_templates_exist():
-    for name in MILESTONE_D_TEMPLATE_FILES:
-        path = TEMPLATES_DIR / name
-        assert path.exists(), f"Missing template: {name}"
+def test_stage_contracts_do_not_force_fixed_helpers():
+    forbidden_keys = {
+        "default_parser",
+        "fixed_parser",
+        "fixed_builder",
+        "fixed_report",
+        "fixed_report_file",
+        "fixed_validators",
+    }
+    for path in _stage_paths():
+        data = json.loads(path.read_text())
+        present = forbidden_keys.intersection(data)
+        assert not present, f"Stage {path.name} contains hard helper keys: {sorted(present)}"
 
 
 if __name__ == "__main__":

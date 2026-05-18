@@ -63,5 +63,45 @@ test('checkpoint.json has workflow_id and stage_id', () => {
   });
 });
 
+test('workflow.schema.json keeps workflow_type open', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'workflow.schema.json'), 'utf-8'));
+  const workflowType = schema.properties && schema.properties.workflow_type;
+  if (!workflowType) throw new Error('Missing workflow_type property');
+  if (workflowType.enum) throw new Error('workflow_type must not be enum-limited');
+  ['recipe', 'tags', 'software'].forEach(field => {
+    if (!schema.properties[field]) throw new Error(`Missing open workflow field: ${field}`);
+  });
+});
+
+test('workflow.schema.json allows string or object stages', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'workflow.schema.json'), 'utf-8'));
+  const oneOf = schema.properties.stages.items.oneOf || [];
+  const types = new Set(oneOf.map(item => item.type));
+  if (!types.has('string') || !types.has('object')) {
+    throw new Error('stages items must allow both string and object entries');
+  }
+});
+
+test('stage.schema.json requires intent and evidence_outputs', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'stage.schema.json'), 'utf-8'));
+  ['name', 'intent', 'evidence_outputs'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required stage field: ${field}`);
+    }
+  });
+  ['skill', 'inputs', 'outputs', 'default_skill', 'required_inputs', 'expected_outputs'].forEach(field => {
+    if (schema.required && schema.required.includes(field)) {
+      throw new Error(`Legacy field must not be required: ${field}`);
+    }
+  });
+});
+
+test('stage.schema.json includes guidance and approval fields', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'stage.schema.json'), 'utf-8'));
+  ['acceptable_inputs', 'recommended_skills', 'suggested_checks', 'approval_triggers', 'handoff_notes'].forEach(field => {
+    if (!schema.properties[field]) throw new Error(`Missing stage guidance field: ${field}`);
+  });
+});
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);
