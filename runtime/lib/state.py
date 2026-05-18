@@ -11,10 +11,13 @@ SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL_STATE_FILES = {
+    "project.json": {},
     "workflow.json": {},
     "stages.json": {},
     "artifacts.json": [],
     "checkpoints.json": [],
+    "gates.json": [],
+    "lineage.json": {"links": []},
     "verification.json": {},
     "jobs.json": [],
     "summary.json": {"state_root": ".simflow"},
@@ -92,6 +95,13 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
         sf / "state",
         sf / "plans",
         sf / "artifacts",
+        sf / "artifacts" / "literature",
+        sf / "artifacts" / "proposal",
+        sf / "artifacts" / "models",
+        sf / "artifacts" / "compute",
+        sf / "artifacts" / "analysis",
+        sf / "artifacts" / "figures",
+        sf / "artifacts" / "writing",
         sf / "checkpoints",
         sf / "reports",
         sf / "logs",
@@ -172,9 +182,17 @@ def init_workflow(
     }
     write_state(state, project_root=str(root))
     for state_file, default_value in CANONICAL_STATE_FILES.items():
-        if state_file in ("workflow.json", "summary.json"):
+        if state_file in ("workflow.json", "summary.json", "project.json"):
             continue
         write_state(default_value, project_root=str(root), state_file=state_file)
+    project = {
+        "project_root": str(root),
+        "state_root": ".simflow",
+        "workflow_id": wf_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    write_state(project, project_root=str(root), state_file="project.json")
     summary = {
         "workflow_id": wf_id,
         "workflow_type": workflow_type,

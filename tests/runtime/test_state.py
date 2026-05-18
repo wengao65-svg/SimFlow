@@ -41,14 +41,19 @@ class TestState:
         assert (sf / "checkpoints").exists()
         assert (sf / "reports").exists()
         for path in [
+            sf / "state" / "project.json",
             sf / "state" / "workflow.json",
             sf / "state" / "stages.json",
             sf / "state" / "artifacts.json",
             sf / "state" / "checkpoints.json",
+            sf / "state" / "gates.json",
+            sf / "state" / "lineage.json",
             sf / "state" / "summary.json",
             sf / "state" / "metadata.json",
         ]:
             assert path.exists()
+        for dirname in ["literature", "proposal", "models", "compute", "analysis", "figures", "writing"]:
+            assert (sf / "artifacts" / dirname).is_dir()
         assert not (sf / "metadata.json").exists()
         assert not (sf / "workflow_state.json").exists()
 
@@ -60,10 +65,13 @@ class TestState:
         assert state["status"] == "initialized"
         sf = Path(self.base_dir) / ".simflow"
         for path in [
+            sf / "state" / "project.json",
             sf / "state" / "workflow.json",
             sf / "state" / "stages.json",
             sf / "state" / "artifacts.json",
             sf / "state" / "checkpoints.json",
+            sf / "state" / "gates.json",
+            sf / "state" / "lineage.json",
             sf / "state" / "summary.json",
             sf / "state" / "metadata.json",
             sf / "plans",
@@ -76,7 +84,12 @@ class TestState:
         assert read_state(self.base_dir, "stages.json") == {}
         assert read_state(self.base_dir, "artifacts.json") == []
         assert read_state(self.base_dir, "checkpoints.json") == []
+        assert read_state(self.base_dir, "gates.json") == []
+        assert read_state(self.base_dir, "lineage.json") == {"links": []}
         assert read_state(self.base_dir, "metadata.json") == {}
+        project = read_state(self.base_dir, "project.json")
+        assert project["state_root"] == ".simflow"
+        assert project["workflow_id"] == state["workflow_id"]
         summary = read_state(self.base_dir, "summary.json")
         assert summary["state_root"] == ".simflow"
         assert (sf / "reports" / "status_summary.md").is_file()
