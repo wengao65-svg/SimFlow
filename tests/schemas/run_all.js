@@ -103,5 +103,20 @@ test('stage.schema.json includes guidance and approval fields', () => {
   });
 });
 
+test('recipe.schema.json defines open JSON recipe contract', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'recipe.schema.json'), 'utf-8'));
+  ['name', 'recipe_type', 'intent', 'stages'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required recipe field: ${field}`);
+    }
+  });
+  if (schema.properties.recipe_type.enum) {
+    throw new Error('recipe_type must remain open and not enum-limited');
+  }
+  ['applicable_software', 'evidence_outputs', 'recommended_checks', 'approval_triggers'].forEach(field => {
+    if (!schema.properties[field]) throw new Error(`Missing recipe guidance field: ${field}`);
+  });
+});
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);
