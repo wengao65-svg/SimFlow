@@ -1,121 +1,88 @@
 # HPC Integration Guide
 
-## Supported Schedulers
+## Positioning
 
-| Scheduler | Connector | Status |
-|-----------|-----------|--------|
-| SLURM | `slurm` | Implemented |
-| PBS/Torque | `pbs` | Implemented |
-| SSH | `ssh` | Implemented |
-| Local | `local` | Implemented |
+HPC integration is a safety-gated helper inside the `computation` stage. It is
+not a standalone SimFlow CLI workflow and it must not bypass the SimFlow
+approval model.
 
-## SLURM
+All real execution targets are treated as risky:
 
-### Usage
+- SLURM
+- PBS/Torque
+- SSH remote execution
+- local shell execution
 
-```bash
-# Generate SLURM script
-simflow hpc prepare --job-name si_relax --executable vasp_std --nodes 2 --ntasks 32
+Local execution is included because it can still consume resources, mutate
+files, or run destructive commands.
 
-# Validate script
-simflow hpc dry_run --script-path job.sh
+## Dry-Run First
 
-# Submit
-simflow hpc submit --script-path job.sh --scheduler slurm
+Compute actions start with dry-run evidence. A dry-run package should record:
 
-# Check status
-simflow hpc status --job-id 12345 --scheduler slurm
-```
+- calculation manifest
+- input file list and hashes
+- job script path and hash
+- resource estimate
+- environment or command description
+- input validation report
+- credential scan result
+- warnings and unresolved risks
 
-### Environment
+The dry-run report is an artifact. Later approval must reference that artifact
+instead of relying on an agent-supplied boolean.
 
-SLURM commands (`sbatch`, `squeue`, `scancel`) must be available in PATH.
+## Approval Gate
 
-## PBS/Torque
+Real submission requires an approval gate decision tied to evidence. The target
+submit contract requires:
 
-### Usage
+- `approval_token` or `gate_decision_id`
+- dry-run artifact id
+- script hash approved by the gate
+- input artifact hash or manifest hash approved by the gate
+- scheduler or execution backend
+- project root
 
-```bash
-simflow hpc submit --script-path job.sh --scheduler pbs
-simflow hpc status --job-id 12345.pbs-server --scheduler pbs
-```
+Submission must be blocked when:
 
-### Requirements
+- approval is missing
+- dry-run evidence is missing
+- input validation evidence is missing
+- credential scan evidence is missing or unresolved
+- the current job script hash differs from the approved dry-run artifact
+- the current input manifest hash differs from the approved dry-run artifact
 
-- `qsub`, `qstat`, `qdel` commands available
-- Script must contain `#PBS` directives (walltime, nodes)
+## Connector Responsibilities
 
-## SSH Remote Execution
+Connectors may generate scripts, validate scripts, submit jobs, query status,
+and cancel jobs. They must not decide whether submission is safe. That decision
+belongs to the gate engine and the recorded approval decision.
 
-### Configuration
+All connectors should share the same approval semantics:
 
-Set environment variables:
-
-```bash
-export SIMFLOW_SSH_HOST=hpc.university.edu
-export SIMFLOW_SSH_USER=researcher
-export SIMFLOW_SSH_KEY=~/.ssh/hpc_key
-```
-
-### Usage
-
-```bash
-simflow hpc submit --script-path job.sh --scheduler ssh
-simflow hpc status --job-id 12345 --scheduler ssh
-```
-
-### How It Works
-
-1. Script is copied to remote host via SCP
-2. Executed via `nohup bash script.sh &`
-3. PID is returned as job_id
-4. Status checked via `kill -0 PID`
-
-## Local Execution
-
-For testing and small jobs:
-
-```bash
-simflow hpc submit --script-path job.sh --scheduler local
-```
-
-Executes `bash script.sh` as a subprocess with configurable timeout.
-
-## Job Script Templates
-
-### SLURM Template
-
-```bash
-#!/bin/bash
-#SBATCH --job-name=simflow_job
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
-#SBATCH --time=04:00:00
-#SBATCH --output=job_%j.out
-#SBATCH --error=job_%j.err
-
-module load vasp/6.3.0
-mpirun -np $SLURM_NTASKS vasp_std
-```
-
-### PBS Template
-
-```bash
-#!/bin/bash
-#PBS -N simflow_job
-#PBS -l nodes=1:ppn=16
-#PBS -l walltime=04:00:00
-#PBS -o job.out
-#PBS -e job.err
-
-cd $PBS_O_WORKDIR
-module load vasp/6.3.0
-mpirun -np 16 vasp_std
-```
+- SLURM: `sbatch`
+- PBS/Torque: `qsub`
+- SSH: remote scheduler or `nohup bash`
+- Local: `bash` or equivalent local process execution
 
 ## Credential Security
 
-- SSH credentials are read from environment variables only
-- Never stored in files, artifacts, or logs
-- Key file path is validated before use
-- All SSH commands use `BatchMode=yes` to prevent interactive prompts
+- SSH and service credentials are read from environment variables or host secret
+  mechanisms only.
+- Credentials must not be copied into job scripts, artifacts, logs,
+  checkpoints, or reports.
+- Credential scans should be recorded before approval.
+- Proprietary or licensed files must be identified and handled only with
+  user-approved boundaries.
+
+## Handoff
+
+After a compute preparation or submission step, handoff notes should state:
+
+- what was prepared or submitted
+- where it is expected to run
+- which inputs and scripts were used
+- which hashes were approved
+- whether outputs are complete, partial, missing, or unknown
+- what checkpoint records the current state
