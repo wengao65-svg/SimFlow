@@ -1,71 +1,86 @@
-# Skills Design
+# Skill Design
 
-## Skill Contract (SKILL.md)
+## Purpose
 
-Every skill declares a contract in its SKILL.md file:
+SimFlow is skill-first. Skills are the user-facing entry points that help a host
+agent recognize research intent, apply SimFlow evidence rules, and produce
+handoff-ready work.
 
-```yaml
-skill_name: simflow-dft:run_relax
-stage_binding: relax
-inputs:
-  - name: structure
-    type: file
-    format: cif
-  - name: encut
-    type: number
-    default: 520
-outputs:
-  - name: relaxed_structure
-    type: file
-    format: cif
-  - name: energy
-    type: number
-mcp_tools:
-  - hpc:submit
-  - hpc:dry_run
-```
+Skills are not workflow executors. They should not force one parser, one report
+name, one builder, one simulation engine, or one fixed DFT/AIMD/MD path.
 
-## Skill Structure
+## Core Skill Set
 
-```
-skills/
-└── simflow-dft/
-    ├── SKILL.md
-    ├── metadata.json
-    ├── scripts/
-    │   ├── run_relax.py
-    │   ├── run_scf.py
-    │   └── run_bands.py
-    └── templates/
-        ├── INCAR.relax
-        └── KPOINTS.mesh
-```
+The refactored workflow layer centers on a small core set:
 
-## Binding Rules
+- `simflow`
+- `simflow-literature-review`
+- `simflow-proposal`
+- `simflow-modeling`
+- `simflow-computation`
+- `simflow-analysis-visualization`
+- `simflow-writing`
+- `simflow-safety-gates`
 
-1. A skill maps to exactly one stage
-2. Stage inputs must be a subset of skill inputs
-3. Skill outputs must satisfy stage expected outputs
-4. MCP tool dependencies must be declared
+Engine-specific skills such as VASP, QE, CP2K, LAMMPS, and Gaussian remain
+useful domain assistants. They provide checklists, templates, troubleshooting,
+validation suggestions, official-documentation pointers, and artifact
+registration guidance. They do not own workflow progression.
+
+## Skill Contract
+
+A SimFlow skill should describe:
+
+- trigger conditions
+- user intent it supports
+- minimum evidence expected from the work
+- common risks
+- safety boundaries
+- handoff requirements
+
+It should avoid hard requirements such as:
+
+- must use a specific parser script
+- must use a specific builder
+- must generate a fixed report filename
+- must choose a fixed software package
+- must map unknown tasks to a default known task
+
+For example, an analysis skill may recommend built-in parser helpers while also
+allowing the agent to write Python, use pandas, py4vasp, MDAnalysis, ASE,
+pymatgen, matplotlib, or another appropriate tool. The hard requirement is that
+the script, inputs, outputs, environment, and figure lineage are recorded.
+
+## Domain Assistant Pattern
+
+Engine helpers should answer questions such as:
+
+- What input files are commonly needed?
+- Which checks are risky for this engine or method?
+- What errors are common and how should they be diagnosed?
+- Which artifacts should be registered?
+- Which official references are useful?
+- Which safety issues apply to proprietary files or licensed data?
+
+They should return uncertainty when intent is unclear. For example, a VASP
+phonon, NEB, SOC, hybrid, defect, or custom analysis request must not be
+silently treated as a static calculation.
 
 ## Custom Skills
 
-Users can create custom skills in `.simflow/extensions/skills/`:
+Users may add project-specific skills under `.simflow/extensions/skills/`.
+Custom skills can override or supplement built-in guidance, but they inherit the
+same hard boundaries:
 
-```
-.simflow/
-└── extensions/
-    └── skills/
-        └── my-custom-analysis/
-            ├── SKILL.md
-            └── scripts/
-                └── analyze.py
-```
+- write state only under the explicit project `.simflow/` root
+- register artifacts with metadata and lineage
+- create checkpoints at stage boundaries
+- require approval for real compute submission
+- never store credentials
+- never fabricate literature, data, figures, or citations
 
-Custom skills override built-in skills when they declare the same `stage_binding`.
+## Validation
 
-## Skill Discovery
-
-Skills are discovered by scanning:
-1. `skills/` directory (built-in)
-2. `.simflow/extensions/skills/` (custom, highest priority)
+Skill contract tests should check for the presence of evidence, artifact,
+safety, and handoff language. They should also reject accidental hard-coded
+requirements that make a helper the only valid path.

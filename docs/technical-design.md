@@ -2,62 +2,66 @@
 
 ## Architecture Overview
 
+```text
+Codex / Claude Code / Host Agent
+  -> SimFlow Skills
+     intent recognition, evidence guidance, handoff discipline
+  -> Workflow Layer
+     open research stages, recipes, gates, policies
+  -> MCP Recording Tools
+     state, artifact, lineage, checkpoint, gate, handoff
+  -> Runtime Helpers
+     optional parsers, validators, templates, engine helpers
+  -> .simflow/
+     per-project state, artifacts, reports, checkpoints, logs
 ```
-┌─────────────────────────────────────────────┐
-│              Codex/OMX Host                  │
-├─────────────────────────────────────────────┤
-│  Skills Layer (23 skills)                   │
-│  ├── simflow-modeling (structure/I/O)       │
-│  ├── simflow-dft (DFT workflow)             │
-│  ├── simflow-aimd (AIMD workflow)           │
-│  └── simflow-md (MD workflow)               │
-├─────────────────────────────────────────────┤
-│  Workflow Layer (9 stages)                  │
-│  ├── Stage definitions & dependencies       │
-│  ├── Gates (9 verification gates)           │
-│  └── Policies (6 policies)                  │
-├─────────────────────────────────────────────┤
-│  MCP Servers (4 servers)                    │
-│  ├── literature (arXiv/Crossref/S2)         │
-│  ├── structure (MP/COD)                     │
-│  ├── hpc (SLURM/PBS/SSH/Local)             │
-│  └── state (workflow state management)      │
-├─────────────────────────────────────────────┤
-│  Runtime Layer                              │
-│  ├── lib/ (state, artifact, hpc utilities)  │
-│  └── scripts/ (validation, checkpointing)   │
-├─────────────────────────────────────────────┤
-│  .simflow/ State Directory                  │
-│  ├── state/ (workflow, stage, job, artifact)│
-│  ├── artifacts/ (simulation outputs)        │
-│  └── extensions/ (custom skills)            │
-└─────────────────────────────────────────────┘
-```
+
+SimFlow is the state, evidence, and safety layer around computational research
+work. It is not a central executor. The host agent remains responsible for
+scientific judgment, code writing, source selection, analysis, and prose.
 
 ## Data Flow
 
-1. User invokes a skill (e.g., `simflow-dft:run_relax`)
-2. Skill reads current state from `.simflow/state/`
-3. Skill executes computation (generate inputs, run analysis)
-4. Results written to `.simflow/artifacts/`
-5. State updated with new stage/artifact references
-6. Verification gate checks pass/fail criteria
-7. Workflow advances to next stage
+1. A user request triggers one or more SimFlow skills.
+2. The host agent identifies the current research stage and clarifies intent
+   when needed.
+3. SimFlow guidance states the minimum evidence and safety checks.
+4. The agent performs the work using appropriate tools or custom code.
+5. Artifacts are recorded with metadata, checksums, and lineage.
+6. Stage boundaries create checkpoints.
+7. High-risk actions are evaluated through gates and require recorded approval.
+8. Handoff summaries capture state, artifacts, checkpoint, risks, and next
+   steps.
 
-## Component Relationships
+## Component Responsibilities
 
-- **Skills** are self-contained modules with defined contracts (SKILL.md)
-- **Stages** bind skills to workflow positions with input/output contracts
-- **Gates** enforce verification between stages
-- **Policies** enforce workflow-wide constraints
-- **MCP Servers** provide external system access via tool-based interface
-- **State** is the single source of truth for workflow progress
+- **Skills** provide intent-specific workflow guidance and evidence contracts.
+- **Stages** describe research intent and expected evidence boundaries.
+- **Recipes** describe optional reference paths such as DFT, AIMD, phonon, NEB,
+  or classical MD.
+- **Gates** enforce safety and traceability checks for risky actions.
+- **Policies** define workflow-wide hard boundaries such as no credential
+  storage.
+- **MCP servers** record and retrieve state, artifacts, lineage, checkpoints,
+  gates, and handoff data.
+- **Runtime helpers** provide optional validators, templates, parsers, and
+  engine-specific support.
 
 ## Technology Stack
 
-- Python 3.10+ for runtime and skills
-- pymatgen for crystal structure manipulation
-- ASE for atomistic structure I/O
-- MDAnalysis for trajectory analysis
-- JSON Schema (draft-07) for validation
-- MCP protocol for external service communication
+- Python 3.10+ for runtime helpers and MCP servers
+- JSON and JSON Schema for workflow contracts
+- JSON recipe files for the current recipe migration
+- Optional scientific libraries such as pymatgen, ASE, MDAnalysis, pandas, or
+  matplotlib when available and appropriate
+- MCP protocol for host-agent tool integration
+
+## Boundary Rules
+
+- `.simflow/` is the only SimFlow workflow state root.
+- MCP write tools must receive explicit `project_root`.
+- Plugin root and project root are separate.
+- Real local, remote, or HPC execution requires approval.
+- Credentials must not be persisted in SimFlow artifacts or logs.
+- Scientific claims must trace back to literature, model, computation,
+  analysis, or figure artifacts.

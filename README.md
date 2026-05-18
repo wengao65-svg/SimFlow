@@ -1,50 +1,62 @@
 # SimFlow
 
-A **Codex-native** computational simulation workflow layer for DFT, AIMD, and MD research.
+A **Codex-native** computational simulation workflow layer for agentic research.
 
-SimFlow provides structured, reproducible workflows for condensed matter physics and materials science, integrating with HPC schedulers, literature databases, and structure databases.
+SimFlow is not a centralized workflow executor. It does not decide the science
+for Codex, Claude Code, or another host agent. The host agent chooses the
+literature sources, modeling tools, simulation engines, analysis code, and
+writing format. SimFlow records the process so computational research remains
+traceable, recoverable, reviewable, and safety-gated.
 
 ## Architecture
 
 ```
 Codex / OMX Host
-  -> SimFlow Skills          (23 skills: modeling, DFT, AIMD, MD)
-  -> SimFlow Workflow Layer  (9 stages, 9 gates, 6 policies)
-  -> MCP Servers             (literature, structure, HPC, state)
-  -> Runtime                 (state, artifact, checkpoint utilities)
+  -> SimFlow Skills          (intent-specific workflow guidance)
+  -> SimFlow Workflow Layer  (research stages, recipes, gates, policies)
+  -> MCP Servers             (state, artifacts, lineage, checkpoints, gates)
+  -> Runtime Helpers         (optional parsers, validators, templates)
   -> .simflow/               (per-project state, artifacts, checkpoints)
 ```
 
 ## Features
 
-- **Workflow Management**: Declarative stage definitions with 9 verification gates and 6 policies
-- **Template Engine**: Jinja2-compatible rendering for VASP/QE/LAMMPS/Gaussian inputs (no Jinja2 dependency)
-- **Structure Building**: pymatgen/ASE for crystal structures (FCC, BCC, diamond, rocksalt, zincblende)
-- **Input Generation**: VASP, Quantum ESPRESSO, LAMMPS input files
-- **Trajectory Analysis**: MDAnalysis for RDF, MSD, energy analysis
-- **Literature Search**: arXiv, Crossref, Semantic Scholar connectors with retry + caching
-- **Structure Databases**: Materials Project, Crystallography Open Database (COD)
-- **HPC Integration**: SLURM, PBS, SSH, local execution with gate-based approval
-- **State Tracking**: Checkpoints, artifact lineage, workflow recovery
-- **Custom Skills**: User-defined skill extensions
+- **Research Stage Semantics**: literature review, proposal, modeling, computation, analysis/visualization, and writing
+- **Recipes, Not Fixed DAGs**: DFT, AIMD, classical MD, phonon, NEB, defect, adsorption, and custom paths are reference recipes or tags
+- **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
+- **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
+- **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
+- **Domain Helpers**: optional VASP, CP2K, QE, LAMMPS, Gaussian, parser, plotting, and structure helpers
+- **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
+- **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
 
-## Supported Workflows
+## Workflow Layer Contract
 
-| Workflow | Stages |
-|----------|--------|
-| DFT | input_gen → relax → scf → bands → dos → analysis |
-| AIMD | build_structure → generate_inputs → run_md → analyze_trajectory |
-| MD | build_structure → setup_forcefield → equilibrate → production_run → analyze |
+| Concept | Meaning |
+|---------|---------|
+| Stage | Research intent and evidence boundary |
+| Recipe | Optional reference path such as DFT, AIMD, classical MD, phonon, or NEB |
+| Artifact | Registered output with metadata, checksum, and lineage |
+| Checkpoint | Recoverable snapshot at a stage boundary |
+| Gate | Evidence-based approval or verification boundary |
 
-## Supported Software
+Default top-level stages are `literature_review`, `proposal`, `modeling`,
+`computation`, `analysis_visualization`, and `writing`. A project may enter any
+stage directly when the needed inputs and evidence are present.
 
-| Software | Use Case |
-|----------|----------|
-| VASP | DFT, AIMD |
-| CP2K | AIMD, DFT (Quickstep) |
-| Quantum ESPRESSO | DFT |
-| LAMMPS | Classical MD |
-| Gaussian | Quantum chemistry |
+## Domain Helpers
+
+| Helper | Typical use |
+|--------|-------------|
+| VASP | DFT, AIMD, phonon, NEB, defects, surfaces, output inspection |
+| CP2K | Quickstep DFT, AIMD, common CP2K task checks |
+| Quantum ESPRESSO | Plane-wave DFT input and output guidance |
+| LAMMPS | Classical MD setup and trajectory analysis guidance |
+| Gaussian | Quantum chemistry input and output guidance |
+
+These helpers suggest and validate. They do not limit what the host agent can
+do, and they should return uncertainty rather than silently mapping unknown
+tasks to a default calculation.
 
 ## Quick Start
 
@@ -140,13 +152,11 @@ Claude plugin skills are namespaced, for example `/simflow:simflow`, `/simflow:s
 
 ```
 simflow/
-├── skills/                    # 4 skill groups, 23 skills
-│   ├── simflow-modeling/      # Structure building, validation
-│   ├── simflow-dft/           # DFT workflow skills
-│   ├── simflow-aimd/          # AIMD workflow skills
-│   └── simflow-md/            # MD workflow skills
-├── workflow/                  # Stage, gate, policy definitions
-│   └── gates/                 # 9 verification gate definitions
+├── skills/                    # Workflow-layer and domain helper skills
+├── workflow/                  # Stage, recipe, gate, policy definitions
+│   ├── stages/                # Research intent contracts
+│   ├── recipes/               # Optional JSON reference recipes
+│   └── gates/                 # Verification and approval gates
 ├── agents/                    # 9 workflow agents
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
@@ -158,10 +168,10 @@ simflow/
 ├── runtime/                   # Libraries and scripts
 │   ├── lib/                   # State, artifact, checkpoint, gates, template, parsers
 │   └── scripts/               # CLI scripts for workflow operations
-├── templates/                 # Input file templates (VASP, QE, LAMMPS, SLURM)
-├── schemas/                   # 8 JSON schemas for validation
-├── tests/                     # Unit, MCP, E2E tests (309 tests)
-├── docs/                      # 16 documentation files
+├── templates/                 # Optional helper templates
+├── schemas/                   # JSON schemas for validation
+├── tests/                     # Unit, MCP, E2E tests
+├── docs/                      # Design and user documentation
 └── scripts/                   # Scaffold and utility scripts
 ```
 
@@ -188,6 +198,7 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 - [Skill Design](docs/skill-design.md)
 - [MCP Design](docs/mcp-design.md)
 - [HPC Integration](docs/hpc-integration.md)
+- [Migration Plan](docs/migration.md)
 - [Custom Skills](docs/custom-skills.md)
 - [Credentials Policy](docs/credentials-policy.md)
 
