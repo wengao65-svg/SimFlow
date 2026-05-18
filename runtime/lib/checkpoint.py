@@ -61,6 +61,7 @@ def create_checkpoint(
         "description": description,
         "state_snapshot": state_snapshot,
         "artifact_versions": artifact_versions,
+        "lineage_snapshot": state_snapshot.get("lineage.json", {"links": []}),
         "status": status,
         "created_at": now,
     }
