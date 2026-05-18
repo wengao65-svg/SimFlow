@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for simflow_state MCP server."""
 
+import importlib.util
 import json
 import sys
 import tempfile
@@ -12,10 +13,17 @@ sys.path.insert(0, str(MCP_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
+def _load_state_server():
+    spec = importlib.util.spec_from_file_location("simflow_state_server_test_module", str(MCP_DIR / "server.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_server_import():
     """Verify the state server module can be imported."""
     try:
-        import server
+        server = _load_state_server()
         assert hasattr(server, "handle_request") or hasattr(server, "tools") or True
     except ImportError:
         # Module structure may vary
@@ -24,9 +32,9 @@ def test_server_import():
 
 def test_tools_list_exposes_real_input_schema():
     """State server tools/list should expose strict, useful schemas."""
-    import server
     from mcp.shared.stdio_server import _list_tools
 
+    server = _load_state_server()
     listed = _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)
     schemas = {tool["name"]: tool["inputSchema"] for tool in listed}
 
