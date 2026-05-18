@@ -28,6 +28,38 @@ TOOL_DESCRIPTIONS = {
     "restore": "Restore workflow state from a SimFlow checkpoint.",
 }
 
+TOOL_SCHEMAS = {
+    "create": {
+        "type": "object",
+        "required": ["project_root", "workflow_id", "stage_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "workflow_id": {"type": "string"},
+            "stage_id": {"type": "string"},
+            "description": {"type": "string"},
+            "status": {"type": "string"},
+            "job_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "list": {
+        "type": "object",
+        "properties": {
+            "project_root": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "restore": {
+        "type": "object",
+        "required": ["project_root", "checkpoint_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "checkpoint_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     tool = request.get("tool")
@@ -41,4 +73,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("checkpoint_store", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("checkpoint_store", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

@@ -22,6 +22,20 @@ def test_server_import():
         pass
 
 
+def test_tools_list_exposes_real_input_schema():
+    """State server tools/list should expose strict, useful schemas."""
+    import server
+    from mcp.shared.stdio_server import _list_tools
+
+    listed = _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)
+    schemas = {tool["name"]: tool["inputSchema"] for tool in listed}
+
+    assert schemas["init_workflow"]["required"] == ["project_root", "workflow_type"]
+    assert schemas["write_state"]["required"] == ["project_root", "data"]
+    assert schemas["update_stage"]["required"] == ["project_root", "stage_name", "status"]
+    assert schemas["write_state"]["additionalProperties"] is False
+
+
 def test_state_init_via_runtime():
     """Test state initialization through runtime lib."""
     from runtime.lib.state import init_workflow, read_state

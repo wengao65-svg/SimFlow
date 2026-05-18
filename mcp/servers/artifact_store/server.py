@@ -28,6 +28,42 @@ TOOL_DESCRIPTIONS = {
     "get": "Fetch one registered SimFlow artifact by identifier.",
 }
 
+TOOL_SCHEMAS = {
+    "register": {
+        "type": "object",
+        "required": ["project_root", "name", "type", "stage"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "stage": {"type": "string"},
+            "path": {"type": "string"},
+            "parent_artifacts": {"type": "array", "items": {"type": "string"}},
+            "parameters": {"type": "object"},
+            "software": {"type": "string"},
+            "metadata": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "list": {
+        "type": "object",
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "get": {
+        "type": "object",
+        "required": ["artifact_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "artifact_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     tool = request.get("tool")
@@ -41,4 +77,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("artifact_store", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("artifact_store", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)
