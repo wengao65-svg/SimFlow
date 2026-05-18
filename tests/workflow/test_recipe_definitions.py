@@ -4,8 +4,16 @@
 import json
 from pathlib import Path
 
+from runtime.lib.workflow import (
+    canonical_stage_sequence,
+    convert_legacy_workflow_to_recipe,
+    list_recipes,
+    load_recipe,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
 RECIPES_DIR = ROOT / "workflow" / "recipes"
+LEGACY_WORKFLOWS_DIR = ROOT / "workflow" / "workflows"
 
 EXPECTED_RECIPES = ["dft", "aimd", "classical_md", "phonon", "neb", "custom"]
 CANONICAL_STAGES = {"literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"}
@@ -57,3 +65,46 @@ def test_computation_recipes_include_submit_approval_triggers():
             continue
         triggers = set(data.get("approval_triggers", []))
         assert required.issubset(triggers), f"Recipe {path.name} missing compute approval triggers"
+
+
+def test_runtime_lists_json_and_legacy_recipes():
+    names = set(list_recipes())
+    assert set(EXPECTED_RECIPES).issubset(names)
+    assert "md" in names
+
+
+def test_runtime_loads_json_recipe_before_legacy_workflow():
+    recipe = load_recipe("dft")
+    assert recipe["name"] == "dft"
+    assert recipe["recipe_type"] == "dft"
+    assert recipe["legacy_source"]["type"] == "recipe"
+    assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
+
+
+def test_runtime_loads_legacy_md_workflow_as_classical_md_recipe():
+    recipe = load_recipe("md")
+    assert recipe["name"] == "md"
+    assert recipe["recipe_type"] == "classical_md"
+    assert recipe["legacy_source"]["type"] == "workflow"
+    assert recipe["stages"] == ["proposal", "modeling", "computation", "analysis_visualization", "writing"]
+    assert "input_generation" in recipe["legacy_stages"]
+
+
+def test_legacy_workflow_conversion_preserves_lineage_context():
+    legacy = json.loads((LEGACY_WORKFLOWS_DIR / "dft.json").read_text())
+    recipe = convert_legacy_workflow_to_recipe(legacy, source_path=LEGACY_WORKFLOWS_DIR / "dft.json")
+    assert recipe["recipe_type"] == "dft"
+    assert recipe["legacy_stage_dependencies"] == legacy["stage_dependencies"]
+    assert recipe["default_entry"] == "literature_review"
+    assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
+
+
+def test_canonical_stage_sequence_deduplicates_legacy_subactivities():
+    stages = ["literature", "review", "proposal", "input_generation", "compute", "analysis", "visualization", "writing"]
+    assert canonical_stage_sequence(stages) == [
+        "literature_review",
+        "proposal",
+        "computation",
+        "analysis_visualization",
+        "writing",
+    ]
