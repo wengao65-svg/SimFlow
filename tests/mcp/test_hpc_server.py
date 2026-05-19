@@ -6,13 +6,61 @@ verifying dry_run, prepare, and status tools.
 """
 
 import importlib.util
+import hashlib
 import json
 import os
 import sys
 import tempfile
 from pathlib import Path
 
+from runtime.lib.gates import record_gate_decision
+
 SERVER_DIR = Path(__file__).resolve().parents[2] / "mcp" / "servers" / "hpc"
+
+
+def _sha256_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _write_json(path: Path, payload: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _authorized_submit_params(project_root: str, script_path: str) -> dict:
+    root = Path(project_root)
+    input_hash = "input-manifest-sha256"
+    script_hash = _sha256_file(script_path)
+    artifacts = root / ".simflow" / "artifacts"
+    _write_json(
+        artifacts / "compute" / "dry_run_report.json",
+        {
+            "status": "pass",
+            "script_hash": script_hash,
+            "input_artifact_hash": input_hash,
+        },
+    )
+    _write_json(artifacts / "compute" / "input_validation.json", {"missing_required_files": []})
+    _write_json(artifacts / "compute" / "resource_estimate.json", {"status": "pass"})
+    _write_json(artifacts / "security" / "credential_scan.json", {"findings": []})
+    decision = record_gate_decision(
+        "hpc_submit",
+        "approved",
+        {"reason": "pytest MCP submit authorization"},
+        project_root=project_root,
+        agent="pytest",
+    )
+    return {
+        "project_root": project_root,
+        "gate_decision_id": decision["decision_id"],
+        "dry_run_evidence": "compute/dry_run_report.json",
+        "script_hash": script_hash,
+        "input_artifact_hash": input_hash,
+    }
 
 
 def _load_server():
@@ -44,6 +92,16 @@ def _make_test_script(tmpdir):
         f.write("#SBATCH --error=job.err\n")
         f.write("\n")
         f.write("mpirun -np 4 echo hello\n")
+    return script
+
+
+def _make_local_script(tmpdir):
+    """Create a minimal local shell script."""
+    script = os.path.join(tmpdir, "local_job.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/bash\n")
+        f.write("echo local-ok\n")
+    os.chmod(script, 0o755)
     return script
 
 
@@ -106,6 +164,74 @@ def test_dry_run_missing_script():
     result = server.handle_request(request)
     assert result["status"] in ("success", "error")
     print("  dry_run (missing script) OK")
+
+
+def test_submit_requires_project_root():
+    """Submit rejects write/root inference through MCP server params."""
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        request = {"tool": "submit", "params": {"script_path": script, "scheduler": "local"}}
+        result = server.handle_request(request)
+        assert result["status"] == "error"
+        assert "project_root" in result["message"]
+    print("  submit requires project_root OK")
+
+
+def test_local_submit_requires_approval_reference():
+    """Local submit cannot bypass hpc_submit approval."""
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        request = {
+            "tool": "submit",
+            "params": {
+                "script_path": script,
+                "scheduler": "local",
+                "project_root": tmpdir,
+                "dry_run_evidence": "compute/dry_run_report.json",
+                "script_hash": _sha256_file(script),
+                "input_artifact_hash": "input-manifest-sha256",
+            },
+        }
+        result = server.handle_request(request)
+        assert result["status"] == "error"
+        assert result["approval_required"] is True
+        assert result["gate"] == "hpc_submit"
+    print("  local submit requires approval OK")
+
+
+def test_local_submit_blocks_script_hash_mismatch():
+    """Changing the job script after dry-run blocks local submit."""
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        params = _authorized_submit_params(tmpdir, script)
+        Path(script).write_text("#!/bin/bash\necho changed\n", encoding="utf-8")
+        request = {"tool": "submit", "params": {"script_path": script, "scheduler": "local", **params}}
+        result = server.handle_request(request)
+        assert result["status"] == "error"
+        assert result["code"] == "script_hash_mismatch"
+        assert result["approval_required"] is True
+    print("  local submit hash mismatch OK")
+
+
+def test_local_submit_with_gate_decision_executes():
+    """Local submit executes only after approval, dry-run evidence, and hashes match."""
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        params = _authorized_submit_params(tmpdir, script)
+        request = {
+            "tool": "submit",
+            "params": {"script_path": script, "scheduler": "local", **params},
+        }
+        result = server.handle_request(request)
+        assert result["status"] == "success"
+        assert result["success"] is True
+        assert "local-ok" in result["stdout"]
+        assert result["gate_decision_id"] == params["gate_decision_id"]
+    print("  local submit approved execution OK")
 
 
 def test_connector_registry():

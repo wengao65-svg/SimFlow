@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for SLURM connector enhancements: submit, sacct fallback, wait."""
 
+import hashlib
+import json
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -11,6 +13,52 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp" / "servers" /
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
 from connectors.slurm import SlurmConnector
+from lib.gates import record_gate_decision
+
+
+def _sha256_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _write_json(path: Path, payload: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _authorized_submit_kwargs(script_path: str) -> dict:
+    project_root = Path(script_path).parent
+    input_hash = "input-manifest-sha256"
+    script_hash = _sha256_file(script_path)
+    artifacts = project_root / ".simflow" / "artifacts"
+    _write_json(
+        artifacts / "compute" / "dry_run_report.json",
+        {
+            "status": "pass",
+            "script_hash": script_hash,
+            "input_artifact_hash": input_hash,
+        },
+    )
+    _write_json(artifacts / "compute" / "input_validation.json", {"missing_required_files": []})
+    _write_json(artifacts / "compute" / "resource_estimate.json", {"status": "pass"})
+    _write_json(artifacts / "security" / "credential_scan.json", {"findings": []})
+    decision = record_gate_decision(
+        "hpc_submit",
+        "approved",
+        {"reason": "pytest submit authorization"},
+        project_root=str(project_root),
+        agent="pytest",
+    )
+    return {
+        "project_root": str(project_root),
+        "gate_decision_id": decision["decision_id"],
+        "dry_run_evidence": "compute/dry_run_report.json",
+        "script_hash": script_hash,
+        "input_artifact_hash": input_hash,
+    }
 
 
 @pytest.fixture
@@ -27,11 +75,19 @@ def slurm_script(tmp_path):
 
 class TestSubmit:
     def test_submit_requires_approval(self, connector, slurm_script):
-        """submit() without approved=True returns approval_required error."""
+        """submit() without a gate approval reference returns approval_required error."""
         result = connector.submit(slurm_script)
         assert result["status"] == "error"
         assert result["approval_required"] is True
         assert result["gate"] == "hpc_submit"
+
+    def test_boolean_approved_does_not_bypass_gate(self, connector, slurm_script):
+        """Legacy boolean approval is not sufficient for real submit."""
+        result = connector.submit(slurm_script, approved=True)
+        assert result["status"] == "error"
+        assert result["approval_required"] is True
+        assert result["gate"] == "hpc_submit"
+        assert "Boolean approved is not accepted" in result["message"]
 
     def test_submit_script_not_found(self, connector):
         """submit() with nonexistent script returns error."""
@@ -45,9 +101,11 @@ class TestSubmit:
         mock_run.return_value = MagicMock(
             returncode=0, stdout="Submitted batch job 12345\n", stderr=""
         )
-        result = connector.submit(slurm_script, approved=True)
+        result = connector.submit(slurm_script, **_authorized_submit_kwargs(slurm_script))
         assert result["status"] == "success"
         assert result["job_id"] == "12345"
+        assert result["gate_decision_id"].startswith("gate_decision_")
+        assert result["script_hash"] == _sha256_file(slurm_script)
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
         assert call_args[0] == "sbatch"
@@ -58,16 +116,28 @@ class TestSubmit:
         mock_run.return_value = MagicMock(
             returncode=1, stdout="", stderr="sbatch: error: Batch job submission failed"
         )
-        result = connector.submit(slurm_script, approved=True)
+        result = connector.submit(slurm_script, **_authorized_submit_kwargs(slurm_script))
         assert result["status"] == "error"
         assert "sbatch failed" in result["message"]
 
     @patch("subprocess.run", side_effect=FileNotFoundError)
     def test_submit_sbatch_not_installed(self, mock_run, connector, slurm_script):
         """submit() handles sbatch not installed."""
-        result = connector.submit(slurm_script, approved=True)
+        result = connector.submit(slurm_script, **_authorized_submit_kwargs(slurm_script))
         assert result["status"] == "error"
         assert "sbatch not found" in result["message"]
+
+    def test_submit_blocks_modified_script_after_dry_run(self, connector, slurm_script):
+        """Changing a script after dry-run invalidates the approval evidence."""
+        kwargs = _authorized_submit_kwargs(slurm_script)
+        Path(slurm_script).write_text(
+            "#!/bin/bash\n#SBATCH --job-name=changed\nmpirun echo changed\n",
+            encoding="utf-8",
+        )
+        result = connector.submit(slurm_script, **kwargs)
+        assert result["status"] == "error"
+        assert result["code"] == "script_hash_mismatch"
+        assert result["approval_required"] is True
 
 
 class TestStatus:
@@ -187,6 +257,7 @@ class TestDryRun:
         result = connector.dry_run(slurm_script)
         assert result["overall"] == "pass"
         assert result["dry_run"] is True
+        assert result["script_hash"] == _sha256_file(slurm_script)
 
     def test_dry_run_missing_script(self, connector):
         """dry_run() fails for nonexistent script."""
