@@ -27,6 +27,14 @@ COMPATIBILITY_STAGE_SKILLS = [
     "simflow-visualization",
 ]
 
+ENGINE_DOMAIN_SKILLS = [
+    "simflow-vasp",
+    "simflow-cp2k",
+    "simflow-qe",
+    "simflow-lammps",
+    "simflow-gaussian",
+]
+
 BANNED_HARD_CONSTRAINTS = [
     re.compile(r"must\s+use\s+parse_[\w.-]+\.py", re.IGNORECASE),
     re.compile(r"must\s+generate\s+(methods|results|final_handoff)\.md", re.IGNORECASE),
@@ -90,3 +98,25 @@ def test_writing_requires_evidence_traceability_without_fixed_structure():
     assert "关键科学 claim 必须链接" in text
     assert "不要求固定文档结构" in text
     assert "不要强制生成某个固定报告文件" in text
+
+
+def test_engine_skills_are_domain_assistants_not_workflow_executors():
+    for skill_name in ENGINE_DOMAIN_SKILLS:
+        text = _skill_text(skill_name)
+        lowered = text.lower()
+        assert "domain assistant" in lowered or "domain assistance" in lowered or "domain assistant" in text
+        assert "not a central workflow executor" in lowered or "not the workflow contract" in lowered or "不决定顶层 workflow" in text
+        assert "helper-run manifest" in lowered
+        assert "approval gate" in lowered
+        assert "only valid" in lowered or "唯一合法" in text
+        assert "unknown" in lowered or "未知" in text
+
+
+def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
+    vasp_text = _skill_text("simflow-vasp")
+    cp2k_text = _skill_text("simflow-cp2k")
+    qe_text = _skill_text("simflow-qe")
+
+    assert "Do not default unknown VASP tasks to `static`" in vasp_text
+    assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
+    assert "不要默认未知 QE 任务为 SCF" in qe_text
