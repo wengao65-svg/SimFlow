@@ -66,6 +66,19 @@ should preserve:
 New state files may add project, gate, and lineage records, but migration must
 not delete legacy state unless the user explicitly requests cleanup.
 
+The migration CLI is intentionally small and state-oriented:
+
+```text
+simflow inspect-legacy --project-root /path/to/project
+simflow migrate --project-root /path/to/project
+simflow convert-workflow workflow/workflows/dft.json --output /tmp/dft.recipe.json
+```
+
+`inspect-legacy` only reports legacy files and stage mapping. `migrate` writes
+canonical `.simflow/state/*.json` files and `.simflow/reports/migration.*` while
+leaving legacy files in place. `convert-workflow` converts a legacy workflow JSON
+definition into an open recipe record without changing project state.
+
 ## Test Migration
 
 Tests should keep safety, state, artifact, checkpoint, and lineage guarantees.
