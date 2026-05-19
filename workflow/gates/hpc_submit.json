@@ -1,12 +1,43 @@
 {
   "name": "hpc_submit",
-  "description": "HPC 作业提交审批门：所有真实 HPC 提交必须经过此门",
+  "description": "HPC/local/remote 作业提交审批门：所有真实提交必须由记录的 evidence 和 approval 决定",
   "type": "approval",
   "conditions": [
-    "dry_run_passed",
-    "input_files_complete",
-    "resource_request_reasonable",
-    "no_credential_in_files"
+    {
+      "id": "dry_run_passed",
+      "evidence": "compute/dry_run_report.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "input_files_complete",
+      "evidence": "compute/input_validation.json",
+      "path": "$.missing_required_files",
+      "op": "length_eq",
+      "value": 0
+    },
+    {
+      "id": "resource_request_reasonable",
+      "evidence": "compute/resource_estimate.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "credentials_clean",
+      "evidence": "security/credential_scan.json",
+      "path": "$.findings",
+      "op": "length_eq",
+      "value": 0
+    },
+    {
+      "id": "approval_present",
+      "evidence": "state/gates.json",
+      "path": "$.hpc_submit.latest_decision",
+      "op": "eq",
+      "value": "approved"
+    }
   ],
   "actions_on_approve": ["submit_job", "record_job_id"],
   "actions_on_reject": ["report_rejection_reason", "suggest_fixes"],
