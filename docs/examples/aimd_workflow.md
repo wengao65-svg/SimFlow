@@ -1,139 +1,38 @@
-# AIMD Workflow Example
+# AIMD Legacy Recipe Example
 
-## Ab Initio Molecular Dynamics for Liquid Water
+This is a legacy recipe example for ab initio molecular dynamics. It describes
+typical evidence and risks, not a required SimFlow executor or a `simflow-aimd`
+CLI.
 
-This example runs AIMD for a small water box at 300K.
+## Suggested Stage Mapping
 
-### Step 1: Build Water Box
+| Research activity | Canonical stage |
+| --- | --- |
+| Review AIMD settings or comparable systems | `literature_review` |
+| Define ensemble, timestep, temperature, and run length | `proposal` |
+| Preserve/build initial configuration | `modeling` |
+| Prepare inputs, dry-run, and gate submit | `computation` |
+| Analyze trajectory, temperature, RDF, MSD, and figures | `analysis_visualization` |
+| Write caveats, methods, and result claims | `writing` |
 
-```bash
-# Build from XYZ file
-simflow-modeling build_structure --from-file water_64.xyz
+## Evidence To Record
 
-# Or use ASE to build
-python -c "
-from ase.build import molecule
-from ase import Atoms
-import numpy as np
+- Initial structure or trajectory source artifact.
+- Thermostat, timestep, ensemble, pseudopotential/basis, and software rationale.
+- Input files, scripts, command, environment, and hashes.
+- Dry-run report, resource estimate, input validation, and credential scan.
+- Approval gate decision before real execution.
+- Trajectory completeness, equilibration notes, analysis scripts, derived data,
+  figures, and claim-evidence map.
 
-# Create 64 water molecules in a box
-atoms = []
-for i in range(4):
-    for j in range(4):
-        for k in range(4):
-            w = molecule('H2O')
-            w.translate([i*3.5, j*3.5, k*3.5])
-            atoms.append(w)
-box = Atoms(atoms)
-box.set_cell([14, 14, 14])
-box.set_pbc(True)
-box.write('water_64.xyz')
-"
-```
+## Optional Helpers
 
-### Step 2: Initialize AIMD Workflow
+The host agent may use VASP, CP2K, QE, ASE, pymatgen, MDAnalysis, py4vasp,
+pandas, matplotlib, custom Python, or another suitable path. SimFlow requires
+traceability, not a specific parser or plotting library.
 
-```bash
-simflow-aimd init --structure water_64.cif
-```
+## Legacy Compatibility
 
-### Step 3: Generate AIMD Inputs
-
-```bash
-simflow-aimd generate_inputs \
-  --code vasp \
-  --structure water_64.cif \
-  --temp 300 \
-  --timestep 1 \
-  --ensemble nvt \
-  --steps 10000 \
-  --thermostat langevin
-```
-
-Generates:
-- `INCAR.aimd` — AIMD parameters (MDALGO, TEBEG, POTIM, NSW)
-- `KPOINTS.gamma` — Gamma-only k-points (molecules)
-- `POSCAR` — Structure
-- `POTCAR` — Pseudopotentials
-
-### Step 4: Submit
-
-```bash
-simflow hpc submit --script-path job.sh --scheduler slurm
-```
-
-AIMD is computationally expensive. Typical settings:
-- 2-8 nodes, 16-32 tasks per node
-- Walltime: 24-72 hours
-- Use gamma-only for molecules
-
-### Step 5: Monitor Trajectory
-
-```bash
-# Check job status
-simflow hpc status --job-id 12345
-
-# During run, check XDATCAR growth
-wc -l XDATCAR
-```
-
-### Step 6: Analyze Trajectory
-
-After completion:
-
-```bash
-simflow-aimd analyze \
-  --trajectory XDATCAR \
-  --topology POSCAR \
-  --rdf --msd --energy
-```
-
-### Analysis Outputs
-
-**RDF (Radial Distribution Function)**:
-- O-O, O-H, H-H pair correlations
-- First peak position indicates hydrogen bonding distance
-- Integration gives coordination number
-
-**MSD (Mean Square Displacement)**:
-- Slope gives diffusion coefficient
-- D = MSD / (6 * t) for 3D systems
-- Water at 300K: D ≈ 2.3 × 10⁻⁵ cm²/s
-
-**Energy Evolution**:
-- Total energy should be conserved (NVE) or fluctuate around target (NVT)
-- Temperature should equilibrate around target
-
-### Step 7: Check Equilibration
-
-```bash
-simflow-aimd check_equilibration \
-  --trajectory XDATCAR \
-  --property temperature \
-  --skip 1000
-```
-
-Checks that temperature has equilibrated after initial transient.
-
-## Expected Outputs
-
-```
-.simflow/
-├── artifacts/
-│   ├── initial_structure.cif
-│   ├── trajectory.xtc
-│   ├── rdf_oxygen.png
-│   ├── msd.png
-│   ├── energy_evolution.png
-│   ├── diffusion_coefficient.json
-│   └── rdf_data.csv
-└── state/
-    └── workflow.json  # status: "completed"
-```
-
-## Tips
-
-- Start with a small system (64 molecules) for testing
-- Use NVT first to equilibrate, then switch to NVE for production
-- Check energy conservation: ΔE/E < 10⁻⁴ per step
-- Run at least 10ps after equilibration for reliable statistics
+`workflow/workflows/aimd.json` remains available for migration and recipe
+loading. It should be treated as a compatibility source, not as the canonical
+workflow contract for all AIMD work.

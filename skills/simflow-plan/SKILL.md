@@ -3,40 +3,40 @@ name: simflow-plan
 description: Develop simulation study plans before execution begins.
 ---
 
-# SimFlow Plan — 方案规划 Skill
+# SimFlow Plan
 
 ## 触发条件
 
-- intake 完成后需要制定研究方案
-- 用户请求制定 DFT/AIMD/MD 计算方案
-- 用户需要资源估算
+- 用户请求制定计算模拟研究方案、阶段计划、资源估算或风险评估。
+- 用户需要从研究目标进入 proposal、modeling、computation、analysis 或 writing。
+- 旧项目仍引用 plan；新契约中 recipe/tag 只是参考路径。
 
 ## 输入条件
 
-- intake_report.json（必需）
-- 体系结构信息
-- 计算资源可用情况
+- 研究目标、已有 artifact、用户约束、结构/文献/数据、软件偏好或资源限制。
+- 可选：候选 recipe/tag，如 DFT、AIMD、classical MD、phonon、NEB、custom。
+- 缺失信息应记录为待澄清项，不强制选择固定 workflow。
 
 ## 输出 Artifact
 
-- `plan.json` — 结构化研究方案
-- `proposal.md` — 方案文档
-- `resource_estimate.json` — 资源估算
+- 结构化计划、proposal、资源估算、风险清单、approval triggers 或用户指定格式。
+- 计划应区分 hard requirement、assumption、recommendation 和 speculation。
 
 ## 状态写入规则
 
-- 更新 `.simflow/state/workflow.json` 中的 plan 字段
-- 写入 `.simflow/plans/` 目录
+- 写入 `.simflow/` 前必须显式解析 `project_root`。
+- 记录 recipe/tag、阶段建议、artifact 依赖、风险和 handoff notes。
+- 不替 host agent 决定唯一软件、数据库、builder、parser 或论文结构。
 
 ## Checkpoint 规则
 
-- 创建 checkpoint：`ckpt_002_plan`
+- 计划可审查、可交接或进入下一阶段时创建 checkpoint。
 
 ## 禁止事项
 
-- 不要跳过资源估算
-- 不要假设计算资源无限
-- 不要省略对照组设计
+- 不要把 DFT/AIMD/MD 固定 DAG 当作唯一合法路径。
+- 不要跳过资源、许可、proprietary 文件或真实执行风险。
+- 不要隐藏不确定性、缺失输入或备选方案。
 
 ## 需要人工确认的场景
 

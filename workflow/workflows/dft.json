@@ -1,6 +1,9 @@
 {
   "name": "dft",
   "description": "DFT 计算模拟工作流：从文献调研到论文写作的完整流程",
+  "legacy": true,
+  "legacy_note": "Compatibility workflow retained as a recipe source. New work should use workflow/recipes/dft.json and canonical stages.",
+  "recipe": "dft",
   "stages": [
     "literature",
     "review",

@@ -1,128 +1,50 @@
-# DFT Workflow Example
+# DFT Legacy Recipe Example
 
-## Complete Si Diamond DFT Calculation
+This is a legacy recipe example. It illustrates the evidence that a silicon DFT
+study might record, but it is not a mandatory SimFlow executor path and does
+not imply that a `simflow-dft` CLI exists.
 
-This example walks through a full DFT workflow for silicon diamond structure.
+## Suggested Stage Mapping
 
-### Step 1: Build Structure
+| Research activity | Canonical stage |
+| --- | --- |
+| Review prior Si calculations | `literature_review` |
+| Decide relaxation/SCF/bands/DOS scope | `proposal` |
+| Preserve or transform the Si structure | `modeling` |
+| Prepare inputs, dry-run, and gate submit | `computation` |
+| Parse outputs and plot bands/DOS | `analysis_visualization` |
+| Draft methods/results or handoff notes | `writing` |
 
-```bash
-# Build Si diamond unit cell
-simflow-modeling build_structure --type diamond --element Si --lattice-const 5.43
+## Evidence To Record
 
-# Creates: Si.cif
-# Verify: simflow-modeling validate_structure --input Si.cif
-```
+- Source structure artifact, for example a user-provided CIF or POSCAR.
+- Calculation manifest explaining relaxation, SCF, bands, or DOS intent.
+- Input files or input-generation script, including hashes.
+- Input validation report and resource estimate.
+- Dry-run report and credential scan before any real submit.
+- Gate decision id for real local, remote, or HPC execution.
+- Output artifacts, parser/custom analysis scripts, figures, and claim map.
 
-### Step 2: Initialize Workflow
+## Optional Helpers
 
-```bash
-simflow-dft init --structure Si.cif --workflow dft
-```
+The host agent may use VASP, Quantum ESPRESSO, CP2K, ASE, pymatgen, py4vasp,
+VASPKIT, custom Python, or another appropriate tool. SimFlow only requires that
+the selected path is recorded with artifacts and lineage.
 
-Creates `.simflow/` directory with workflow state.
-
-### Step 3: Generate VASP Inputs
-
-```bash
-simflow-dft generate_inputs \
-  --code vasp \
-  --structure Si.cif \
-  --functional PBE \
-  --encut 520 \
-  --kpoints-density 0.03
-```
-
-Generates:
-- `INCAR.relax` — Relaxation parameters
-- `KPOINTS.mesh` — k-point mesh
-- `POSCAR` — Structure in VASP format
-- `POTCAR` — Pseudopotential (requires VASP potpaw)
-
-### Step 4: Dry Run
+For VASP planning, the optional helper can be invoked directly:
 
 ```bash
-simflow hpc dry_run --script-path job.sh
+python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
+  --task "plan Si relaxation, SCF, band, and DOS calculations" \
+  --project-root /path/to/project \
+  --calc-dir .
 ```
 
-Validates:
-- Input files exist and are syntactically correct
-- POTCAR species match POSCAR
-- KPOINTS mesh is reasonable
+This writes planning/validation artifacts. It does not submit jobs.
 
-### Step 5: Submit Relaxation
+## Legacy Compatibility
 
-```bash
-simflow hpc submit --script-path job.sh --scheduler slurm
-# Returns: job_id = 12345
-```
-
-### Step 6: Monitor
-
-```bash
-simflow hpc status --job-id 12345 --scheduler slurm
-```
-
-### Step 7: Check Convergence
-
-```bash
-simflow-dft analyze --stage relax
-```
-
-Checks:
-- Electronic convergence (EDIFF achieved)
-- Ionic convergence (forces < EDIFFG)
-- Energy change between ionic steps
-
-### Step 8: Run SCF
-
-After relaxation converges:
-
-```bash
-simflow-dft run_scf --structure relaxed_POSCAR --encut 520
-```
-
-### Step 9: Run Bands
-
-```bash
-simflow-dft run_bands --structure relaxed_POSCAR --kpath "L-G-X-W-K"
-```
-
-### Step 10: Run DOS
-
-```bash
-simflow-dft run_dos --structure relaxed_POSCAR --kpoints-density 0.01
-```
-
-### Step 11: Analysis
-
-```bash
-simflow-dft analyze --stage all
-```
-
-Generates:
-- Band structure plot (PNG)
-- DOS plot (PNG)
-- Energy summary (JSON)
-- Convergence report (JSON)
-
-## Expected Outputs
-
-```
-.simflow/
-├── artifacts/
-│   ├── initial_structure.cif
-│   ├── relaxed_structure.cif
-│   ├── energy.dat
-│   ├── band_structure.png
-│   ├── dos.png
-│   └── convergence_report.json
-└── state/
-    └── workflow.json  # status: "completed"
-```
-
-## Troubleshooting
-
-- **SCF not converging**: Increase ENCUT, check POTCAR, try different mixing
-- **Relaxation not converging**: Reduce EDIFFG, increase NSW, check initial forces
-- **Band structure looks wrong**: Verify k-path, check symmetry analysis
+`workflow/workflows/dft.json` remains loadable as a legacy workflow source and
+is converted by runtime helpers into a `dft` recipe. New documentation and tests
+should treat it as a recipe example, not as a fixed DAG that all DFT projects
+must follow.

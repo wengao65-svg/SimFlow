@@ -1,5 +1,11 @@
 # SimFlow Domain Workflow Layer 实施 Workflow
 
+> Historical implementation plan. This document is retained for project
+> history, but the current stable architecture is the workflow-layer model:
+> canonical stages, JSON recipes, optional helpers, evidence-based gates, and
+> legacy workflow compatibility. Do not treat older DFT/AIMD/MD dry-run phases
+> in this document as the current canonical executor contract.
+
 ## 1. 定位
 
 SimFlow 的目标定位是一个 **Codex-native / OMX-style 的计算模拟领域 Workflow Layer**。

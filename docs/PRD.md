@@ -2,41 +2,55 @@
 
 ## Product Overview
 
-SimFlow is a Codex-native computational simulation workflow layer for condensed matter physics and materials science. It provides structured, reproducible workflows for DFT, AIMD, and MD simulations.
+SimFlow is a Codex-native computational simulation workflow layer for agentic
+research. It records stages, evidence, artifacts, lineage, checkpoints, safety
+gates, and handoff context around open computational work.
+
+SimFlow is not a centralized workflow executor. Codex, Claude Code, or another
+host agent remains responsible for scientific reasoning, literature selection,
+modeling choices, simulation software, analysis code, and writing format.
 
 ## Target Users
 
-- Computational materials scientists running DFT/AIMD/MD workflows
-- Researchers who need reproducible simulation pipelines
-- Teams managing HPC job submissions across multiple clusters
+- Computational simulation researchers who need traceable research state.
+- Agentic coding users who need safe handoff across literature, modeling,
+  computation, analysis, and writing.
+- Teams that need dry-run-first local, remote, or HPC submission discipline.
 
 ## Core Capabilities
 
-1. **Workflow Management**: Define multi-stage simulation workflows (DFT, AIMD, MD) with gates and policies
-2. **Skill System**: Modular, reusable simulation steps (structure building, input generation, analysis)
-3. **MCP Integration**: External service connectors for literature search, structure databases, HPC management
-4. **State Tracking**: Persistent workflow state with checkpoints and artifact lineage
-5. **Verification Gates**: Automated quality checks at each workflow stage
+1. **Workflow-layer state**: project `.simflow/` state, canonical stages,
+   recipes/tags, and handoff summaries.
+2. **Artifact and lineage tracking**: registered literature, model, compute,
+   analysis, figure, and writing artifacts with metadata and checksums.
+3. **Evidence-based gates**: dry-run, validation, credential scan, approval, and
+   hash checks before real local, remote, or HPC submit.
+4. **Optional helpers**: domain assistants for VASP, CP2K, QE, LAMMPS,
+   Gaussian, parsers, templates, and analysis utilities.
+5. **Migration compatibility**: legacy DFT/AIMD/MD workflow files are loadable
+   as recipes and old project state can be inspected or migrated.
 
 ## Feature Matrix
 
-| Feature | Status |
-|---------|--------|
-| DFT workflow (SCF → Bands → DOS → Relax) | Implemented |
-| AIMD workflow (Build → Input → Run → Analyze) | Implemented |
-| MD workflow (Build → ForceField → Equilibrate → Production) | Implemented |
-| Structure building (pymatgen/ASE) | Implemented |
-| Input generation (VASP/QE/LAMMPS) | Implemented |
-| Trajectory analysis (MDAnalysis) | Implemented |
-| Literature search (arXiv, Crossref, Semantic Scholar) | Implemented |
-| Structure database (Materials Project, COD) | Implemented |
-| HPC submission (SLURM, PBS, SSH, Local) | Implemented |
-| Custom skill extensions | Implemented |
-| Checkpoint and recovery | Implemented |
+| Feature | Current position |
+| --- | --- |
+| Literature review | Evidence tracking; no required source/provider |
+| Proposal | Traceable plan and resource/risk evidence |
+| Modeling | Preserve user-provided models and transformations |
+| Computation | Dry-run-first setup, validation, hash evidence, gated submit |
+| Analysis/visualization | Built-in or self-written helpers, all recorded with lineage |
+| Writing | Claim-to-evidence traceability; no fixed document structure |
+| DFT/AIMD/MD | Reference recipes/tags and legacy adapters |
+| Engine helpers | Optional domain assistants, not workflow executors |
 
 ## Success Criteria
 
-- Users can run a complete DFT workflow from structure to results in under 10 commands
-- All workflow artifacts are tracked with full lineage
-- Jobs can be submitted to any supported HPC scheduler
-- Missing credentials gracefully fall back to mock/dry-run mode
+- Users can enter SimFlow from any canonical research stage.
+- Scientific claims trace to literature, model, computation, analysis, or figure
+  artifacts.
+- Real local, remote, or HPC execution is blocked without approval, dry-run
+  evidence, credential scan, and matching hashes.
+- Unknown engine tasks return uncertainty and missing information instead of
+  being forced into a default task.
+- Legacy DFT/AIMD/MD projects remain readable through recipe and migration
+  compatibility paths.

@@ -1,141 +1,74 @@
 # Software Skills Reference
 
-## VASP Skills
+Software skills are optional domain assistants. They provide input-file
+guidance, common checks, troubleshooting notes, template examples, official
+documentation pointers, and artifact registration suggestions.
 
-`simflow-vasp` is an orchestration layer for common VASP workflows. It routes
-tasks, validates inputs, plans optional VASPKIT/py4vasp usage, writes reports,
-and registers SimFlow artifacts. It does not replace VASP, VASPKIT, py4vasp,
-or the official VASP Wiki.
+They are not workflow executors. They must not make a fixed parser, builder,
+report name, software package, or DFT/AIMD/MD path mandatory.
 
-Safety boundaries:
-- POTCAR content is never generated, copied, printed, or distributed by SimFlow.
-- VASPKIT and py4vasp are optional local tools with parser fallbacks.
-- Real HPC submission remains blocked unless the existing approval gate passes.
+## VASP
 
-### generate_vasp_inputs
+`simflow-vasp` can help with common VASP setup, validation, output inspection,
+and troubleshooting. It may suggest py4vasp, VASPKIT, SimFlow parsers, or custom
+Python, but none of those is the only valid path.
 
-Generate VASP input files (INCAR, KPOINTS, POSCAR, POTCAR).
+Unknown or specialized requests such as phonon, NEB, SOC, hybrid, DFT+U,
+defect, surface, adsorption, and custom analysis should return candidates and
+missing information instead of silently becoming a static calculation.
 
-```bash
-simflow-dft generate_inputs \
-  --code vasp \
-  --structure Si.cif \
-  --functional PBE \
-  --encut 520 \
-  --kpoints-density 0.03
-```
+POTCAR content is licensed/proprietary in many installations. SimFlow must not
+generate, copy, print, store, or redistribute it.
 
-### run_relax
-
-Structural relaxation with VASP.
-
-```bash
-simflow-dft run_relax \
-  --structure POSCAR \
-  --encut 520 \
-  --ediff 1e-6 \
-  --ibrion 2 \
-  --nsw 100
-```
-
-### run_scf
-
-Single-point energy calculation.
-
-### run_bands
-
-Band structure calculation along high-symmetry paths.
-
-### run_dos
-
-Density of states calculation.
-
-### orchestrate_vasp_task
-
-Generate VASP workflow reports without submitting jobs.
+Optional helper script:
 
 ```bash
 python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
-  --task band \
-  --base-dir ./workflow \
-  --calc-dir ./band
+  --task "plan VASP NEB calculation" \
+  --project-root /path/to/project \
+  --calc-dir ./neb
 ```
 
-Outputs:
-- `reports/vasp/input_manifest.json`
-- `reports/vasp/validation_report.json`
-- `reports/vasp/compute_plan.json`
-- `reports/vasp/analysis_report.json`
-- `reports/vasp/handoff_artifact.json`
+The script writes reports and artifacts under `.simflow/` only when given a
+project root. It does not submit jobs and does not advance a fixed VASP
+workflow.
 
-## Quantum ESPRESSO Skills
+## CP2K
 
-### generate_qe_inputs
+`simflow-cp2k` can help inspect CP2K input/output, common Quickstep/AIMD setup
+questions, validation risks, and handoff notes. Unknown requests should remain
+open and record uncertainty.
 
-Generate QE input files (pw.in).
+## Quantum ESPRESSO
 
-```bash
-simflow-dft generate_inputs \
-  --code qe \
-  --structure Si.cif \
-  --ecutwfc 60 \
-  --ecutrho 480
-```
+`simflow-qe` can assist with QE input structure, pseudopotential provenance,
+resource considerations, output checks, and optional parser/helper usage. It
+does not require QE as the only engine for a recipe and does not own stage
+progression.
 
-### run_relax_qe
+## LAMMPS
 
-Structural relaxation with QE.
+`simflow-lammps` can assist with data/input scripts, force-field provenance,
+trajectory analysis, and common MD checks. It must not treat every unknown
+request as a fixed MD alias.
 
-## LAMMPS Skills
+## Gaussian
 
-### generate_lammps_inputs
+`simflow-gaussian` can assist with route sections, basis provenance, log/fchk
+inspection, frequency/optimization status, and analysis notes. It remains a
+domain helper and does not define a global workflow path.
 
-Generate LAMMPS input scripts.
+## Analysis Helpers
 
-```bash
-simflow-md generate_inputs \
-  --code lammps \
-  --structure Si.data \
-  --forcefield StillingerWeber \
-  --ensemble npt \
-  --temp 300 \
-  --pressure 1.0
-```
+Built-in parsers and plotting scripts are optional. The host agent may also use
+self-written Python, pandas, matplotlib, ASE, pymatgen, MDAnalysis, py4vasp,
+notebooks, or other appropriate tools.
 
-### run_equilibrate
+The hard requirement is traceability:
 
-NVT/NPT equilibration.
-
-### run_production
-
-Production MD run.
-
-## Analysis Skills
-
-### analyze_md_trajectory
-
-MD trajectory analysis with MDAnalysis.
-
-```bash
-simflow-aimd analyze \
-  --trajectory XDATCAR \
-  --topology POSCAR \
-  --rdf --msd --energy
-```
-
-Outputs:
-- RDF plot (PNG)
-- MSD plot (PNG)
-- Energy evolution (PNG)
-- Numerical data (CSV)
-
-### plot_energy_curve
-
-Energy vs. volume or parameter sweep plot.
-
-### validate_structure
-
-Structure validation checks:
-- Lattice parameter sanity
-- Bond length checks
-- Atomic overlap detection
+- script or command recorded
+- input files recorded
+- output files recorded
+- environment or package assumptions recorded
+- artifact lineage linked
+- incomplete or speculative conclusions labeled

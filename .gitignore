@@ -23,10 +23,7 @@ env/
 Thumbs.db
 
 # SimFlow state (per-project, not committed)
-.simflow/state/
-.simflow/artifacts/
-.simflow/checkpoints/
-.simflow/logs/
+.simflow/
 
 # Secrets
 .env

@@ -2,70 +2,65 @@
 
 ## Overview
 
-Gates are automated quality checks that run between workflow stages. A stage cannot advance until all its gates pass.
+Gates are evidence and approval boundaries. They are not a central workflow
+executor and they do not decide the scientific path. A gate evaluates recorded
+state or artifact evidence and returns `pass` or `block`.
 
-## Gate Types
+Legacy boolean-only context is not sufficient for high-risk gates such as real
+local, remote, or HPC submit.
 
-| Gate | Trigger | Action |
-|------|---------|--------|
-| `convergence_check` | After SCF/relax | Check electronic/ionic convergence |
-| `energy_convergence` | After relax | Verify energy change < threshold |
-| `force_convergence` | After relax | Verify max force < threshold |
-| `structure_validity` | After structure build | Check lattice, bonds, overlaps |
-| `trajectory_integrity` | After MD run | Verify trajectory frames exist |
-| `input_validation` | Before submission | Validate input file syntax |
-| `output_completeness` | After run | Check all expected outputs exist |
-| `rdf_convergence` | After AIMD equilibration | Verify RDF has converged |
-| `pressure_convergence` | After NPT equilibration | Verify pressure has converged |
+## Gate Responsibilities
 
-## Gate Definition
+- verify required evidence exists
+- report missing or failing evidence
+- require explicit approval for risky actions
+- preserve gate decisions with stable ids
+- block submit when hashes or evidence no longer match
+
+## Example: hpc_submit
+
+The `hpc_submit` gate reads evidence from project `.simflow/` artifacts and
+state:
 
 ```json
 {
-  "gate_name": "convergence_check",
-  "description": "Verify SCF/relaxation convergence",
-  "trigger_stage": "relax",
-  "condition": "converged == true",
-  "action_on_fail": "block_and_warn",
-  "parameters": {
-    "max_steps": 100,
-    "energy_tolerance": 1e-6
-  }
+  "id": "dry_run_passed",
+  "evidence": "compute/dry_run_report.json",
+  "path": "$.status",
+  "op": "in",
+  "value": ["pass", "warning"]
 }
 ```
 
-## Actions on Failure
+Real submit requires:
 
-- `block_and_warn`: Stop workflow, notify user
-- `retry`: Re-run the stage with adjusted parameters
-- `skip_with_warning`: Log warning, continue anyway
-- `rollback`: Revert to previous checkpoint
+- dry-run report
+- input validation report
+- resource estimate
+- credential scan
+- script/input hash evidence
+- approval decision id or approval token
+
+Local submit follows the same approval discipline as remote or HPC submit.
+
+## Actions On Failure
+
+When a gate blocks, SimFlow should record why and stop the risky transition.
+The host agent may then gather missing evidence, fix inputs, request user
+approval, or create a failure checkpoint.
+
+Do not record a blocked or unapproved real execution as completed.
 
 ## Policy Layer
 
-Policies are workflow-wide constraints that complement gates:
+Policies complement gates by describing hard boundaries such as:
 
-| Policy | Description |
-|--------|-------------|
-| `max_walltime` | Total workflow walltime limit |
-| `max_jobs` | Maximum concurrent HPC jobs |
-| `resource_budget` | Compute hour budget |
-| `data_retention` | Artifact retention period |
-| `approval_required` | Stages requiring manual approval |
-| `auto_checkpoint` | Automatic checkpoint frequency |
+- dry-run first
+- no credential storage
+- checkpoint on stage boundary
+- approval for external submit
+- artifact versioning and lineage
 
-## Workflow Integration
-
-Gates are declared in workflow definitions:
-
-```json
-{
-  "workflow_name": "dft",
-  "stages": ["input_gen", "relax", "scf"],
-  "gates": {
-    "relax": ["convergence_check", "energy_convergence"],
-    "scf": ["convergence_check"]
-  },
-  "policies": ["max_walltime", "auto_checkpoint"]
-}
-```
+Policies and gates constrain safety and traceability. They do not hard-code the
+literature source, modeling tool, simulation software, parser, plotting library,
+or report structure.

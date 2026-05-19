@@ -18,10 +18,12 @@ Artifacts are registered via the artifact MCP server:
 
 ```python
 register_artifact(
-    name="relaxed_structure",
+    name="structure.cif",
     artifact_type="structure",
-    stage="relax",
-    base_dir=".simflow/artifacts"
+    stage="modeling",
+    project_root="/path/to/project",
+    path="models/structure.cif",
+    metadata={"source": "user_provided_or_transformed"}
 )
 ```
 
@@ -31,38 +33,50 @@ Each artifact records its provenance:
 
 ```json
 {
-  "name": "relaxed_structure",
-  "type": "structure",
-  "stage": "relax",
-  "path": ".simflow/artifacts/relaxed_structure.cif",
+  "name": "energy_curve.png",
+  "type": "figure",
+  "stage": "analysis_visualization",
+  "path": "figures/energy_curve.png",
+  "checksum": "sha256:...",
+  "metadata": {
+    "caption_status": "draft",
+    "speculative": false
+  },
   "lineage": {
-    "inputs": ["initial_structure"],
+    "parent_artifacts": ["art_analysis_table", "art_plot_script"],
     "parameters": {
-      "encut": 520,
-      "ediff": 1e-6,
-      "ibrion": 2
+      "x": "volume",
+      "y": "energy"
     },
-    "software": "vasp",
-    "version": "6.3.0"
+    "software": "matplotlib"
   }
 }
 ```
 
+Legacy artifact records may contain stage names such as `input_generation`,
+`compute`, `analysis`, or `visualization`. Migration maps those to
+`computation` or `analysis_visualization` while preserving the original legacy
+stage in metadata where needed.
+
 ## Versioning
 
-Artifacts are versioned by stage execution. Multiple runs of the same stage produce versioned artifacts:
+Artifacts are versioned by registration history. Multiple records with the same
+name receive incremented versions while retaining lineage:
 
-```
-.artifacts/
-├── relaxed_structure.cif        # Latest
-├── relaxed_structure_v1.cif     # First run
-└── relaxed_structure_v2.cif     # Second run
+```text
+.simflow/state/artifacts.json
+  structure.cif v1.0.0
+  structure.cif v2.0.0
 ```
 
 ## Artifact Validation
 
 Each artifact type has validation rules defined in `schemas/artifact.json`:
-- File must exist at declared path
-- File format must match declared type
-- File size must be non-zero
-- Required metadata fields must be present
+
+- file must exist at declared path when a path is provided
+- file size should be non-zero for file artifacts
+- metadata should describe source and stage context
+- lineage should link derived artifacts to source artifacts where possible
+
+Common artifact types are examples, not a closed enum. Custom artifact types are
+allowed when their metadata and lineage are clear.
