@@ -42,8 +42,18 @@ Direct
 def test_classify_common_tasks():
     result = classify_vasp_request("run band structure after scf", ["POSCAR", "INCAR", "KPOINTS"])
     assert result["task"] == "band"
+    assert result["status"] == "classified"
     assert "CHGCAR" in result["missing_inputs"]
     assert "static SCF with CHGCAR" in result["predecessors"]
+
+
+def test_unknown_vasp_task_returns_uncertainty_not_static():
+    result = classify_vasp_request("plan a VASP phonon calculation", ["POSCAR"])
+    assert result["task"] == "unknown"
+    assert result["status"] == "needs_clarification"
+    assert result["confidence"] == 0.0
+    assert result["candidates"]
+    assert "calculation intent" in result["missing_information"]
 
 
 def test_vaspkit_missing_fallback_plan(monkeypatch):
@@ -106,15 +116,16 @@ def test_workflow_writes_artifacts_checkpoint_and_blocks_submit(tmp_path):
     assert written["checkpoint"]["checkpoint_id"].startswith("ckpt_")
     compute_plan = json.loads((tmp_path / "reports/vasp/compute_plan.json").read_text())
     assert compute_plan["dry_run"] is True
-    assert compute_plan["real_submit"] is False
+    assert compute_plan["real_submit_allowed"] is False
+    assert compute_plan["approval_required_for_real_submit"] is True
 
 
-def test_hpc_gate_blocks_incomplete_realistic_plan(tmp_path):
+def test_hpc_gate_requires_evidence_not_boolean_context(tmp_path):
     _write_basic_inputs(tmp_path)
     plan = build_vasp_task_plan("dos", str(tmp_path), {"calc_dir": "."})
     gate = plan["compute_plan"]["hpc_submit_gate"]
-    assert gate["status"] == "block"
-    assert "input_files_complete" in gate["conditions"]["unmet"]
+    assert gate["status"] == "not_evaluated"
+    assert "dry_run_report" in gate["required_evidence"]
 
 
 def test_surface_adsorption_defect_checks_are_poscar_scoped(tmp_path):

@@ -54,6 +54,15 @@ def test_restart_requires_restart_file_label():
     assert "restart_file" in result["missing_inputs"]
 
 
+def test_unknown_cp2k_task_returns_uncertainty_not_energy():
+    result = classify_cp2k_request("set up a custom CP2K phonon workflow", ["structure.xyz"])
+    assert result["task"] == "unknown"
+    assert result["status"] == "needs_clarification"
+    assert result["confidence"] == 0.0
+    assert result["candidates"]
+    assert "calculation intent" in result["missing_information"]
+
+
 def test_parse_and_troubleshoot_use_log_requirement():
     parse_result = classify_cp2k_request("parse", ["job.log"])
     trouble_result = classify_cp2k_request("troubleshoot", ["job.log"])
@@ -68,8 +77,20 @@ def test_build_plan_for_energy_is_dry_run(monkeypatch, tmp_path):
     assert plan["task"] == "energy"
     assert plan["validation_report"]["status"] == "pass"
     assert plan["compute_plan"]["dry_run"] is True
-    assert plan["compute_plan"]["real_submit"] is False
+    assert plan["compute_plan"]["real_submit_allowed"] is False
+    assert plan["compute_plan"]["approval_required_for_real_submit"] is True
     assert plan["compute_plan"]["runtime_detection"]["detected"] is False
+
+
+def test_build_plan_for_unknown_task_is_plan_only(monkeypatch, tmp_path):
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    (tmp_path / "structure.xyz").write_text("1\ncustom\nSi 0 0 0\n", encoding="utf-8")
+    plan = build_cp2k_task_plan("custom phonon workflow", str(tmp_path), {"calc_dir": "."})
+    assert plan["task"] == "unknown"
+    assert plan["classification"]["status"] == "needs_clarification"
+    assert plan["validation_report"]["status"] == "skip"
+    assert plan["compute_plan"]["execution_mode"] == "plan_only"
+    assert plan["compute_plan"]["hpc_submit_gate"]["status"] == "not_evaluated"
 
 
 def test_build_plan_for_geo_cell_and_aimd_tasks(monkeypatch, tmp_path):

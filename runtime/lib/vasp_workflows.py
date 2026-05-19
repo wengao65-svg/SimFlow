@@ -9,7 +9,6 @@ from typing import Any
 
 from .artifact import register_artifact
 from .checkpoint import create_checkpoint
-from .gates import check_gate
 from .hpc import estimate_resources
 from .state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
 from .vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
@@ -31,11 +30,47 @@ TASK_ALIASES = {
     "aimd": "aimd",
     "md": "aimd",
     "neb": "neb_basic",
+    "nudged elastic band": "neb_basic",
     "surface": "surface_check",
     "adsorption": "adsorption_check",
     "defect": "defect_check",
     "parse": "parse",
     "troubleshoot": "troubleshoot",
+}
+
+TASK_CANDIDATES = {
+    "phonon": [
+        "finite-displacement phonon workflow with supercell force calculations",
+        "DFPT phonon workflow if the selected engine and setup support it",
+    ],
+    "vibration": [
+        "finite-displacement vibrational analysis",
+        "normal-mode analysis from converged structures",
+    ],
+    "soc": [
+        "spin-orbit coupling static calculation after scalar-relativistic convergence",
+        "band/DOS post-processing with SOC settings",
+    ],
+    "spin orbit": [
+        "spin-orbit coupling static calculation after scalar-relativistic convergence",
+        "band/DOS post-processing with SOC settings",
+    ],
+    "hybrid": [
+        "hybrid-functional static calculation with convergence and resource review",
+        "hybrid-functional band/DOS workflow after prerequisite charge density review",
+    ],
+    "hse": [
+        "hybrid-functional static calculation with convergence and resource review",
+        "hybrid-functional band/DOS workflow after prerequisite charge density review",
+    ],
+    "dft+u": [
+        "DFT+U setup requiring element, orbital, and U/J provenance",
+        "sensitivity study across plausible U values",
+    ],
+    "hubbard": [
+        "DFT+U setup requiring element, orbital, and U/J provenance",
+        "sensitivity study across plausible U values",
+    ],
 }
 
 TASK_INPUTS = {
@@ -60,13 +95,42 @@ TASK_PREDECESSORS = {
 
 
 def classify_vasp_request(request: str, files: list[str] | None = None) -> dict[str, Any]:
-    """Classify a user request into a common VASP task."""
+    """Suggest a common VASP task without forcing unknown work into aliases."""
     text = request.lower()
-    task = "static"
+    task = None
     for phrase, candidate in sorted(TASK_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
         if phrase in text:
             task = candidate
             break
+
+    candidates = []
+    for phrase, suggested in sorted(TASK_CANDIDATES.items(), key=lambda item: len(item[0]), reverse=True):
+        if phrase in text:
+            candidates.extend(suggested)
+
+    if task is None:
+        available = {Path(f).name for f in (files or [])}
+        return {
+            "task": "unknown",
+            "confidence": 0.0,
+            "status": "needs_clarification",
+            "required_inputs": [],
+            "available_inputs": sorted(available),
+            "missing_inputs": [],
+            "predecessors": [],
+            "recommended_tools": [
+                "SimFlow artifact/checkpoint/lineage helpers",
+                "engine-specific validation only after task intent is clarified",
+            ],
+            "candidates": candidates or [
+                "custom VASP setup with user-specified inputs and validation checks",
+            ],
+            "missing_information": [
+                "calculation intent",
+                "available input/output files",
+                "whether this is preparation, validation, analysis, or troubleshooting",
+            ],
+        }
 
     available = {Path(f).name for f in (files or [])}
     required = TASK_INPUTS.get(task, [])
@@ -79,11 +143,15 @@ def classify_vasp_request(request: str, files: list[str] | None = None) -> dict[
 
     return {
         "task": task,
+        "confidence": 0.85,
+        "status": "classified",
         "required_inputs": required,
         "available_inputs": sorted(available),
         "missing_inputs": missing,
         "predecessors": TASK_PREDECESSORS.get(task, []),
         "recommended_tools": tools,
+        "candidates": candidates,
+        "missing_information": [],
     }
 
 
@@ -111,34 +179,49 @@ def _analysis_report(task: str, calc_dir: Path) -> dict[str, Any]:
 
 
 def build_vasp_task_plan(task: str, base_dir: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Build a complete dry-run VASP orchestration plan."""
+    """Build a VASP helper plan without authorizing or simulating submission gates."""
     options = options or {}
     root = resolve_project_root(project_root=base_dir)
     calc_dir = root / options.get("calc_dir", ".")
     files = [p.name for p in calc_dir.iterdir()] if calc_dir.exists() else []
     classification = classify_vasp_request(task, files)
     task_name = options.get("task") or classification["task"]
-    validation = validate_vasp_inputs(task_name, str(calc_dir)) if task_name != "parse" else {"status": "skip", "checks": []}
+    validation = (
+        validate_vasp_inputs(task_name, str(calc_dir))
+        if task_name not in {"parse", "unknown"}
+        else {"status": "skip", "checks": [], "reason": "No fixed input validator selected for this task."}
+    )
     num_atoms = options.get("num_atoms", 1)
     num_kpoints = options.get("num_kpoints", 1)
-    resources = estimate_resources("vasp", "md" if task_name == "aimd" else task_name, num_atoms, num_kpoints)
-    gate_context = {
-        "dry_run_passed": True,
-        "input_files_complete": validation.get("status") in {"pass", "skip"},
-        "resource_request_reasonable": resources["estimated_walltime_hours"] <= options.get("max_walltime_hours", 240),
-        "no_credential_in_files": True,
+    resource_task = "static" if task_name == "unknown" else "md" if task_name == "aimd" else task_name
+    resources = estimate_resources(options.get("software", "vasp"), resource_task, num_atoms, num_kpoints)
+    approval_status = {
+        "status": "not_evaluated",
+        "reason": "Real submission requires recorded dry-run, validation, credential scan, artifact hashes, and explicit approval.",
+        "required_evidence": [
+            "input_validation_report",
+            "dry_run_report",
+            "resource_estimate",
+            "credential_scan",
+            "script_or_input_hash",
+            "gate_decision_id",
+        ],
     }
     compute_plan = {
-        "software": "vasp",
+        "software": options.get("software", "vasp"),
         "task": task_name,
-        "dry_run": True,
-        "real_submit": False,
+        "execution_mode": "plan_only",
+        "dry_run": bool(options.get("dry_run", True)),
+        "real_submit_requested": bool(options.get("real_submit", False)),
+        "real_submit_allowed": False,
+        "approval_required_for_real_submit": True,
         "resources": resources,
-        "hpc_submit_gate": check_gate("hpc_submit", gate_context),
+        "hpc_submit_gate": approval_status,
     }
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task_name,
+        "stage": options.get("stage") or suggest_vasp_stage(task_name),
         "classification": classification,
         "calc_dir": str(calc_dir),
         "tools": {
@@ -152,15 +235,29 @@ def build_vasp_task_plan(task: str, base_dir: str, options: dict[str, Any] | Non
     }
 
 
+def suggest_vasp_stage(task: str) -> str:
+    """Suggest an open SimFlow stage for a VASP helper activity."""
+    if task in {"parse", "troubleshoot"}:
+        return "analysis_visualization"
+    if task in {"surface_check", "adsorption_check", "defect_check"}:
+        return "modeling"
+    return "computation"
+
+
 def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str | None = None) -> dict[str, Any]:
     """Write VASP reports and register them as SimFlow artifacts."""
     root = resolve_project_root(project_root=base_dir)
-    state = ensure_workflow_initialized("dft", "input_generation", project_root=str(root))
+    stage = plan.get("stage") or suggest_vasp_stage(plan.get("task", "unknown"))
+    state = ensure_workflow_initialized("custom", stage, project_root=str(root))
     workflow_id = workflow_id or state.get("workflow_id", "wf_vasp")
-    stage = "input_generation"
 
     manifest = {
         "task": plan["task"],
+        "stage": stage,
+        "classification_status": plan["classification"].get("status"),
+        "classification_confidence": plan["classification"].get("confidence"),
+        "candidates": plan["classification"].get("candidates", []),
+        "missing_information": plan["classification"].get("missing_information", []),
         "required_inputs": plan["classification"]["required_inputs"],
         "missing_inputs": plan["classification"]["missing_inputs"],
         "recommended_tools": plan["classification"]["recommended_tools"],

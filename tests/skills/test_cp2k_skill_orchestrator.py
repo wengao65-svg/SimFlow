@@ -149,8 +149,24 @@ def test_orchestrator_without_local_cp2k_binary_still_plans(monkeypatch):
         compute_plan = json.loads((root / "reports/cp2k/compute_plan.json").read_text(encoding="utf-8"))
 
         assert compute_plan["dry_run"] is True
-        assert compute_plan["real_submit"] is False
+        assert compute_plan["real_submit_allowed"] is False
         assert compute_plan["runtime_detection"]["detected"] is False
+
+
+def test_orchestrator_unknown_task_writes_uncertainty_manifest(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    module = _load_module()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "structure.xyz").write_text("1\ncustom\nSi 0 0 0\n", encoding="utf-8")
+        result = module.orchestrate_cp2k_task("custom phonon workflow", str(root))
+        manifest = json.loads((root / "reports/cp2k/input_manifest.json").read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert result["task"] == "unknown"
+        assert manifest["classification_status"] == "needs_clarification"
+        assert manifest["candidates"]
+        assert (root / ".simflow/state/stages.json").is_file()
 
 
 def test_orchestrator_parses_outputs_when_present(monkeypatch):

@@ -15,7 +15,7 @@ SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
 from runtime.lib.state import ensure_workflow_initialized, resolve_project_root
-from runtime.lib.vasp_workflows import build_vasp_task_plan, write_vasp_artifacts
+from runtime.lib.vasp_workflows import build_vasp_task_plan, suggest_vasp_stage, write_vasp_artifacts
 
 
 def orchestrate_vasp_task(
@@ -28,9 +28,9 @@ def orchestrate_vasp_task(
     options = dict(options or {})
     options["calc_dir"] = calc_dir
     project_root = resolve_project_root(project_root=base_dir)
-    state = ensure_workflow_initialized("dft", "input_generation", project_root=str(project_root))
 
     plan = build_vasp_task_plan(task, str(project_root), options)
+    state = ensure_workflow_initialized("custom", plan.get("stage") or suggest_vasp_stage(plan["task"]), project_root=str(project_root))
     written = write_vasp_artifacts(plan, str(project_root), workflow_id=state.get("workflow_id"))
     return {"status": "success", "plan": plan, "written": written}
 

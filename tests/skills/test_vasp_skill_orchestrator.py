@@ -65,6 +65,21 @@ def test_orchestrator_neb_basic_artifacts_even_when_validation_fails():
         assert (root / ".simflow/checkpoints").is_dir()
 
 
+def test_orchestrator_unknown_phonon_task_writes_uncertainty_manifest():
+    module = _load_module()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_inputs(root, "IBRION = -1\nNSW = 0\n")
+        result = module.orchestrate_vasp_task("phonon finite displacement", str(root))
+        manifest = json.loads((root / "reports/vasp/input_manifest.json").read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert result["plan"]["task"] == "unknown"
+        assert manifest["classification_status"] == "needs_clarification"
+        assert manifest["candidates"]
+        assert (root / ".simflow/state/stages.json").is_file()
+
+
 def test_orchestrator_initializes_project_with_existing_omx():
     module = _load_module()
     with tempfile.TemporaryDirectory() as tmp:
