@@ -52,4 +52,5 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 filterwarnings = [
     "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning",
+    "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly\\.:DeprecationWarning:spglib.spg",
 ]
