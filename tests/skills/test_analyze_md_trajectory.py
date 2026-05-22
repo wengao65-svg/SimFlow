@@ -5,26 +5,26 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-analysis" / "scripts"
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 
 def test_import_mdanalysis():
-    try:
-        from MDAnalysis import Universe
-        from MDAnalysis.analysis.rdf import InterRDF
-        from MDAnalysis.analysis.msd import EinsteinMSD
-        assert True
-    except ImportError:
-        print(" (skipped - MDAnalysis not installed)", end="")
-        return False
-    return True
+    pytest.importorskip("MDAnalysis")
+    from MDAnalysis import Universe
+    from MDAnalysis.analysis.rdf import InterRDF
+    from MDAnalysis.analysis.msd import EinsteinMSD
+
+    assert Universe is not None
+    assert InterRDF is not None
+    assert EinsteinMSD is not None
 
 
 def test_rdf_computation():
-    if not test_import_mdanalysis():
-        return
+    pytest.importorskip("MDAnalysis")
     from MDAnalysis import Universe
     from MDAnalysis.analysis.rdf import InterRDF
     # Use LAMMPS dump file with explicit format
