@@ -181,7 +181,7 @@ class TestGeneratePotcar:
         result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
         assert result["status"] == "success"
         assert result["elements"] == ["Si", "Ge"]
-        content = open(output).read()
+        content = Path(output).read_text()
         # Si must come before Ge
         si_pos = content.index("Si")
         ge_pos = content.index("Ge")
@@ -207,7 +207,7 @@ class TestGeneratePotcar:
         output = os.path.join(self.tmpdir, "POTCAR")
         result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
         assert result["status"] == "success"
-        content = open(output).read()
+        content = Path(output).read_text()
         assert "Si_pv" in content
 
 
