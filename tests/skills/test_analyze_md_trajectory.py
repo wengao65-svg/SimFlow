@@ -23,6 +23,8 @@ def test_import_mdanalysis():
     assert EinsteinMSD is not None
 
 
+@pytest.mark.filterwarnings("ignore:Guessed all Masses to 1.0:UserWarning")
+@pytest.mark.filterwarnings("ignore:Reader has no dt information, set to 1.0 ps:UserWarning")
 def test_rdf_computation():
     pytest.importorskip("MDAnalysis")
     from MDAnalysis import Universe
@@ -31,13 +33,16 @@ def test_rdf_computation():
     dump = str(FIXTURE_DIR / "lammps_dump.lammps")
 
     u = Universe(dump, format="LAMMPSDUMP")
-    group = u.select_atoms("all")
-    rdf = InterRDF(group, group, nbins=50, range=(0, 6.0))
-    rdf.run()
+    try:
+        group = u.select_atoms("all")
+        rdf = InterRDF(group, group, nbins=50, range=(0, 6.0))
+        rdf.run()
 
-    assert len(rdf.results.bins) == 50
-    assert len(rdf.results.rdf) == 50
-    assert rdf.results.bins[0] >= 0
+        assert len(rdf.results.bins) == 50
+        assert len(rdf.results.rdf) == 50
+        assert rdf.results.bins[0] >= 0
+    finally:
+        u.trajectory.close()
 
 
 def test_no_crash_without_mdanalysis():
