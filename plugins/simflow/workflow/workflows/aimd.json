@@ -1,6 +1,9 @@
 {
   "name": "aimd",
   "description": "AIMD 计算模拟工作流：从方案设计到论文写作",
+  "legacy": true,
+  "legacy_note": "Compatibility workflow retained as a recipe source. New work should use workflow/recipes/aimd.json and canonical stages.",
+  "recipe": "aimd",
   "stages": [
     "proposal",
     "modeling",

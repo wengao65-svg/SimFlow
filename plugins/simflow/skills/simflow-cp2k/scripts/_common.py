@@ -20,7 +20,7 @@ from runtime.lib.state import ensure_workflow_initialized, resolve_project_root,
 def ensure_cp2k_project(project_root: str, stage: str) -> tuple[Path, dict[str, Any]]:
     """Resolve project_root and ensure `.simflow/` exists there."""
     root = resolve_project_root(project_root=project_root)
-    state = ensure_workflow_initialized("cp2k", stage, project_root=str(root))
+    state = ensure_workflow_initialized("custom", stage, project_root=str(root))
     return root, state
 
 
@@ -82,4 +82,3 @@ def finalize_stage(
         state_file="cp2k.json",
     )
     return checkpoint
-

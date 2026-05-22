@@ -5,7 +5,10 @@ from runtime.lib.state import ProjectRootError
 
 
 def _project_root(params: dict) -> str:
-    return params.get("project_root") or params.get("base_dir") or "."
+    project_root = params.get("project_root")
+    if not project_root:
+        raise ProjectRootError("project_root is required for MCP write operations")
+    return project_root
 
 
 def execute(params: dict) -> dict:
@@ -14,8 +17,8 @@ def execute(params: dict) -> dict:
     description = params.get("description", "")
     if not workflow_id or not stage_id:
         return {"status": "error", "message": "workflow_id and stage_id are required"}
-    project_root = _project_root(params)
     try:
+        project_root = _project_root(params)
         checkpoint = create_checkpoint(
             workflow_id=workflow_id,
             stage_id=stage_id,

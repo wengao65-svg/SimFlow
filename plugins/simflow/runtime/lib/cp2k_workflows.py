@@ -11,7 +11,6 @@ from typing import Any
 
 from .cp2k_input import read_cif_to_xyz, read_xyz_structure
 from .cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
-from .gates import check_gate
 from .state import resolve_project_root
 
 
@@ -73,11 +72,11 @@ def classify_cp2k_request(
     files: list[str] | None = None,
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Classify a request into a common CP2K task and file inventory."""
+    """Suggest a CP2K task without forcing unknown work into common aliases."""
     options = options or {}
     file_inventory = _inventory(files or [])
     task = _classify_task(request, file_inventory)
-    required = TASK_REQUIREMENTS[task]
+    required = TASK_REQUIREMENTS.get(task, [])
     available = _available_labels(file_inventory)
     missing = [item for item in required if item not in available]
 
@@ -90,6 +89,8 @@ def classify_cp2k_request(
 
     return {
         "task": task,
+        "confidence": 0.0 if task == "unknown" else 0.85,
+        "status": "needs_clarification" if task == "unknown" else "classified",
         "required_inputs": required,
         "available_inputs": sorted(available),
         "missing_inputs": missing,
@@ -97,6 +98,8 @@ def classify_cp2k_request(
         "predecessors": TASK_PREDECESSORS.get(task, []),
         "file_inventory": file_inventory,
         "expected_artifacts": REPORT_ARTIFACTS,
+        "candidates": _candidate_tasks(request, file_inventory) if task == "unknown" else [],
+        "missing_information": _missing_information(request, file_inventory) if task == "unknown" else [],
         "options": options,
     }
 
@@ -117,10 +120,14 @@ def build_cp2k_task_plan(
     if input_path and not Path(input_path).is_absolute():
         input_path = str(calc_dir / input_path)
 
-    validation = validate_cp2k_inputs(
-        classification["task"],
-        str(calc_dir),
-        input_path=input_path,
+    validation = (
+        validate_cp2k_inputs(
+            classification["task"],
+            str(calc_dir),
+            input_path=input_path,
+        )
+        if classification["task"] != "unknown"
+        else {"status": "skip", "checks": [], "reason": "No fixed CP2K validator selected for an unknown task."}
     )
     runtime_detection = discover_cp2k_runtime()
     atom_count = _estimate_atom_count(calc_dir, classification["file_inventory"])
@@ -132,18 +139,14 @@ def build_cp2k_task_plan(
         else "cp2k.psmp"
     )
     command = f"{recommended_executable} -i {preferred_input} -o cp2k.log"
-    gate_context = {
-        "dry_run_passed": True,
-        "input_files_complete": validation["status"] in {"pass", "skip"},
-        "resource_request_reasonable": resources["estimated_walltime_hours"] <= options.get("max_walltime_hours", 240),
-        "no_credential_in_files": True,
-    }
     compute_plan = {
-        "software": "cp2k",
+        "software": options.get("software", "cp2k"),
         "task": classification["task"],
-        "dry_run": True,
+        "execution_mode": "plan_only",
+        "dry_run": bool(options.get("dry_run", True)),
         "prepare_only": True,
-        "real_submit": False,
+        "real_submit_requested": bool(options.get("real_submit", False)),
+        "real_submit_allowed": False,
         "approval_required_for_real_submit": True,
         "recommended_command": command,
         "resources": resources,
@@ -153,7 +156,18 @@ def build_cp2k_task_plan(
             "Prepare or update the CP2K input deck and referenced coordinate/restart files.",
             "Use the dry-run command only after the approval gate is satisfied for any real submission.",
         ],
-        "hpc_submit_gate": check_gate("hpc_submit", gate_context),
+        "hpc_submit_gate": {
+            "status": "not_evaluated",
+            "reason": "Real submission requires recorded dry-run, validation, credential scan, artifact hashes, and explicit approval.",
+            "required_evidence": [
+                "input_validation_report",
+                "dry_run_report",
+                "resource_estimate",
+                "credential_scan",
+                "script_or_input_hash",
+                "gate_decision_id",
+            ],
+        },
     }
 
     return {
@@ -199,7 +213,36 @@ def _classify_task(request: str, inventory: dict[str, list[str]]) -> str:
         return "parse"
     if inventory["restart_files"]:
         return "restart"
-    return "energy"
+    return "unknown"
+
+
+def _candidate_tasks(request: str, inventory: dict[str, list[str]]) -> list[str]:
+    text = request.lower()
+    candidates = []
+    if "phonon" in text or "vibr" in text:
+        candidates.extend([
+            "finite-displacement vibrational/phonon setup",
+            "normal-mode analysis from completed force calculations",
+        ])
+    if "neb" in text or "barrier" in text:
+        candidates.extend([
+            "custom NEB-style path setup using CP2K inputs and image directories",
+            "post-processing of existing reaction-path outputs",
+        ])
+    if inventory["input_files"]:
+        candidates.append("custom CP2K input validation with user-provided task semantics")
+    if inventory["log_files"]:
+        candidates.append("custom output parsing or troubleshooting")
+    return candidates or ["custom CP2K helper plan with user-specified task semantics"]
+
+
+def _missing_information(request: str, inventory: dict[str, list[str]]) -> list[str]:
+    missing = ["calculation intent"]
+    if not inventory["input_files"] and not inventory["log_files"]:
+        missing.append("input or output file inventory")
+    if "restart" in request.lower() and not inventory["restart_files"]:
+        missing.append("restart file path and continuation semantics")
+    return missing
 
 
 def _inventory(files: list[str]) -> dict[str, list[str]]:
@@ -298,6 +341,7 @@ def _estimate_cp2k_resources(task: str, atom_count: int) -> dict[str, Any]:
         "restart": 2.0,
         "parse": 0.1,
         "troubleshoot": 0.2,
+        "unknown": 0.2,
     }[task]
     scale = max(1.0, atom_count / 50.0) if atom_count else 1.0
     hours = round(base_hours * scale, 1)

@@ -97,17 +97,42 @@ def handle_status(params: dict) -> dict:
 
 
 def handle_submit(params: dict) -> dict:
-    """Submit a job (requires scheduler parameter)."""
+    """Submit a job after approval, dry-run evidence, and hash validation."""
     script_path = params.get("script_path", "")
     scheduler = params.get("scheduler", "auto")
     if not script_path:
         return {"status": "error", "message": "script_path is required"}
+    if not params.get("project_root"):
+        return {"status": "error", "message": "project_root is required"}
+    if not (params.get("approval_token") or params.get("gate_decision_id")):
+        return {
+            "status": "error",
+            "message": "approval_token or gate_decision_id is required",
+            "approval_required": True,
+            "gate": "hpc_submit",
+        }
+    if not params.get("dry_run_evidence"):
+        return {"status": "error", "message": "dry_run_evidence is required"}
+    if not params.get("script_hash"):
+        return {"status": "error", "message": "script_hash is required"}
+    if not params.get("input_artifact_hash"):
+        return {"status": "error", "message": "input_artifact_hash is required"}
 
     connector = _get_connector(scheduler)
     if connector is None:
         return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler)}
 
-    result = connector.submit(script_path)
+    submit_kwargs = {
+        "project_root": params.get("project_root"),
+        "approval_token": params.get("approval_token"),
+        "gate_decision_id": params.get("gate_decision_id"),
+        "dry_run_evidence": params.get("dry_run_evidence"),
+        "script_hash": params.get("script_hash"),
+        "input_artifact_hash": params.get("input_artifact_hash"),
+    }
+    if scheduler == "local":
+        submit_kwargs["timeout"] = params.get("timeout", 3600)
+    result = connector.submit(script_path, **submit_kwargs)
     return result
 
 

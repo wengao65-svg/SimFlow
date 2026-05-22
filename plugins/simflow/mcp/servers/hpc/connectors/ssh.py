@@ -59,21 +59,48 @@ class SSHConnector(BaseHPCConnector):
         except Exception:
             pass
 
-        return {
+        response = {
             "valid": len(issues) == 0,
             "issues": issues,
             "scheduler": "ssh",
             "host": self.host,
             "script": script_path,
         }
+        if Path(script_path).exists():
+            response["script_hash"] = self._sha256_file(script_path)
+        return response
 
-    def submit(self, script_path: str) -> dict:
+    def submit(
+        self,
+        script_path: str,
+        *,
+        project_root: str | None = None,
+        approval_token: str | None = None,
+        gate_decision_id: str | None = None,
+        dry_run_evidence: str | None = None,
+        script_hash: str | None = None,
+        input_artifact_hash: str | None = None,
+        approved: bool | None = None,
+    ) -> dict:
         """Submit a job via SSH.
 
         Detects whether the remote host has SLURM:
         - If SLURM: copies script and uses sbatch
         - If no SLURM: copies script and uses nohup bash
         """
+        auth = self.validate_submit_authorization(
+            script_path,
+            project_root=project_root,
+            approval_token=approval_token,
+            gate_decision_id=gate_decision_id,
+            dry_run_evidence=dry_run_evidence,
+            script_hash=script_hash,
+            input_artifact_hash=input_artifact_hash,
+            approved=approved,
+        )
+        if auth["status"] != "success":
+            return auth
+
         result = self.dry_run(script_path)
         if not result["valid"]:
             return {"success": False, "errors": result["issues"]}
@@ -101,15 +128,21 @@ class SSHConnector(BaseHPCConnector):
                     if job_id:
                         return {
                             "success": True,
+                            "status": "success",
                             "job_id": job_id,
                             "scheduler": "slurm",
                             "host": self.host,
+                            "gate_decision_id": auth["gate_decision_id"],
+                            "script_hash": auth["script_hash"],
                         }
                     return {
                         "success": True,
+                        "status": "success",
                         "job_id": proc.stdout.strip(),
                         "scheduler": "slurm",
                         "host": self.host,
+                        "gate_decision_id": auth["gate_decision_id"],
+                        "script_hash": auth["script_hash"],
                     }
                 return {"success": False, "errors": [proc.stderr.strip()]}
             else:
@@ -118,7 +151,15 @@ class SSHConnector(BaseHPCConnector):
                 proc = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=30)
                 if proc.returncode == 0:
                     pid = proc.stdout.strip().split("\n")[-1]
-                    return {"success": True, "job_id": pid, "scheduler": "ssh", "host": self.host}
+                    return {
+                        "success": True,
+                        "status": "success",
+                        "job_id": pid,
+                        "scheduler": "ssh",
+                        "host": self.host,
+                        "gate_decision_id": auth["gate_decision_id"],
+                        "script_hash": auth["script_hash"],
+                    }
                 return {"success": False, "errors": [proc.stderr.strip()]}
 
         except subprocess.TimeoutExpired:

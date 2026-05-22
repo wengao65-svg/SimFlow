@@ -50,6 +50,7 @@ def register_artifact(
     parent_artifacts: Optional[list] = None,
     parameters: Optional[dict] = None,
     software: Optional[str] = None,
+    metadata: Optional[dict] = None,
     project_root: Optional[str] = None,
 ) -> dict:
     """Register a new artifact."""
@@ -85,11 +86,14 @@ def register_artifact(
             "parameters": parameters or {},
             "software": software,
         },
+        "metadata": metadata or {},
         "checksum": checksum,
         "created_at": now,
     }
     artifacts.append(artifact)
     _write_artifacts(artifacts, project_root=str(root))
+    from .lineage import record_artifact_lineage
+    record_artifact_lineage(artifact, project_root=str(root))
     return artifact
 
 

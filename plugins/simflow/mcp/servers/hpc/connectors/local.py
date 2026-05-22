@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from typing import Optional
+from pathlib import Path
 
 from .base import BaseHPCConnector
 
@@ -26,15 +26,43 @@ class LocalConnector(BaseHPCConnector):
         except FileNotFoundError:
             issues.append("Script file not found: {}".format(script_path))
 
-        return {
+        response = {
             "valid": len(issues) == 0,
             "issues": issues,
             "scheduler": "local",
             "script": script_path,
         }
+        if Path(script_path).exists():
+            response["script_hash"] = self._sha256_file(script_path)
+        return response
 
-    def submit(self, script_path: str, timeout: int = 3600) -> dict:
+    def submit(
+        self,
+        script_path: str,
+        timeout: int = 3600,
+        *,
+        project_root: str | None = None,
+        approval_token: str | None = None,
+        gate_decision_id: str | None = None,
+        dry_run_evidence: str | None = None,
+        script_hash: str | None = None,
+        input_artifact_hash: str | None = None,
+        approved: bool | None = None,
+    ) -> dict:
         """Execute a script locally."""
+        auth = self.validate_submit_authorization(
+            script_path,
+            project_root=project_root,
+            approval_token=approval_token,
+            gate_decision_id=gate_decision_id,
+            dry_run_evidence=dry_run_evidence,
+            script_hash=script_hash,
+            input_artifact_hash=input_artifact_hash,
+            approved=approved,
+        )
+        if auth["status"] != "success":
+            return auth
+
         result = self.dry_run(script_path)
         if not result["valid"]:
             return {"success": False, "errors": result["issues"]}
@@ -46,11 +74,14 @@ class LocalConnector(BaseHPCConnector):
                 cwd=os.path.dirname(os.path.abspath(script_path)),
             )
             return {
+                "status": "success" if proc.returncode == 0 else "error",
                 "success": proc.returncode == 0,
                 "returncode": proc.returncode,
                 "stdout": proc.stdout[-2000:] if proc.stdout else "",
                 "stderr": proc.stderr[-2000:] if proc.stderr else "",
                 "scheduler": "local",
+                "gate_decision_id": auth["gate_decision_id"],
+                "script_hash": auth["script_hash"],
             }
         except subprocess.TimeoutExpired:
             return {"success": False, "errors": ["Execution timed out after {}s".format(timeout)]}

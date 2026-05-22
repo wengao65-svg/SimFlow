@@ -27,13 +27,16 @@ def orchestrate_cp2k_task(
     """Build CP2K reports, artifacts, checkpoint, and handoff without submitting jobs."""
     options = dict(options or {})
     options["calc_dir"] = calc_dir
-    task_norm = normalize_cp2k_task(task)
-    stage = "analysis" if task_norm in {"parse", "troubleshoot"} else "input_generation"
+    try:
+        task_norm = normalize_cp2k_task(task)
+    except ValueError:
+        task_norm = "unknown"
+    stage = _suggest_stage(task_norm)
     root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    plan = build_cp2k_task_plan(task_norm, str(root), options)
+    plan = build_cp2k_task_plan(task if task_norm == "unknown" else task_norm, str(root), options)
     parser = CP2KParser()
     analysis = parser.parse_outputs(str(work_dir), project=options.get("project")) if _has_outputs(work_dir) else {
         "status": "missing_outputs",
@@ -51,6 +54,10 @@ def orchestrate_cp2k_task(
         "recommended_tools": plan["classification"]["recommended_tools"],
         "file_inventory": plan["classification"]["file_inventory"],
         "expected_artifacts": plan["expected_artifacts"],
+        "classification_status": plan["classification"].get("status"),
+        "classification_confidence": plan["classification"].get("confidence"),
+        "candidates": plan["classification"].get("candidates", []),
+        "missing_information": plan["classification"].get("missing_information", []),
     }
     handoff = {
         "task": plan["task"],
@@ -104,6 +111,12 @@ def orchestrate_cp2k_task(
 def _has_outputs(work_dir: Path) -> bool:
     patterns = ("*.log", "*.ener", "*-pos-*.xyz", "*.restart")
     return any(any(work_dir.glob(pattern)) for pattern in patterns)
+
+
+def _suggest_stage(task: str) -> str:
+    if task in {"parse", "troubleshoot"}:
+        return "analysis_visualization"
+    return "computation"
 
 
 def _next_steps(validation_status: str, analysis_status: str) -> list[str]:
