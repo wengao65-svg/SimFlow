@@ -9,9 +9,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 INPUT_GEN_SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "simflow-input-generation" / "scripts" / "generate_vasp_inputs.py"
 VASP_SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "simflow-vasp" / "scripts" / "generate_vasp_inputs.py"
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly\\.:DeprecationWarning"
+)
 
 
 def _load_module(name, path):

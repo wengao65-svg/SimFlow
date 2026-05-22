@@ -21,9 +21,10 @@ from runtime.lib.state import read_state
 from init_research import init_research
 from run_pipeline import run_pipeline
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
-)
+pytestmark = [
+    pytest.mark.filterwarnings("ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"),
+    pytest.mark.filterwarnings("ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly\\.:DeprecationWarning"),
+]
 
 
 def test_milestone_d_final_handoff_e2e():

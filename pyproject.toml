@@ -50,6 +50,3 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-filterwarnings = [
-    "ignore:Set OLD_ERROR_HANDLING to false and catch the errors directly\\.:DeprecationWarning:spglib.spg",
-]
