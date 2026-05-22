@@ -1,0 +1,14 @@
+{
+  "name": "classical_md",
+  "recipe_type": "classical_md",
+  "intent": "Reference path for classical molecular dynamics studies with force-field provenance and traceable trajectory analysis.",
+  "description": "Example classical MD recipe. It is guidance, not a mandatory executor DAG.",
+  "tags": ["classical_md", "molecular_dynamics", "reference_recipe"],
+  "applicable_software": ["lammps", "gromacs", "openmm", "custom"],
+  "stages": ["proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["force_field_record", "structure_manifest", "calculation_manifest", "dry_run_report", "trajectory_outputs", "analysis_outputs"],
+  "recommended_checks": ["force-field source recorded", "units documented", "boundary conditions documented", "trajectory completeness", "analysis script traceability"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record force-field provenance, simulation protocol, trajectory status, scripts, and limitations."],
+  "metadata": {"schema_version": "1.0.0", "legacy_aliases": ["md"]}
+}

@@ -1,18 +1,44 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "WorkflowDefinition",
-  "description": "SimFlow workflow definition schema (dft.json, aimd.json, md.json)",
+  "description": "Open SimFlow workflow definition schema. Workflows describe stage intent and optional recipes; they are not fixed DFT/AIMD/MD executor DAGs.",
   "type": "object",
-  "required": ["workflow_name", "workflow_type", "stages", "entry_point"],
+  "required": ["stages"],
+  "anyOf": [
+    {"required": ["name"]},
+    {"required": ["workflow_name"]}
+  ],
   "properties": {
+    "name": {
+      "type": "string",
+      "description": "Workflow or recipe identifier"
+    },
     "workflow_name": {
       "type": "string",
-      "description": "Workflow identifier name"
+      "description": "Backward-compatible workflow identifier"
     },
     "workflow_type": {
       "type": "string",
-      "enum": ["dft", "aimd", "md", "custom"],
-      "description": "Workflow category"
+      "description": "Optional open workflow type or tag. This is not limited to DFT/AIMD/MD."
+    },
+    "recipe": {
+      "type": "string",
+      "description": "Optional recipe name such as dft, aimd, classical_md, phonon, neb, or custom"
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Open workflow tags"
+    },
+    "software": {
+      "oneOf": [
+        {"type": "string"},
+        {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      ],
+      "description": "Optional open software name or names"
     },
     "description": {
       "type": "string",
@@ -21,36 +47,68 @@
     "stages": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["name", "required"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Stage name matching workflow/stages/*.json"
-          },
-          "required": {
-            "type": "boolean",
-            "default": true
-          },
-          "depends_on": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Stage names that must complete before this one"
+        "oneOf": [
+          {"type": "string"},
+          {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string"},
+              "id": {"type": "string"},
+              "required": {"type": "boolean", "default": true},
+              "depends_on": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "intent": {"type": "string"},
+              "handoff_notes": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            },
+            "additionalProperties": true
           }
-        }
+        ]
       },
-      "description": "Ordered list of workflow stages"
+      "description": "Ordered or suggested list of research stages"
+    },
+    "stage_dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string"}
+      },
+      "description": "Backward-compatible dependency map"
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "Optional first suggested stage"
+    },
+    "entry_points": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Optional independent entry stages"
+    },
+    "default_entry": {
+      "type": "string",
+      "description": "Backward-compatible default entry stage"
+    },
+    "exit_points": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Optional terminal stages"
     },
     "gates": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "stage", "type"],
+        "required": ["name", "type"],
         "properties": {
           "name": {"type": "string"},
           "stage": {"type": "string"},
-          "type": {"type": "string", "enum": ["approval", "verification", "safety"]}
-        }
+          "type": {"type": "string"}
+        },
+        "additionalProperties": true
       },
       "description": "Gates applied during workflow execution"
     },
@@ -59,22 +117,10 @@
       "items": {"type": "string"},
       "description": "Policy names from workflow/policies/"
     },
-    "entry_point": {
-      "type": "string",
-      "description": "First stage to execute"
-    },
-    "exit_points": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Terminal stages"
-    },
     "metadata": {
       "type": "object",
-      "properties": {
-        "author": {"type": "string"},
-        "version": {"type": "string"},
-        "created_at": {"type": "string", "format": "date-time"}
-      }
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }

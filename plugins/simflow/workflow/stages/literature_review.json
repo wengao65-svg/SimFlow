@@ -1,0 +1,13 @@
+{
+  "name": "literature_review",
+  "description": "Open literature-review stage contract for source-traceable discovery, screening, synthesis, and gap analysis.",
+  "intent": "Discover, screen, synthesize, and review literature while preserving search, screening, citation, and interpretation traceability.",
+  "acceptable_inputs": ["research goal", "user-provided PDFs", "search queries", "seed citations", "prior checkpoint"],
+  "evidence_outputs": ["search_log", "paper_notes", "screening_record", "citation_map", "review_summary", "gaps_and_open_questions"],
+  "recommended_skills": ["simflow-literature-review"],
+  "suggested_checks": ["source traceability", "query traceability", "screening criteria documented", "citation verification", "unavailable full text marked", "interpretation separated from direct source evidence"],
+  "approval_triggers": ["licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record searched sources, search strings, inclusion criteria, inaccessible papers, key claims, and uncertain interpretations."],
+  "risk_notes": ["Do not fabricate citations, metadata, direct quotes, paper conclusions, or literature gaps."],
+  "checkpoint_policy": "on_completion"
+}

@@ -36,7 +36,9 @@ def _write(message: dict) -> None:
     sys.stdout.flush()
 
 
-def _tool_schema() -> dict:
+def _tool_schema(name: str, schemas: Optional[Dict[str, dict]] = None) -> dict:
+    if schemas and name in schemas:
+        return schemas[name]
     return {
         "type": "object",
         "additionalProperties": True,
@@ -47,13 +49,14 @@ def _tool_schema() -> dict:
 def _list_tools(
     tools: Dict[str, Callable],
     descriptions: Optional[Dict[str, str]] = None,
+    schemas: Optional[Dict[str, dict]] = None,
 ) -> list:
     descriptions = descriptions or {}
     return [
         {
             "name": name,
             "description": descriptions.get(name, f"SimFlow tool: {name}"),
-            "inputSchema": _tool_schema(),
+            "inputSchema": _tool_schema(name, schemas),
         }
         for name in sorted(tools)
     ]
@@ -78,6 +81,7 @@ def run_mcp_server(
     server_name: str,
     tools: Dict[str, Callable],
     descriptions: Optional[Dict[str, str]] = None,
+    schemas: Optional[Dict[str, dict]] = None,
     version: str = "0.8.1",
 ) -> None:
     """Run a JSON-RPC stdio MCP server.
@@ -141,7 +145,7 @@ def run_mcp_server(
                 _write(_success_response(request_id, {}))
                 break
             elif method == "tools/list":
-                _write(_success_response(request_id, {"tools": _list_tools(tools, descriptions)}))
+                _write(_success_response(request_id, {"tools": _list_tools(tools, descriptions, schemas)}))
             elif method == "tools/call":
                 _write(_success_response(request_id, _call_tool(tools, params if isinstance(params, dict) else {})))
             elif method == "resources/list":

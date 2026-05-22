@@ -1,6 +1,14 @@
 {
   "name": "writing",
   "description": "写作与可复现交付阶段：汇总 proposal、结构、计算计划、分析与可视化产物，生成可写作与最终交付材料",
+  "intent": "Write the requested scientific deliverable while tracing claims, citations, methods, data, and figures back to artifacts.",
+  "acceptable_inputs": ["literature artifacts", "proposal", "model artifacts", "computation artifacts", "analysis artifacts", "figure artifacts", "user format request", "prior checkpoint"],
+  "evidence_outputs": ["draft_or_requested_deliverable", "claim_evidence_map", "citation_map", "figure_source_map", "handoff_summary"],
+  "recommended_skills": ["simflow-writing"],
+  "suggested_checks": ["claim traceability", "citation verification", "figure source traceability", "unfinished work marked", "speculative statements labeled"],
+  "approval_triggers": ["key_conclusion_review", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record which claims are supported, which are speculative, which computations are incomplete, and what remains to review."],
+  "risk_notes": ["Do not write unfinished computation, unsupported claims, or speculative explanations as established results."],
   "default_agent": "writer",
   "default_skill": "simflow-writing",
   "required_inputs": [

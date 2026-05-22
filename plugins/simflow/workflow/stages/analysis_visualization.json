@@ -1,0 +1,13 @@
+{
+  "name": "analysis_visualization",
+  "description": "Open analysis and visualization stage contract for traceable data analysis, plotting, and figure evidence.",
+  "intent": "Analyze simulation outputs or user-provided data and create figures while preserving data, script, environment, figure, and claim lineage.",
+  "acceptable_inputs": ["simulation outputs", "user-provided data", "analysis script", "plot script", "figure specification", "prior checkpoint"],
+  "evidence_outputs": ["analysis_script", "analysis_inputs", "analysis_outputs", "analysis_environment", "figure_files", "figure_manifest", "claim_evidence_map"],
+  "recommended_skills": ["simflow-analysis-visualization", "optional parser or plotting helper"],
+  "suggested_checks": ["input provenance", "script recorded", "environment recorded", "figure source traceability", "caption evidence", "uncertainty or missing data marked"],
+  "approval_triggers": ["licensed_or_proprietary_file_handling", "destructive_file_operation"],
+  "handoff_notes": ["Record which data were analyzed, which scripts or helpers were used, which figures were produced, and which conclusions are supported."],
+  "risk_notes": ["Do not force built-in parsers or present incomplete figures as final evidence when a recorded custom script is more appropriate."],
+  "checkpoint_policy": "on_completion"
+}

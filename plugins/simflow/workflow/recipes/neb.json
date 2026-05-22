@@ -1,0 +1,14 @@
+{
+  "name": "neb",
+  "recipe_type": "neb",
+  "intent": "Reference path for nudged elastic band or reaction-path calculations with image provenance and barrier traceability.",
+  "description": "Example NEB recipe. It is guidance, not a mandatory executor DAG.",
+  "tags": ["neb", "reaction_path", "barrier", "reference_recipe"],
+  "applicable_software": ["vasp", "quantum_espresso", "ase", "custom"],
+  "stages": ["proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["initial_final_structure_record", "image_manifest", "calculation_manifest", "dry_run_report", "neb_outputs", "barrier_analysis"],
+  "recommended_checks": ["endpoint provenance", "image generation recorded", "spring/path settings documented", "convergence status", "barrier plot lineage"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record endpoints, generated images, input hashes, convergence status, barrier analysis, and unresolved path risks."],
+  "metadata": {"schema_version": "1.0.0"}
+}

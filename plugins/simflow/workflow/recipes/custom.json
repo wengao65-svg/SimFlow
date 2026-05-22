@@ -1,0 +1,14 @@
+{
+  "name": "custom",
+  "recipe_type": "custom",
+  "intent": "Open reference path for user-defined computational simulation studies that do not fit a built-in recipe.",
+  "description": "Custom recipe placeholder. The host agent chooses tools while SimFlow records evidence and safety decisions.",
+  "tags": ["custom", "open_workflow", "reference_recipe"],
+  "applicable_software": ["custom"],
+  "stages": ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"],
+  "evidence_outputs": ["project_manifest", "artifact_registry", "lineage_links", "checkpoint_records", "handoff_summary"],
+  "recommended_checks": ["stage intent documented", "inputs and outputs recorded", "scripts and commands recorded", "approval triggers reviewed", "claims traced to evidence"],
+  "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "destructive_file_operation", "licensed_or_proprietary_file_handling"],
+  "handoff_notes": ["Record why a custom path was chosen, which tools were used, and how each claim traces to artifacts."],
+  "metadata": {"schema_version": "1.0.0"}
+}

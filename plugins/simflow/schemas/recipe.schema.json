@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RecipeDefinition",
+  "description": "Open SimFlow recipe schema. Recipes are optional reference paths, not mandatory workflow executors.",
+  "type": "object",
+  "required": ["name", "recipe_type", "intent", "stages"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Recipe identifier"
+    },
+    "recipe_type": {
+      "type": "string",
+      "description": "Open recipe type such as dft, aimd, classical_md, phonon, neb, or custom"
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Research intent supported by this reference recipe"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "applicable_software": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Optional software suggestions; not an allowed-software enum"
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {"type": "string"},
+          {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string"},
+              "intent": {"type": "string"},
+              "optional": {"type": "boolean"},
+              "notes": {"type": "array", "items": {"type": "string"}}
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "evidence_outputs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "recommended_checks": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "approval_triggers": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "handoff_notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "legacy_source": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

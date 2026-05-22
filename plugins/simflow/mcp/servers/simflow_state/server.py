@@ -33,6 +33,47 @@ TOOL_DESCRIPTIONS = {
     "update_stage": "Update the current SimFlow stage status.",
 }
 
+TOOL_SCHEMAS = {
+    "read_state": {
+        "type": "object",
+        "properties": {
+            "project_root": {"type": "string"},
+            "file": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "write_state": {
+        "type": "object",
+        "required": ["project_root", "data"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "file": {"type": "string"},
+            "data": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "init_workflow": {
+        "type": "object",
+        "required": ["project_root", "workflow_type"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "workflow_type": {"type": "string"},
+            "entry_point": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "update_stage": {
+        "type": "object",
+        "required": ["project_root", "stage_name", "status"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage_name": {"type": "string"},
+            "status": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     """Handle an MCP request."""
@@ -47,4 +88,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("simflow_state", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("simflow_state", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

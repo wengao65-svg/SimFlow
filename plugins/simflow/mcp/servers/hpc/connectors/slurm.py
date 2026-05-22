@@ -66,29 +66,54 @@ class SlurmConnector(BaseHPCConnector):
             elif c["status"] == "warning":
                 overall = "warning"
 
-        return {"dry_run": True, "overall": overall, "checks": checks}
+        return {
+            "dry_run": True,
+            "overall": overall,
+            "status": overall,
+            "checks": checks,
+            "script_hash": self._sha256_file(script),
+        }
 
-    def submit(self, script_path: str, approved: bool = False) -> dict:
+    def submit(
+        self,
+        script_path: str,
+        *,
+        project_root: str | None = None,
+        approval_token: str | None = None,
+        gate_decision_id: str | None = None,
+        dry_run_evidence: str | None = None,
+        script_hash: str | None = None,
+        input_artifact_hash: str | None = None,
+        approved: bool | None = None,
+    ) -> dict:
         """Submit a job to SLURM via sbatch.
 
         Args:
             script_path: Path to the SLURM submission script
-            approved: Must be True to actually submit (approval gate)
+            project_root: User project root containing .simflow state
+            approval_token: Approval token recorded by the hpc_submit gate
+            gate_decision_id: Gate decision id recorded by the hpc_submit gate
+            dry_run_evidence: Dry-run report path used for approval
+            script_hash: Approved SHA256 hash of the job script
+            input_artifact_hash: Approved SHA256 hash of the input artifact/manifest
 
         Returns:
             dict with status, job_id (on success), or approval_required
         """
-        if not approved:
-            return {
-                "status": "error",
-                "message": "Real HPC submission requires approval gate. Use dry_run first.",
-                "approval_required": True,
-                "gate": "hpc_submit",
-            }
+        auth = self.validate_submit_authorization(
+            script_path,
+            project_root=project_root,
+            approval_token=approval_token,
+            gate_decision_id=gate_decision_id,
+            dry_run_evidence=dry_run_evidence,
+            script_hash=script_hash,
+            input_artifact_hash=input_artifact_hash,
+            approved=approved,
+        )
+        if auth["status"] != "success":
+            return auth
 
         script = Path(script_path)
-        if not script.exists():
-            return {"status": "error", "message": f"Script not found: {script_path}"}
 
         try:
             result = subprocess.run(
@@ -106,7 +131,13 @@ class SlurmConnector(BaseHPCConnector):
                     "message": f"sbatch succeeded but could not parse job ID from: {result.stdout.strip()}",
                 }
 
-            return {"status": "success", "job_id": job_id, "message": f"Submitted batch job {job_id}"}
+            return {
+                "status": "success",
+                "job_id": job_id,
+                "message": f"Submitted batch job {job_id}",
+                "gate_decision_id": auth["gate_decision_id"],
+                "script_hash": auth["script_hash"],
+            }
 
         except FileNotFoundError:
             return {"status": "error", "message": "sbatch not found. SLURM may not be installed."}

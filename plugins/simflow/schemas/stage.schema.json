@@ -1,83 +1,104 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "StageDefinition",
-  "description": "SimFlow stage definition schema (workflow/stages/*.json)",
+  "description": "Open SimFlow stage definition schema. Stages describe research intent, evidence outputs, checks, approval triggers, and handoff guidance.",
   "type": "object",
-  "required": ["name", "description", "skill", "inputs", "outputs"],
+  "required": ["name", "intent", "evidence_outputs"],
   "properties": {
     "name": {
       "type": "string",
       "description": "Stage identifier"
     },
+    "id": {
+      "type": "string",
+      "description": "Optional stage id when different from name"
+    },
     "description": {
       "type": "string",
-      "description": "Stage purpose"
+      "description": "Human-readable stage description"
     },
-    "required": {
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Research intent for this stage"
+    },
+    "acceptable_inputs": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"type": "string"},
+          {"type": "object", "additionalProperties": true}
+        ]
+      },
+      "description": "Acceptable evidence or inputs; guidance only"
+    },
+    "evidence_outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {"type": "string"},
+          {"type": "object", "additionalProperties": true}
+        ]
+      },
+      "description": "Evidence artifacts expected at completion"
+    },
+    "recommended_skills": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Recommended skills or helpers; not exclusive"
+    },
+    "suggested_checks": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Recommended checks; not fixed validators"
+    },
+    "approval_triggers": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Risky actions that require explicit approval"
+    },
+    "handoff_notes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Required handoff guidance"
+    },
+    "risk_notes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Common risks to surface to the host agent"
+    },
+    "canonical_stage": {
+      "type": "string",
+      "description": "Canonical top-level stage for legacy aliases"
+    },
+    "legacy_alias": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether this stage is required in its workflow"
+      "description": "Whether this file is retained as a legacy stage alias"
     },
-    "skill": {
+    "checkpoint_policy": {
       "type": "string",
-      "description": "Bound skill name (e.g., simflow-modeling)"
+      "description": "Checkpoint guidance"
     },
-    "agent": {
+    "required_inputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Legacy compatibility only; use acceptable_inputs for new contracts"
+    },
+    "expected_outputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Legacy compatibility only; use evidence_outputs for new contracts"
+    },
+    "default_skill": {
       "type": "string",
-      "description": "Bound agent role"
-    },
-    "inputs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "type"],
-        "properties": {
-          "name": {"type": "string"},
-          "type": {"type": "string"},
-          "required": {"type": "boolean", "default": true},
-          "description": {"type": "string"}
-        }
-      },
-      "description": "Required input artifacts"
-    },
-    "outputs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "type"],
-        "properties": {
-          "name": {"type": "string"},
-          "type": {"type": "string"},
-          "description": {"type": "string"}
-        }
-      },
-      "description": "Produced output artifacts"
+      "description": "Legacy compatibility only; use recommended_skills for new contracts"
     },
     "validators": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Validator functions to run on completion"
-    },
-    "checkpoint_policy": {
-      "type": "string",
-      "enum": ["on_complete", "on_failure", "always", "never"],
-      "default": "on_complete",
-      "description": "When to create checkpoints"
-    },
-    "handoff_output": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether to generate handoff summary"
-    },
-    "mcp_tools": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "MCP tools used by this stage"
-    },
-    "gates": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Gates that apply to this stage"
+      "description": "Legacy compatibility only; use suggested_checks for new contracts"
     }
-  }
+  },
+  "additionalProperties": true
 }
