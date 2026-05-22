@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-modeling" / "scripts"
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -18,6 +20,7 @@ def test_valid_structure():
     assert "Si" in result["elements"]
 
 
+@pytest.mark.filterwarnings("ignore:Issues encountered while parsing CIF:UserWarning")
 def test_valid_cif():
     from validate_structure import validate_structure
     try:

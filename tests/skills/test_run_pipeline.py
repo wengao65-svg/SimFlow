@@ -263,6 +263,7 @@ def test_run_pipeline_execute_runs_precompute_vasp_chain():
 
 
 @pytest.mark.skipif(not H2O_CIF.exists(), reason="H2O.cif not available")
+@pytest.mark.filterwarnings("ignore:Issues encountered while parsing CIF:UserWarning")
 def test_run_pipeline_execute_runs_precompute_cp2k_chain():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
@@ -470,6 +471,7 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
 
 
 @pytest.mark.skipif(not H2O_CIF.exists(), reason="H2O.cif not available")
+@pytest.mark.filterwarnings("ignore:Issues encountered while parsing CIF:UserWarning")
 def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
