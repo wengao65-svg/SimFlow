@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-stage" / "scripts"
 PIPELINE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
 INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
@@ -25,6 +27,10 @@ from run_pipeline import run_pipeline
 
 VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"
 CP2K_FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
+)
 
 
 def _write_metadata(tmpdir: str, workflow_type: str = "dft"):

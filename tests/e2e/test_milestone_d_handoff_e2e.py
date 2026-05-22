@@ -6,6 +6,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 INTAKE_DIR = ROOT / "skills" / "simflow-intake" / "scripts"
 PIPELINE_DIR = ROOT / "skills" / "simflow-pipeline" / "scripts"
@@ -18,6 +20,10 @@ from runtime.lib.artifact import list_artifacts
 from runtime.lib.state import read_state
 from init_research import init_research
 from run_pipeline import run_pipeline
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
+)
 
 
 def test_milestone_d_final_handoff_e2e():

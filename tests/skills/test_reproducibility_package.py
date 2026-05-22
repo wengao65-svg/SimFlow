@@ -6,6 +6,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-writing" / "scripts"
 PIPELINE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
 INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
@@ -19,6 +21,10 @@ from build_reproducibility_package import build_reproducibility_package
 from init_research import init_research
 from run_pipeline import run_pipeline
 from runtime.lib.artifact import list_artifacts, register_artifact
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
+)
 
 
 def test_build_reproducibility_package_generates_outputs_and_registers_artifacts():

@@ -21,6 +21,10 @@ from runtime.lib.state import init_workflow, read_state, write_state
 from run_pipeline import run_pipeline
 from init_research import init_research
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
+)
+
 
 DFT_STAGES = [
     "literature",

@@ -5,6 +5,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-writing" / "scripts"
 PIPELINE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
 INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
@@ -19,6 +21,10 @@ from runtime.lib.state import init_workflow
 from run_writing_stage import run_writing_stage
 from run_pipeline import run_pipeline
 from init_research import init_research
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
+)
 
 
 def test_run_writing_stage_requires_canonical_upstream_artifacts():
