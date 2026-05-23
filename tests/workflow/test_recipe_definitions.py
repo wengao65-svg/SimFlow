@@ -81,13 +81,25 @@ def test_runtime_loads_json_recipe_before_legacy_workflow():
     assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
 
 
-def test_runtime_loads_legacy_md_workflow_as_classical_md_recipe():
+def test_runtime_loads_md_alias_as_classical_md_recipe():
     recipe = load_recipe("md")
-    assert recipe["name"] == "md"
+    assert recipe["name"] == "classical_md"
     assert recipe["recipe_type"] == "classical_md"
-    assert recipe["legacy_source"]["type"] == "workflow"
+    assert recipe["legacy_source"]["type"] == "recipe"
+    assert recipe["legacy_requested_name"] == "md"
     assert recipe["stages"] == ["proposal", "modeling", "computation", "analysis_visualization", "writing"]
-    assert "input_generation" in recipe["legacy_stages"]
+
+
+def test_runtime_loads_md_alias_without_legacy_workflow_files(tmp_path):
+    workflow_dir = tmp_path / "workflow"
+    recipes_dir = workflow_dir / "recipes"
+    recipes_dir.mkdir(parents=True)
+    (recipes_dir / "classical_md.json").write_text((RECIPES_DIR / "classical_md.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    recipe = load_recipe("md", workflow_dir=workflow_dir)
+
+    assert recipe["name"] == "classical_md"
+    assert recipe["legacy_requested_name"] == "md"
 
 
 def test_legacy_workflow_conversion_preserves_lineage_context():

@@ -39,6 +39,15 @@ def _read_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def _recipe_name_candidates(name: str) -> list[str]:
+    """Return recipe filenames to try before falling back to legacy workflows."""
+    candidates = [name]
+    canonical = LEGACY_RECIPE_TYPE_MAP.get(name)
+    if canonical and canonical not in candidates:
+        candidates.append(canonical)
+    return candidates
+
+
 def _stage_name(stage: str | dict[str, Any]) -> str:
     if isinstance(stage, str):
         return stage
@@ -121,11 +130,14 @@ def load_recipe(
 ) -> dict[str, Any]:
     """Load a JSON recipe, optionally falling back to a legacy workflow."""
     base = _workflow_dir(workflow_dir)
-    recipe_path = base / "recipes" / f"{name}.json"
-    if recipe_path.is_file():
-        recipe = _read_json(recipe_path)
-        recipe.setdefault("legacy_source", {"type": "recipe", "path": str(recipe_path)})
-        return recipe
+    for recipe_name in _recipe_name_candidates(name):
+        recipe_path = base / "recipes" / f"{recipe_name}.json"
+        if recipe_path.is_file():
+            recipe = _read_json(recipe_path)
+            recipe.setdefault("legacy_source", {"type": "recipe", "path": str(recipe_path)})
+            if recipe_name != name:
+                recipe.setdefault("legacy_requested_name", name)
+            return recipe
 
     legacy_path = base / "workflows" / f"{name}.json"
     if include_legacy and legacy_path.is_file():
@@ -143,5 +155,8 @@ def list_recipes(
     base = _workflow_dir(workflow_dir)
     names = {path.stem for path in (base / "recipes").glob("*.json")}
     if include_legacy:
+        for legacy_name, canonical_name in LEGACY_RECIPE_TYPE_MAP.items():
+            if canonical_name in names:
+                names.add(legacy_name)
         names.update(path.stem for path in (base / "workflows").glob("*.json"))
     return sorted(names)

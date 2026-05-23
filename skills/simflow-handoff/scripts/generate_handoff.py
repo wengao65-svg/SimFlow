@@ -16,9 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.state import read_state
 from runtime.lib.utils import generate_id
+from runtime.lib.workflow import load_recipe
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "templates" / "reports" / "handoff.md.template"
-WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
 
 
 def render_template(template_content: str, variables: dict) -> str:
@@ -37,17 +37,16 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 def load_workflow_stages(workflow_type: str, metadata: dict) -> list[str]:
-    """Load canonical workflow stages from metadata or workflow definitions."""
+    """Load workflow stages from metadata or canonical recipes."""
     stages = metadata.get("stages", [])
     if isinstance(stages, list) and stages:
         return stages
 
-    normalized = (workflow_type or "dft").lower()
-    path = WORKFLOWS_DIR / f"{normalized}.json"
-    if not path.exists():
-        path = WORKFLOWS_DIR / "dft.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    loaded = data.get("stages", [])
+    try:
+        recipe = load_recipe((workflow_type or "dft").lower())
+    except FileNotFoundError:
+        recipe = load_recipe("dft")
+    loaded = recipe.get("stages", [])
     return [stage["name"] if isinstance(stage, dict) else stage for stage in loaded]
 
 

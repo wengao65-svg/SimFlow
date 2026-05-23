@@ -4,6 +4,8 @@
 import json
 from pathlib import Path
 
+from runtime.lib.validator import load_stage_config
+
 STAGES_DIR = Path(__file__).resolve().parents[2] / "workflow" / "stages"
 
 CANONICAL_STAGES = [
@@ -53,6 +55,18 @@ def test_legacy_alias_stages_remain_available():
         data = _load_stage(name)
         assert data.get("legacy_alias") is True
         assert data.get("canonical_stage") == canonical
+
+
+def test_runtime_loads_legacy_stage_alias_without_alias_file(tmp_path):
+    workflow_dir = tmp_path / "workflow"
+    stages_dir = workflow_dir / "stages"
+    stages_dir.mkdir(parents=True)
+    (stages_dir / "computation.json").write_text((STAGES_DIR / "computation.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    data = load_stage_config("compute", workflow_dir=str(workflow_dir))
+
+    assert data["name"] == "computation"
+    assert data["requested_stage"] == "compute"
 
 
 def test_all_stage_json_valid():

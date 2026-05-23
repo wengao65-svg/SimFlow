@@ -4,14 +4,20 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .workflow import canonical_stage_name
+
 
 def load_stage_config(stage_name: str, workflow_dir: str = "workflow") -> dict:
     """Load a stage configuration."""
-    path = Path(workflow_dir) / "stages" / f"{stage_name}.json"
+    canonical_stage = canonical_stage_name(stage_name)
+    path = Path(workflow_dir) / "stages" / f"{canonical_stage}.json"
     if not path.exists():
         raise FileNotFoundError(f"Stage config not found: {stage_name}")
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+    if canonical_stage != stage_name:
+        config.setdefault("requested_stage", stage_name)
+    return config
 
 
 def check_required_inputs(stage_config: dict, available_inputs: list) -> dict:
