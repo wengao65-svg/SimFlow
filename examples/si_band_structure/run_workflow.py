@@ -85,6 +85,13 @@ def setup_hpc_directory(step: str):
     ssh_cmd(f"mkdir -p {remote_dir}")
 
     local_dir = SCRIPT_DIR / step
+    potcar = local_dir / "POTCAR"
+    if not potcar.exists():
+        raise FileNotFoundError(
+            f"{step}/POTCAR is required for real VASP execution. "
+            "Real POTCAR files are not redistributed; provide a licensed local POTCAR before submitting."
+        )
+
     files_to_upload = ["INCAR", "KPOINTS", "POSCAR", "POTCAR"]
     if step == "bands":
         files_to_upload.extend(["WAVECAR", "CHGCAR"])

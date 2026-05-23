@@ -26,6 +26,11 @@ ssh ${HPC_HOST} "mkdir -p ${HPC_BASE}/${STEP}"
 
 # Upload files
 echo "Uploading files to HPC..."
+if [ ! -f "${SCRIPT_DIR}/${STEP}/POTCAR" ]; then
+    echo "ERROR: ${STEP}/POTCAR is required for real VASP execution."
+    echo "Real POTCAR files are not redistributed; provide a licensed local POTCAR before submitting."
+    exit 1
+fi
 scp "${SCRIPT_DIR}/${STEP}/INCAR" "${SCRIPT_DIR}/${STEP}/KPOINTS" \
     "${SCRIPT_DIR}/${STEP}/POSCAR" "${SCRIPT_DIR}/${STEP}/POTCAR" \
     "${SCRIPT_DIR}/${STEP}/vasp.slurm" \

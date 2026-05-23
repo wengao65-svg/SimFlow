@@ -30,6 +30,11 @@ Thumbs.db
 *.pem
 *.key
 
+# Restricted/licensed VASP artifacts
+POTCAR
+POTCAR.*
+!POTCAR.metadata.json
+
 # Test artifacts
 .pytest_cache/
 htmlcov/

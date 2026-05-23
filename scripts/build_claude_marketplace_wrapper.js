@@ -65,7 +65,7 @@ const EXCLUDED_NAMES = new Set([
 
 function isBlockedName(name) {
   const upper = name.toUpperCase();
-  return upper === 'POTCAR' || upper.startsWith('POTCAR.');
+  return upper === 'POTCAR' || (upper.startsWith('POTCAR.') && upper !== 'POTCAR.METADATA.JSON');
 }
 
 function copyRecursive(source, target) {

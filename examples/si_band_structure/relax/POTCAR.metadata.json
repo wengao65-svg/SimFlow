@@ -1,0 +1,7 @@
+{
+  "kind": "potcar_metadata_placeholder",
+  "software": "VASP",
+  "element": "Si",
+  "functional": "PBE",
+  "note": "Real POTCAR files are not redistributed. Provide licensed POTCAR locally when running this example."
+}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate Si band structure VASP inputs before submission."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -18,7 +19,7 @@ def validate_step(step: str) -> list:
     step_dir = SCRIPT_DIR / step
 
     # Check required files
-    for fname in ["INCAR", "KPOINTS", "POSCAR", "POTCAR", "vasp.slurm"]:
+    for fname in ["INCAR", "KPOINTS", "POSCAR", "vasp.slurm"]:
         fpath = step_dir / fname
         if not fpath.exists():
             issues.append(f"{step}/{fname} missing")
@@ -41,12 +42,25 @@ def validate_step(step: str) -> list:
         if len(lines) < 8:
             issues.append(f"{step}/POSCAR too short ({len(lines)} lines)")
 
-    # Check POTCAR
+    # Check POTCAR. Real POTCAR files are licensed and are not committed.
     potcar = step_dir / "POTCAR"
+    potcar_metadata = step_dir / "POTCAR.metadata.json"
     if potcar.exists():
         first_line = potcar.read_text().split("\n")[0]
         if "Si" not in first_line:
             issues.append(f"{step}/POTCAR first line: {first_line.strip()} (expected Si)")
+    elif potcar_metadata.exists():
+        try:
+            metadata = json.loads(potcar_metadata.read_text())
+        except json.JSONDecodeError as exc:
+            issues.append(f"{step}/POTCAR.metadata.json invalid JSON: {exc}")
+        else:
+            if metadata.get("kind") != "potcar_metadata_placeholder":
+                issues.append(f"{step}/POTCAR.metadata.json has unexpected kind")
+            if metadata.get("element") != "Si":
+                issues.append(f"{step}/POTCAR.metadata.json element is not Si")
+    else:
+        issues.append(f"{step}/POTCAR missing; provide licensed POTCAR locally or keep POTCAR.metadata.json")
 
     # Step-specific checks
     if step == "bands":
@@ -76,7 +90,14 @@ def main():
 
     print(f"\n{'='*50}")
     if all_ok:
-        print("All inputs valid. Ready for submission.")
+        missing_real_potcar = [
+            step for step in ["relax", "scf", "bands"] if not (SCRIPT_DIR / step / "POTCAR").exists()
+        ]
+        if missing_real_potcar:
+            steps = ", ".join(missing_real_potcar)
+            print(f"Input metadata valid. Provide licensed POTCAR locally before real submission: {steps}.")
+        else:
+            print("All inputs valid. Ready for submission.")
     else:
         print("Some issues found. Fix before submission.")
         sys.exit(1)
