@@ -34,9 +34,8 @@ const REQUIRED_FILES = [
 
 const REQUIRED_DIRS = [
   'skills',
-  'agents',
   'workflow/stages',
-  'workflow/workflows',
+  'workflow/recipes',
   'workflow/gates',
   'workflow/policies',
   'mcp',
@@ -52,11 +51,53 @@ const REQUIRED_DIRS = [
 ];
 
 const REQUIRED_STAGES = [
-  'literature', 'review', 'proposal', 'modeling',
-  'input_generation', 'compute', 'analysis', 'visualization', 'writing',
+  'literature_review', 'proposal', 'modeling',
+  'computation', 'analysis_visualization', 'writing',
 ];
 
-const REQUIRED_WORKFLOWS = ['dft', 'aimd', 'md'];
+const REQUIRED_RECIPES = ['dft', 'aimd', 'classical_md', 'phonon', 'neb', 'custom'];
+const PACKAGED_SKILLS = [
+  'simflow',
+  'simflow-literature-review',
+  'simflow-proposal',
+  'simflow-modeling',
+  'simflow-computation',
+  'simflow-analysis-visualization',
+  'simflow-writing',
+  'simflow-safety-gates',
+  'simflow-vasp',
+  'simflow-qe',
+  'simflow-cp2k',
+  'simflow-lammps',
+  'simflow-gaussian',
+  'simflow-checkpoint',
+  'simflow-handoff',
+  'simflow-verify',
+];
+const LEGACY_PACKAGE_PATHS = [
+  'agents',
+  'workflow/workflows',
+  'workflow/stages/literature.json',
+  'workflow/stages/review.json',
+  'workflow/stages/input_generation.json',
+  'workflow/stages/compute.json',
+  'workflow/stages/analysis.json',
+  'workflow/stages/visualization.json',
+  'runtime/scripts/simflow_cli.py',
+  'skills/simflow-pipeline',
+  'skills/simflow-stage',
+  'skills/simflow-compute',
+  'skills/simflow-input-generation',
+  'skills/simflow-literature',
+  'skills/simflow-analysis',
+  'skills/simflow-visualization',
+  'skills/simflow-review',
+  'skills/simflow-plan',
+  'skills/simflow-intake',
+  'skills/simflow-ralph',
+  'skills/simflow-team',
+];
+const RESTRICTED_VASP_ARTIFACT_NAMES = new Set(['POTCAR', 'WAVECAR', 'CHGCAR', 'OUTCAR', 'vasprun.xml']);
 const LEGACY_MANIFEST_FIELDS = [
   'skills_path',
   'mcp_config',
@@ -94,6 +135,28 @@ function readJson(filePath) {
 
 function existsWithinRoot(relativePath) {
   return fs.existsSync(path.join(ROOT, relativePath));
+}
+
+function findRestrictedVaspArtifacts(root, base = root) {
+  const findings = [];
+  if (!fs.existsSync(root)) {
+    return findings;
+  }
+  for (const entry of fs.readdirSync(root)) {
+    const fullPath = path.join(root, entry);
+    const stat = fs.lstatSync(fullPath);
+    if (stat.isSymbolicLink()) {
+      continue;
+    }
+    if (stat.isDirectory()) {
+      findings.push(...findRestrictedVaspArtifacts(fullPath, base));
+      continue;
+    }
+    if (RESTRICTED_VASP_ARTIFACT_NAMES.has(entry)) {
+      findings.push(path.relative(base, fullPath));
+    }
+  }
+  return findings;
 }
 
 function getMcpServers(mcp) {
@@ -271,7 +334,25 @@ function validatePluginRoot(label, pluginRoot) {
   check(`${label} has skills`, fs.existsSync(path.join(pluginRoot, 'skills', 'simflow', 'SKILL.md')));
   check(`${label} has mcp directory`, fs.existsSync(path.join(pluginRoot, 'mcp')));
   check(`${label} has runtime directory`, fs.existsSync(path.join(pluginRoot, 'runtime')));
+  check(`${label} has workflow recipes`, fs.existsSync(path.join(pluginRoot, 'workflow', 'recipes')));
   check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
+  PACKAGED_SKILLS.forEach(skillName => {
+    check(`${label} has packaged skill ${skillName}`, fs.existsSync(path.join(pluginRoot, 'skills', skillName, 'SKILL.md')));
+  });
+  LEGACY_PACKAGE_PATHS.forEach(relativePath => {
+    check(`${label} excludes legacy surface ${relativePath}`, !fs.existsSync(path.join(pluginRoot, relativePath)));
+  });
+  REQUIRED_STAGES.forEach(stage => {
+    check(`${label} has canonical stage ${stage}`, fs.existsSync(path.join(pluginRoot, 'workflow', 'stages', `${stage}.json`)));
+  });
+  REQUIRED_RECIPES.forEach(recipe => {
+    check(`${label} has recipe ${recipe}`, fs.existsSync(path.join(pluginRoot, 'workflow', 'recipes', `${recipe}.json`)));
+  });
+  const restrictedArtifacts = findRestrictedVaspArtifacts(pluginRoot);
+  check(`${label} excludes restricted VASP artifacts`, restrictedArtifacts.length === 0);
+  if (restrictedArtifacts.length > 0) {
+    console.error(restrictedArtifacts.map(item => `    ${item}`).join('\n'));
+  }
 }
 
 function validateMarketplaceSourcePaths(marketplace, marketplaceRoot, label) {
@@ -437,9 +518,9 @@ REQUIRED_STAGES.forEach(stage => {
   check(`stages/${stage}.json`, existsWithinRoot(path.join('workflow/stages', `${stage}.json`)));
 });
 
-console.log('\n--- Workflow Definitions ---');
-REQUIRED_WORKFLOWS.forEach(workflow => {
-  check(`workflows/${workflow}.json`, existsWithinRoot(path.join('workflow/workflows', `${workflow}.json`)));
+console.log('\n--- Recipe Definitions ---');
+REQUIRED_RECIPES.forEach(recipe => {
+  check(`recipes/${recipe}.json`, existsWithinRoot(path.join('workflow/recipes', `${recipe}.json`)));
 });
 
 console.log('\n=== Summary ===');

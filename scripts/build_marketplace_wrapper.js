@@ -44,6 +44,34 @@ const REQUIRED_ENTRIES = [
   { source: 'LICENSE', target: 'LICENSE' },
 ];
 
+const PACKAGED_SKILLS = new Set([
+  'simflow',
+  'simflow-literature-review',
+  'simflow-proposal',
+  'simflow-modeling',
+  'simflow-computation',
+  'simflow-analysis-visualization',
+  'simflow-writing',
+  'simflow-safety-gates',
+  'simflow-vasp',
+  'simflow-qe',
+  'simflow-cp2k',
+  'simflow-lammps',
+  'simflow-gaussian',
+  'simflow-checkpoint',
+  'simflow-handoff',
+  'simflow-verify',
+]);
+
+const LEGACY_STAGE_ALIAS_FILES = new Set([
+  'workflow/stages/literature.json',
+  'workflow/stages/review.json',
+  'workflow/stages/input_generation.json',
+  'workflow/stages/compute.json',
+  'workflow/stages/analysis.json',
+  'workflow/stages/visualization.json',
+]);
+
 const EXCLUDED_NAMES = new Set([
   '.git',
   '.git-data',
@@ -66,7 +94,40 @@ function isBlockedName(name) {
   return upper === 'POTCAR' || (upper.startsWith('POTCAR.') && upper !== 'POTCAR.METADATA.JSON');
 }
 
-function copyRecursive(source, target) {
+function toPosix(relativePath) {
+  return relativePath.split(path.sep).join('/');
+}
+
+function isExcludedRelativePath(relativePath) {
+  const normalized = toPosix(relativePath).replace(/^\.\//, '');
+  if (!normalized) {
+    return false;
+  }
+  if (normalized === 'agents' || normalized.startsWith('agents/')) {
+    return true;
+  }
+  if (normalized === 'workflow/workflows' || normalized.startsWith('workflow/workflows/')) {
+    return true;
+  }
+  if (LEGACY_STAGE_ALIAS_FILES.has(normalized)) {
+    return true;
+  }
+  if (normalized === 'runtime/scripts/simflow_cli.py') {
+    return true;
+  }
+  if (normalized.startsWith('skills/')) {
+    const skillName = normalized.split('/')[1];
+    if (skillName && !PACKAGED_SKILLS.has(skillName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function copyRecursive(source, target, relativePath = '') {
+  if (isExcludedRelativePath(relativePath)) {
+    return;
+  }
   const stat = fs.lstatSync(source);
   if (stat.isSymbolicLink()) {
     throw new Error(`Refusing to copy symlink into plugin wrapper: ${source}`);
@@ -77,7 +138,7 @@ function copyRecursive(source, target) {
       if (EXCLUDED_NAMES.has(entry) || entry.endsWith('.pyc') || isBlockedName(entry)) {
         continue;
       }
-      copyRecursive(path.join(source, entry), path.join(target, entry));
+      copyRecursive(path.join(source, entry), path.join(target, entry), path.join(relativePath, entry));
     }
     return;
   }
@@ -125,11 +186,18 @@ function parseSkillFrontmatter(content, skillName) {
 function validateSkillCopies() {
   const sourceSkillsDir = path.join(ROOT, 'skills');
   const targetSkillsDir = path.join(PLUGIN_ROOT, 'skills');
-  const skillNames = fs.readdirSync(sourceSkillsDir)
-    .filter(skillName => fs.existsSync(path.join(sourceSkillsDir, skillName, 'SKILL.md')));
-  for (const skillName of skillNames) {
+  const targetSkillNames = fs.readdirSync(targetSkillsDir)
+    .filter(skillName => fs.existsSync(path.join(targetSkillsDir, skillName, 'SKILL.md')));
+  const unexpected = targetSkillNames.filter(skillName => !PACKAGED_SKILLS.has(skillName));
+  if (unexpected.length > 0) {
+    throw new Error(`Built plugin contains unpackaged legacy/helper skills: ${unexpected.join(', ')}`);
+  }
+  for (const skillName of PACKAGED_SKILLS) {
     const sourceSkill = path.join(sourceSkillsDir, skillName, 'SKILL.md');
     const targetSkill = path.join(targetSkillsDir, skillName, 'SKILL.md');
+    if (!fs.existsSync(sourceSkill)) {
+      throw new Error(`Source plugin is missing packaged skill ${skillName}/SKILL.md`);
+    }
     if (!fs.existsSync(targetSkill)) {
       throw new Error(`Built plugin is missing ${skillName}/SKILL.md`);
     }
@@ -152,7 +220,7 @@ function build() {
     if (!fs.existsSync(source)) {
       continue;
     }
-    copyRecursive(source, path.join(PLUGIN_ROOT, entry.target));
+    copyRecursive(source, path.join(PLUGIN_ROOT, entry.target), entry.target);
   }
 
   const marketplace = {

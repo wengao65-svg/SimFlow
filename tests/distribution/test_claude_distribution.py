@@ -5,10 +5,73 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+PACKAGED_SKILLS = {
+    "simflow",
+    "simflow-literature-review",
+    "simflow-proposal",
+    "simflow-modeling",
+    "simflow-computation",
+    "simflow-analysis-visualization",
+    "simflow-writing",
+    "simflow-safety-gates",
+    "simflow-vasp",
+    "simflow-qe",
+    "simflow-cp2k",
+    "simflow-lammps",
+    "simflow-gaussian",
+    "simflow-checkpoint",
+    "simflow-handoff",
+    "simflow-verify",
+}
+LEGACY_PACKAGE_PATHS = [
+    "agents",
+    "workflow/workflows",
+    "workflow/stages/literature.json",
+    "workflow/stages/review.json",
+    "workflow/stages/input_generation.json",
+    "workflow/stages/compute.json",
+    "workflow/stages/analysis.json",
+    "workflow/stages/visualization.json",
+    "runtime/scripts/simflow_cli.py",
+    "skills/simflow-pipeline",
+    "skills/simflow-stage",
+    "skills/simflow-compute",
+    "skills/simflow-input-generation",
+    "skills/simflow-literature",
+    "skills/simflow-analysis",
+    "skills/simflow-visualization",
+    "skills/simflow-review",
+    "skills/simflow-plan",
+    "skills/simflow-intake",
+    "skills/simflow-ralph",
+    "skills/simflow-team",
+]
+RESTRICTED_VASP_NAMES = {"POTCAR", "WAVECAR", "CHGCAR", "OUTCAR", "vasprun.xml"}
 
 
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def assert_canonical_package_surface(plugin_root: Path) -> None:
+    packaged = {path.parent.name for path in (plugin_root / "skills").glob("*/SKILL.md")}
+    assert PACKAGED_SKILLS.issubset(packaged)
+    assert packaged.issubset(PACKAGED_SKILLS)
+    for relative_path in LEGACY_PACKAGE_PATHS:
+        assert not (plugin_root / relative_path).exists(), relative_path
+    for name in [
+        "literature_review",
+        "proposal",
+        "modeling",
+        "computation",
+        "analysis_visualization",
+        "writing",
+    ]:
+        assert (plugin_root / "workflow" / "stages" / f"{name}.json").is_file()
+    for name in ["dft", "aimd", "classical_md", "phonon", "neb", "custom"]:
+        assert (plugin_root / "workflow" / "recipes" / f"{name}.json").is_file()
+    restricted = [path for path in plugin_root.rglob("*") if path.name in RESTRICTED_VASP_NAMES]
+    assert restricted == []
 
 
 def test_claude_source_manifests_are_separate_from_codex():
@@ -83,6 +146,33 @@ def test_claude_marketplace_wrapper_builds_expected_shape(tmp_path):
     assert not (plugin_root / "tests").exists()
     assert not (plugin_root / ".simflow").exists()
     assert not (plugin_root / ".omx").exists()
+    assert_canonical_package_surface(plugin_root)
+
+
+def test_codex_marketplace_wrapper_builds_canonical_surface(tmp_path):
+    wrapper = tmp_path / "codex-marketplace"
+    subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts" / "build_marketplace_wrapper.js"),
+            str(wrapper),
+            "--marketplace-name=test-simflow-codex",
+        ],
+        cwd=ROOT,
+        check=True,
+    )
+
+    marketplace = read_json(wrapper / ".agents" / "plugins" / "marketplace.json")
+    entry = marketplace["plugins"][0]
+    plugin_root = wrapper / "plugins" / "simflow"
+
+    assert marketplace["name"] == "test-simflow-codex"
+    assert entry["name"] == "simflow"
+    assert entry["source"]["path"] == "./plugins/simflow"
+    assert (plugin_root / ".codex-plugin" / "plugin.json").is_file()
+    assert (plugin_root / ".mcp.json").is_file()
+    assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
+    assert_canonical_package_surface(plugin_root)
 
 
 def test_claude_validator_accepts_built_wrapper(tmp_path):

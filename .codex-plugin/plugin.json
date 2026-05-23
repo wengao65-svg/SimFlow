@@ -22,8 +22,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "SimFlow",
-    "shortDescription": "Computational simulation workflows for Codex.",
-    "longDescription": "SimFlow provides Codex skills and MCP tools for dry-run-first DFT, AIMD, and MD research workflows, including state, artifact, checkpoint, literature, structure, HPC planning, and parser utilities.",
+    "shortDescription": "Computational simulation workflow layer for Codex.",
+    "longDescription": "SimFlow provides Codex skills and MCP tools for computational simulation research workflows with open recipe/tag guidance, state, artifact lineage, checkpoints, safety gates, handoff discipline, and optional domain helpers.",
     "developerName": "SimFlow Maintainers",
     "category": "Productivity",
     "capabilities": [
@@ -32,8 +32,8 @@
       "MCP"
     ],
     "defaultPrompt": [
-      "Use SimFlow to plan a VASP DFT workflow.",
-      "Use SimFlow to build a CP2K AIMD plan.",
+      "Use SimFlow to plan a VASP computation recipe.",
+      "Use SimFlow to build a CP2K simulation plan.",
       "Use SimFlow to inspect simulation outputs."
     ],
     "brandColor": "#2563EB"
