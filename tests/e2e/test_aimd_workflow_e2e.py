@@ -1,130 +1,60 @@
 #!/usr/bin/env python3
-"""E2E test: Full AIMD workflow chain via runtime scripts.
+"""E2E test: AIMD workflow-layer chain without legacy runtime scripts."""
 
-Tests: init -> build -> generate_inputs -> parse_output -> checkpoint -> analyze -> handoff
-"""
-
-import json
-import os
 import shutil
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "runtime" / "scripts"
+from runtime.lib.parsers.qe_parser import QEParser
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint, get_latest_checkpoint
+from runtime.simflow_core.state import init_workflow, read_state, update_stage
+
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-def run_script(name, args, cwd=None):
-    """Run a runtime script and return parsed JSON output."""
-    cmd = [sys.executable, str(SCRIPTS_DIR / name)] + args
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=30)
-    try:
-        return json.loads(proc.stdout), proc.returncode
-    except json.JSONDecodeError:
-        return {"stdout": proc.stdout, "stderr": proc.stderr}, proc.returncode
-
-
 def test_aimd_workflow_e2e():
-    """Full AIMD workflow E2E: init -> stages -> parse -> checkpoint -> handoff."""
+    """Full AIMD workflow-layer E2E: state -> artifacts -> parse -> checkpoint -> handoff."""
     tmpdir = tempfile.mkdtemp()
     try:
-        # 1. Initialize AIMD workflow
-        result, rc = run_script("init_simflow_state.py", [
-            "--workflow-type", "aimd", "--entry-point", "modeling", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        assert result["workflow_type"] == "aimd"
-        workflow_id = result["workflow_id"]
-        print("  [1/7] AIMD workflow initialized")
+        state = init_workflow("aimd", "modeling", tmpdir)
+        workflow_id = state["workflow_id"]
 
-        # 2. Modeling stage
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "modeling", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-
-        from runtime.lib.artifact import register_artifact
+        update_stage("modeling", "in_progress", tmpdir)
         register_artifact("Si.cif", "structure", "modeling", tmpdir)
         register_artifact("model.json", "model", "modeling", tmpdir)
+        update_stage("modeling", "completed", tmpdir)
+        create_checkpoint(workflow_id, "modeling", "Structure modeled", tmpdir)
 
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "modeling", "--status", "completed", "--base-dir", tmpdir
-        ])
-        assert rc == 0
+        update_stage("computation", "in_progress", tmpdir)
+        register_artifact("input_manifest.json", "input_manifest", "computation", tmpdir)
+        parsed = QEParser().parse(str(FIXTURES_DIR / "qe_output_Si.xml"))
+        assert parsed.software == "quantum_espresso"
+        register_artifact(
+            "qe_output_Si.xml",
+            "parsed_output",
+            "computation",
+            tmpdir,
+            metadata={"software": parsed.software, "job_type": parsed.job_type, "converged": parsed.converged},
+        )
+        update_stage("computation", "completed", tmpdir)
+        create_checkpoint(workflow_id, "computation", "AIMD computation evidence parsed", tmpdir)
 
-        result, rc = run_script("create_checkpoint.py", [
-            "--workflow-id", workflow_id, "--stage", "modeling",
-            "--description", "Structure built", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        print("  [2/7] Modeling completed, checkpoint created")
+        update_stage("analysis_visualization", "in_progress", tmpdir)
+        register_artifact("trajectory_analysis.json", "analysis_data", "analysis_visualization", tmpdir)
+        update_stage("analysis_visualization", "completed", tmpdir)
 
-        # 3. Input generation stage
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "input_generation", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0
+        workflow = read_state(project_root=tmpdir, state_file="workflow.json")
+        stages = read_state(project_root=tmpdir, state_file="stages.json")
+        artifacts = list_artifacts(project_root=tmpdir)
+        latest = get_latest_checkpoint(tmpdir)
 
-        register_artifact("INCAR.md", "input_files", "input_generation", tmpdir)
-        register_artifact("input_manifest.json", "input_manifest", "input_generation", tmpdir)
-
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "input_generation", "--status", "completed", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        print("  [3/7] Input generation completed")
-
-        # 4. Compute stage - parse QE output
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "compute", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-
-        qe_output = str(FIXTURES_DIR / "qe_output_Si.xml")
-        result, rc = run_script("parse_output.py", ["qe", qe_output])
-        assert rc == 0
-        print("  [4/7] QE output parsed")
-
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "compute", "--status", "completed", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-
-        result, rc = run_script("create_checkpoint.py", [
-            "--workflow-id", workflow_id, "--stage", "compute",
-            "--description", "AIMD run complete", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        print("  [5/7] Compute completed, checkpoint created")
-
-        # 5. Analysis stage
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "analysis", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-
-        register_artifact("rdf.png", "plot", "analysis", tmpdir)
-        register_artifact("msd.png", "plot", "analysis", tmpdir)
-        register_artifact("trajectory_analysis.json", "data", "analysis", tmpdir)
-
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "analysis", "--status", "completed", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        print("  [6/7] Analysis completed")
-
-        # 6. Generate handoff
-        result, rc = run_script("generate_handoff.py", ["--base-dir", tmpdir])
-        assert rc == 0
-        assert result["workflow_type"] == "aimd"
-        assert "modeling" in result["progress"]["completed"]
-        assert "compute" in result["progress"]["completed"]
-        assert "analysis" in result["progress"]["completed"]
-        print("  [7/7] Handoff generated")
-
-        print("\n  E2E AIMD workflow PASSED!")
+        assert workflow["workflow_type"] == "aimd"
+        assert stages["modeling"]["status"] == "completed"
+        assert stages["computation"]["status"] == "completed"
+        assert stages["analysis_visualization"]["status"] == "completed"
+        assert latest["stage_id"] == "computation"
+        assert len(artifacts) == 5
 
     finally:
         shutil.rmtree(tmpdir)

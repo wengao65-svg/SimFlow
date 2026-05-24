@@ -1,100 +1,68 @@
 #!/usr/bin/env python3
-"""E2E test: Full DFT workflow chain via runtime scripts.
+"""E2E test: DFT workflow-layer chain without legacy runtime scripts."""
 
-Tests: init -> input_gen -> relax (parse OSZICAR) -> checkpoint -> restore -> scf -> handoff
-"""
-
-import json
-import os
 import shutil
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "runtime" / "scripts"
+from runtime.lib.parsers.vasp_parser import VASPParser
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint, get_latest_checkpoint
+from runtime.simflow_core.state import init_workflow, read_state, update_stage
+
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-def run_script(name, args, cwd=None):
-    """Run a runtime script and return parsed JSON output."""
-    cmd = [sys.executable, str(SCRIPTS_DIR / name)] + args
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=30)
-    try:
-        return json.loads(proc.stdout), proc.returncode
-    except json.JSONDecodeError:
-        return {"stdout": proc.stdout, "stderr": proc.stderr}, proc.returncode
+def _handoff_summary(project_root: str) -> dict:
+    workflow = read_state(project_root=project_root, state_file="workflow.json")
+    stages = read_state(project_root=project_root, state_file="stages.json")
+    return {
+        "workflow_id": workflow["workflow_id"],
+        "workflow_type": workflow["workflow_type"],
+        "progress": {
+            "completed": [name for name, state in stages.items() if state.get("status") == "completed"],
+        },
+        "latest_checkpoint": get_latest_checkpoint(project_root),
+    }
 
 
 def test_dft_workflow_e2e():
-    """Full DFT workflow E2E: init -> stages -> parse -> checkpoint -> handoff."""
+    """Full DFT workflow-layer E2E: state -> artifacts -> parse -> checkpoint -> handoff."""
     tmpdir = tempfile.mkdtemp()
     try:
-        # 1. Initialize workflow
-        result, rc = run_script("init_simflow_state.py", [
-            "--workflow-type", "dft", "--entry-point", "input_generation", "--base-dir", tmpdir
-        ])
-        assert rc == 0, f"Init failed: {result}"
-        assert result["workflow_type"] == "dft"
-        assert result["current_stage"] == "input_generation"
-        workflow_id = result["workflow_id"]
-        print("  [1/8] Workflow initialized")
+        state = init_workflow("dft", "modeling", tmpdir)
+        workflow_id = state["workflow_id"]
 
-        # 2. Transition input_generation -> in_progress
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "input_generation", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0, f"Transition failed: {result}"
-        print("  [2/7] input_generation -> in_progress")
+        update_stage("modeling", "in_progress", tmpdir)
+        register_artifact("POSCAR", "structure", "modeling", tmpdir)
+        update_stage("modeling", "completed", tmpdir)
+        create_checkpoint(workflow_id, "modeling", "Structure modeled", tmpdir)
 
-        # 3. Register input artifacts
-        from runtime.lib.artifact import register_artifact
-        register_artifact("INCAR", "input_files", "input_generation", tmpdir)
-        register_artifact("KPOINTS", "input_files", "input_generation", tmpdir)
-        register_artifact("POSCAR", "structure", "input_generation", tmpdir)
-        print("  [3/7] Input artifacts registered")
+        update_stage("computation", "in_progress", tmpdir)
+        register_artifact("INCAR", "input_files", "computation", tmpdir)
+        register_artifact("KPOINTS", "input_files", "computation", tmpdir)
+        parsed = VASPParser().parse(str(FIXTURES_DIR / "OSZICAR_Si"))
+        assert parsed.software == "vasp"
+        assert parsed.final_energy is not None
+        register_artifact(
+            "OSZICAR_Si",
+            "parsed_output",
+            "computation",
+            tmpdir,
+            metadata={"software": parsed.software, "job_type": parsed.job_type, "final_energy": parsed.final_energy},
+        )
+        update_stage("computation", "completed", tmpdir)
+        create_checkpoint(workflow_id, "computation", "Computation evidence parsed", tmpdir)
 
-        # 4. Complete input_generation, start relax
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "input_generation", "--status", "completed", "--base-dir", tmpdir
-        ])
-        assert rc == 0
+        handoff = _handoff_summary(tmpdir)
+        artifacts = list_artifacts(project_root=tmpdir)
 
-        # Create checkpoint
-        result, rc = run_script("create_checkpoint.py", [
-            "--workflow-id", workflow_id, "--stage", "input_generation",
-            "--description", "Inputs generated", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-        print("  [4/7] Checkpoint created for input_generation")
-
-        # 5. Relax stage - parse VASP output
-        result, rc = run_script("transition_stage.py", [
-            "--stage", "relax", "--status", "in_progress", "--base-dir", tmpdir
-        ])
-        assert rc == 0
-
-        oszicar = str(FIXTURES_DIR / "OSZICAR_Si")
-        result, rc = run_script("parse_output.py", ["vasp", oszicar])
-        assert rc == 0
-        assert "final_energy" in result or "software" in result
-        print("  [5/7] VASP OSZICAR parsed")
-
-        # 6. Restore from checkpoint
-        result, rc = run_script("restore_checkpoint.py", ["--latest", "--base-dir", tmpdir])
-        assert rc == 0
-        assert result["status"] == "success"
-        print("  [6/7] Checkpoint restored")
-
-        # 7. Generate handoff
-        result, rc = run_script("generate_handoff.py", ["--base-dir", tmpdir])
-        assert rc == 0
-        assert "workflow_id" in result
-        assert "progress" in result
-        assert "next_steps" in result
-        print("  [7/7] Handoff generated")
-
-        print("\n  E2E DFT workflow PASSED!")
+        assert handoff["workflow_id"] == workflow_id
+        assert handoff["workflow_type"] == "dft"
+        assert "modeling" in handoff["progress"]["completed"]
+        assert "computation" in handoff["progress"]["completed"]
+        assert handoff["latest_checkpoint"]["stage_id"] == "computation"
+        assert len(artifacts) == 4
 
     finally:
         shutil.rmtree(tmpdir)

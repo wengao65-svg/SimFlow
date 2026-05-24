@@ -1,99 +1,65 @@
 #!/usr/bin/env python3
-"""
-End-to-end test: Simulate a minimal AIMD workflow dry-run.
+"""End-to-end test: minimal AIMD workflow-layer dry-run with canonical stages."""
 
-This test walks through the workflow lifecycle:
-init -> proposal -> modeling -> input_generation -> compute(dry-run) -> analysis -> writing
-"""
-
-import json
 import shutil
-import sys
 import tempfile
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
-
-from lib.state import init_workflow, read_state, write_state, update_stage
-from lib.artifact import register_artifact, list_artifacts
-from lib.checkpoint import create_checkpoint, list_checkpoints, get_latest_checkpoint
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint, get_latest_checkpoint, list_checkpoints
+from runtime.simflow_core.state import init_workflow, update_stage
 
 
 def test_aimd_workflow_dry_run():
-    """Simulate a minimal AIMD workflow dry-run."""
+    """Simulate a minimal AIMD workflow-layer dry-run."""
     tmpdir = tempfile.mkdtemp()
     try:
-        # 1. Initialize workflow
         state = init_workflow("aimd", "proposal", tmpdir)
         assert state["workflow_type"] == "aimd"
         assert state["current_stage"] == "proposal"
-        print("  [1/7] AIMD workflow initialized")
 
-        # 2. Proposal stage
         update_stage("proposal", "in_progress", tmpdir)
         register_artifact("proposal.md", "proposal", "proposal", tmpdir)
         register_artifact("parameter_table.json", "parameter_table", "proposal", tmpdir)
         update_stage("proposal", "completed", tmpdir)
         create_checkpoint(state["workflow_id"], "proposal", "Proposal complete", tmpdir)
-        print("  [2/7] Proposal stage completed")
 
-        # 3. Modeling stage
         update_stage("modeling", "in_progress", tmpdir)
         register_artifact("POSCAR", "structure", "modeling", tmpdir)
         register_artifact("supercell_POSCAR", "supercell", "modeling", tmpdir)
         register_artifact("model.json", "model", "modeling", tmpdir)
         update_stage("modeling", "completed", tmpdir)
         create_checkpoint(state["workflow_id"], "modeling", "Modeling complete", tmpdir)
-        print("  [3/7] Modeling stage completed")
 
-        # 4. Input generation stage (AIMD uses VASP MD inputs)
-        update_stage("input_generation", "in_progress", tmpdir)
-        register_artifact("INCAR", "incar", "input_generation", tmpdir)
-        register_artifact("KPOINTS", "kpoints", "input_generation", tmpdir)
-        register_artifact("input_manifest.json", "input_manifest", "input_generation", tmpdir)
-        update_stage("input_generation", "completed", tmpdir)
-        create_checkpoint(state["workflow_id"], "input_generation", "Input gen complete", tmpdir)
-        print("  [4/7] Input generation stage completed")
+        update_stage("computation", "in_progress", tmpdir)
+        register_artifact("INCAR", "incar", "computation", tmpdir)
+        register_artifact("KPOINTS", "kpoints", "computation", tmpdir)
+        register_artifact("input_manifest.json", "input_manifest", "computation", tmpdir)
+        register_artifact("job_script.sh", "job_script", "computation", tmpdir)
+        register_artifact("dry_run_report.json", "dry_run_report", "computation", tmpdir)
+        update_stage("computation", "completed", tmpdir)
+        create_checkpoint(state["workflow_id"], "computation", "Computation dry-run complete", tmpdir)
 
-        # 5. Compute stage (dry-run)
-        update_stage("compute", "in_progress", tmpdir)
-        register_artifact("job_script.sh", "job_script", "compute", tmpdir)
-        register_artifact("dry_run_report.json", "dry_run_report", "compute", tmpdir)
-        update_stage("compute", "completed", tmpdir)
-        create_checkpoint(state["workflow_id"], "compute", "Compute dry-run complete", tmpdir)
-        print("  [5/7] Compute stage completed (dry-run)")
+        update_stage("analysis_visualization", "in_progress", tmpdir)
+        register_artifact("rdf_results.json", "rdf_analysis", "analysis_visualization", tmpdir)
+        register_artifact("msd_results.json", "msd_analysis", "analysis_visualization", tmpdir)
+        register_artifact("diffusion_coefficient.json", "diffusion", "analysis_visualization", tmpdir)
+        register_artifact("analysis_report.md", "analysis_report", "analysis_visualization", tmpdir)
+        update_stage("analysis_visualization", "completed", tmpdir)
+        create_checkpoint(state["workflow_id"], "analysis_visualization", "Analysis and visualization complete", tmpdir)
 
-        # 6. Analysis stage (AIMD: RDF, MSD, diffusion)
-        update_stage("analysis", "in_progress", tmpdir)
-        register_artifact("rdf_results.json", "rdf_analysis", "analysis", tmpdir)
-        register_artifact("msd_results.json", "msd_analysis", "analysis", tmpdir)
-        register_artifact("diffusion_coefficient.json", "diffusion", "analysis", tmpdir)
-        register_artifact("analysis_report.md", "analysis_report", "analysis", tmpdir)
-        update_stage("analysis", "completed", tmpdir)
-        create_checkpoint(state["workflow_id"], "analysis", "Analysis complete", tmpdir)
-        print("  [6/7] Analysis stage completed")
-
-        # 7. Writing stage
         update_stage("writing", "in_progress", tmpdir)
         register_artifact("manuscript_draft.md", "manuscript", "writing", tmpdir)
         register_artifact("figures.zip", "figures", "writing", tmpdir)
         update_stage("writing", "completed", tmpdir)
         create_checkpoint(state["workflow_id"], "writing", "Writing complete", tmpdir)
-        print("  [7/7] Writing stage completed")
 
-        # Verify final state
-        artifacts = list_artifacts(base_dir=tmpdir)
+        artifacts = list_artifacts(project_root=tmpdir)
         checkpoints = list_checkpoints(tmpdir)
         latest = get_latest_checkpoint(tmpdir)
 
-        assert len(artifacts) == 16, "Expected 16 artifacts, got {}".format(len(artifacts))
-        assert len(checkpoints) == 6, "Expected 6 checkpoints, got {}".format(len(checkpoints))
+        assert len(artifacts) == 16
+        assert len(checkpoints) == 5
         assert latest["stage_id"] == "writing"
-
-        print("\n  Artifacts: {}".format(len(artifacts)))
-        print("  Checkpoints: {}".format(len(checkpoints)))
-        print("  Latest checkpoint: {}".format(latest["checkpoint_id"]))
-        print("\n  E2E AIMD workflow dry-run PASSED!")
 
     finally:
         shutil.rmtree(tmpdir)
