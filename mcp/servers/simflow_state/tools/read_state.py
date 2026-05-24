@@ -1,6 +1,6 @@
 """Tool: Read workflow state."""
 
-from runtime.lib.state import ProjectRootError, read_state
+from runtime.simflow_core.state import ProjectRootError, read_state
 
 
 def _project_root(params: dict) -> str:

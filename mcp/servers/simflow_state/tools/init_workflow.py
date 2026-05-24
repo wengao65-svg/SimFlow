@@ -1,6 +1,6 @@
 """Tool: Initialize a new workflow."""
 
-from runtime.lib.state import ProjectRootError, init_workflow
+from runtime.simflow_core.state import ProjectRootError, init_workflow
 
 
 def _project_root(params: dict) -> str:

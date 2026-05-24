@@ -1,6 +1,6 @@
 """Tool: Write workflow state."""
 
-from runtime.lib.state import ProjectRootError, write_state
+from runtime.simflow_core.state import ProjectRootError, write_state
 
 
 def _project_root(params: dict) -> str:

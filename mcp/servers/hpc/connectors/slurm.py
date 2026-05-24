@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from .base import BaseHPCConnector
-from runtime.lib.hpc import generate_slurm_script, parse_slurm_job_id
+from runtime.simflow_core.hpc import generate_slurm_script, parse_slurm_job_id
 from runtime.scripts.dry_run import run_dry_run
 
 

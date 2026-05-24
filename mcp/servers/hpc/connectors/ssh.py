@@ -123,7 +123,7 @@ class SSHConnector(BaseHPCConnector):
                 proc = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=30)
                 if proc.returncode == 0:
                     # Parse "Submitted batch job 12345"
-                    from runtime.lib.hpc import parse_slurm_job_id
+                    from runtime.simflow_core.hpc import parse_slurm_job_id
                     job_id = parse_slurm_job_id(proc.stdout.strip())
                     if job_id:
                         return {

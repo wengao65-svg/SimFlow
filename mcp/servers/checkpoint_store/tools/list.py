@@ -1,7 +1,7 @@
 """Tool: List checkpoints."""
 
-from runtime.lib.checkpoint import list_checkpoints
-from runtime.lib.state import ProjectRootError
+from runtime.simflow_core.checkpoints import list_checkpoints
+from runtime.simflow_core.state import ProjectRootError
 
 
 def _project_root(params: dict) -> str:

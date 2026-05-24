@@ -63,7 +63,7 @@ def handle_dry_run(params: dict) -> dict:
 
 def handle_prepare(params: dict) -> dict:
     """Prepare a job script (generate SLURM script)."""
-    from runtime.lib.hpc import generate_slurm_script
+    from runtime.simflow_core.hpc import generate_slurm_script
 
     job_name = params.get("job_name", "simflow_job")
     executable = params.get("executable", "vasp_std")
