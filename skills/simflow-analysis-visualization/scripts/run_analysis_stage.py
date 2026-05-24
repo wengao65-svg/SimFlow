@@ -35,12 +35,12 @@ def _load_function(relative_script: str, function_name: str, module_name: str):
 
 
 ANALYZE_RESULTS = _load_function(
-    "skills/simflow-analysis/scripts/analyze_dft_results.py",
+    "skills/simflow-analysis-visualization/scripts/analyze_dft_results.py",
     "analyze_results",
     "simflow_analyze_dft_results",
 )
 GENERATE_REPORT = _load_function(
-    "skills/simflow-analysis/scripts/generate_analysis_report.py",
+    "skills/simflow-analysis-visualization/scripts/generate_analysis_report.py",
     "generate_report",
     "simflow_generate_analysis_report",
 )

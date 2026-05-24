@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-analysis" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-analysis-visualization" / "scripts"
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 sys.path.insert(0, str(SCRIPT_DIR))
 

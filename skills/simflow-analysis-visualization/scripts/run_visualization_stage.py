@@ -108,12 +108,12 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         manifest["skipped_reasons"].append("matplotlib is not installed.")
     else:
         parse_energies = _load_function(
-            "skills/simflow-visualization/scripts/plot_energy_curve.py",
+            "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
             "parse_energies",
             "simflow_parse_energies",
         )
         plot_energy_curve = _load_function(
-            "skills/simflow-visualization/scripts/plot_energy_curve.py",
+            "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
             "plot_energy_curve",
             "simflow_plot_energy_curve",
         )

@@ -7,7 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-compute" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-computation" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 # Also add runtime/lib for hpc module
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

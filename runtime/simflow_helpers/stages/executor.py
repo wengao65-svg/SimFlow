@@ -41,12 +41,12 @@ CANONICAL_STAGE_RUNNERS = {
         _runner("skills/simflow-modeling/scripts/run_modeling_stage.py", "run_modeling_stage", "modeling", stage_runner=True),
     ],
     "computation": [
-        _runner("skills/simflow-input-generation/scripts/run_input_generation_stage.py", "run_input_generation_stage", "input_generation", stage_runner=True),
-        _runner("skills/simflow-compute/scripts/run_compute_stage.py", "run_compute_stage", "compute", stage_runner=True),
+        _runner("skills/simflow-computation/scripts/run_input_generation_stage.py", "run_input_generation_stage", "input_generation", stage_runner=True),
+        _runner("skills/simflow-computation/scripts/run_compute_stage.py", "run_compute_stage", "compute", stage_runner=True),
     ],
     "analysis_visualization": [
-        _runner("skills/simflow-analysis/scripts/run_analysis_stage.py", "run_analysis_stage", "analysis", stage_runner=True),
-        _runner("skills/simflow-visualization/scripts/run_visualization_stage.py", "run_visualization_stage", "visualization", stage_runner=True),
+        _runner("skills/simflow-analysis-visualization/scripts/run_analysis_stage.py", "run_analysis_stage", "analysis", stage_runner=True),
+        _runner("skills/simflow-analysis-visualization/scripts/run_visualization_stage.py", "run_visualization_stage", "visualization", stage_runner=True),
     ],
     "writing": [
         _runner("skills/simflow-writing/scripts/run_writing_stage.py", "run_writing_stage", "writing", stage_runner=True),

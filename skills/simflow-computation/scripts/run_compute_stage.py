@@ -37,7 +37,7 @@ def _load_function(relative_script: str, function_name: str, module_name: str):
 
 
 PREPARE_JOB = _load_function(
-    "skills/simflow-compute/scripts/prepare_job.py",
+    "skills/simflow-computation/scripts/prepare_job.py",
     "prepare_job",
     "simflow_prepare_job",
 )

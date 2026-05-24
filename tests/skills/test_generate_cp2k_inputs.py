@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "skills" / "simflow-input-generation" / "scripts" / "generate_cp2k_inputs.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "skills" / "simflow-computation" / "scripts" / "generate_cp2k_inputs.py"
 H2O_CIF = Path(__file__).resolve().parents[2] / "examples" / "h2o" / "H2O.cif"
 
 

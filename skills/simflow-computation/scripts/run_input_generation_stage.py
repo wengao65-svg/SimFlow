@@ -57,7 +57,7 @@ GENERATE_VASP_INPUTS = _load_function(
     "simflow_vasp_inputs",
 )
 GENERATE_CP2K_INPUTS = _load_function(
-    "skills/simflow-input-generation/scripts/generate_cp2k_inputs.py",
+    "skills/simflow-computation/scripts/generate_cp2k_inputs.py",
     "generate_cp2k_inputs",
     "simflow_cp2k_inputs",
 )
