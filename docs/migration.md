@@ -8,8 +8,10 @@ projects use stage intent, recipes, artifact lineage, and evidence-based gates.
 
 ## Workflow Migration
 
-Legacy workflow files under `workflow/workflows/` are treated as recipe sources.
-The new recipe directory uses JSON:
+The repository no longer bundles legacy DFT/AIMD/MD workflow JSON under
+`workflow/workflows/`. Migration helpers still understand user-provided legacy
+workflow definitions and convert them into recipe/tag records. The canonical
+recipe directory uses JSON:
 
 ```text
 workflow/recipes/
@@ -35,8 +37,11 @@ Legacy fields map as follows:
 
 ## Skill Migration
 
-Existing engine and stage skills remain available during migration, but they
-are treated as helpers. Canonical workflow behavior moves to the core skills:
+Engine skills remain available during migration, but they are treated as
+optional domain assistants. Legacy executor and alias skill entries such as
+`simflow-pipeline`, `simflow-stage`, `simflow-compute`, and
+`simflow-input-generation` are no longer packaged as skill entry points.
+Canonical workflow behavior lives in the core skills:
 
 - `simflow`
 - `simflow-literature-review`
@@ -47,8 +52,8 @@ are treated as helpers. Canonical workflow behavior moves to the core skills:
 - `simflow-writing`
 - `simflow-safety-gates`
 
-Legacy helper docs should state that they are optional assistants and not the
-canonical workflow contract.
+Legacy helper code may remain temporarily for tests or migration adapters, but
+new user-facing workflows should enter through the canonical skills.
 
 ## State Migration
 
@@ -66,18 +71,22 @@ should preserve:
 New state files may add project, gate, and lineage records, but migration must
 not delete legacy state unless the user explicitly requests cleanup.
 
-The migration CLI is intentionally small and state-oriented:
+Migration is currently exposed through runtime library/MCP integration rather
+than the removed legacy CLI script surface. Callers should use
+`runtime.simflow_core.migration` and state/artifact/checkpoint helpers to
+inspect, migrate, or convert user-provided legacy data. Conceptually, migration
+still performs these operations:
 
 ```text
-simflow inspect-legacy --project-root /path/to/project
-simflow migrate --project-root /path/to/project
-simflow convert-workflow workflow/workflows/dft.json --output /tmp/dft.recipe.json
+inspect legacy project state under a project_root
+migrate legacy .simflow/state records into canonical state files
+convert a user-provided legacy workflow JSON definition into an open recipe
 ```
 
-`inspect-legacy` only reports legacy files and stage mapping. `migrate` writes
+Inspection only reports legacy files and stage mapping. Migration writes
 canonical `.simflow/state/*.json` files and `.simflow/reports/migration.*` while
-leaving legacy files in place. `convert-workflow` converts a legacy workflow JSON
-definition into an open recipe record without changing project state.
+leaving legacy files in place. Workflow conversion creates an open recipe record
+without changing project state.
 
 ## Test Migration
 

@@ -18,28 +18,28 @@ User request
 ## Directory Structure
 
 ```text
-skills/          skill entry points and domain helpers
-workflow/        stages, recipes, legacy workflow examples, gates, policies
+skills/          canonical skill entry points and domain helpers
+workflow/        stages, recipes, gates, policies
 mcp/             recording and bounded helper servers
-runtime/         state/artifact/checkpoint/lineage/gate libraries and helpers
+runtime/         core facades, compatibility libraries, and optional helpers
 schemas/         JSON schemas
 tests/           unit, MCP, workflow, skill, and e2e tests
 docs/            design and user documentation
 scripts/         packaging, marketplace, scaffold, and validation scripts
 ```
 
-Legacy DFT/AIMD/MD workflow files under `workflow/workflows/` are retained as
-recipe sources for compatibility. New behavior should use `workflow/recipes/`
-and canonical stages.
+Bundled legacy DFT/AIMD/MD workflow files under `workflow/workflows/` have been
+removed. Migration helpers can still convert user-provided legacy definitions.
+New behavior should use `workflow/recipes/` and canonical stages.
 
 ## Design Rules
 
 ### Skill-First
 
-User-facing research work enters through skills. Skills describe trigger
-conditions, evidence requirements, risks, safety boundaries, and handoff needs.
-They must not require one parser, one builder, one report filename, or one
-software package as the only valid path.
+User-facing research work enters through canonical skills. Skills describe
+trigger conditions, evidence requirements, risks, safety boundaries, and
+handoff needs. They must not require one parser, one builder, one report
+filename, or one software package as the only valid path.
 
 ### Open Stage Model
 

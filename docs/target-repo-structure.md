@@ -13,13 +13,13 @@ simflow/
   workflow/
     stages/
     recipes/
-    workflows/
     gates/
     policies/
     templates/
   runtime/
     lib/
-    scripts/
+    simflow_core/
+    simflow_helpers/
   mcp/
     servers/
     shared/
@@ -45,12 +45,11 @@ simflow-writing
 simflow-safety-gates
 ```
 
-Compatibility entries such as `simflow-literature`, `simflow-compute`,
-`simflow-analysis`, `simflow-visualization`, `simflow-input-generation`,
-`simflow-pipeline`, and `simflow-stage` may remain so older projects and users
-do not break. They must describe themselves as compatibility helpers and should
-map to the canonical stage vocabulary instead of defining a separate mandatory
-workflow path.
+Legacy executor and alias skill entries such as `simflow-pipeline`,
+`simflow-stage`, `simflow-compute`, and older stage aliases have been removed
+from the packaged skill surface. Compatibility code may still exist under
+legacy script directories while tests and migration helpers converge, but those
+directories are not canonical skill entry points.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
 `simflow-lammps`, and `simflow-gaussian` are domain assistants. They may provide
@@ -71,7 +70,7 @@ analysis_visualization
 writing
 ```
 
-Legacy alias stages remain available for migration and compatibility:
+Legacy alias stages are code-loadable for migration and compatibility:
 
 ```text
 literature
@@ -97,24 +96,21 @@ neb.json
 custom.json
 ```
 
-Legacy workflow files remain under `workflow/workflows/`:
-
-```text
-dft.json
-aimd.json
-md.json
-```
-
-These files are retained as legacy recipe sources for `runtime.lib.workflow`
-and migration tests. They are not the canonical workflow contract and should
-not be treated as a required executor DAG.
+Bundled legacy workflow JSON files are no longer shipped under
+`workflow/workflows/`. Migration helpers can still convert user-provided legacy
+workflow definitions, but the repository's canonical examples now live under
+`workflow/recipes/`.
 
 ## Runtime
 
-`runtime/lib/` contains state, artifact, checkpoint, lineage, gate, migration,
-and optional helper libraries. Engine-specific helpers may suggest and validate,
-but they should return uncertainty for unknown tasks instead of forcing a
-default calculation.
+`runtime/simflow_core/` is the canonical import surface for state, artifact,
+checkpoint, lineage, gate, migration, workflow, and validation APIs. The older
+`runtime/lib/` package remains as compatibility implementation code while
+callers migrate to the core facade.
+
+`runtime/simflow_helpers/` contains optional helper modules. Engine-specific
+helpers may suggest and validate, but they should return uncertainty for
+unknown tasks instead of forcing a default calculation.
 
 Legacy runtime CLI wrappers have been removed from the source package. Runtime
 entry points should be exposed through skills, MCP tools, or reusable helpers

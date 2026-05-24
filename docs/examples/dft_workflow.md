@@ -44,7 +44,7 @@ This writes planning/validation artifacts. It does not submit jobs.
 
 ## Legacy Compatibility
 
-`workflow/workflows/dft.json` remains loadable as a legacy workflow source and
-is converted by runtime helpers into a `dft` recipe. New documentation and tests
-should treat it as a recipe example, not as a fixed DAG that all DFT projects
-must follow.
+The canonical repository example is `workflow/recipes/dft.json`. Runtime
+migration helpers can still convert user-provided legacy DFT workflow JSON into
+a `dft` recipe. New documentation and tests should treat DFT as a recipe/tag,
+not as a fixed DAG that all DFT projects must follow.

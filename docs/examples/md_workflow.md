@@ -32,6 +32,7 @@ outputs, environment, and lineage are recorded.
 
 ## Legacy Compatibility
 
-`workflow/workflows/md.json` remains available and maps to the
-`classical_md` recipe during migration. It is retained for compatibility with
-older projects and tests, not as a mandatory top-level workflow.
+The canonical repository example is `workflow/recipes/classical_md.json`.
+Runtime migration helpers can still map user-provided legacy MD workflow JSON
+to the `classical_md` recipe. This is compatibility behavior, not a mandatory
+top-level workflow.

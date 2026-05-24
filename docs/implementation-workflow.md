@@ -1,10 +1,13 @@
 # SimFlow Domain Workflow Layer 实施 Workflow
 
 > Historical implementation plan. This document is retained for project
-> history, but the current stable architecture is the workflow-layer model:
-> canonical stages, JSON recipes, optional helpers, evidence-based gates, and
-> legacy workflow compatibility. Do not treat older DFT/AIMD/MD dry-run phases
-> in this document as the current canonical executor contract.
+> history only. The current source no longer ships `agents/`,
+> `workflow/workflows/`, legacy stage alias JSON files, legacy executor skill
+> entries, or `runtime/scripts/`. The stable architecture is the
+> workflow-layer model: canonical stages, JSON recipes, optional helpers,
+> evidence-based gates, MCP/runtime recording tools, and migration helpers for
+> user-provided legacy state. Do not treat older DFT/AIMD/MD dry-run phases or
+> script lists in this document as the current canonical executor contract.
 
 ## 1. 定位
 

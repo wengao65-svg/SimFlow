@@ -21,16 +21,10 @@ SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
 language that triggers a SimFlow skill. In Claude Code, use namespaced skills
 such as `/simflow:simflow`.
 
-The `simflow` console entry point is limited to maintenance commands:
-
-```bash
-simflow inspect-legacy --project-root /path/to/project
-simflow migrate --project-root /path/to/project
-simflow convert-workflow workflow/workflows/dft.json --output /tmp/dft.recipe.json
-```
-
-It is not the primary research interface and should not be treated as a
-workflow executor.
+Legacy runtime CLI scripts have been removed from the packaged source. User
+work should enter through skills and, when needed, MCP/runtime helpers that
+write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
+records. Do not treat SimFlow as a command-line workflow executor.
 
 ## Canonical Stages
 
@@ -50,9 +44,9 @@ Any stage can be entered directly when the needed evidence is available.
 DFT, AIMD, classical MD, phonon, NEB, and custom paths are recipes or tags. They
 are reference paths, not fixed executor DAGs.
 
-Legacy files under `workflow/workflows/dft.json`, `aimd.json`, and `md.json`
-remain for compatibility. SimFlow can load them as recipe sources and migrate
-old `.simflow/` state, but new work should use canonical stages and recipes.
+The repository no longer ships legacy `workflow/workflows/*.json` examples.
+SimFlow can still migrate user-provided legacy workflow definitions and old
+`.simflow/` state, but new work should use canonical stages and recipes.
 
 ## Common Work Patterns
 

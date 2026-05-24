@@ -33,6 +33,7 @@ traceability, not a specific parser or plotting library.
 
 ## Legacy Compatibility
 
-`workflow/workflows/aimd.json` remains available for migration and recipe
-loading. It should be treated as a compatibility source, not as the canonical
-workflow contract for all AIMD work.
+The canonical repository example is `workflow/recipes/aimd.json`. Runtime
+migration helpers can still convert user-provided legacy AIMD workflow JSON
+into an `aimd` recipe. It should be treated as a compatibility source, not as
+the canonical workflow contract for all AIMD work.
