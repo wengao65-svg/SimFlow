@@ -47,9 +47,9 @@ simflow-safety-gates
 
 Legacy executor and alias skill entries such as `simflow-pipeline`,
 `simflow-stage`, `simflow-compute`, and older stage aliases have been removed
-from the packaged skill surface. Compatibility code may still exist under
-legacy script directories while tests and migration helpers converge, but those
-directories are not canonical skill entry points.
+from the packaged skill surface. Project intake, stage execution, and pipeline
+helpers now live under `runtime/simflow_helpers/`; tests should import those
+helpers directly instead of depending on legacy skill wrapper scripts.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
 `simflow-lammps`, and `simflow-gaussian` are domain assistants. They may provide
@@ -104,13 +104,16 @@ workflow definitions, but the repository's canonical examples now live under
 ## Runtime
 
 `runtime/simflow_core/` is the canonical import surface for state, artifact,
-checkpoint, lineage, gate, migration, workflow, and validation APIs. The older
-`runtime/lib/` package remains as compatibility implementation code while
-callers migrate to the core facade.
+checkpoint, lineage, gate, proposal, migration, workflow, and validation APIs.
+The older `runtime/lib/` package remains as compatibility implementation code
+while callers migrate to the core facade.
 
-`runtime/simflow_helpers/` contains optional helper modules. Engine-specific
-helpers may suggest and validate, but they should return uncertainty for
-unknown tasks instead of forcing a default calculation.
+`runtime/simflow_helpers/` contains optional helper modules. Project intake and
+canonical stage execution live under `runtime/simflow_helpers/project` and
+`runtime/simflow_helpers/stages`. Engine-specific helpers live under
+`runtime/simflow_helpers/engines`; they may suggest and validate, but they
+should return uncertainty for unknown tasks instead of forcing a default
+calculation.
 
 Legacy runtime CLI wrappers have been removed from the source package. Runtime
 entry points should be exposed through skills, MCP tools, or reusable helpers

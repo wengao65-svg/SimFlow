@@ -53,7 +53,11 @@ Canonical workflow behavior lives in the core skills:
 - `simflow-safety-gates`
 
 Legacy helper code may remain temporarily for tests or migration adapters, but
-new user-facing workflows should enter through the canonical skills.
+new user-facing workflows should enter through the canonical skills. The old
+`simflow-intake`, `simflow-pipeline`, and `simflow-stage` wrapper scripts have
+been removed; their behavior is available through
+`runtime.simflow_helpers.project.intake` and
+`runtime.simflow_helpers.stages`.
 
 ## State Migration
 

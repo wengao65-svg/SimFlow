@@ -20,8 +20,10 @@ executor.
 Other `simflow-*` skills are optional domain assistants or focused workflow
 helpers. Legacy executor skill entries such as `simflow-pipeline`,
 `simflow-stage`, `simflow-compute`, and older stage aliases are no longer
-discoverable as skills; any remaining scripts in those directories are temporary
-compatibility code while their behavior migrates into `runtime/simflow_helpers`.
+discoverable as skills. Project intake, stage execution, and pipeline behavior
+has migrated into `runtime/simflow_helpers`, so new tests and integrations
+should import those helpers directly rather than adding wrapper scripts back
+under legacy skill directories.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
 `simflow-lammps`, and `simflow-gaussian` are optional domain assistants. They
