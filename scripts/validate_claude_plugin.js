@@ -90,7 +90,7 @@ const LEGACY_PACKAGE_PATHS = [
   'workflow/stages/compute.json',
   'workflow/stages/analysis.json',
   'workflow/stages/visualization.json',
-  'runtime/scripts/simflow_cli.py',
+  'runtime/scripts',
   'skills/simflow-pipeline',
   'skills/simflow-stage',
   'skills/simflow-compute',

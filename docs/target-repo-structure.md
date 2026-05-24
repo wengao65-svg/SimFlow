@@ -116,21 +116,9 @@ and optional helper libraries. Engine-specific helpers may suggest and validate,
 but they should return uncertainty for unknown tasks instead of forcing a
 default calculation.
 
-`runtime/scripts/` contains small maintenance and helper scripts, including:
-
-```text
-simflow_cli.py
-init_simflow_state.py
-transition_stage.py
-create_checkpoint.py
-restore_checkpoint.py
-write_artifact.py
-list_artifacts.py
-dry_run.py
-```
-
-Older parser and validator scripts may remain as optional helpers. Documentation
-must not require them as the only valid parser, report generator, or builder.
+Legacy runtime CLI wrappers have been removed from the source package. Runtime
+entry points should be exposed through skills, MCP tools, or reusable helpers
+under `runtime/simflow_helpers/`.
 
 ## MCP
 

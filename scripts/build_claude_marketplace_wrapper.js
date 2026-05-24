@@ -113,7 +113,7 @@ function isExcludedRelativePath(relativePath) {
   if (LEGACY_STAGE_ALIAS_FILES.has(normalized)) {
     return true;
   }
-  if (normalized === 'runtime/scripts/simflow_cli.py') {
+  if (normalized === 'runtime/scripts' || normalized.startsWith('runtime/scripts/')) {
     return true;
   }
   if (normalized.startsWith('skills/')) {
