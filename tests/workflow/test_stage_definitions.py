@@ -17,15 +17,6 @@ CANONICAL_STAGES = [
     "writing",
 ]
 
-LEGACY_ALIAS_STAGES = {
-    "literature": "literature_review",
-    "review": "literature_review",
-    "input_generation": "computation",
-    "compute": "computation",
-    "analysis": "analysis_visualization",
-    "visualization": "analysis_visualization",
-}
-
 GUIDANCE_LIST_FIELDS = [
     "acceptable_inputs",
     "evidence_outputs",
@@ -50,24 +41,27 @@ def test_all_canonical_stages_exist():
         assert path.exists(), f"Missing canonical stage: {name}"
 
 
-def test_legacy_alias_stages_remain_available():
-    for name, canonical in LEGACY_ALIAS_STAGES.items():
+def test_legacy_alias_stages_are_rejected():
+    for name in ["literature", "review", "input_generation", "compute", "analysis", "visualization"]:
         assert not (STAGES_DIR / f"{name}.json").exists()
-        data = load_stage_config(name)
-        assert data["name"] == canonical
-        assert data["requested_stage"] == name
+        try:
+            load_stage_config(name)
+        except FileNotFoundError:
+            continue
+        raise AssertionError(f"legacy stage alias should not load: {name}")
 
 
-def test_runtime_loads_legacy_stage_alias_without_alias_file(tmp_path):
+def test_runtime_rejects_legacy_stage_alias_without_alias_file(tmp_path):
     workflow_dir = tmp_path / "workflow"
     stages_dir = workflow_dir / "stages"
     stages_dir.mkdir(parents=True)
     (stages_dir / "computation.json").write_text((STAGES_DIR / "computation.json").read_text(encoding="utf-8"), encoding="utf-8")
 
-    data = load_stage_config("compute", workflow_dir=str(workflow_dir))
-
-    assert data["name"] == "computation"
-    assert data["requested_stage"] == "compute"
+    try:
+        load_stage_config("compute", workflow_dir=str(workflow_dir))
+    except FileNotFoundError:
+        return
+    raise AssertionError("legacy compute stage alias should not load")
 
 
 def test_all_stage_json_valid():

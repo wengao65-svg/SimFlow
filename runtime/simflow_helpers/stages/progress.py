@@ -1,15 +1,11 @@
-"""Helpers for compatibility stage progress.
-
-These helpers keep the legacy stage-runner skills thin while the runtime
-migrates toward canonical workflow-layer packages.
-"""
+"""Helpers for canonical stage progress."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from runtime.simflow_core.workflow import canonical_stage_name, load_recipe
+from runtime.simflow_core.workflow import load_recipe
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -28,17 +24,16 @@ def load_workflow_activities(workflow_type: str, metadata: dict[str, Any] | None
         for stage in stages:
             if not isinstance(stage, str):
                 continue
-            canonical = canonical_stage_name(stage)
-            if canonical in seen:
+            if stage in seen:
                 continue
-            sequence.append(canonical)
-            seen.add(canonical)
+            sequence.append(stage)
+            seen.add(stage)
         if sequence:
             return sequence
 
     normalized = (workflow_type or "dft").lower()
     recipe = load_recipe(normalized)
-    return [canonical_stage_name(stage) for stage in recipe.get("stages", []) if isinstance(stage, str)]
+    return [stage for stage in recipe.get("stages", []) if isinstance(stage, str)]
 
 
 def get_activities_to_run(
@@ -51,8 +46,6 @@ def get_activities_to_run(
     if not activities:
         return []
 
-    current_activity = canonical_stage_name(current_activity)
-    target_activity = canonical_stage_name(target_activity) if target_activity else None
     if current_activity not in activities:
         current_activity = activities[0]
 

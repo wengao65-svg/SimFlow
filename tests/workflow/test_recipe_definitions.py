@@ -6,7 +6,6 @@ from pathlib import Path
 
 from runtime.simflow_core.workflow import (
     canonical_stage_sequence,
-    convert_legacy_workflow_to_recipe,
     list_recipes,
     load_recipe,
 )
@@ -66,64 +65,30 @@ def test_computation_recipes_include_submit_approval_triggers():
         assert required.issubset(triggers), f"Recipe {path.name} missing compute approval triggers"
 
 
-def test_runtime_lists_json_and_legacy_recipes():
+def test_runtime_lists_json_recipes_only():
     names = set(list_recipes())
-    assert set(EXPECTED_RECIPES).issubset(names)
-    assert "md" in names
+    assert names == set(EXPECTED_RECIPES)
 
 
-def test_runtime_loads_json_recipe_before_legacy_workflow():
+def test_runtime_loads_json_recipe():
     recipe = load_recipe("dft")
     assert recipe["name"] == "dft"
     assert recipe["recipe_type"] == "dft"
-    assert recipe["legacy_source"]["type"] == "recipe"
     assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
 
 
-def test_runtime_loads_md_alias_as_classical_md_recipe():
-    recipe = load_recipe("md")
-    assert recipe["name"] == "classical_md"
-    assert recipe["recipe_type"] == "classical_md"
-    assert recipe["legacy_source"]["type"] == "recipe"
-    assert recipe["legacy_requested_name"] == "md"
-    assert recipe["stages"] == ["proposal", "modeling", "computation", "analysis_visualization", "writing"]
+def test_md_alias_is_not_supported():
+    try:
+        load_recipe("md")
+    except FileNotFoundError:
+        return
+    raise AssertionError("md alias should not load; use classical_md")
 
 
-def test_runtime_loads_md_alias_without_legacy_workflow_files(tmp_path):
-    workflow_dir = tmp_path / "workflow"
-    recipes_dir = workflow_dir / "recipes"
-    recipes_dir.mkdir(parents=True)
-    (recipes_dir / "classical_md.json").write_text((RECIPES_DIR / "classical_md.json").read_text(encoding="utf-8"), encoding="utf-8")
-
-    recipe = load_recipe("md", workflow_dir=workflow_dir)
-
-    assert recipe["name"] == "classical_md"
-    assert recipe["legacy_requested_name"] == "md"
-
-
-def test_legacy_workflow_conversion_preserves_lineage_context():
-    legacy = {
-        "name": "dft",
-        "workflow_type": "dft",
-        "description": "Legacy DFT workflow fixture",
-        "stages": ["literature", "review", "proposal", "modeling", "input_generation", "compute", "analysis", "visualization", "writing"],
-        "stage_dependencies": {"compute": ["input_generation"], "analysis": ["compute"]},
-        "entry_points": ["literature", "proposal"],
-        "default_entry": "literature",
-    }
-    recipe = convert_legacy_workflow_to_recipe(legacy, source_path="fixtures/legacy/dft.json")
-    assert recipe["recipe_type"] == "dft"
-    assert recipe["legacy_stage_dependencies"] == legacy["stage_dependencies"]
-    assert recipe["default_entry"] == "literature_review"
-    assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
-
-
-def test_canonical_stage_sequence_deduplicates_legacy_subactivities():
-    stages = ["literature", "review", "proposal", "input_generation", "compute", "analysis", "visualization", "writing"]
-    assert canonical_stage_sequence(stages) == [
-        "literature_review",
-        "proposal",
-        "computation",
-        "analysis_visualization",
-        "writing",
-    ]
+def test_canonical_stage_sequence_rejects_legacy_subactivities():
+    try:
+        canonical_stage_sequence(["proposal", "input_generation", "compute"])
+    except ValueError as exc:
+        assert "input_generation" in str(exc)
+        return
+    raise AssertionError("legacy subactivities should not be accepted as stages")

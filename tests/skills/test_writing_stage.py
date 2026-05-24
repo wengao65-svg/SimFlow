@@ -56,8 +56,8 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
             output_dir=tmpdir,
         )
 
-        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
-        postcompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
+        postcompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         result = run_writing_stage(str(project_root / ".simflow"), dry_run=False)
 
         writing_artifacts = list_artifacts(stage="writing", project_root=tmpdir)

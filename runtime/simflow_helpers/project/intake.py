@@ -15,29 +15,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.literature import empty_research_source_inputs, normalize_research_sources
 from runtime.simflow_core.state import init_workflow, write_state
-from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
+from runtime.simflow_core.workflow import load_recipe
 
 
 def load_workflow_definition(workflow_type: str) -> dict:
     """Load workflow metadata from canonical recipes."""
     normalized = (workflow_type or "dft").lower()
     try:
-        recipe = load_recipe(normalized, include_legacy=False)
+        recipe = load_recipe(normalized)
     except FileNotFoundError:
-        recipe = load_recipe("dft", include_legacy=False)
+        recipe = load_recipe("dft")
         normalized = "dft"
     stages = recipe.get("stages", [])
     if not isinstance(stages, list) or not stages:
         raise ValueError(f"Workflow {normalized} has no stages")
-    activities = compatibility_activity_sequence(stages)
-    recipe_source = recipe.get("legacy_source", {})
     return {
         "workflow_type": normalized,
-        "path": recipe_source.get("path"),
+        "path": str(Path(__file__).resolve().parents[3] / "workflow" / "recipes" / f"{normalized}.json"),
         "name": recipe.get("name", normalized),
         "stages": stages,
         "canonical_stages": stages,
-        "compatibility_activities": activities,
         "stage_dependencies": {},
         "entry_points": stages,
         "default_entry": stages[0],
@@ -178,7 +175,6 @@ def init_research(input_file: str = None, input_text: str = None,
         "entry_points": workflow["entry_points"],
         "stage_dependencies": workflow["stage_dependencies"],
         "stages": stages,
-        "compatibility_activities": workflow["compatibility_activities"],
         "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],

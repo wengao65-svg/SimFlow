@@ -46,7 +46,7 @@ def test_build_reproducibility_package_generates_outputs_and_registers_artifacts
             output_dir=tmpdir,
         )
 
-        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
         methods_path.parent.mkdir(parents=True, exist_ok=True)
