@@ -20,13 +20,6 @@ CORE_SKILLS = [
     "simflow-safety-gates",
 ]
 
-COMPATIBILITY_STAGE_SKILLS = [
-    "simflow-literature",
-    "simflow-compute",
-    "simflow-analysis",
-    "simflow-visualization",
-]
-
 ENGINE_DOMAIN_SKILLS = [
     "simflow-vasp",
     "simflow-cp2k",
@@ -66,10 +59,29 @@ def test_core_skills_keep_state_artifact_checkpoint_contracts():
 
 
 def test_core_skills_do_not_force_fixed_helpers_or_reports():
-    for skill_name in CORE_SKILLS + COMPATIBILITY_STAGE_SKILLS:
+    for skill_name in CORE_SKILLS:
         text = _skill_text(skill_name)
         for pattern in BANNED_HARD_CONSTRAINTS:
             assert not pattern.search(text), f"{skill_name} matches {pattern.pattern}"
+
+
+def test_legacy_executor_skill_entries_are_removed():
+    removed = [
+        "simflow-literature",
+        "simflow-compute",
+        "simflow-analysis",
+        "simflow-visualization",
+        "simflow-pipeline",
+        "simflow-stage",
+        "simflow-input-generation",
+        "simflow-review",
+        "simflow-plan",
+        "simflow-intake",
+        "simflow-ralph",
+        "simflow-team",
+    ]
+    for skill_name in removed:
+        assert not (SKILLS / skill_name / "SKILL.md").exists(), skill_name
 
 
 def test_computation_requires_approval_without_fixed_software():

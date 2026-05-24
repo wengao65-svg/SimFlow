@@ -17,9 +17,11 @@ intent, evidence boundaries, artifact tracking, checkpoints, lineage, safety
 gates, and handoff discipline. They do not make SimFlow a centralized workflow
 executor.
 
-Other `simflow-*` skills are compatibility entries, optional helpers, domain
-assistants, or older stage aliases. They may provide useful checklists, scripts,
-or task-specific guidance, but they are not the canonical workflow contract.
+Other `simflow-*` skills are optional domain assistants or focused workflow
+helpers. Legacy executor skill entries such as `simflow-pipeline`,
+`simflow-stage`, `simflow-compute`, and older stage aliases are no longer
+discoverable as skills; any remaining scripts in those directories are temporary
+compatibility code while their behavior migrates into `runtime/simflow_helpers`.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
 `simflow-lammps`, and `simflow-gaussian` are optional domain assistants. They
