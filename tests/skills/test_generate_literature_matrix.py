@@ -7,7 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-LITERATURE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature" / "scripts"
+LITERATURE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
 INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(LITERATURE_DIR))

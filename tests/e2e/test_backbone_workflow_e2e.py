@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 INTAKE_DIR = ROOT / "skills" / "simflow-intake" / "scripts"
-PLAN_DIR = ROOT / "skills" / "simflow-plan" / "scripts"
+PLAN_DIR = ROOT / "skills" / "simflow-proposal" / "scripts"
 PIPELINE_DIR = ROOT / "skills" / "simflow-pipeline" / "scripts"
 HANDOFF_DIR = ROOT / "skills" / "simflow-handoff" / "scripts"
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for simflow-plan canonical state behavior."""
+"""Tests for proposal planning helper behavior."""
 
 import json
 import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-plan" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-proposal" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))

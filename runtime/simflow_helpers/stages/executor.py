@@ -31,8 +31,8 @@ def _runner(script: str, function: str, activity: str, *, stage_runner: bool = F
 
 CANONICAL_STAGE_RUNNERS = {
     "literature_review": [
-        _runner("skills/simflow-literature/scripts/generate_literature_matrix.py", "generate_literature_matrix", "literature"),
-        _runner("skills/simflow-review/scripts/generate_review.py", "generate_review", "review"),
+        _runner("skills/simflow-literature-review/scripts/generate_literature_matrix.py", "generate_literature_matrix", "literature"),
+        _runner("skills/simflow-literature-review/scripts/generate_review.py", "generate_review", "review"),
     ],
     "proposal": [
         _runner("skills/simflow-proposal/scripts/generate_proposal.py", "generate_proposal", "proposal"),

@@ -8,8 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 INTAKE_DIR = ROOT / "skills" / "simflow-intake" / "scripts"
-LITERATURE_DIR = ROOT / "skills" / "simflow-literature" / "scripts"
-REVIEW_DIR = ROOT / "skills" / "simflow-review" / "scripts"
+LITERATURE_DIR = ROOT / "skills" / "simflow-literature-review" / "scripts"
+REVIEW_DIR = ROOT / "skills" / "simflow-literature-review" / "scripts"
 PROPOSAL_DIR = ROOT / "skills" / "simflow-proposal" / "scripts"
 
 sys.path.insert(0, str(ROOT))
