@@ -66,7 +66,8 @@ def test_backbone_workflow_e2e():
         artifacts = list_artifacts(project_root=tmpdir)
         artifact_names = [artifact["name"] for artifact in artifacts]
         assert pipeline["status"] == "success"
-        assert [item["stage"] for item in pipeline["results"]] == ["literature", "review", "proposal"]
+        assert [item["stage"] for item in pipeline["results"]] == ["literature_review", "proposal"]
+        assert stages_state["literature_review"]["status"] == "completed"
         assert stages_state["literature"]["status"] == "completed"
         assert stages_state["review"]["status"] == "completed"
         assert stages_state["proposal"]["status"] == "completed"
@@ -88,7 +89,7 @@ def test_backbone_workflow_e2e():
         summary = handoff["handoff"]
         assert handoff["status"] == "success"
         assert summary["current_stage"] == "proposal"
-        assert summary["completed_stages"] == ["literature", "review", "proposal"]
+        assert summary["completed_stages"] == ["literature_review", "proposal"]
         assert summary["pending_stages"][0] == "modeling"
         assert summary["latest_checkpoint"]["checkpoint_id"] == pipeline["checkpoint_id"]
         assert summary["latest_checkpoint"]["stage_id"] == "proposal"

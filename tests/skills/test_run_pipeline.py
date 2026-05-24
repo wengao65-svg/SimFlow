@@ -27,14 +27,11 @@ pytestmark = pytest.mark.filterwarnings(
 
 
 DFT_STAGES = [
-    "literature",
-    "review",
+    "literature_review",
     "proposal",
     "modeling",
-    "input_generation",
-    "compute",
-    "analysis",
-    "visualization",
+    "computation",
+    "analysis_visualization",
     "writing",
 ]
 
@@ -48,8 +45,8 @@ def _write_metadata(tmpdir: str):
     metadata = {
         "workflow_id": state["workflow_id"],
         "workflow_type": "dft",
-        "entry_point": "literature",
-        "current_stage": "literature",
+        "entry_point": "literature_review",
+        "current_stage": "literature_review",
         "research_goal": "Study Si surface reconstruction",
         "material": "Si(001)",
         "software": "vasp",
@@ -71,10 +68,9 @@ def test_run_pipeline_dry_run_uses_canonical_stage_sequence():
         stages_state = read_state(tmpdir, "stages.json")
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal"]
+        assert [item["stage"] for item in result["results"]] == ["literature_review", "proposal"]
         assert all(item["status"] == "dry_run_complete" for item in result["results"])
-        assert stages_state["literature"]["status"] == "pending"
-        assert stages_state["review"]["status"] == "pending"
+        assert stages_state["literature_review"]["status"] == "pending"
         assert stages_state["proposal"]["status"] == "pending"
         assert "legacy_stage" not in stages_state
         assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
@@ -85,22 +81,23 @@ def test_run_pipeline_execute_updates_stages_and_checkpoint_registry():
         init_workflow("dft", "literature", tmpdir)
         _write_metadata(tmpdir)
 
-        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="review", dry_run=False)
+        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="literature_review", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         checkpoints = read_state(tmpdir, "checkpoints.json")
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review"]
+        assert [item["stage"] for item in result["results"]] == ["literature_review"]
         assert all(item["status"] == "completed" for item in result["results"])
-        assert workflow["current_stage"] == "review"
+        assert workflow["current_stage"] == "literature_review"
         assert workflow["status"] == "in_progress"
+        assert stages_state["literature_review"]["status"] == "completed"
         assert stages_state["literature"]["status"] == "completed"
         assert stages_state["review"]["status"] == "completed"
-        assert stages_state["review"]["checkpoint_id"] == result["checkpoint_id"]
+        assert stages_state["literature_review"]["checkpoint_id"] == result["checkpoint_id"]
         assert len(checkpoints) == 1
         assert checkpoints[0]["checkpoint_id"] == result["checkpoint_id"]
-        assert checkpoints[0]["stage_id"] == "review"
+        assert checkpoints[0]["stage_id"] == "literature_review"
         assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
 
@@ -130,9 +127,9 @@ def test_run_pipeline_execute_starts_after_completed_current_stage():
             state_file="stages.json",
         )
 
-        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="analysis", dry_run=True)
+        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="analysis_visualization", dry_run=True)
 
-        assert [item["stage"] for item in result["results"]] == ["input_generation", "compute", "analysis"]
+        assert [item["stage"] for item in result["results"]] == ["computation", "analysis_visualization"]
         assert all(item["status"] == "dry_run_complete" for item in result["results"])
 
 
@@ -160,17 +157,18 @@ def test_run_pipeline_execute_runs_research_generators_through_review():
             output_dir=tmpdir,
         )
 
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="review", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="literature_review", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         literature_artifacts = list_artifacts(stage="literature", project_root=tmpdir)
         review_artifacts = list_artifacts(stage="review", project_root=tmpdir)
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review"]
+        assert [item["stage"] for item in result["results"]] == ["literature_review"]
         assert result["results"][0]["artifacts"][0]["name"] == "literature_matrix.json"
-        assert result["results"][1]["artifacts"][0]["name"] == "review_summary.md"
-        assert workflow["current_stage"] == "review"
+        assert result["results"][0]["artifacts"][2]["name"] == "review_summary.md"
+        assert workflow["current_stage"] == "literature_review"
+        assert stages_state["literature_review"]["status"] == "completed"
         assert stages_state["literature"]["status"] == "completed"
         assert stages_state["review"]["status"] == "completed"
         assert len(literature_artifacts) == 2
@@ -209,12 +207,12 @@ def test_run_pipeline_execute_runs_modeling_stage_through_canonical_runner():
         modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling"]
+        assert [item["stage"] for item in result["results"]] == ["literature_review", "proposal", "modeling"]
         assert result["results"][-1]["artifacts"][0]["name"] == "structure_manifest.json"
         assert workflow["current_stage"] == "modeling"
         assert workflow["status"] == "in_progress"
         assert stages_state["modeling"]["status"] == "completed"
-        assert stages_state["modeling"]["inputs"] == [artifact["artifact_id"] for artifact in proposal_artifacts]
+        assert set(stages_state["modeling"]["inputs"]) == {artifact["artifact_id"] for artifact in proposal_artifacts}
         assert len(stages_state["modeling"]["outputs"]) == 2
         assert {artifact["name"] for artifact in modeling_artifacts} == {"structure_manifest.json", "POSCAR"}
         assert (project_root / ".simflow" / "reports" / "modeling" / "structure_manifest.json").is_file()
@@ -244,16 +242,17 @@ def test_run_pipeline_execute_runs_precompute_vasp_chain():
             output_dir=tmpdir,
         )
 
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
         compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling", "input_generation", "compute"]
-        assert workflow["current_stage"] == "compute"
+        assert [item["stage"] for item in result["results"]] == ["literature_review", "proposal", "modeling", "computation"]
+        assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
+        assert stages_state["computation"]["status"] == "completed"
         assert stages_state["input_generation"]["status"] == "completed"
         assert stages_state["compute"]["status"] == "completed"
         assert any(artifact["name"] == "input_manifest.json" for artifact in input_generation_artifacts)
@@ -291,13 +290,13 @@ def test_run_pipeline_execute_runs_precompute_cp2k_chain():
             output_dir=tmpdir,
         )
 
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
 
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["literature", "review", "proposal", "modeling", "input_generation", "compute"]
-        assert workflow["current_stage"] == "compute"
+        assert [item["stage"] for item in result["results"]] == ["literature_review", "proposal", "modeling", "computation"]
+        assert workflow["current_stage"] == "computation"
         assert {artifact["name"] for artifact in compute_artifacts} == {"compute_plan.json", "job_script.sh", "dry_run_report.json"}
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "energy.inp").is_file()
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "structure.xyz").is_file()
@@ -330,8 +329,8 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_without_outputs():
             output_dir=tmpdir,
         )
 
-        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         analysis_artifacts = list_artifacts(stage="analysis", project_root=tmpdir)
@@ -339,13 +338,13 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_without_outputs():
 
         assert precompute_result["status"] == "success"
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["analysis", "visualization"]
-        assert workflow["current_stage"] == "visualization"
+        assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
+        assert workflow["current_stage"] == "analysis_visualization"
         assert workflow["status"] == "in_progress"
+        assert stages_state["analysis_visualization"]["status"] == "completed"
         assert stages_state["analysis"]["status"] == "completed"
         assert stages_state["visualization"]["status"] == "completed"
         assert result["results"][0]["manifest"]["status"] == "waiting_for_outputs"
-        assert result["results"][1]["manifest"]["status"] == "waiting_for_outputs"
         assert {artifact["name"] for artifact in analysis_artifacts} == {"analysis_report.json", "analysis_report.md"}
         assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
 
@@ -374,7 +373,7 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
             output_dir=tmpdir,
         )
 
-        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
         compute_dir = project_root / ".simflow" / "artifacts" / "compute"
         shutil.copy2(VASP_RUN_XML, compute_dir / "vasprun.xml")
         (compute_dir / "OSZICAR").write_text(
@@ -382,20 +381,20 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
             encoding="utf-8",
         )
 
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         analysis_artifacts = list_artifacts(stage="analysis", project_root=tmpdir)
         visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
 
         assert precompute_result["status"] == "success"
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["analysis", "visualization"]
-        assert result["results"][0]["manifest"]["status"] == "completed"
-        assert result["results"][0]["manifest"]["source_files"]
+        assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
+        assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
+        assert result["results"][0]["manifests"]["analysis"]["source_files"]
         if importlib.util.find_spec("matplotlib") is None:
-            assert result["results"][1]["manifest"]["status"] == "skipped_optional_dependency"
+            assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
             assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
         else:
-            assert result["results"][1]["manifest"]["status"] == "completed"
+            assert result["results"][0]["manifests"]["visualization"]["status"] == "completed"
             assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json", "energy_convergence.png"}
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
         assert {artifact["name"] for artifact in analysis_artifacts} == {"analysis_report.json", "analysis_report.md"}
@@ -424,8 +423,8 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
             output_dir=tmpdir,
         )
 
-        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
-        postcompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
+        postcompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         result = run_pipeline(str(project_root / ".simflow"), target_stage="writing", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
@@ -499,27 +498,27 @@ def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_output
             output_dir=tmpdir,
         )
 
-        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="compute", dry_run=False)
+        precompute_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
         compute_dir = project_root / ".simflow" / "artifacts" / "compute"
         for fixture_name in ("md.log", "md.ener", "md-pos-1.xyz", "md.restart"):
             shutil.copy2(CP2K_FIXTURE_DIR / fixture_name, compute_dir / fixture_name)
 
-        result = run_pipeline(str(project_root / ".simflow"), target_stage="visualization", dry_run=False)
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
         analysis_artifacts = list_artifacts(stage="analysis", project_root=tmpdir)
         visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
-        trajectory_status = result["results"][0]["manifest"]["optional_trajectory_analysis"]["status"]
+        trajectory_status = result["results"][0]["manifests"]["analysis"]["optional_trajectory_analysis"]["status"]
 
         assert precompute_result["status"] == "success"
         assert result["status"] == "success"
-        assert [item["stage"] for item in result["results"]] == ["analysis", "visualization"]
-        assert result["results"][0]["manifest"]["status"] == "completed"
-        assert result["results"][0]["manifest"]["source_files"]
+        assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
+        assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
+        assert result["results"][0]["manifests"]["analysis"]["source_files"]
         assert trajectory_status in {"available", "skipped_optional_dependency"}
         if importlib.util.find_spec("matplotlib") is None:
-            assert result["results"][1]["manifest"]["status"] == "skipped_optional_dependency"
+            assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
             assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
         else:
-            assert result["results"][1]["manifest"]["status"] == "completed"
+            assert result["results"][0]["manifests"]["visualization"]["status"] == "completed"
             assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json", "energy_convergence.png"}
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
         assert {artifact["name"] for artifact in analysis_artifacts} == {"analysis_report.json", "analysis_report.md"}

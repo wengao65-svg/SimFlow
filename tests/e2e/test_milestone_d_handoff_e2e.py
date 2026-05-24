@@ -50,8 +50,8 @@ def test_milestone_d_final_handoff_e2e():
             ]),
             output_dir=tmpdir,
         )
-        precompute = run_pipeline(str(simflow_dir), target_stage="compute", dry_run=False)
-        postcompute = run_pipeline(str(simflow_dir), target_stage="visualization", dry_run=False)
+        precompute = run_pipeline(str(simflow_dir), target_stage="computation", dry_run=False)
+        postcompute = run_pipeline(str(simflow_dir), target_stage="analysis_visualization", dry_run=False)
         writing = run_pipeline(str(simflow_dir), target_stage="writing", dry_run=False)
 
         workflow = read_state(tmpdir, "workflow.json")

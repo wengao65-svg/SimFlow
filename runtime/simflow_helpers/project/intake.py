@@ -35,11 +35,12 @@ def load_workflow_definition(workflow_type: str) -> dict:
         "workflow_type": normalized,
         "path": recipe_source.get("path"),
         "name": recipe.get("name", normalized),
-        "stages": activities,
+        "stages": stages,
         "canonical_stages": stages,
+        "compatibility_activities": activities,
         "stage_dependencies": {},
-        "entry_points": activities,
-        "default_entry": activities[0],
+        "entry_points": stages,
+        "default_entry": stages[0],
     }
 
 
@@ -177,6 +178,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "entry_points": workflow["entry_points"],
         "stage_dependencies": workflow["stage_dependencies"],
         "stages": stages,
+        "compatibility_activities": workflow["compatibility_activities"],
         "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],

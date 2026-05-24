@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
+from runtime.simflow_core.workflow import canonical_stage_name, load_recipe
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -19,15 +19,26 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 def load_workflow_activities(workflow_type: str, metadata: dict[str, Any] | None = None) -> list[str]:
-    """Load executable activities from metadata or canonical recipes."""
+    """Load canonical workflow stages from metadata or canonical recipes."""
     metadata = metadata or {}
-    stages = metadata.get("stages", [])
+    stages = metadata.get("canonical_stages") or metadata.get("stages", [])
     if isinstance(stages, list) and stages:
-        return stages
+        sequence: list[str] = []
+        seen: set[str] = set()
+        for stage in stages:
+            if not isinstance(stage, str):
+                continue
+            canonical = canonical_stage_name(stage)
+            if canonical in seen:
+                continue
+            sequence.append(canonical)
+            seen.add(canonical)
+        if sequence:
+            return sequence
 
     normalized = (workflow_type or "dft").lower()
     recipe = load_recipe(normalized)
-    return compatibility_activity_sequence(recipe.get("stages", []))
+    return [canonical_stage_name(stage) for stage in recipe.get("stages", []) if isinstance(stage, str)]
 
 
 def get_activities_to_run(
@@ -36,10 +47,12 @@ def get_activities_to_run(
     stage_registry: dict[str, Any],
     target_activity: str | None,
 ) -> list[str]:
-    """Determine which compatibility activities the pipeline should traverse."""
+    """Determine which canonical stages the pipeline should traverse."""
     if not activities:
         return []
 
+    current_activity = canonical_stage_name(current_activity)
+    target_activity = canonical_stage_name(target_activity) if target_activity else None
     if current_activity not in activities:
         current_activity = activities[0]
 
@@ -56,4 +69,3 @@ def get_activities_to_run(
         return activities[start_idx:end_idx]
 
     return activities[start_idx:]
-

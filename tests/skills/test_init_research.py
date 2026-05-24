@@ -17,16 +17,17 @@ from init_research import init_research, load_workflow_definition, parse_researc
 def test_load_workflow_definition_dft():
     workflow = load_workflow_definition("dft")
     assert workflow["workflow_type"] == "dft"
-    assert workflow["default_entry"] == "literature"
-    assert workflow["stages"][0] == "literature"
+    assert workflow["default_entry"] == "literature_review"
+    assert workflow["stages"][0] == "literature_review"
     assert workflow["canonical_stages"][0] == "literature_review"
+    assert workflow["compatibility_activities"][:2] == ["literature", "review"]
     assert workflow["path"].endswith("workflow/recipes/dft.json")
 
 
 def test_load_workflow_definition_fallback_to_dft():
     workflow = load_workflow_definition("unknown")
     assert workflow["workflow_type"] == "dft"
-    assert workflow["default_entry"] == "literature"
+    assert workflow["default_entry"] == "literature_review"
 
 
 
@@ -63,23 +64,20 @@ def test_init_research_writes_canonical_metadata_for_dft():
 
         assert result["status"] == "success"
         assert result["workflow_type"] == "dft"
-        assert result["current_stage"] == "literature"
-        assert workflow_state["current_stage"] == "literature"
+        assert result["current_stage"] == "literature_review"
+        assert workflow_state["current_stage"] == "literature_review"
         assert metadata["workflow_type"] == "dft"
-        assert metadata["entry_point"] == "literature"
-        assert metadata["current_stage"] == "literature"
+        assert metadata["entry_point"] == "literature_review"
+        assert metadata["current_stage"] == "literature_review"
         assert metadata["stages"] == [
-            "literature",
-            "review",
+            "literature_review",
             "proposal",
             "modeling",
-            "input_generation",
-            "compute",
-            "analysis",
-            "visualization",
+            "computation",
+            "analysis_visualization",
             "writing",
         ]
-        assert "literature_review" not in metadata["stages"]
+        assert metadata["compatibility_activities"][:2] == ["literature", "review"]
         assert metadata["recipe_definition"].endswith("workflow/recipes/dft.json")
         assert (sf / "state" / "metadata.json").is_file()
         assert not (sf / "state" / "research_metadata.json").exists()
@@ -103,10 +101,8 @@ def test_init_research_uses_workflow_default_entry_for_aimd():
         assert metadata["stages"] == [
             "proposal",
             "modeling",
-            "input_generation",
-            "compute",
-            "analysis",
-            "visualization",
+            "computation",
+            "analysis_visualization",
             "writing",
         ]
         assert metadata["research_sources"]["total_items"] == 0
