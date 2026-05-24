@@ -22,6 +22,15 @@ LEGACY_STAGE_MAP = {
     "writing": "writing",
 }
 
+CANONICAL_STAGE_ACTIVITY_MAP = {
+    "literature_review": ["literature", "review"],
+    "proposal": ["proposal"],
+    "modeling": ["modeling"],
+    "computation": ["input_generation", "compute"],
+    "analysis_visualization": ["analysis", "visualization"],
+    "writing": ["writing"],
+}
+
 LEGACY_RECIPE_TYPE_MAP = {
     "md": "classical_md",
 }
@@ -71,6 +80,25 @@ def canonical_stage_sequence(stages: list[str | dict[str, Any]]) -> list[str]:
             continue
         sequence.append(canonical)
         seen.add(canonical)
+    return sequence
+
+
+def compatibility_activity_sequence(stages: list[str | dict[str, Any]]) -> list[str]:
+    """Expand canonical stages into legacy executor activities.
+
+    This supports older stage-runner helpers while runtime progress moves to
+    recipe loading. It should disappear once the source no longer carries the
+    legacy executor skills.
+    """
+    sequence: list[str] = []
+    seen: set[str] = set()
+    for stage in stages:
+        canonical = canonical_stage_name(_stage_name(stage))
+        for activity in CANONICAL_STAGE_ACTIVITY_MAP.get(canonical, [canonical]):
+            if activity in seen:
+                continue
+            sequence.append(activity)
+            seen.add(activity)
     return sequence
 
 

@@ -15,8 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.state import read_state, update_stage, write_state
 from runtime.lib.utils import now_iso
-
-WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
+from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
 
 STAGE_SCRIPTS = {
     "input_generation": [
@@ -86,14 +85,10 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 def load_workflow_stages(workflow_type: str) -> list[str]:
-    """Load canonical workflow stages from the workflow definition."""
+    """Load workflow activities from canonical recipes."""
     normalized = (workflow_type or "dft").lower()
-    path = WORKFLOWS_DIR / f"{normalized}.json"
-    if not path.exists():
-        path = WORKFLOWS_DIR / "dft.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    loaded = data.get("stages", [])
-    return [stage["name"] if isinstance(stage, dict) else stage for stage in loaded]
+    recipe = load_recipe(normalized)
+    return compatibility_activity_sequence(recipe.get("stages", []))
 
 
 

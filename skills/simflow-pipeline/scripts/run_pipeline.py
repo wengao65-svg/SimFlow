@@ -6,7 +6,6 @@ stage transitions with checkpoint creation.
 """
 
 import argparse
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,9 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "simflow-stage" / "
 
 from runtime.lib.checkpoint import create_checkpoint
 from runtime.lib.state import read_state, update_stage, write_state
+from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
 from execute_stage import execute_stage
-
-WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -28,18 +26,14 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 def load_workflow_stages(workflow_type: str, metadata: dict) -> list[str]:
-    """Load canonical workflow stages from metadata or workflow definitions."""
+    """Load workflow activities from metadata or canonical recipes."""
     stages = metadata.get("stages", [])
     if isinstance(stages, list) and stages:
         return stages
 
     normalized = (workflow_type or "dft").lower()
-    path = WORKFLOWS_DIR / f"{normalized}.json"
-    if not path.exists():
-        path = WORKFLOWS_DIR / "dft.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    loaded = data.get("stages", [])
-    return [stage["name"] if isinstance(stage, dict) else stage for stage in loaded]
+    recipe = load_recipe(normalized)
+    return compatibility_activity_sequence(recipe.get("stages", []))
 
 
 def get_stages_to_run(stages: list[str], current_stage: str, stage_registry: dict, target_stage: str | None) -> list[str]:
