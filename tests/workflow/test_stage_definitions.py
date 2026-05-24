@@ -52,9 +52,10 @@ def test_all_canonical_stages_exist():
 
 def test_legacy_alias_stages_remain_available():
     for name, canonical in LEGACY_ALIAS_STAGES.items():
-        data = _load_stage(name)
-        assert data.get("legacy_alias") is True
-        assert data.get("canonical_stage") == canonical
+        assert not (STAGES_DIR / f"{name}.json").exists()
+        data = load_stage_config(name)
+        assert data["name"] == canonical
+        assert data["requested_stage"] == name
 
 
 def test_runtime_loads_legacy_stage_alias_without_alias_file(tmp_path):
@@ -96,10 +97,9 @@ def test_stage_has_open_guidance_contract():
 
 def test_computation_stages_have_approval_triggers():
     required = {"real_hpc_submit", "remote_execution", "local_job_submit"}
-    for name in ["computation", "compute"]:
-        data = _load_stage(name)
-        triggers = set(data.get("approval_triggers", []))
-        assert required.issubset(triggers), f"{name} missing compute approval triggers"
+    data = _load_stage("computation")
+    triggers = set(data.get("approval_triggers", []))
+    assert required.issubset(triggers), "computation missing compute approval triggers"
 
 
 def test_stage_contracts_do_not_force_fixed_helpers():

@@ -18,7 +18,8 @@ These stages can be entered independently when their inputs and evidence needs
 are satisfied. Stage boundaries should be recorded through `.simflow/` state,
 artifacts, checkpoints, lineage, gate evidence, and handoff notes.
 
-The following files are legacy aliases or compatibility activities:
+The runtime keeps the following legacy aliases loadable through code-level
+mapping for old projects and user input:
 
 - `literature` maps to `literature_review`
 - `review` maps to `literature_review` or cross-stage review activity
@@ -27,5 +28,5 @@ The following files are legacy aliases or compatibility activities:
 - `analysis` maps to `analysis_visualization`
 - `visualization` maps to `analysis_visualization`
 
-Keep aliases loadable for old projects and tests, but do not treat them as the
-canonical stage vocabulary for new workflow-layer work.
+Do not add bundled alias JSON files for these names. New workflow-layer work
+should use only the canonical stage definition files in this directory.
