@@ -15,7 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.state import read_state, update_stage, write_state
 from runtime.lib.utils import now_iso
-from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
+from runtime.simflow_helpers.stages.progress import (
+    load_workflow_activities,
+    resolve_project_root_from_workflow_dir,
+)
 
 STAGE_SCRIPTS = {
     "input_generation": [
@@ -78,17 +81,9 @@ STAGE_RUNNERS = {
 }
 
 
-def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
-    """Resolve the project root from either a project root or .simflow path."""
-    path = Path(workflow_dir).expanduser().resolve()
-    return path.parent if path.name == ".simflow" else path
-
-
 def load_workflow_stages(workflow_type: str) -> list[str]:
     """Load workflow activities from canonical recipes."""
-    normalized = (workflow_type or "dft").lower()
-    recipe = load_recipe(normalized)
-    return compatibility_activity_sequence(recipe.get("stages", []))
+    return load_workflow_activities(workflow_type)
 
 
 

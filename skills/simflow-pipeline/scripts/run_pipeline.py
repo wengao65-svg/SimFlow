@@ -15,48 +15,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "simflow-stage" / "
 
 from runtime.lib.checkpoint import create_checkpoint
 from runtime.lib.state import read_state, update_stage, write_state
-from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
+from runtime.simflow_helpers.stages.progress import (
+    get_activities_to_run,
+    load_workflow_activities,
+    resolve_project_root_from_workflow_dir,
+)
 from execute_stage import execute_stage
-
-
-def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
-    """Resolve the project root from either a project root or .simflow path."""
-    path = Path(workflow_dir).expanduser().resolve()
-    return path.parent if path.name == ".simflow" else path
 
 
 def load_workflow_stages(workflow_type: str, metadata: dict) -> list[str]:
     """Load workflow activities from metadata or canonical recipes."""
-    stages = metadata.get("stages", [])
-    if isinstance(stages, list) and stages:
-        return stages
-
-    normalized = (workflow_type or "dft").lower()
-    recipe = load_recipe(normalized)
-    return compatibility_activity_sequence(recipe.get("stages", []))
+    return load_workflow_activities(workflow_type, metadata)
 
 
 def get_stages_to_run(stages: list[str], current_stage: str, stage_registry: dict, target_stage: str | None) -> list[str]:
     """Determine which stages the pipeline should traverse."""
-    if not stages:
-        return []
-
-    if current_stage not in stages:
-        current_stage = stages[0]
-
-    start_idx = stages.index(current_stage)
-    if stage_registry.get(current_stage, {}).get("status") == "completed" and start_idx < len(stages) - 1:
-        start_idx += 1
-
-    if target_stage:
-        if target_stage not in stages:
-            return []
-        end_idx = stages.index(target_stage) + 1
-        if end_idx < start_idx:
-            return []
-        return stages[start_idx:end_idx]
-
-    return stages[start_idx:]
+    return get_activities_to_run(stages, current_stage, stage_registry, target_stage)
 
 
 def run_pipeline(workflow_dir: str, target_stage: str = None,
