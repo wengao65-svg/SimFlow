@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Tests for simflow-intake init_research bootstrap behavior."""
+"""Tests for canonical project intake bootstrap behavior."""
 
 import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.state import read_state
-from init_research import init_research, load_workflow_definition, parse_research_input
+from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.project.intake import init_research, load_workflow_definition, parse_research_input
 
 
 def test_load_workflow_definition_dft():

@@ -9,17 +9,13 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-INTAKE_DIR = ROOT / "skills" / "simflow-intake" / "scripts"
-PIPELINE_DIR = ROOT / "skills" / "simflow-pipeline" / "scripts"
 
-sys.path.insert(0, str(INTAKE_DIR))
-sys.path.insert(0, str(PIPELINE_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import list_artifacts
-from runtime.lib.state import read_state
-from init_research import init_research
-from run_pipeline import run_pipeline
+from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.project.intake import init_research
+from runtime.simflow_helpers.stages.pipeline import run_pipeline
 
 pytestmark = [
     pytest.mark.filterwarnings("ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"),

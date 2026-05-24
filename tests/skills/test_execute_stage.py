@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for simflow-stage canonical state behavior."""
+"""Tests for canonical stage executor behavior."""
 
 import importlib.util
 import shutil
@@ -9,20 +9,14 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-stage" / "scripts"
-PIPELINE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-pipeline" / "scripts"
-INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(SCRIPT_DIR))
-sys.path.insert(0, str(PIPELINE_DIR))
-sys.path.insert(0, str(INTAKE_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import list_artifacts
-from runtime.lib.state import init_workflow, read_state, write_state
-from execute_stage import execute_stage
-from init_research import init_research
-from run_pipeline import run_pipeline
+from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.state import init_workflow, read_state, write_state
+from runtime.simflow_helpers.stages.executor import execute_stage
+from runtime.simflow_helpers.project.intake import init_research
+from runtime.simflow_helpers.stages.pipeline import run_pipeline
 
 
 VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"

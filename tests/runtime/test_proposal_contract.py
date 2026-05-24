@@ -7,24 +7,22 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-INTAKE_DIR = ROOT / "skills" / "simflow-intake" / "scripts"
 LITERATURE_DIR = ROOT / "skills" / "simflow-literature-review" / "scripts"
 REVIEW_DIR = ROOT / "skills" / "simflow-literature-review" / "scripts"
 PROPOSAL_DIR = ROOT / "skills" / "simflow-proposal" / "scripts"
 
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
-sys.path.insert(0, str(INTAKE_DIR))
 sys.path.insert(0, str(LITERATURE_DIR))
 sys.path.insert(0, str(REVIEW_DIR))
 sys.path.insert(0, str(PROPOSAL_DIR))
 
-from runtime.lib.artifact import list_artifacts
-from runtime.lib.proposal_contract import load_proposal_contract
+from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.proposals import load_proposal_contract
 from generate_literature_matrix import generate_literature_matrix
 from generate_proposal import generate_proposal
 from generate_review import generate_review
-from init_research import init_research
+from runtime.simflow_helpers.project.intake import init_research
 
 
 def _prepare_proposal(tmpdir: str, *, software: str = "vasp", parameters: str = '{"encut": 520, "kmesh": "4x4x1"}') -> Path:

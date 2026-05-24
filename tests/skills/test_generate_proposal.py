@@ -7,22 +7,20 @@ import sys
 import tempfile
 from pathlib import Path
 
-INTAKE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-intake" / "scripts"
 LITERATURE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
 REVIEW_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
 PROPOSAL_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-proposal" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(INTAKE_DIR))
 sys.path.insert(0, str(LITERATURE_DIR))
 sys.path.insert(0, str(REVIEW_DIR))
 sys.path.insert(0, str(PROPOSAL_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import list_artifacts
+from runtime.simflow_core.artifacts import list_artifacts
 from generate_literature_matrix import generate_literature_matrix
 from generate_proposal import generate_proposal
 from generate_review import generate_review
-from init_research import init_research
+from runtime.simflow_helpers.project.intake import init_research
 
 
 def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
