@@ -7,12 +7,9 @@ dry-run mode to validate without submission.
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "runtime" / "lib"))
-
-from hpc import generate_slurm_script, generate_pbs_script, estimate_resources
+from runtime.simflow_core.hpc import generate_slurm_script, generate_pbs_script, estimate_resources
 
 
 def prepare_slurm_job(config: dict) -> dict:

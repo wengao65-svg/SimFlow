@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "runtime"))
-from lib.parsers.vasp_parser import VASPParser
+from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
 
 
 def parse_kpoints_labels(kpoints_path: str) -> list[tuple[list[float], str]]:

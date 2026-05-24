@@ -13,7 +13,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.parsers.cp2k_parser import CP2KParser
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 
 def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | None = None) -> dict:

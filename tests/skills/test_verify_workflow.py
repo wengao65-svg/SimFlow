@@ -16,8 +16,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(RUNTIME_TEST_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.state import init_workflow
-from runtime.lib.verification import REQUIRED_CHECK_NAMES
+from runtime.simflow_core.state import init_workflow
+from runtime.simflow_core.verification import REQUIRED_CHECK_NAMES
 from test_verification import _write_final_delivery_state
 from verify_workflow import verify_workflow
 

@@ -11,7 +11,7 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from runtime.lib.vasp_lookup import summarize_troubleshooting
+from runtime.simflow_helpers.engines.vasp_lookup import summarize_troubleshooting
 
 
 def main() -> None:

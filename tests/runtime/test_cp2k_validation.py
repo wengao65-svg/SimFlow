@@ -6,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.cp2k_input import generate_input, write_xyz
-from lib.cp2k_validation import validate_cp2k_inputs
+from runtime.simflow_helpers.engines.cp2k_input import generate_input, write_xyz
+from runtime.simflow_helpers.engines.cp2k_validation import validate_cp2k_inputs
 
 
 def _write_valid_energy_case(tmp_path: Path) -> Path:

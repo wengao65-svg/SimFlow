@@ -9,11 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.state import init_workflow
-from lib.vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
-from lib.vasp_tools import detect_vaspkit, plan_vaspkit_task, run_vaspkit_safe
-from lib.vasp_validation import validate_potcar_metadata, validate_vasp_inputs
-from lib.vasp_workflows import build_vasp_task_plan, classify_vasp_request, write_vasp_artifacts
+from runtime.simflow_core.state import init_workflow
+from runtime.simflow_helpers.engines.vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
+from runtime.simflow_helpers.engines.vasp_tools import detect_vaspkit, plan_vaspkit_task, run_vaspkit_safe
+from runtime.simflow_helpers.engines.vasp_validation import validate_potcar_metadata, validate_vasp_inputs
+from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, classify_vasp_request, write_vasp_artifacts
 
 
 def _write_basic_inputs(base: Path, kpoints_mode: str = "mesh", potcar_order: str = "Si"):

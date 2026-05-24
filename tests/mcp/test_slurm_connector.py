@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp" / "servers" /
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
 from connectors.slurm import SlurmConnector
-from lib.gates import record_gate_decision
+from runtime.simflow_core.gates import record_gate_decision
 
 
 def _sha256_file(path: str) -> str:

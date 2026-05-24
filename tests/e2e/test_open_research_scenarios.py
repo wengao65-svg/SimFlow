@@ -4,12 +4,12 @@
 import json
 from pathlib import Path
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.checkpoint import create_checkpoint
-from runtime.lib.helpers import record_helper_run
-from runtime.lib.lineage import get_lineage
-from runtime.lib.state import init_workflow, read_state
-from runtime.lib.vasp_workflows import build_vasp_task_plan, classify_vasp_request
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.helpers import record_helper_run
+from runtime.simflow_core.lineage import get_lineage
+from runtime.simflow_core.state import init_workflow, read_state
+from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, classify_vasp_request
 
 
 def test_user_pdf_literature_review_tracks_sources_without_fixed_provider(tmp_path):

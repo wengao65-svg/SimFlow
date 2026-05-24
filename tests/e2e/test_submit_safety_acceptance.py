@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from mcp.servers.hpc.connectors.local import LocalConnector
-from runtime.lib.gates import record_gate_decision
+from runtime.simflow_core.gates import record_gate_decision
 
 
 def _sha256_file(path: Path) -> str:

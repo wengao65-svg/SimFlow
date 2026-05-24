@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .artifact import list_artifacts, register_artifact
+from .artifacts import list_artifacts, register_artifact
 from .state import ensure_workflow_initialized, resolve_project_root
 
 

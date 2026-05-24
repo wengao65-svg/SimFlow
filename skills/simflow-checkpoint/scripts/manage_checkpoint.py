@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.checkpoint import create_checkpoint, list_checkpoints, restore_checkpoint
-from runtime.lib.state import read_state
+from runtime.simflow_core.checkpoints import create_checkpoint, list_checkpoints, restore_checkpoint
+from runtime.simflow_core.state import read_state
 
 
 def manage_checkpoint(workflow_dir: str, action: str, checkpoint_id: str = None) -> dict:

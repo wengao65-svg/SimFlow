@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from runtime.lib.artifact import register_artifact, list_artifacts, get_artifact
+from runtime.simflow_core.artifacts import register_artifact, list_artifacts, get_artifact
 
 
 def test_register_artifact():

@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.vasp_potcar import (
+from runtime.simflow_helpers.engines.vasp_potcar import (
     read_poscar_species,
     generate_potcar,
     validate_potcar,

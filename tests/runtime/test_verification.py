@@ -11,8 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.state import init_workflow, read_state, write_state
-from runtime.lib.verification import REQUIRED_CHECK_NAMES, build_final_delivery_report
+from runtime.simflow_core.state import init_workflow, read_state, write_state
+from runtime.simflow_core.verification import REQUIRED_CHECK_NAMES, build_final_delivery_report
 
 DFT_STAGES = [
     "literature",

@@ -26,8 +26,8 @@ except ImportError:
     print(json.dumps({"status": "error", "message": "pymatgen not installed"}))
     sys.exit(1)
 
-from lib.vasp_potcar import read_poscar_species, validate_potcar, get_potcar_nelect
-from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+from runtime.simflow_helpers.engines.vasp_potcar import read_poscar_species, validate_potcar, get_potcar_nelect
+from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
 
 
 def generate_incar(job_type: str, params: dict, structure: Structure = None,

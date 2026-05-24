@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.parsers.vasp_parser import VASPParser
+from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.template import (
+from runtime.simflow_core.templates import (
     render_string, render_software_template, render_to_file,
     _process_variables, _process_if_blocks, _evaluate_condition,
 )

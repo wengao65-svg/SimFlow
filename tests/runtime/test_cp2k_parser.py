@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.parsers.cp2k_parser import CP2KParser
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "cp2k"

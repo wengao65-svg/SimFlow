@@ -13,7 +13,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
+from runtime.simflow_helpers.engines.cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
 
 
 def run_validation(

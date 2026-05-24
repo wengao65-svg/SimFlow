@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.gates import (
+from runtime.simflow_core.gates import (
     list_gates, load_gate, evaluate_conditions, check_gate,
     record_gate_decision, get_gate_decisions,
 )

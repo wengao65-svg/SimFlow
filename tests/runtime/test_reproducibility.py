@@ -9,10 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.checkpoint import create_checkpoint
-from runtime.lib.reproducibility import build_reproducibility_manifest
-from runtime.lib.state import init_workflow, read_state, write_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.reproducibility import build_reproducibility_manifest
+from runtime.simflow_core.state import init_workflow, read_state, write_state
 
 DFT_STAGES = [
     "literature",

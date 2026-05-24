@@ -4,7 +4,7 @@
 import tempfile
 from pathlib import Path
 
-from runtime.lib.research_sources import empty_research_source_inputs, normalize_research_sources
+from runtime.simflow_core.literature import empty_research_source_inputs, normalize_research_sources
 
 
 def test_normalize_research_sources_returns_empty_bundle_by_default():

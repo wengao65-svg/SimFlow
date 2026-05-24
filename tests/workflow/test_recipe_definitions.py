@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from runtime.lib.workflow import (
+from runtime.simflow_core.workflow import (
     canonical_stage_sequence,
     convert_legacy_workflow_to_recipe,
     list_recipes,

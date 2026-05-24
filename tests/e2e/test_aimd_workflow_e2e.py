@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from runtime.lib.parsers.qe_parser import QEParser
+from runtime.simflow_helpers.engines.parsers.qe_parser import QEParser
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.checkpoints import create_checkpoint, get_latest_checkpoint
 from runtime.simflow_core.state import init_workflow, read_state, update_stage

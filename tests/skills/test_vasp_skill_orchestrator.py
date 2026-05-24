@@ -103,7 +103,7 @@ def test_orchestrator_initializes_project_with_existing_omx():
 
 
 def test_troubleshoot_no_fetch_has_official_sources():
-    from runtime.lib.vasp_lookup import summarize_troubleshooting
+    from runtime.simflow_helpers.engines.vasp_lookup import summarize_troubleshooting
 
     result = summarize_troubleshooting("NBANDS", fetch=False)
     urls = [item["url"] for item in result["sources"]]

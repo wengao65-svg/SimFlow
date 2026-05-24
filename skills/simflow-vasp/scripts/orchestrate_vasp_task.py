@@ -14,8 +14,8 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from runtime.lib.state import ensure_workflow_initialized, resolve_project_root
-from runtime.lib.vasp_workflows import build_vasp_task_plan, suggest_vasp_stage, write_vasp_artifacts
+from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root
+from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, suggest_vasp_stage, write_vasp_artifacts
 
 
 def orchestrate_vasp_task(

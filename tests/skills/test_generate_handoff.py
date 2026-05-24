@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.state import init_workflow, read_state, write_state
+from runtime.simflow_core.state import init_workflow, read_state, write_state
 from generate_handoff import generate_handoff
 from generate_final_handoff import generate_final_handoff
 

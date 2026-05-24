@@ -15,8 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.verification import create_verification_report, add_check, finalize_report
-from runtime.lib.utils import now_iso
+from runtime.simflow_core.verification import create_verification_report, add_check, finalize_report
+from runtime.simflow_core.utils import now_iso
 
 
 def verify_structure(structure_file: str) -> dict:

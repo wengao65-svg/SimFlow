@@ -14,9 +14,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.state import read_state
-from runtime.lib.utils import generate_id
-from runtime.lib.workflow import load_recipe
+from runtime.simflow_core.state import read_state
+from runtime.simflow_core.utils import generate_id
+from runtime.simflow_core.workflow import load_recipe
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "templates" / "reports" / "handoff.md.template"
 

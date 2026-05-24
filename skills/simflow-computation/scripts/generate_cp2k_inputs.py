@@ -18,7 +18,7 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
 
-from lib.cp2k_input import (
+from runtime.simflow_helpers.engines.cp2k_input import (
     cp2k_defaults,
     generate_input,
     read_cif_to_xyz,

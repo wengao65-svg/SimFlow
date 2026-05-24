@@ -11,7 +11,7 @@ from typing import Any
 
 from .cp2k_input import read_cif_to_xyz, read_xyz_structure
 from .cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
-from .state import resolve_project_root
+from runtime.simflow_core.state import resolve_project_root
 
 
 TASK_ALIASES = {
@@ -80,11 +80,11 @@ def classify_cp2k_request(
     available = _available_labels(file_inventory)
     missing = [item for item in required if item not in available]
 
-    tools = ["runtime.lib.cp2k_validation"]
+    tools = ["runtime.simflow_helpers.engines.cp2k_validation"]
     if task in {"energy", "geo_opt", "cell_opt", "aimd_nvt", "aimd_nve", "aimd_npt", "restart"}:
-        tools.insert(0, "runtime.lib.cp2k_input")
+        tools.insert(0, "runtime.simflow_helpers.engines.cp2k_input")
     if task in {"restart", "parse", "troubleshoot"} or file_inventory["log_files"]:
-        tools.append("runtime.lib.parsers.cp2k_parser")
+        tools.append("runtime.simflow_helpers.engines.parsers.cp2k_parser")
     tools.append("SimFlow artifact/checkpoint writers")
 
     return {

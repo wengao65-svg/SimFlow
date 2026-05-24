@@ -10,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.artifact import register_artifact, list_artifacts, get_artifact
-from lib.lineage import get_dependency_tree, get_descendants, get_lineage
+from runtime.simflow_core.artifacts import register_artifact, list_artifacts, get_artifact
+from runtime.simflow_core.lineage import get_dependency_tree, get_descendants, get_lineage
 
 
 class TestArtifact:
@@ -19,7 +19,7 @@ class TestArtifact:
         self.tmpdir = tempfile.mkdtemp()
         self.base_dir = self.tmpdir
         # Ensure state dir exists
-        from lib.state import ensure_simflow_dir
+        from runtime.simflow_core.state import ensure_simflow_dir
         ensure_simflow_dir(self.base_dir)
 
     def teardown_method(self):

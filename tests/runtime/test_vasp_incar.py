@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.vasp_incar import (
+from runtime.simflow_helpers.engines.vasp_incar import (
     apply_nbands_policy,
     choose_nbands,
     estimate_vasp_default_nbands,

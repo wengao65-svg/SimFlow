@@ -9,9 +9,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.checkpoint import create_checkpoint, list_checkpoints, restore_checkpoint, get_latest_checkpoint
-from lib.artifact import register_artifact
-from lib.state import init_workflow
+from runtime.simflow_core.checkpoints import create_checkpoint, list_checkpoints, restore_checkpoint, get_latest_checkpoint
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.state import init_workflow
 
 
 class TestCheckpoint:

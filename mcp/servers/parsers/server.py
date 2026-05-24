@@ -11,10 +11,10 @@ ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
 
-from lib.parsers.vasp_parser import VASPParser
-from lib.parsers.qe_parser import QEParser
-from lib.parsers.lammps_parser import LAMMPSParser
-from lib.parsers.gaussian_parser import GaussianParser
+from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
+from runtime.simflow_helpers.engines.parsers.qe_parser import QEParser
+from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
+from runtime.simflow_helpers.engines.parsers.gaussian_parser import GaussianParser
 from mcp.shared.stdio_server import run_mcp_server
 
 PARSERS = {

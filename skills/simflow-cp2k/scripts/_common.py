@@ -12,9 +12,9 @@ SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 if str(SIMFLOW_ROOT) not in sys.path:
     sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.checkpoint import create_checkpoint
-from runtime.lib.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
 
 
 def ensure_cp2k_project(project_root: str, stage: str) -> tuple[Path, dict[str, Any]]:

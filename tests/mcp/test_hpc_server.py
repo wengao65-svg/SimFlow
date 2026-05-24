@@ -13,7 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from runtime.lib.gates import record_gate_decision
+from runtime.simflow_core.gates import record_gate_decision
 
 SERVER_DIR = Path(__file__).resolve().parents[2] / "mcp" / "servers" / "hpc"
 

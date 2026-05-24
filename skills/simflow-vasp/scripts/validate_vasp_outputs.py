@@ -17,7 +17,7 @@ from pathlib import Path
 _simflow_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_simflow_root))
 
-import runtime.lib.parsers.vasp_parser as vasp_mod
+import runtime.simflow_helpers.engines.parsers.vasp_parser as vasp_mod
 VASPParser = vasp_mod.VASPParser
 
 

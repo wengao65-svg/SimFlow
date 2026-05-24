@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
-from lib.file_handoff import validate_handoff_inputs, resolve_handoff_rules
+from runtime.simflow_core.file_handoff import validate_handoff_inputs, resolve_handoff_rules
 
 
 @pytest.fixture

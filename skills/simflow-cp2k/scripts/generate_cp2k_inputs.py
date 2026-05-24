@@ -13,7 +13,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.cp2k_input import extract_last_frame, generate_input, normalize_calc_type, read_cif_to_xyz, read_xyz_structure, write_xyz
+from runtime.simflow_helpers.engines.cp2k_input import extract_last_frame, generate_input, normalize_calc_type, read_cif_to_xyz, read_xyz_structure, write_xyz
 
 
 def generate_cp2k_inputs(

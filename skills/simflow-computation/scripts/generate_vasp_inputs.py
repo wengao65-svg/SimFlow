@@ -23,13 +23,13 @@ _project_root = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(_project_root / "runtime"))
 
 try:
-    from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+    from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
 except ImportError:
     # Fallback: try from simflow root
     _alt_root = Path(__file__).resolve().parents[3].parent
     sys.path.insert(0, str(_alt_root / "runtime"))
     try:
-        from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+        from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
     except ImportError:
         apply_nbands_policy = None
         get_explicit_user_nbands = None

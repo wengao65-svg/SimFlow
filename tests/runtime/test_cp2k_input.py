@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.cp2k_input import (
+from runtime.simflow_helpers.engines.cp2k_input import (
     cp2k_defaults,
     extract_last_frame,
     generate_input,

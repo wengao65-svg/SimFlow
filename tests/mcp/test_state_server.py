@@ -46,7 +46,7 @@ def test_tools_list_exposes_real_input_schema():
 
 def test_state_init_via_runtime():
     """Test state initialization through runtime lib."""
-    from runtime.lib.state import init_workflow, read_state
+    from runtime.simflow_core.state import init_workflow, read_state
     with tempfile.TemporaryDirectory() as tmpdir:
         state = init_workflow("dft", "literature", tmpdir)
         assert state["workflow_type"] == "dft"
@@ -87,7 +87,7 @@ def test_init_workflow_tool_rejects_missing_project_root_from_plugin_root():
 
 def test_state_read_write():
     """Test state read/write cycle."""
-    from runtime.lib.state import init_workflow, read_state, write_state
+    from runtime.simflow_core.state import init_workflow, read_state, write_state
     with tempfile.TemporaryDirectory() as tmpdir:
         state = init_workflow("dft", "literature", tmpdir)
         state["current_stage"] = "proposal"
@@ -98,7 +98,7 @@ def test_state_read_write():
 
 def test_state_transition():
     """Test stage transition."""
-    from runtime.lib.state import init_workflow, update_stage, read_state
+    from runtime.simflow_core.state import init_workflow, update_stage, read_state
     with tempfile.TemporaryDirectory() as tmpdir:
         init_workflow("dft", "literature", tmpdir)
         update_stage("literature", "in_progress", tmpdir)

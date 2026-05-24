@@ -17,8 +17,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
 from generate_handoff import generate_handoff, resolve_project_root_from_workflow_dir
-from runtime.lib.artifact import register_artifact
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.state import read_state
 
 SENSITIVE_KEY_PARTS = ("password", "token", "secret", "credential", "api_key", "apikey")
 

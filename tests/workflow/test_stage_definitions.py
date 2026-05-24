@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from runtime.lib.validator import load_stage_config
+from runtime.simflow_core.validation import load_stage_config
 
 STAGES_DIR = Path(__file__).resolve().parents[2] / "workflow" / "stages"
 

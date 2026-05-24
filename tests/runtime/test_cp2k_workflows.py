@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from lib.cp2k_input import generate_input, write_xyz
-from lib.cp2k_workflows import build_cp2k_task_plan, classify_cp2k_request
+from runtime.simflow_helpers.engines.cp2k_input import generate_input, write_xyz
+from runtime.simflow_helpers.engines.cp2k_workflows import build_cp2k_task_plan, classify_cp2k_request
 
 
 def _write_input_case(tmp_path: Path, task: str) -> None:

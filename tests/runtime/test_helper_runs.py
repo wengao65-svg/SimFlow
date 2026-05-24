@@ -4,9 +4,9 @@ import json
 import tempfile
 from pathlib import Path
 
-from runtime.lib.helpers import list_helper_runs, record_helper_run
-from runtime.lib.lineage import get_lineage
-from runtime.lib.state import init_workflow, read_state
+from runtime.simflow_core.helpers import list_helper_runs, record_helper_run
+from runtime.simflow_core.lineage import get_lineage
+from runtime.simflow_core.state import init_workflow, read_state
 
 
 def test_record_helper_run_tracks_self_written_analysis_script():

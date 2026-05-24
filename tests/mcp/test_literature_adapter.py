@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the optional literature enrichment adapter."""
 
-from runtime.lib.literature_adapter import enrich_research_sources
+from runtime.simflow_core.literature import enrich_research_sources
 
 
 
