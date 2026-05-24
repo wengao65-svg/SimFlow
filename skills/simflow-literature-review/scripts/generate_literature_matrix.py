@@ -10,10 +10,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.literature_adapter import enrich_research_sources
-from runtime.lib.state import read_state
-from runtime.lib.utils import generate_id
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.literature import enrich_research_sources
+from runtime.simflow_core.state import read_state
+from runtime.simflow_core.utils import generate_id
 
 
 EMPTY_SOURCE_BUNDLE = {

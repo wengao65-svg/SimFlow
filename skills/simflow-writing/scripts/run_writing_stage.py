@@ -15,9 +15,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import list_artifacts, register_artifact
-from runtime.lib.proposal_contract import load_proposal_contract
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.state import read_state
 
 
 def _load_function(relative_script: str, function_name: str, module_name: str):

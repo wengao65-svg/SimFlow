@@ -17,10 +17,10 @@ from pymatgen.core import Structure
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import get_artifact, register_artifact
-from runtime.lib.cp2k_validation import normalize_cp2k_task
-from runtime.lib.proposal_contract import STRUCTURE_HINT_KEYS, TASK_KEYS, load_proposal_contract
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import get_artifact, register_artifact
+from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
+from runtime.simflow_core.proposals import STRUCTURE_HINT_KEYS, TASK_KEYS, load_proposal_contract
+from runtime.simflow_core.state import read_state
 
 VASP_TASK_ALIASES = {
     "static": "scf",

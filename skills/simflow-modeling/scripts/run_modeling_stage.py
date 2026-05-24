@@ -16,9 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from build_structure import build_from_file, build_from_params, build_from_type
 from make_supercell import make_supercell
-from runtime.lib.artifact import register_artifact
-from runtime.lib.proposal_contract import load_proposal_contract
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.state import read_state
 from validate_structure import validate_structure
 
 

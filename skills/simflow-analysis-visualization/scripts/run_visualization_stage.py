@@ -14,10 +14,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import get_artifact, register_artifact
-from runtime.lib.parsers.cp2k_parser import CP2KParser
-from runtime.lib.proposal_contract import load_proposal_contract
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import get_artifact, register_artifact
+from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.engines.cp2k import CP2KParser
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:

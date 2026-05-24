@@ -10,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.artifact import list_artifacts, register_artifact
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.state import read_state
 
 
 REQUIRED_REVIEW_ARTIFACTS = ("review_summary.md", "gap_analysis.md")

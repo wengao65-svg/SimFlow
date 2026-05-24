@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.research_sources import empty_research_source_inputs, normalize_research_sources
-from runtime.lib.state import init_workflow, write_state
+from runtime.simflow_core.literature import empty_research_source_inputs, normalize_research_sources
+from runtime.simflow_core.state import init_workflow, write_state
 from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
 
 

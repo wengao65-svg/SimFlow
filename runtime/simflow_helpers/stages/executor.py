@@ -12,8 +12,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.state import read_state, update_stage, write_state
-from runtime.lib.utils import now_iso
+from runtime.simflow_core.state import read_state, update_stage, write_state
+from runtime.simflow_core.utils import now_iso
 from runtime.simflow_helpers.stages.progress import (
     load_workflow_activities,
     resolve_project_root_from_workflow_dir,

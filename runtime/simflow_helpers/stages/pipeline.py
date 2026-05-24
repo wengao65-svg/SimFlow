@@ -13,13 +13,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.checkpoint import create_checkpoint
-from runtime.lib.state import read_state, update_stage, write_state
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.state import read_state, update_stage, write_state
 from runtime.simflow_helpers.stages.progress import (
     get_activities_to_run,
     load_workflow_activities,
     resolve_project_root_from_workflow_dir,
 )
+from runtime.simflow_core.workflow import canonical_stage_name
 from runtime.simflow_helpers.stages.executor import execute_stage
 
 
@@ -50,16 +51,17 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
 
     if not stages:
         return {"status": "error", "message": "No stages defined"}
-    if target_stage and target_stage not in stages:
+    canonical_target_stage = canonical_stage_name(target_stage) if target_stage else None
+    if canonical_target_stage and canonical_target_stage not in stages:
         return {"status": "error", "message": f"Unknown stage: {target_stage}"}
 
-    stages_to_run = get_stages_to_run(stages, current_stage, stage_registry, target_stage)
+    stages_to_run = get_stages_to_run(stages, current_stage, stage_registry, canonical_target_stage)
     if not stages_to_run:
         return {
             "status": "success",
             "workflow_dir": workflow_dir,
             "current_stage": current_stage,
-            "target_stage": target_stage or current_stage,
+            "target_stage": canonical_target_stage or current_stage,
             "stages_executed": 0,
             "dry_run": dry_run,
             "results": [],
@@ -96,7 +98,7 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         "status": "error" if failed else "success",
         "workflow_dir": workflow_dir,
         "current_stage": current_stage,
-        "target_stage": target_stage or stages_to_run[-1],
+        "target_stage": canonical_target_stage or stages_to_run[-1],
         "stages_executed": len(results),
         "dry_run": dry_run,
         "results": results,

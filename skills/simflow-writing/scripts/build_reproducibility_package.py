@@ -13,8 +13,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.reproducibility import build_reproducibility_manifest
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.reproducibility import build_reproducibility_manifest
 
 TEMPLATE_PATH = ROOT / "templates" / "reports" / "reproducibility_package.md.template"
 
