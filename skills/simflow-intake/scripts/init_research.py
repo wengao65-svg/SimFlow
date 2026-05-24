@@ -15,32 +15,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.lib.research_sources import empty_research_source_inputs, normalize_research_sources
 from runtime.lib.state import init_workflow, write_state
-
-
-WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
+from runtime.simflow_core.workflow import compatibility_activity_sequence, load_recipe
 
 
 def load_workflow_definition(workflow_type: str) -> dict:
-    """Load the canonical workflow definition for a workflow type."""
+    """Load workflow metadata from canonical recipes."""
     normalized = (workflow_type or "dft").lower()
-    path = WORKFLOWS_DIR / f"{normalized}.json"
-    if not path.exists():
-        path = WORKFLOWS_DIR / "dft.json"
+    try:
+        recipe = load_recipe(normalized, include_legacy=False)
+    except FileNotFoundError:
+        recipe = load_recipe("dft", include_legacy=False)
         normalized = "dft"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    stages = data.get("stages", [])
+    stages = recipe.get("stages", [])
     if not isinstance(stages, list) or not stages:
         raise ValueError(f"Workflow {normalized} has no stages")
+    activities = compatibility_activity_sequence(stages)
+    recipe_source = recipe.get("legacy_source", {})
     return {
         "workflow_type": normalized,
-        "path": str(path),
-        "name": data.get("name", normalized),
-        "stages": [stage["name"] if isinstance(stage, dict) else stage for stage in stages],
-        "stage_dependencies": data.get("stage_dependencies", {}),
-        "entry_points": data.get("entry_points", []),
-        "default_entry": data.get("default_entry") or data.get("entry_point") or (
-            stages[0]["name"] if isinstance(stages[0], dict) else stages[0]
-        ),
+        "path": recipe_source.get("path"),
+        "name": recipe.get("name", normalized),
+        "stages": activities,
+        "canonical_stages": stages,
+        "stage_dependencies": {},
+        "entry_points": activities,
+        "default_entry": activities[0],
     }
 
 
@@ -173,7 +172,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "workflow_id": workflow_id,
         "workflow_type": wf_type,
         "workflow_name": workflow["name"],
-        "workflow_definition": workflow["path"],
+        "recipe_definition": workflow["path"],
         "entry_point": entry_point,
         "entry_points": workflow["entry_points"],
         "stage_dependencies": workflow["stage_dependencies"],

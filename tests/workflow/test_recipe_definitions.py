@@ -13,7 +13,6 @@ from runtime.lib.workflow import (
 
 ROOT = Path(__file__).resolve().parents[2]
 RECIPES_DIR = ROOT / "workflow" / "recipes"
-LEGACY_WORKFLOWS_DIR = ROOT / "workflow" / "workflows"
 
 EXPECTED_RECIPES = ["dft", "aimd", "classical_md", "phonon", "neb", "custom"]
 CANONICAL_STAGES = {"literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"}
@@ -103,8 +102,16 @@ def test_runtime_loads_md_alias_without_legacy_workflow_files(tmp_path):
 
 
 def test_legacy_workflow_conversion_preserves_lineage_context():
-    legacy = json.loads((LEGACY_WORKFLOWS_DIR / "dft.json").read_text())
-    recipe = convert_legacy_workflow_to_recipe(legacy, source_path=LEGACY_WORKFLOWS_DIR / "dft.json")
+    legacy = {
+        "name": "dft",
+        "workflow_type": "dft",
+        "description": "Legacy DFT workflow fixture",
+        "stages": ["literature", "review", "proposal", "modeling", "input_generation", "compute", "analysis", "visualization", "writing"],
+        "stage_dependencies": {"compute": ["input_generation"], "analysis": ["compute"]},
+        "entry_points": ["literature", "proposal"],
+        "default_entry": "literature",
+    }
+    recipe = convert_legacy_workflow_to_recipe(legacy, source_path="fixtures/legacy/dft.json")
     assert recipe["recipe_type"] == "dft"
     assert recipe["legacy_stage_dependencies"] == legacy["stage_dependencies"]
     assert recipe["default_entry"] == "literature_review"

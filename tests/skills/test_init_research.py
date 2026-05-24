@@ -19,7 +19,8 @@ def test_load_workflow_definition_dft():
     assert workflow["workflow_type"] == "dft"
     assert workflow["default_entry"] == "literature"
     assert workflow["stages"][0] == "literature"
-    assert "literature_review" not in workflow["stages"]
+    assert workflow["canonical_stages"][0] == "literature_review"
+    assert workflow["path"].endswith("workflow/recipes/dft.json")
 
 
 def test_load_workflow_definition_fallback_to_dft():
@@ -79,7 +80,7 @@ def test_init_research_writes_canonical_metadata_for_dft():
             "writing",
         ]
         assert "literature_review" not in metadata["stages"]
-        assert metadata["workflow_definition"].endswith("workflow/workflows/dft.json")
+        assert metadata["recipe_definition"].endswith("workflow/recipes/dft.json")
         assert (sf / "state" / "metadata.json").is_file()
         assert not (sf / "state" / "research_metadata.json").exists()
         assert not (sf / "metadata.json").exists()
