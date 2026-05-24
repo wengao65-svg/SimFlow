@@ -160,7 +160,6 @@ simflow/
 │   ├── stages/                # Research intent contracts
 │   ├── recipes/               # Optional JSON reference recipes
 │   └── gates/                 # Verification and approval gates
-├── agents/                    # 9 workflow agents
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
 │   │   ├── literature/        # arXiv, Crossref, Semantic Scholar
@@ -168,9 +167,11 @@ simflow/
 │   │   ├── hpc/               # SLURM, PBS, SSH, Local
 │   │   └── state/             # Workflow state management
 │   └── shared/                # Retry, cache, credentials, transport
-├── runtime/                   # Libraries and scripts
-│   ├── lib/                   # State, artifact, checkpoint, gates, template, parsers
-│   └── scripts/               # CLI scripts for workflow operations
+├── runtime/                   # Core runtime and optional helpers
+│   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade
+│   ├── simflow_helpers/       # Optional helper implementations
+│   ├── lib/                   # Compatibility import surface
+│   └── scripts/               # Legacy CLI wrappers during migration
 ├── templates/                 # Optional helper templates
 ├── schemas/                   # JSON schemas for validation
 ├── tests/                     # Unit, MCP, E2E tests

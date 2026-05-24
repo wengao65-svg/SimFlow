@@ -52,7 +52,6 @@ Inside `plugins/simflow/`, the copied plugin root includes:
 .claude-plugin/plugin.json
 .claude.mcp.json
 skills/
-agents/
 mcp/
 runtime/
 schemas/
@@ -120,4 +119,3 @@ The Claude adapter uses `.claude.mcp.json`, which points to the existing SimFlow
 - `parsers`
 
 Real HPC submission remains blocked unless the existing SimFlow approval gate is explicitly passed.
-
