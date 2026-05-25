@@ -99,6 +99,18 @@ Helpers should be bounded and optional. A good helper records what it did:
 For analysis helpers, self-written Python and external scientific libraries are
 valid paths when they are recorded with the same evidence discipline.
 
+Executable helper scripts under `skills/*/scripts/` must expose the standard
+recording options:
+
+```bash
+--project-root <path> --stage <canonical-stage> --record-helper-run
+```
+
+Use `runtime.simflow_core.script_contracts.add_helper_recording_args` and
+`maybe_record_helper_run` instead of duplicating CLI and lineage code. Stage
+runners keep the `run_*_stage(workflow_dir, params, dry_run)` callable
+contract.
+
 ## Running Verification
 
 ```bash

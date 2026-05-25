@@ -28,6 +28,12 @@ ENGINE_DOMAIN_SKILLS = [
     "simflow-gaussian",
 ]
 
+SUPPORT_SKILLS = [
+    "simflow-checkpoint",
+    "simflow-handoff",
+    "simflow-verify",
+]
+
 BANNED_HARD_CONSTRAINTS = [
     re.compile(r"must\s+use\s+parse_[\w.-]+\.py", re.IGNORECASE),
     re.compile(r"must\s+generate\s+(methods|results|final_handoff)\.md", re.IGNORECASE),
@@ -132,3 +138,16 @@ def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
     assert "Do not default unknown VASP tasks to `static`" in vasp_text
     assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
     assert "不要默认未知 QE 任务为 SCF" in qe_text
+
+
+def test_support_skills_do_not_reintroduce_fixed_executor_contracts():
+    for skill_name in SUPPORT_SKILLS:
+        text = _skill_text(skill_name)
+        lowered = text.lower()
+        assert "project_root" in text
+        assert ".omx" in text
+        assert "artifact" in lowered
+        assert "checkpoint" in lowered
+        assert "不要" in text or "do not" in lowered
+        for pattern in BANNED_HARD_CONSTRAINTS:
+            assert not pattern.search(text), f"{skill_name} matches {pattern.pattern}"
