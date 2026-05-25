@@ -44,9 +44,13 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["workflow_status"]["required"] == ["project_root"]
     assert schemas["evidence_graph"]["required"] == ["project_root"]
     assert schemas["handoff_summary"]["required"] == ["project_root"]
+    assert schemas["stage_readiness"]["required"] == ["project_root"]
+    assert schemas["project_readiness"]["required"] == ["project_root"]
     assert schemas["write_state"]["additionalProperties"] is False
     assert schemas["workflow_status"]["additionalProperties"] is False
     assert schemas["evidence_graph"]["additionalProperties"] is False
+    assert schemas["stage_readiness"]["additionalProperties"] is False
+    assert schemas["project_readiness"]["additionalProperties"] is False
 
 
 def test_state_init_via_runtime():
@@ -187,6 +191,36 @@ def test_handoff_summary_tool_requires_project_root():
     server = _load_state_server()
 
     result = server.handle_request({"tool": "handoff_summary", "params": {}})
+
+    assert result["status"] == "error"
+    assert "project_root" in result["message"]
+
+
+def test_stage_readiness_tool_reports_missing_evidence():
+    """stage_readiness returns read-only evidence gaps for a selected stage."""
+    from runtime.simflow_core.state import init_workflow
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("custom", "proposal", project_root=tmpdir)
+
+        result = server.handle_request({
+            "tool": "stage_readiness",
+            "params": {"project_root": tmpdir, "stage": "proposal"},
+        })
+
+        assert result["status"] == "success"
+        assert result["data"]["stage"] == "proposal"
+        assert result["data"]["readiness_status"] == "incomplete"
+        assert result["data"]["evidence"]["missing_count"] == 5
+        assert result["data"]["actions"][0]["action"] == "record_evidence_artifact"
+
+
+def test_project_readiness_tool_requires_project_root():
+    """project_readiness must not infer project root from MCP cwd."""
+    server = _load_state_server()
+
+    result = server.handle_request({"tool": "project_readiness", "params": {}})
 
     assert result["status"] == "error"
     assert "project_root" in result["message"]

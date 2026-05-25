@@ -2,7 +2,8 @@
 
 Provides tools for workflow state management.
 Tools: read_state, write_state, init_workflow, update_stage,
-workflow_status, evidence_graph, handoff_summary
+workflow_status, evidence_graph, handoff_summary, stage_readiness,
+project_readiness
 """
 
 import json
@@ -21,6 +22,8 @@ from tools.update_stage import execute as update_stage
 from tools.workflow_status import execute as workflow_status
 from tools.evidence_graph import execute as evidence_graph
 from tools.handoff_summary import execute as handoff_summary
+from tools.stage_readiness import execute as stage_readiness
+from tools.project_readiness import execute as project_readiness
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -31,6 +34,8 @@ TOOLS = {
     "workflow_status": workflow_status,
     "evidence_graph": evidence_graph,
     "handoff_summary": handoff_summary,
+    "stage_readiness": stage_readiness,
+    "project_readiness": project_readiness,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -41,6 +46,8 @@ TOOL_DESCRIPTIONS = {
     "workflow_status": "Build a read-only SimFlow project status summary.",
     "evidence_graph": "Build a read-only SimFlow artifact evidence graph.",
     "handoff_summary": "Build a compact read-only SimFlow handoff summary.",
+    "stage_readiness": "Build a read-only readiness diagnostic for one SimFlow stage.",
+    "project_readiness": "Build read-only readiness diagnostics for a SimFlow project.",
 }
 
 TOOL_SCHEMAS = {
@@ -101,6 +108,23 @@ TOOL_SCHEMAS = {
         "additionalProperties": False,
     },
     "handoff_summary": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "stage_readiness": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "project_readiness": {
         "type": "object",
         "required": ["project_root"],
         "properties": {
