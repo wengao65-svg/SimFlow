@@ -64,7 +64,7 @@ const PACKAGED_SKILLS = new Set([
   'simflow-verify',
 ]);
 
-const LEGACY_STAGE_ALIAS_FILES = new Set([
+const REMOVED_STAGE_ALIAS_FILES = new Set([
   'workflow/stages/literature.json',
   'workflow/stages/review.json',
   'workflow/stages/input_generation.json',
@@ -110,7 +110,7 @@ function isExcludedRelativePath(relativePath) {
   if (normalized === 'workflow/workflows' || normalized.startsWith('workflow/workflows/')) {
     return true;
   }
-  if (LEGACY_STAGE_ALIAS_FILES.has(normalized)) {
+  if (REMOVED_STAGE_ALIAS_FILES.has(normalized)) {
     return true;
   }
   if (normalized === 'runtime/scripts' || normalized.startsWith('runtime/scripts/')) {
@@ -191,7 +191,7 @@ function validateSkillCopies() {
     .filter(skillName => fs.existsSync(path.join(targetSkillsDir, skillName, 'SKILL.md')));
   const unexpected = targetSkillNames.filter(skillName => !PACKAGED_SKILLS.has(skillName));
   if (unexpected.length > 0) {
-    throw new Error(`Built Claude plugin contains unpackaged legacy/helper skills: ${unexpected.join(', ')}`);
+    throw new Error(`Built Claude plugin contains unpackaged skills: ${unexpected.join(', ')}`);
   }
   for (const skillName of PACKAGED_SKILLS) {
     const sourceSkill = path.join(sourceSkillsDir, skillName, 'SKILL.md');

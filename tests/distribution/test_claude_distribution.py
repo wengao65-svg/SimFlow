@@ -23,7 +23,7 @@ PACKAGED_SKILLS = {
     "simflow-handoff",
     "simflow-verify",
 }
-LEGACY_PACKAGE_PATHS = [
+FORBIDDEN_SOURCE_PATHS = [
     "agents",
     "workflow/workflows",
     "workflow/stages/literature.json",
@@ -57,7 +57,9 @@ def assert_canonical_package_surface(plugin_root: Path) -> None:
     packaged = {path.parent.name for path in (plugin_root / "skills").glob("*/SKILL.md")}
     assert PACKAGED_SKILLS.issubset(packaged)
     assert packaged.issubset(PACKAGED_SKILLS)
-    for relative_path in LEGACY_PACKAGE_PATHS:
+    assert (plugin_root / "runtime" / "simflow_core").is_dir()
+    assert (plugin_root / "runtime" / "simflow_helpers").is_dir()
+    for relative_path in FORBIDDEN_SOURCE_PATHS:
         assert not (plugin_root / relative_path).exists(), relative_path
     for name in [
         "literature_review",

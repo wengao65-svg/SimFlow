@@ -35,6 +35,8 @@ const REQUIRED_DIRS = [
   'workflow',
   'mcp',
   'runtime',
+  'runtime/simflow_core',
+  'runtime/simflow_helpers',
   'schemas',
   'templates',
   'scripts',
@@ -81,7 +83,7 @@ const PACKAGED_SKILLS = [
   'simflow-handoff',
   'simflow-verify',
 ];
-const LEGACY_PACKAGE_PATHS = [
+const FORBIDDEN_SOURCE_PATHS = [
   'agents',
   'workflow/workflows',
   'workflow/stages/literature.json',
@@ -351,6 +353,8 @@ function validatePluginRoot(label, pluginRoot) {
   check(`${label} has skills`, fs.existsSync(path.join(pluginRoot, 'skills', 'simflow', 'SKILL.md')));
   check(`${label} has mcp directory`, fs.existsSync(path.join(pluginRoot, 'mcp')));
   check(`${label} has runtime directory`, fs.existsSync(path.join(pluginRoot, 'runtime')));
+  check(`${label} has runtime/simflow_core`, fs.existsSync(path.join(pluginRoot, 'runtime', 'simflow_core')));
+  check(`${label} has runtime/simflow_helpers`, fs.existsSync(path.join(pluginRoot, 'runtime', 'simflow_helpers')));
   check(`${label} has workflow recipes`, fs.existsSync(path.join(pluginRoot, 'workflow', 'recipes')));
   check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
   check(`${label} excludes tests`, !fs.existsSync(path.join(pluginRoot, 'tests')));
@@ -359,8 +363,8 @@ function validatePluginRoot(label, pluginRoot) {
   PACKAGED_SKILLS.forEach(skillName => {
     check(`${label} has packaged skill ${skillName}`, fs.existsSync(path.join(pluginRoot, 'skills', skillName, 'SKILL.md')));
   });
-  LEGACY_PACKAGE_PATHS.forEach(relativePath => {
-    check(`${label} excludes legacy surface ${relativePath}`, !fs.existsSync(path.join(pluginRoot, relativePath)));
+  FORBIDDEN_SOURCE_PATHS.forEach(relativePath => {
+    check(`${label} excludes removed source path ${relativePath}`, !fs.existsSync(path.join(pluginRoot, relativePath)));
   });
   REQUIRED_STAGES.forEach(stage => {
     check(`${label} has canonical stage ${stage}`, fs.existsSync(path.join(pluginRoot, 'workflow', 'stages', `${stage}.json`)));

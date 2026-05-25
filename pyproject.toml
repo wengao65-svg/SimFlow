@@ -23,9 +23,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
 
-[project.scripts]
-simflow = "runtime.scripts.simflow_cli:main"
-
 [project.optional-dependencies]
 vasp = ["pymatgen>=2023.0"]
 qe = ["pymatgen>=2023.0"]
