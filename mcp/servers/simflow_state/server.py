@@ -1,7 +1,8 @@
 """SimFlow State MCP Server.
 
 Provides tools for workflow state management.
-Tools: read_state, write_state, init_workflow, update_stage
+Tools: read_state, write_state, init_workflow, update_stage,
+workflow_status, evidence_graph, handoff_summary
 """
 
 import json
@@ -17,6 +18,9 @@ from tools.read_state import execute as read_state
 from tools.write_state import execute as write_state
 from tools.init_workflow import execute as init_workflow
 from tools.update_stage import execute as update_stage
+from tools.workflow_status import execute as workflow_status
+from tools.evidence_graph import execute as evidence_graph
+from tools.handoff_summary import execute as handoff_summary
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -24,6 +28,9 @@ TOOLS = {
     "write_state": write_state,
     "init_workflow": init_workflow,
     "update_stage": update_stage,
+    "workflow_status": workflow_status,
+    "evidence_graph": evidence_graph,
+    "handoff_summary": handoff_summary,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -31,6 +38,9 @@ TOOL_DESCRIPTIONS = {
     "write_state": "Write a SimFlow workflow state file.",
     "init_workflow": "Initialize a SimFlow workflow state tree.",
     "update_stage": "Update the current SimFlow stage status.",
+    "workflow_status": "Build a read-only SimFlow project status summary.",
+    "evidence_graph": "Build a read-only SimFlow artifact evidence graph.",
+    "handoff_summary": "Build a compact read-only SimFlow handoff summary.",
 }
 
 TOOL_SCHEMAS = {
@@ -69,6 +79,32 @@ TOOL_SCHEMAS = {
             "project_root": {"type": "string"},
             "stage_name": {"type": "string"},
             "status": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "workflow_status": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "evidence_graph": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage": {"type": "string"},
+            "artifact_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "handoff_summary": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
         },
         "additionalProperties": False,
     },
