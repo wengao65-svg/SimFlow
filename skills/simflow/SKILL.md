@@ -22,6 +22,9 @@ description: Route computational simulation research requests into SimFlow's wor
 - 入口摘要、阶段建议、recipe/tag 建议、风险说明或 handoff notes。
 - `.simflow/` 状态记录、artifact metadata、checkpoint、lineage link 或 gate decision。
 - 用户请求的任意科研交付物，只要其证据来源和生成过程可追溯。
+- 可选：使用 `scripts/run_research_workflow.py` 从结构化研究意图运行
+  `literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing`
+  的 dry-run-first 端到端业务流程，并输出 `.simflow/reports/research_workflow_summary.json`。
 
 ## 状态写入规则
 
