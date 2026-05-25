@@ -119,6 +119,55 @@ def test_execute_stage_execute_runs_modeling_runner_and_registers_artifacts():
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
 
 
+def test_modeling_runner_registers_user_provided_structure_source():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        source_poscar = project_root / "inputs" / "POSCAR"
+        pdf_path = project_root / "papers" / "surface.pdf"
+        bib_path = project_root / "refs" / "references.bib"
+        source_poscar.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        bib_path.parent.mkdir(parents=True, exist_ok=True)
+        source_poscar.write_text(
+            "Si\n1.0\n3.0 0.0 0.0\n0.0 3.0 0.0\n0.0 0.0 3.0\nSi\n1\nDirect\n0.0 0.0 0.0\n",
+            encoding="utf-8",
+        )
+        pdf_path.write_text("pdf placeholder", encoding="utf-8")
+        bib_path.write_text("@article{surface, title={Surface Study}}", encoding="utf-8")
+
+        init_research(
+            input_text="\n".join([
+                "goal: study user-provided Si structure",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"structure_file\": \"inputs/POSCAR\", \"encut\": 520}",
+                "pdfs: papers/surface.pdf",
+                "bibtex: refs/references.bib",
+            ]),
+            output_dir=tmpdir,
+        )
+        pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="proposal", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
+        source_artifact = next(artifact for artifact in modeling_artifacts if artifact["type"] == "user_provided_structure")
+        structure_artifact = next(artifact for artifact in modeling_artifacts if artifact["type"] == "structure")
+        manifest_artifact = next(artifact for artifact in modeling_artifacts if artifact["type"] == "structure_manifest")
+
+        assert pipeline_result["status"] == "success"
+        assert result["status"] == "completed"
+        assert result["manifest"]["source_mode"] == "existing_file"
+        assert result["manifest"]["source_structure"]["registry_path"] == "inputs/POSCAR"
+        assert result["manifest"]["source_structure"]["preserved_original"] is True
+        assert result["manifest"]["source_structure"]["artifact_id"] == source_artifact["artifact_id"]
+        assert source_artifact["path"] == "inputs/POSCAR"
+        assert source_artifact["metadata"]["source"] == "user_provided"
+        assert source_artifact["metadata"]["preserve_original"] is True
+        assert source_poscar.read_text(encoding="utf-8").startswith("Si\n1.0")
+        assert source_artifact["artifact_id"] in manifest_artifact["lineage"]["parent_artifacts"]
+        assert source_artifact["artifact_id"] in structure_artifact["lineage"]["parent_artifacts"]
+
+
 
 def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifacts():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -408,13 +457,18 @@ def test_execute_stage_execute_generates_literature_artifacts():
         assert stages_state["literature_review"]["status"] == "completed"
         assert "literature" not in stages_state
         assert "review" not in stages_state
-        assert len(stages_state["literature_review"]["outputs"]) == 4
-        assert len(artifacts) == 4
-        assert {artifact["name"] for artifact in artifacts} == {
+        assert set(stages_state["literature_review"]["outputs"]) == {
+            artifact["artifact_id"] for artifact in artifacts
+        }
+        assert {
             "literature_matrix.json",
             "literature_matrix.csv",
+            "search_log.json",
+            "screening_record.json",
+            "citation_map.json",
             "review_summary.md",
             "gap_analysis.md",
-        }
+        }.issubset({artifact["name"] for artifact in artifacts})
+        assert any(artifact["type"] == "paper_notes" for artifact in artifacts)
         assert (project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.json").is_file()
         assert result["artifacts"][0]["stage"] == "literature_review"
