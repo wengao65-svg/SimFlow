@@ -4,6 +4,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -169,6 +170,36 @@ function validateRestrictedArtifacts() {
   check('safe examples exclude real VASP artifacts and POTCAR-derived headers', exampleFindings.length === 0, exampleFindings.join('\n'));
 }
 
+function validateSafeExamples() {
+  console.log('\n--- Safe Examples ---');
+  const exampleRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'simflow-safe-example-'));
+  try {
+    const result = spawnSync('python', ['examples/safe_dry_run/run_example.py', '--project-root', exampleRoot], {
+      cwd: ROOT,
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    if (result.status !== 0) {
+      fail('safe dry-run example completes', [result.stdout, result.stderr].filter(Boolean).join('\n'));
+    } else {
+      let summary = {};
+      try {
+        summary = JSON.parse(result.stdout);
+      } catch (error) {
+        fail('safe dry-run example emits JSON summary', result.stdout);
+      }
+      check('safe dry-run example completes', summary.status === 'success', result.stdout);
+      check('safe dry-run example writes workflow state', fs.existsSync(path.join(exampleRoot, '.simflow', 'state', 'workflow.json')));
+      check('safe dry-run example writes dry-run evidence', fs.existsSync(path.join(exampleRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
+      check('safe dry-run example writes handoff report', fs.existsSync(path.join(exampleRoot, '.simflow', 'reports', 'handoff', 'final_handoff.md')));
+    }
+  } finally {
+    fs.rmSync(exampleRoot, { recursive: true, force: true });
+  }
+  runCheck('Si band-structure example metadata validates without real POTCAR', 'python', ['examples/si_band_structure/validate_inputs.py']);
+}
+
 function validateReleaseNotesCommand() {
   console.log('\n--- Release Notes ---');
   const notesScript = path.join(ROOT, 'scripts', 'generate_release_notes.js');
@@ -214,6 +245,7 @@ function main() {
   validateVersionSync();
   validatePublicMetadata();
   validateRestrictedArtifacts();
+  validateSafeExamples();
   validateReleaseNotesCommand();
   validateMarketplaceWrappers();
   console.log('\n=== Summary ===');

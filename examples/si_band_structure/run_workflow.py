@@ -20,10 +20,10 @@ from pathlib import Path
 # Add runtime to path
 SCRIPT_DIR = Path(__file__).parent
 SIMFLOW_ROOT = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
+sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from lib.state import init_workflow, update_stage, read_state
-from lib.template import render_string
+from runtime.simflow_core.state import init_workflow, update_stage, read_state
+from runtime.simflow_core.templates import render_string
 
 # === Configuration (set via environment variables) ===
 HPC_HOST = os.environ.get("SIMFLOW_HPC_HOST", "hpc")
@@ -210,7 +210,7 @@ def main():
     print("=" * 60)
 
     # Initialize SimFlow state
-    result = init_workflow("dft", entry_point="input_generation")
+    result = init_workflow("dft", entry_point="computation", project_root=str(SCRIPT_DIR))
     wf_id = result["workflow_id"]
     print(f"\nWorkflow ID: {wf_id}")
     print(f"State dir: {SIMFLOW_ROOT / '.simflow'}")
@@ -222,7 +222,7 @@ def main():
         print(f"{'='*40}")
 
         # Update SimFlow stage
-        update_stage(f"compute_{step}", "in_progress")
+        update_stage(f"compute_{step}", "in_progress", project_root=str(SCRIPT_DIR))
 
         # Setup HPC directory
         print(f"  Setting up HPC directory for {step}...")
@@ -234,7 +234,7 @@ def main():
         print(f"  Job ID: {job_id}")
 
         # Update SimFlow with job ID
-        update_stage(f"compute_{step}", "in_progress", job_id=job_id)
+        update_stage(f"compute_{step}", "in_progress", project_root=str(SCRIPT_DIR), job_id=job_id)
 
         # Wait for completion
         status = wait_for_job(job_id)
@@ -250,7 +250,7 @@ def main():
 
             if converged:
                 print(f"  Converged! Energy: {energy} eV")
-                update_stage(f"compute_{step}", "completed", energy=energy)
+                update_stage(f"compute_{step}", "completed", project_root=str(SCRIPT_DIR), energy=energy)
 
                 # Pass relaxed structure to next steps
                 if step == "relax":
@@ -273,11 +273,11 @@ def main():
                             print(f"  Copied {fname} to bands/")
             else:
                 print(f"  WARNING: Calculation did not converge")
-                update_stage(f"compute_{step}", "failed", reason="not_converged")
+                update_stage(f"compute_{step}", "failed", project_root=str(SCRIPT_DIR), reason="not_converged")
                 sys.exit(1)
         else:
             print(f"  ERROR: Job {job_id} failed")
-            update_stage(f"compute_{step}", "failed", reason="job_failed")
+            update_stage(f"compute_{step}", "failed", project_root=str(SCRIPT_DIR), reason="job_failed")
             sys.exit(1)
 
     # Final summary
@@ -295,7 +295,7 @@ def main():
     print(f"\nState dir: {SIMFLOW_ROOT / '.simflow'}")
 
     # Print final state
-    state = read_state(str(SIMFLOW_ROOT))
+    state = read_state(project_root=str(SCRIPT_DIR))
     print(f"\nFinal workflow state:")
     print(json.dumps(state, indent=2, default=str))
 

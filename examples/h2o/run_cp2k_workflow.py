@@ -19,15 +19,15 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 SIMFLOW_ROOT = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
+sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from lib.cp2k_input import (
+from runtime.simflow_helpers.engines.cp2k_input import (
     extract_last_frame,
     generate_input,
     read_cif_to_xyz,
     write_xyz,
 )
-from lib.parsers.cp2k_parser import CP2KParser
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 # === HPC Configuration (set via environment variables) ===
 HPC_HOST = os.environ.get("SIMFLOW_HPC_HOST", "hpc")
@@ -37,9 +37,6 @@ CP2K_EXE = os.environ.get("SIMFLOW_CP2K_EXE", "cp2k.psmp")
 SLURM_PARTITION = os.environ.get("SIMFLOW_PARTITION", "kshctest")
 SLURM_WALLTIME = os.environ.get("SIMFLOW_WALLTIME", "02:00:00")
 SLURM_NTASKS = int(os.environ.get("SIMFLOW_NTASKS", "64"))
-
-if not CP2K_ENV:
-    raise SystemExit("Error: SIMFLOW_CP2K_ENV not set (e.g. 'source /path/to/cp2k/env.sh')")
 
 # === Local paths ===
 CIF_FILE = SCRIPT_DIR / "H2O.cif"
@@ -99,6 +96,8 @@ def scp_from_hpc(remote_path: str, local_path: str):
 
 def make_slurm_script(job_name: str, input_file: str, output_file: str) -> str:
     """Generate SLURM submission script for CP2K."""
+    if not CP2K_ENV:
+        raise RuntimeError("SIMFLOW_CP2K_ENV must be set before real CP2K submission")
     cores_per_node = 32
     n_nodes = max(1, -(-SLURM_NTASKS // cores_per_node))  # ceil division
     tasks_per_node = min(SLURM_NTASKS, cores_per_node)

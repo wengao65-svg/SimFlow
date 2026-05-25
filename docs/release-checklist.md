@@ -47,7 +47,27 @@ Expected result:
 Stop the release if any real `POTCAR`, `WAVECAR`, `CHGCAR`, `OUTCAR`, or
 `vasprun.xml` appears outside explicitly synthetic test fixtures.
 
-## 3. Public Metadata Gate
+## 3. Safe Example Gate
+
+Run the redistributable dry-run example into a disposable directory:
+
+```bash
+tmpdir="$(mktemp -d)"
+python examples/safe_dry_run/run_example.py --project-root "$tmpdir"
+python examples/si_band_structure/validate_inputs.py
+python examples/h2o/run_cp2k_workflow.py --dry-run
+```
+
+Expected result:
+
+- The safe example produces `.simflow/` state, artifact registry,
+  checkpoints, dry-run computation evidence, credential scan evidence, and
+  handoff reports under the disposable project root.
+- The Si example validates committed input metadata without requiring real
+  POTCAR content.
+- The H2O CP2K example can run in dry-run mode without HPC credentials.
+
+## 4. Public Metadata Gate
 
 Run:
 
@@ -61,7 +81,7 @@ Expected result:
 - No placeholder `github.com/simflow` repository metadata.
 - Public metadata points to `https://github.com/wengao65-svg/SimFlow`.
 
-## 4. Marketplace Wrapper Gate
+## 5. Marketplace Wrapper Gate
 
 For the full automated release gate from a clean tree, run:
 
@@ -92,7 +112,7 @@ Expected result:
   removed source paths, and restricted VASP artifacts.
 - MCP stdio initialization and `tools/list` pass for all configured servers.
 
-## 5. Release Notes Gate
+## 6. Release Notes Gate
 
 Generate local release notes before tagging or publishing:
 
@@ -107,7 +127,7 @@ Expected result:
 - Any manual install-smoke results or known limitations are added to the final
   release notes before publishing.
 
-## 6. Manual Install Smoke Gate
+## 7. Manual Install Smoke Gate
 
 Codex user path:
 
@@ -152,7 +172,7 @@ Expected result:
 - Real local, remote, or HPC submission remains blocked without dry-run
   evidence, matching hashes, credential scan, and explicit approval.
 
-## 7. Release Ref Rules
+## 8. Release Ref Rules
 
 - Do not push `.simflow/`, `dist/`, caches, or generated local artifacts.
 - Do not force-push release refs without explicit maintainer confirmation.

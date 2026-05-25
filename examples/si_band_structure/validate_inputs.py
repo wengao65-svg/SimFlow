@@ -2,24 +2,25 @@
 """Validate Si band structure VASP inputs before submission."""
 
 import json
+import argparse
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 SIMFLOW_ROOT = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
-sys.path.insert(0, str(SIMFLOW_ROOT / "runtime" / "lib"))
-
-from lib.parsers.vasp_parser import VASPParser
+sys.path.insert(0, str(SIMFLOW_ROOT))
 
 
-def validate_step(step: str) -> list:
+def validate_step(step: str, real_submit: bool = False) -> list:
     """Validate VASP inputs for a step."""
     issues = []
     step_dir = SCRIPT_DIR / step
 
     # Check required files
-    for fname in ["INCAR", "KPOINTS", "POSCAR", "vasp.slurm"]:
+    required_files = ["INCAR", "KPOINTS", "POSCAR"]
+    if real_submit:
+        required_files.append("vasp.slurm")
+    for fname in required_files:
         fpath = step_dir / fname
         if not fpath.exists():
             issues.append(f"{step}/{fname} missing")
@@ -59,7 +60,7 @@ def validate_step(step: str) -> list:
                 issues.append(f"{step}/POTCAR.metadata.json has unexpected kind")
             if metadata.get("element") != "Si":
                 issues.append(f"{step}/POTCAR.metadata.json element is not Si")
-    else:
+    elif real_submit:
         issues.append(f"{step}/POTCAR missing; provide licensed POTCAR locally or keep POTCAR.metadata.json")
 
     # Step-specific checks
@@ -74,12 +75,20 @@ def validate_step(step: str) -> list:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Validate safe Si band-structure example inputs")
+    parser.add_argument(
+        "--real-submit",
+        action="store_true",
+        help="Require local licensed POTCAR files and vasp.slurm scripts for real submission",
+    )
+    args = parser.parse_args()
+
     print("Validating Si band structure VASP inputs...")
     print("=" * 50)
 
     all_ok = True
     for step in ["relax", "scf", "bands"]:
-        issues = validate_step(step)
+        issues = validate_step(step, real_submit=args.real_submit)
         if issues:
             print(f"\n  {step.upper()}: FAIL")
             for issue in issues:
@@ -95,7 +104,7 @@ def main():
         ]
         if missing_real_potcar:
             steps = ", ".join(missing_real_potcar)
-            print(f"Input metadata valid. Provide licensed POTCAR locally before real submission: {steps}.")
+            print(f"Input metadata valid for dry-run. Provide licensed POTCAR locally before real submission: {steps}.")
         else:
             print("All inputs valid. Ready for submission.")
     else:
