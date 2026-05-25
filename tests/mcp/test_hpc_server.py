@@ -245,6 +245,27 @@ def test_connector_registry():
     print("  connector registry OK")
 
 
+def test_hpc_tools_list_exposes_submit_approval_schema():
+    """HPC tools/list advertises approval evidence fields for submit."""
+    from mcp.shared.stdio_server import _list_tools
+
+    server = _load_server()
+    listed = _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)
+    schemas = {tool["name"]: tool["inputSchema"] for tool in listed}
+
+    submit = schemas["submit"]
+    assert submit["additionalProperties"] is False
+    assert set(submit["required"]) == {
+        "project_root",
+        "script_path",
+        "dry_run_evidence",
+        "script_hash",
+        "input_artifact_hash",
+    }
+    assert "approval_token" in submit["properties"]
+    assert "gate_decision_id" in submit["properties"]
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

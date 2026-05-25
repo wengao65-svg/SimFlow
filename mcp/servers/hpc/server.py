@@ -150,6 +150,56 @@ TOOL_DESCRIPTIONS = {
     "submit": "Submit a job only when SimFlow approval and safety gates allow it.",
 }
 
+TOOL_SCHEMAS = {
+    "dry_run": {
+        "type": "object",
+        "required": ["script_path"],
+        "properties": {
+            "script_path": {"type": "string"},
+            "manifest_path": {"type": "string"},
+            "base_dir": {"type": "string"},
+            "scheduler": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "prepare": {
+        "type": "object",
+        "properties": {
+            "job_name": {"type": "string"},
+            "executable": {"type": "string"},
+            "nodes": {"type": "integer"},
+            "ntasks": {"type": "integer"},
+            "walltime": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "status": {
+        "type": "object",
+        "required": ["job_id"],
+        "properties": {
+            "job_id": {"type": "string"},
+            "scheduler": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "submit": {
+        "type": "object",
+        "required": ["project_root", "script_path", "dry_run_evidence", "script_hash", "input_artifact_hash"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "script_path": {"type": "string"},
+            "scheduler": {"type": "string"},
+            "approval_token": {"type": "string"},
+            "gate_decision_id": {"type": "string"},
+            "dry_run_evidence": {"type": "string"},
+            "script_hash": {"type": "string"},
+            "input_artifact_hash": {"type": "string"},
+            "timeout": {"type": "integer"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
@@ -159,4 +209,4 @@ def handle_request(request: dict) -> dict:
 if __name__ == "__main__":
     from mcp.shared.stdio_server import run_mcp_server
 
-    run_mcp_server("hpc", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("hpc", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

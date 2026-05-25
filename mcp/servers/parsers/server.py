@@ -64,6 +64,27 @@ TOOL_DESCRIPTIONS = {
     "check_convergence": "Check calculation convergence from supported output files.",
 }
 
+TOOL_SCHEMAS = {
+    "parse": {
+        "type": "object",
+        "required": ["software", "file_path"],
+        "properties": {
+            "software": {"type": "string"},
+            "file_path": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "check_convergence": {
+        "type": "object",
+        "required": ["software", "file_path"],
+        "properties": {
+            "software": {"type": "string"},
+            "file_path": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     tool = request.get("tool")
@@ -77,4 +98,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("parsers", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("parsers", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

@@ -41,7 +41,7 @@ def _tool_schema(name: str, schemas: Optional[Dict[str, dict]] = None) -> dict:
         return schemas[name]
     return {
         "type": "object",
-        "additionalProperties": True,
+        "additionalProperties": False,
         "properties": {},
     }
 

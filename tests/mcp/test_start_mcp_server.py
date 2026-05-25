@@ -60,7 +60,24 @@ def test_all_mcp_servers_initialize_from_non_plugin_cwd():
         assert result.stderr == ""
         lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
         assert lines[0]["result"]["serverInfo"]["name"] == server_name
-        assert len(lines[1]["result"]["tools"]) > 0
+        tools = lines[1]["result"]["tools"]
+        assert len(tools) > 0
+        for tool in tools:
+            schema = tool["inputSchema"]
+            assert schema["type"] == "object"
+            assert schema["additionalProperties"] is False
+            assert "properties" in schema
+
+
+def test_stdio_schema_fallback_is_strict():
+    from mcp.shared.stdio_server import _list_tools
+
+    listed = _list_tools({"noop": lambda params: {"status": "success"}})
+    assert listed[0]["inputSchema"] == {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {},
+    }
 
 
 def test_mcp_startup_prefers_repo_package_when_third_party_mcp_exists():
