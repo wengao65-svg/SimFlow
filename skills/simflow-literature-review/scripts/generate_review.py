@@ -146,6 +146,7 @@ def generate_review(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=parent_artifacts,
         parameters={"row_count": matrix.get("row_count", 0)},
         software=metadata.get("software"),
+        metadata={"evidence_key": "review_summary"},
     )
     gap_artifact = register_artifact(
         "gap_analysis.md",
@@ -156,6 +157,7 @@ def generate_review(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=parent_artifacts,
         parameters={"row_count": matrix.get("row_count", 0)},
         software=metadata.get("software"),
+        metadata={"evidence_key": "gaps_and_open_questions"},
     )
 
     return {

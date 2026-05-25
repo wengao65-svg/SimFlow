@@ -42,25 +42,49 @@ def test_generate_literature_matrix_writes_json_csv_and_registry_entries():
         )
 
         result = generate_literature_matrix(str(project_root / ".simflow"))
+        search_log_path = project_root / ".simflow" / "artifacts" / "literature" / "search_log.json"
         json_path = project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.json"
         csv_path = project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.csv"
+        screening_path = project_root / ".simflow" / "artifacts" / "literature" / "screening_record.json"
+        citation_path = project_root / ".simflow" / "artifacts" / "literature" / "citation_map.json"
+        notes_dir = project_root / ".simflow" / "artifacts" / "literature" / "paper_notes"
         artifacts = list_artifacts(project_root=tmpdir, stage="literature_review")
+        artifact_names = {artifact["name"] for artifact in artifacts}
+        search_log = json.loads(search_log_path.read_text(encoding="utf-8"))
         matrix = json.loads(json_path.read_text(encoding="utf-8"))
+        citation_map = json.loads(citation_path.read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
+        assert search_log_path.is_file()
         assert json_path.is_file()
         assert csv_path.is_file()
+        assert screening_path.is_file()
+        assert citation_path.is_file()
+        assert len(list(notes_dir.glob("*.md"))) == 4
+        assert search_log["source_policy"] == "user_provided_or_agent_selected_sources"
+        assert search_log["provider_constraints"] == "none_fixed_by_simflow"
+        assert search_log["sources"][0]["access_status"] == "full_text_provided_by_user"
         assert matrix["source_counts"] == {"pdf": 1, "bibtex": 1, "doi": 1, "note": 1}
         assert matrix["row_count"] == 4
         assert matrix["rows"][0]["source_type"] == "pdf"
         assert matrix["rows"][1]["locator"] == "refs/references.bib"
         assert matrix["rows"][2]["locator"] == "10.1000/alpha"
         assert matrix["rows"][3]["notes"] == "Focus on dimer buckling evidence"
-        assert len(artifacts) == 2
-        assert artifacts[0]["name"] == "literature_matrix.json"
-        assert artifacts[0]["path"] == ".simflow/artifacts/literature/literature_matrix.json"
-        assert artifacts[1]["name"] == "literature_matrix.csv"
-        assert artifacts[1]["lineage"]["parent_artifacts"] == [artifacts[0]["artifact_id"]]
+        assert citation_map["entries"][2]["locator"] == "10.1000/alpha"
+        assert {
+            "search_log.json",
+            "literature_matrix.json",
+            "literature_matrix.csv",
+            "screening_record.json",
+            "citation_map.json",
+        }.issubset(artifact_names)
+        assert len([artifact for artifact in artifacts if artifact["type"] == "paper_notes"]) == 4
+        matrix_artifact = next(artifact for artifact in artifacts if artifact["name"] == "literature_matrix.json")
+        search_artifact = next(artifact for artifact in artifacts if artifact["name"] == "search_log.json")
+        csv_artifact = next(artifact for artifact in artifacts if artifact["name"] == "literature_matrix.csv")
+        assert matrix_artifact["path"] == ".simflow/artifacts/literature/literature_matrix.json"
+        assert matrix_artifact["lineage"]["parent_artifacts"] == [search_artifact["artifact_id"]]
+        assert csv_artifact["lineage"]["parent_artifacts"] == [matrix_artifact["artifact_id"]]
 
         with csv_path.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))

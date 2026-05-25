@@ -66,6 +66,8 @@ def test_generate_review_writes_markdown_and_registry_entries():
         assert review_artifacts[1]["name"] == "gap_analysis.md"
         assert review_artifacts[0]["lineage"]["parent_artifacts"] == [literature_artifact["artifact_id"]]
         assert review_artifacts[1]["lineage"]["parent_artifacts"] == [literature_artifact["artifact_id"]]
+        assert review_artifacts[0]["metadata"]["evidence_key"] == "review_summary"
+        assert review_artifacts[1]["metadata"]["evidence_key"] == "gaps_and_open_questions"
 
 
 
