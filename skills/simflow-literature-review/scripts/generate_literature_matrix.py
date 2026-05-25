@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.literature import enrich_research_sources
 from runtime.simflow_core.state import read_state
 from runtime.simflow_core.utils import generate_id
@@ -164,10 +165,18 @@ def main():
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output-dir", help="Optional output directory for literature artifacts")
     parser.add_argument("--enrich-backend", help="Optional literature backend for DOI enrichment")
+    add_helper_recording_args(parser, default_stage="literature_review")
     args = parser.parse_args()
 
     try:
         result = generate_literature_matrix(args.workflow_dir, args.output_dir, args.enrich_backend)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_literature_matrix",
+            output_paths=list(result.get("output_files", {}).values()),
+        )
         print(json.dumps(result, indent=2))
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}))

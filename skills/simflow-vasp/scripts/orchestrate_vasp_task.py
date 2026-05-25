@@ -14,6 +14,7 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root
 from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, suggest_vasp_stage, write_vasp_artifacts
 
@@ -42,14 +43,25 @@ def main() -> None:
     parser.add_argument("--project-root", help="Project root where SimFlow writes .simflow and reports")
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to base-dir")
     parser.add_argument("--options", default="{}", help="JSON options")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
+        if args.project_root is None:
+            args.project_root = args.base_dir
         result = orchestrate_vasp_task(
             task=args.task,
-            base_dir=args.project_root or args.base_dir,
+            base_dir=args.project_root,
             calc_dir=args.calc_dir,
             options=json.loads(args.options),
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="vasp_orchestrate_task",
+            software="vasp",
+            output_paths=list(result.get("written", {}).values()) if isinstance(result.get("written"), dict) else [],
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

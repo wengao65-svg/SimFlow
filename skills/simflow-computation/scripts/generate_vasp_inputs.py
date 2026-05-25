@@ -20,7 +20,10 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[4] / "simflow"
 # Try relative to project root
 _project_root = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 sys.path.insert(0, str(_project_root / "runtime"))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
     from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
@@ -166,6 +169,7 @@ def main():
                              "Required for NBANDS auto-calculation.")
     parser.add_argument("--nions", type=int, default=None,
                         help="Number of ions/atoms. Required for NBANDS auto-calculation.")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
@@ -183,6 +187,14 @@ def main():
             "files_generated": [incar_path, kpoints_path],
             "parameters": params,
         }
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_vasp_inputs",
+            software="vasp",
+            output_paths=result["files_generated"],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

@@ -16,8 +16,10 @@ import sys
 from pathlib import Path
 
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(SIMFLOW_ROOT))
 sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
 
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_helpers.engines.cp2k_input import (
     cp2k_defaults,
     generate_input,
@@ -102,11 +104,21 @@ def main():
     )
     parser.add_argument("-o", "--output-dir", required=True, help="Output directory")
     parser.add_argument("--params", default="{}", help="JSON string of parameter overrides")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
         params = json.loads(args.params)
         result = generate_cp2k_inputs(args.cif, args.job_type, args.output_dir, params)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_cp2k_inputs",
+            software="cp2k",
+            input_paths=[args.cif],
+            output_paths=result.get("files_generated", []),
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}), file=sys.stderr)

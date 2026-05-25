@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state, write_state
 from runtime.simflow_core.utils import generate_id
 
@@ -168,10 +169,22 @@ def main():
     parser = argparse.ArgumentParser(description="Generate research plan")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output", help="Output markdown file path")
+    add_helper_recording_args(parser, default_stage="proposal")
     args = parser.parse_args()
 
     try:
         result = generate_plan(args.workflow_dir, args.output)
+        output_paths = [args.output] if args.output else []
+        plan_file = result.get("plan", {}).get("plan_file")
+        if plan_file:
+            output_paths.append(str(resolve_project_root_from_workflow_dir(args.workflow_dir) / ".simflow" / plan_file))
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_plan",
+            output_paths=output_paths,
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

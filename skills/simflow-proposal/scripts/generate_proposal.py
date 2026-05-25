@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state
 
 
@@ -260,10 +261,18 @@ def main():
     parser = argparse.ArgumentParser(description="Generate proposal artifacts")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output-dir", help="Optional output directory for proposal artifacts")
+    add_helper_recording_args(parser, default_stage="proposal")
     args = parser.parse_args()
 
     try:
         result = generate_proposal(args.workflow_dir, args.output_dir)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_proposal",
+            output_paths=list(result.get("output_files", {}).values()),
+        )
         print(json.dumps(result, indent=2))
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}))

@@ -11,6 +11,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+
 TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "templates" / "reports" / "analysis_report.md.template"
 
 
@@ -103,12 +108,21 @@ def main():
     parser = argparse.ArgumentParser(description="Generate analysis report")
     parser.add_argument("--results", required=True, help="JSON file with analysis results")
     parser.add_argument("--output", default="analysis_report.md", help="Output report path")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
         with open(args.results) as f:
             results = json.load(f)
         report = generate_report(results, args.output)
+        report = maybe_record_helper_run(
+            args=args,
+            result=report,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_analysis_report",
+            input_paths=[args.results],
+            output_paths=[args.output],
+        )
         print(json.dumps(report, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

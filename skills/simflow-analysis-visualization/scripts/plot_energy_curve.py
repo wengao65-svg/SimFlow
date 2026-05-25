@@ -12,6 +12,11 @@ from pathlib import Path
 
 import numpy as np
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+
 try:
     import matplotlib
     matplotlib.use("Agg")
@@ -135,6 +140,7 @@ def main():
     parser.add_argument("--output", default="energy_convergence.png", help="Output plot path")
     parser.add_argument("--title", default="Energy Convergence", help="Plot title")
     parser.add_argument("--reference-energy", type=float, help="Reference energy for comparison")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -147,6 +153,15 @@ def main():
         result["status"] = "success"
         result["software"] = args.software
         result["input_file"] = args.file
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="plot_energy_curve",
+            software=args.software,
+            input_paths=[args.file],
+            output_paths=[args.output],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

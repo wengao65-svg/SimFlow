@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import register_artifact
 from runtime.simflow_core.reproducibility import build_reproducibility_manifest
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 TEMPLATE_PATH = ROOT / "templates" / "reports" / "reproducibility_package.md.template"
 
@@ -268,6 +269,7 @@ def main() -> None:
     parser.add_argument("--software", help="Software name for artifact metadata")
     parser.add_argument("--parent-artifact-ids", default="[]", help="JSON list of parent artifact IDs")
     parser.add_argument("--skip-manifest-json", action="store_true", default=False)
+    add_helper_recording_args(parser, default_stage="writing")
     args = parser.parse_args()
 
     try:
@@ -277,6 +279,14 @@ def main() -> None:
             parent_artifact_ids=parent_artifact_ids,
             software=args.software,
             write_manifest_json=not args.skip_manifest_json,
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="build_reproducibility_package",
+            software=args.software,
+            output_paths=result.get("outputs", []),
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
     except Exception as exc:

@@ -12,6 +12,11 @@ import json
 import sys
 from pathlib import Path
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+
 from pymatgen.core import Structure, Lattice
 
 
@@ -97,6 +102,7 @@ def main():
     p_params.add_argument("--fractional", action="store_true", default=True)
     p_params.add_argument("--output", default="POSCAR")
     p_params.add_argument("--format", choices=["poscar", "cif"], default="poscar")
+    add_helper_recording_args(parser, default_stage="modeling")
 
     args = parser.parse_args()
 
@@ -144,6 +150,15 @@ def main():
             },
             "volume": round(structure.volume, 4),
         }
+        input_paths = [args.input] if getattr(args, "command", None) == "from_file" else []
+        info = maybe_record_helper_run(
+            args=args,
+            result=info,
+            script_path=Path(__file__).resolve(),
+            helper_name="build_structure",
+            input_paths=input_paths,
+            output_paths=[str(output_path)],
+        )
         print(json.dumps(info, indent=2))
 
     except Exception as e:

@@ -17,6 +17,7 @@ sys.path.insert(0, str(_simflow_root))
 
 from runtime.simflow_helpers.engines.qe import QEParser
 from runtime.simflow_helpers.engines.vasp import VASPParser
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 
 PARSERS = {
@@ -77,10 +78,19 @@ def main():
                         help="Computational software")
     parser.add_argument("--files", nargs="+", required=True,
                         help="Output files to analyze")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
         result = analyze_results(args.software, args.files)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="analyze_dft_results",
+            software=args.software,
+            input_paths=args.files,
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

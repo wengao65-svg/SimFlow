@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from generate_handoff import generate_handoff, resolve_project_root_from_workflow_dir
 from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state
 
 SENSITIVE_KEY_PARTS = ("password", "token", "secret", "credential", "api_key", "apikey")
@@ -460,6 +461,7 @@ def main() -> None:
     parser.add_argument("--source-artifact-ids", default="[]", help="JSON list of upstream source artifact IDs")
     parser.add_argument("--parent-artifact-ids", default="[]", help="JSON list of lineage parent artifact IDs")
     parser.add_argument("--software", help="Software name for artifact metadata")
+    add_helper_recording_args(parser, default_stage="writing")
     args = parser.parse_args()
 
     try:
@@ -470,6 +472,14 @@ def main() -> None:
             source_artifact_ids=source_artifact_ids,
             parent_artifact_ids=parent_artifact_ids,
             software=args.software,
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_final_handoff",
+            software=args.software,
+            output_paths=result.get("outputs", []),
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
     except Exception as exc:

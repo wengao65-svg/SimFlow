@@ -11,6 +11,10 @@ import re
 import sys
 from pathlib import Path
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "templates" / "lammps"
 
@@ -101,6 +105,7 @@ def main():
     parser.add_argument("--params", type=str, default="{}",
                         help="JSON string of parameters to override defaults")
     parser.add_argument("--output-dir", default=".", help="Output directory")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
@@ -117,6 +122,14 @@ def main():
             "files_generated": [input_path, data_path],
             "parameters": params,
         }
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_lammps_inputs",
+            software="lammps",
+            output_paths=result["files_generated"],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

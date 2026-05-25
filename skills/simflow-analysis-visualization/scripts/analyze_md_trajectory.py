@@ -12,6 +12,11 @@ from pathlib import Path
 
 import numpy as np
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+
 try:
     from MDAnalysis import Universe
     from MDAnalysis.analysis.rdf import InterRDF
@@ -115,6 +120,7 @@ def main():
     parser.add_argument("--rdf-rmax", type=float, default=10.0, help="RDF max radius (Angstrom)")
     parser.add_argument("--rdf-nbins", type=int, default=200, help="RDF number of bins")
     parser.add_argument("--msd-select", default="all", help="MSD atom selection")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -125,6 +131,13 @@ def main():
             msd_params={"select": args.msd_select},
         )
         result["status"] = "success"
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="analyze_md_trajectory",
+            input_paths=[args.topology, args.trajectory],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

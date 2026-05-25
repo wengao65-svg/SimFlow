@@ -49,6 +49,18 @@ def _has_argparse_option(tree: ast.AST, option: str) -> bool:
     return False
 
 
+def _uses_standard_recording_args(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "add_helper_recording_args":
+            return True
+        if isinstance(func, ast.Attribute) and func.attr == "add_helper_recording_args":
+            return True
+    return False
+
+
 def _category(path: Path, functions: dict[str, ast.FunctionDef]) -> str:
     names = set(functions)
     if names & STAGE_RUNNER_FUNCTIONS:
@@ -65,6 +77,7 @@ def audit_script(path: Path) -> dict[str, Any]:
     functions = _functions(tree)
     category = _category(path, functions)
     stage_runner_names = sorted(set(functions) & STAGE_RUNNER_FUNCTIONS)
+    uses_standard_recording_args = _uses_standard_recording_args(tree)
     stage_runner_contract = None
     if stage_runner_names:
         runner = functions[stage_runner_names[0]]
@@ -76,9 +89,10 @@ def audit_script(path: Path) -> dict[str, Any]:
         "has_main": "main" in functions,
         "stage_runner_functions": stage_runner_names,
         "stage_runner_contract": stage_runner_contract,
-        "has_project_root_option": _has_argparse_option(tree, "--project-root"),
-        "has_stage_option": _has_argparse_option(tree, "--stage"),
-        "has_record_helper_run_option": _has_argparse_option(tree, "--record-helper-run"),
+        "has_project_root_option": uses_standard_recording_args or _has_argparse_option(tree, "--project-root"),
+        "has_stage_option": uses_standard_recording_args or _has_argparse_option(tree, "--stage"),
+        "has_record_helper_run_option": uses_standard_recording_args or _has_argparse_option(tree, "--record-helper-run"),
+        "uses_standard_recording_args": uses_standard_recording_args,
         "uses_record_helper_run": "record_helper_run" in text,
         "mentions_omx": ".omx" in text,
         "writes_simflow_literal": ".simflow" in text,

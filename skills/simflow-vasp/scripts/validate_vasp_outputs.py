@@ -18,6 +18,7 @@ _simflow_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_simflow_root))
 
 import runtime.simflow_helpers.engines.parsers.vasp_parser as vasp_mod
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 VASPParser = vasp_mod.VASPParser
 
 
@@ -127,6 +128,7 @@ def main():
     parser.add_argument("--oszicar", help="OSZICAR file path (optional)")
     parser.add_argument("--force-tol", type=float, default=0.01, help="Force convergence tolerance (eV/A)")
     parser.add_argument("--energy-tol", type=float, default=1e-4, help="Energy convergence tolerance (eV)")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -136,6 +138,14 @@ def main():
         if args.oszicar:
             result["monotonicity"] = validate_energy_monotonicity(args.oszicar)
 
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="vasp_validate_outputs",
+            software="vasp",
+            input_paths=[args.outcar, args.oszicar] if args.oszicar else [args.outcar],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

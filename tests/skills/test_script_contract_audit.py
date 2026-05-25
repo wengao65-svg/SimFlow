@@ -46,3 +46,28 @@ def test_audit_output_contains_contract_fields_for_helper_scripts():
     assert helper["category"] == "helper_cli"
     assert "has_project_root_option" in helper
     assert "has_record_helper_run_option" in helper
+
+
+def test_all_helper_cli_scripts_support_strict_recording_contract():
+    reports = audit_skill_scripts(ROOT)
+
+    failures = []
+    for report in reports:
+        if report["category"] != "helper_cli":
+            continue
+        if not report["has_project_root_option"]:
+            failures.append(f"{report['path']}: missing --project-root")
+        if not report["has_stage_option"]:
+            failures.append(f"{report['path']}: missing --stage")
+        if not report["has_record_helper_run_option"]:
+            failures.append(f"{report['path']}: missing --record-helper-run")
+        if not report["uses_record_helper_run"]:
+            failures.append(f"{report['path']}: does not call helper-run recording")
+
+    assert failures == []
+
+
+def test_no_skill_script_uses_omx_as_workflow_state():
+    reports = audit_skill_scripts(ROOT)
+
+    assert [report["path"] for report in reports if report["mentions_omx"]] == []

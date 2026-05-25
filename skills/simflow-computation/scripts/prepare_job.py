@@ -7,8 +7,13 @@ dry-run mode to validate without submission.
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.hpc import generate_slurm_script, generate_pbs_script, estimate_resources
 
 
@@ -109,12 +114,22 @@ def main():
                         help="Generate script without submitting")
     parser.add_argument("--no-dry-run", dest="dry_run", action="store_false",
                         help="Mark as ready for submission")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
         with open(args.config) as f:
             config = json.load(f)
         result = prepare_job(config, args.scheduler, args.output_dir, args.dry_run)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="prepare_job",
+            input_paths=[args.config],
+            output_paths=[result["script_path"]],
+            metadata={"dry_run": args.dry_run},
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))
