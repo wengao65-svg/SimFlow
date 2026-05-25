@@ -495,6 +495,9 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
         assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
         assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
         assert result["results"][0]["manifests"]["analysis"]["source_files"]
+        assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["input_artifact_ids"]
+        assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["analysis_script"].endswith("analyze_dft_results.py")
+        assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["analysis_report_artifact_id"]
         if importlib.util.find_spec("matplotlib") is None:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
             assert {artifact["name"] for artifact in visualization_artifacts} == {
@@ -511,6 +514,10 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
                 "energy_convergence.png",
             }
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
+            figure = result["results"][0]["manifests"]["visualization"]["figures"][0]
+            assert figure["source_data"].endswith("OSZICAR")
+            assert figure["plotting_script"].endswith("plot_energy_curve.py")
+            assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
         assert {"analysis_report.json", "analysis_report.md"}.issubset({artifact["name"] for artifact in analysis_artifacts})
 
 
@@ -627,6 +634,8 @@ def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_output
         assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
         assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
         assert result["results"][0]["manifests"]["analysis"]["source_files"]
+        assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["analysis_script"] == "runtime/simflow_helpers/engines/cp2k"
+        assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["source_files"]
         assert trajectory_status in {"available", "skipped_optional_dependency"}
         if importlib.util.find_spec("matplotlib") is None:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
@@ -644,4 +653,7 @@ def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_output
                 "energy_convergence.png",
             }
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
+            figure = result["results"][0]["manifests"]["visualization"]["figures"][0]
+            assert figure["source_data"].endswith(".ener")
+            assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
         assert {"analysis_report.json", "analysis_report.md"}.issubset({artifact["name"] for artifact in analysis_artifacts})

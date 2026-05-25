@@ -184,8 +184,10 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
 
     if software == "vasp":
         status, details = _analyze_vasp(calc_dir)
+        analysis_script = "skills/simflow-analysis-visualization/scripts/analyze_dft_results.py"
     elif software == "cp2k":
         status, details = _analyze_cp2k(calc_dir)
+        analysis_script = "runtime/simflow_helpers/engines/cp2k"
     else:
         return {"status": "error", "message": f"Unsupported software for analysis stage: {software}"}
 
@@ -197,6 +199,17 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     reports_dir.mkdir(parents=True, exist_ok=True)
     json_path = reports_dir / "analysis_report.json"
     markdown_path = reports_dir / "analysis_report.md"
+    report["analysis_provenance"] = {
+        "input_artifact_ids": parent_artifact_ids,
+        "compute_plan_artifact_id": compute_plan_artifact["artifact_id"],
+        "analysis_script": analysis_script,
+        "report_script": "skills/simflow-analysis-visualization/scripts/generate_analysis_report.py",
+        "source_files": report.get("source_files", []),
+        "output_files": [
+            _relative_path(project_root, json_path),
+            _relative_path(project_root, markdown_path),
+        ],
+    }
     json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     GENERATE_REPORT(report, str(markdown_path))
 
@@ -209,6 +222,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         parent_artifacts=parent_artifact_ids,
         parameters={"software": software, "task": task, "status": report["status"]},
         software=software,
+        metadata={"evidence_key": "analysis_outputs"},
     )
     markdown_artifact = register_artifact(
         "analysis_report.md",

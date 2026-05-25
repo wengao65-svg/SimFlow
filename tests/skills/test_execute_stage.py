@@ -340,6 +340,8 @@ def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs
         assert analysis_result["status"] == "completed"
         assert analysis_result["manifests"]["analysis"]["status"] == "completed"
         assert analysis_result["manifests"]["analysis"]["source_files"]
+        assert analysis_result["manifests"]["analysis"]["analysis_provenance"]["input_artifact_ids"]
+        assert analysis_result["manifests"]["visualization"]["figure_traceability"]["analysis_report_artifact_id"]
         if importlib.util.find_spec("matplotlib") is None:
             assert analysis_result["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
             assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"} == artifact_names
@@ -347,6 +349,7 @@ def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs
             assert analysis_result["manifests"]["visualization"]["status"] == "completed"
             assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json", "energy_convergence.png"} == artifact_names
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
+            assert analysis_result["manifests"]["visualization"]["figures"][0]["source_data"].endswith("OSZICAR")
 
 
 

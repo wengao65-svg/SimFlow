@@ -82,6 +82,13 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         "renderer": {
             "matplotlib": importlib.util.find_spec("matplotlib") is not None,
         },
+        "figure_traceability": {
+            "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
+            "input_artifact_ids": parent_artifact_ids,
+            "source_files": analysis_report.get("source_files", []),
+            "plotting_script": "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
+            "figures": [],
+        },
         "figures": [],
         "skipped_reasons": [],
     }
@@ -140,6 +147,9 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                         "path": _relative_path(project_root, figure_path),
                         "title": "VASP Energy Convergence",
                         "num_steps": result["num_steps"],
+                        "source_data": _relative_path(project_root, energy_file),
+                        "plotting_script": "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
+                        "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
                     })
         elif software == "cp2k":
             ener_file = next((path for path in source_files if path.suffix == ".ener" and path.is_file()), None)
@@ -165,10 +175,23 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                         "path": _relative_path(project_root, figure_path),
                         "title": "CP2K Energy Trace",
                         "num_steps": result["num_steps"],
+                        "source_data": _relative_path(project_root, ener_file),
+                        "plotting_script": "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
+                        "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
                     })
         else:
             return {"status": "error", "message": f"Unsupported software for visualization stage: {software}"}
 
+    manifest["figure_traceability"]["figures"] = [
+        {
+            "name": figure["name"],
+            "path": figure["path"],
+            "source_data": figure.get("source_data"),
+            "plotting_script": figure.get("plotting_script"),
+            "analysis_report_artifact_id": figure.get("analysis_report_artifact_id"),
+        }
+        for figure in manifest["figures"]
+    ]
     manifest_path = reports_dir / "figures_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -181,6 +204,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         parent_artifacts=parent_artifact_ids,
         parameters={"software": software, "task": task, "status": manifest["status"]},
         software=software,
+        metadata={"evidence_key": "figure_manifest"},
     )
     figure_artifacts = []
     for figure in manifest["figures"]:
@@ -190,9 +214,14 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
             "analysis_visualization",
             project_root=str(project_root),
             path=figure["path"],
-            parent_artifacts=[manifest_artifact["artifact_id"]],
+            parent_artifacts=[manifest_artifact["artifact_id"], analysis_report_artifact["artifact_id"]],
             parameters={"software": software, "task": task},
             software=software,
+            metadata={
+                "evidence_key": "figure",
+                "source_data": figure.get("source_data"),
+                "plotting_script": figure.get("plotting_script"),
+            },
         ))
 
     return {
