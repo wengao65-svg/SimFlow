@@ -98,6 +98,15 @@ def test_computation_stages_have_approval_triggers():
 
 def test_stage_contracts_do_not_force_fixed_helpers():
     forbidden_keys = {
+        "default_agent",
+        "default_skill",
+        "required_inputs",
+        "optional_inputs",
+        "expected_outputs",
+        "artifact_types",
+        "validators",
+        "approval_gates",
+        "recovery_policy",
         "default_parser",
         "fixed_parser",
         "fixed_builder",

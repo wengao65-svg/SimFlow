@@ -1,6 +1,6 @@
 {
   "name": "writing",
-  "description": "写作与可复现交付阶段：汇总 proposal、结构、计算计划、分析与可视化产物，生成可写作与最终交付材料",
+  "description": "Open writing stage contract for evidence-traceable drafts, reports, presentations, and handoff deliverables.",
   "intent": "Write the requested scientific deliverable while tracing claims, citations, methods, data, and figures back to artifacts.",
   "acceptable_inputs": ["literature artifacts", "proposal", "model artifacts", "computation artifacts", "analysis artifacts", "figure artifacts", "user format request", "prior checkpoint"],
   "evidence_outputs": ["draft_or_requested_deliverable", "claim_evidence_map", "citation_map", "figure_source_map", "handoff_summary"],
@@ -9,27 +9,6 @@
   "approval_triggers": ["key_conclusion_review", "licensed_or_proprietary_file_handling"],
   "handoff_notes": ["Record which claims are supported, which are speculative, which computations are incomplete, and what remains to review."],
   "risk_notes": ["Do not write unfinished computation, unsupported claims, or speculative explanations as established results."],
-  "default_agent": "writer",
-  "default_skill": "simflow-writing",
-  "required_inputs": [
-    "proposal.md",
-    "parameter_table.csv",
-    "structure_manifest.json",
-    "compute_plan.json",
-    "analysis_report.json",
-    "figures_manifest.json"
-  ],
-  "optional_inputs": ["research_questions.json", "journal_style", "checkpoint_registry"],
-  "expected_outputs": [
-    "methods.md",
-    "results.md",
-    "reproducibility_package.md",
-    "final_handoff.md",
-    "final_handoff.json"
-  ],
-  "artifact_types": ["methods", "results", "reproducibility_package", "final_handoff", "final_handoff_summary"],
-  "validators": ["artifact_traceability", "figure_reference", "citation_reference", "reproducibility"],
-  "approval_gates": ["key_conclusion_review"],
   "checkpoint_policy": "on_completion",
-  "recovery_policy": "restart"
+  "review_triggers": ["key_conclusion_review", "unsupported_claim", "missing_figure_lineage"]
 }

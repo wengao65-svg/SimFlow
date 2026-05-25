@@ -1,6 +1,6 @@
 {
   "name": "modeling",
-  "description": "建模阶段：基于 proposal contract 生成或检查结构任务，并产出结构清单供下游输入生成使用",
+  "description": "Open modeling stage contract for user-provided, database-derived, generated, or transformed structures.",
   "intent": "Create, transform, or validate model structures while preserving source provenance and transformation lineage.",
   "acceptable_inputs": ["user-provided structure", "database structure", "generated structure", "proposal", "modeling script", "prior checkpoint"],
   "evidence_outputs": ["model_source_record", "structure_files", "structure_manifest", "validation_report", "transformation_script_if_used"],
@@ -9,14 +9,6 @@
   "approval_triggers": ["licensed_or_proprietary_file_handling", "destructive_file_operation"],
   "handoff_notes": ["Record where each structure came from, how it was changed, validation status, and downstream assumptions."],
   "risk_notes": ["Do not silently replace a user-provided model with an internal builder result."],
-  "default_agent": "modeler",
-  "default_skill": "simflow-modeling",
-  "required_inputs": ["proposal.md", "parameter_table.csv", "research_questions.json"],
-  "optional_inputs": ["structure_file"],
-  "expected_outputs": ["structure_manifest.json", "structure_file", "modeling_report.md"],
-  "artifact_types": ["structure_manifest", "structure", "modeling_report"],
-  "validators": ["structure_integrity", "periodic_boundary", "bond_length_check", "no_atom_overlap"],
-  "approval_gates": ["abnormal_optimization"],
   "checkpoint_policy": "on_completion",
-  "recovery_policy": "from_checkpoint"
+  "review_triggers": ["abnormal_geometry", "missing_source_provenance", "unsafe_transformation"]
 }
