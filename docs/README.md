@@ -19,6 +19,8 @@ agent.
 
 ## Operations And Safety
 
+- [Release Checklist](release-checklist.md): source, wrapper, metadata, and
+  install-smoke gates before publishing.
 - [HPC Integration](hpc-integration.md): dry-run-first submit evidence and hash
   requirements.
 - [Credentials Policy](credentials-policy.md): credential handling boundaries.
