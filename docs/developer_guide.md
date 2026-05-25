@@ -21,16 +21,15 @@ User request
 skills/          canonical skill entry points and domain helpers
 workflow/        stages, recipes, gates, policies
 mcp/             recording and bounded helper servers
-runtime/         core facades, compatibility libraries, and optional helpers
+runtime/         core facades and optional helpers
 schemas/         JSON schemas
 tests/           unit, MCP, workflow, skill, and e2e tests
 docs/            design and user documentation
 scripts/         packaging, marketplace, scaffold, and validation scripts
 ```
 
-Bundled legacy DFT/AIMD/MD workflow files under `workflow/workflows/` have been
-removed. Migration helpers can still convert user-provided legacy definitions.
-New behavior should use `workflow/recipes/` and canonical stages.
+New behavior should use `workflow/recipes/`, canonical stages, and helper
+modules under `runtime/simflow_helpers/`.
 
 ## Design Rules
 
@@ -54,9 +53,8 @@ analysis_visualization
 writing
 ```
 
-Legacy stage names remain as aliases only. `input_generation` belongs inside
-`computation`; `visualization` belongs inside `analysis_visualization`; review
-is a cross-stage checking action.
+`input_generation` belongs inside `computation`; `visualization` belongs inside
+`analysis_visualization`; review is a cross-stage checking action.
 
 ### State In .simflow/
 

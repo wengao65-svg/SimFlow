@@ -17,7 +17,6 @@ simflow/
     policies/
     templates/
   runtime/
-    lib/
     simflow_core/
     simflow_helpers/
   mcp/
@@ -45,11 +44,9 @@ simflow-writing
 simflow-safety-gates
 ```
 
-Legacy executor and alias skill entries such as `simflow-pipeline`,
-`simflow-stage`, `simflow-compute`, and older stage aliases have been removed
-from the packaged skill surface. Project intake, stage execution, and pipeline
-helpers now live under `runtime/simflow_helpers/`; tests should import those
-helpers directly instead of depending on legacy skill wrapper scripts.
+Project intake, stage execution, and pipeline helpers live under
+`runtime/simflow_helpers/`; tests and integrations should import those helpers
+directly instead of depending on CLI or wrapper scripts.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
 `simflow-lammps`, and `simflow-gaussian` are domain assistants. They may provide
@@ -70,17 +67,6 @@ analysis_visualization
 writing
 ```
 
-Legacy alias stages are code-loadable for migration and compatibility:
-
-```text
-literature
-review
-input_generation
-compute
-analysis
-visualization
-```
-
 `input_generation` is an optional activity inside `computation`.
 `visualization` is an optional activity inside `analysis_visualization`.
 `review` is a cross-stage checking action.
@@ -96,17 +82,13 @@ neb.json
 custom.json
 ```
 
-Bundled legacy workflow JSON files are no longer shipped under
-`workflow/workflows/`. Migration helpers can still convert user-provided legacy
-workflow definitions, but the repository's canonical examples now live under
-`workflow/recipes/`.
+The repository's canonical recipe examples live under `workflow/recipes/`.
+`workflow/workflows/` is not part of the current source surface.
 
 ## Runtime
 
 `runtime/simflow_core/` is the canonical import surface for state, artifact,
-checkpoint, lineage, gate, proposal, migration, workflow, and validation APIs.
-The older `runtime/lib/` package remains as compatibility implementation code
-while callers migrate to the core facade.
+checkpoint, lineage, gate, proposal, workflow, and validation APIs.
 
 `runtime/simflow_helpers/` contains optional helper modules. Project intake and
 canonical stage execution live under `runtime/simflow_helpers/project` and
@@ -115,9 +97,8 @@ canonical stage execution live under `runtime/simflow_helpers/project` and
 should return uncertainty for unknown tasks instead of forcing a default
 calculation.
 
-Legacy runtime CLI wrappers have been removed from the source package. Runtime
-entry points should be exposed through skills, MCP tools, or reusable helpers
-under `runtime/simflow_helpers/`.
+Runtime entry points should be exposed through skills, MCP tools, or reusable
+helpers under `runtime/simflow_helpers/`.
 
 ## MCP
 

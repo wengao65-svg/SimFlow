@@ -39,14 +39,12 @@ records. Do not treat SimFlow as a command-line workflow executor.
 
 Any stage can be entered directly when the needed evidence is available.
 
-## Recipes And Legacy Workflows
+## Recipes
 
 DFT, AIMD, classical MD, phonon, NEB, and custom paths are recipes or tags. They
 are reference paths, not fixed executor DAGs.
 
-The repository no longer ships legacy `workflow/workflows/*.json` examples.
-SimFlow can still migrate user-provided legacy workflow definitions and old
-`.simflow/` state, but new work should use canonical stages and recipes.
+Current work should use canonical stages and recipes under `workflow/recipes/`.
 
 ## Common Work Patterns
 

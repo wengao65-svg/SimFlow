@@ -19,9 +19,9 @@ SimFlow core has **zero external dependencies** — the runtime, template engine
 
 | Component | Dependencies |
 |-----------|-------------|
-| `runtime/lib/` (state, checkpoint, gates, template, parsers) | stdlib only |
+| `runtime/simflow_core/` and `runtime/simflow_helpers/` | stdlib only |
 | `mcp/servers/` (literature, structure, hpc, state) | stdlib only |
-| `skills/` (CLI scripts) | stdlib only |
+| `skills/` helper scripts | stdlib only |
 | Schema validation | Node.js + `ajv` (dev only) |
 
 ### Optional (per software package)
@@ -258,17 +258,14 @@ simflow/
 
 ## Troubleshooting
 
-### ImportError: No module named 'lib'
+### ImportError for SimFlow runtime modules
 
-SimFlow's `runtime/lib/` is not on the Python path by default. Either:
+Install from the repository root or add the source checkout to `PYTHONPATH`:
 
 ```bash
-# Option 1: Install in editable mode
 pip install -e .
 
-# Option 2: Add to path in your script
-import sys
-sys.path.insert(0, "runtime")
+PYTHONPATH=/path/to/simflow python your_script.py
 ```
 
 ### SSH connection failed

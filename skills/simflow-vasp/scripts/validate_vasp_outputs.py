@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-# Set up runtime/lib as a package so relative imports in parsers work
+# Add the repository root so canonical runtime imports resolve.
 _simflow_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_simflow_root))
 

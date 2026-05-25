@@ -4,7 +4,7 @@
 Reads templates from templates/vasp/ and applies parameters to produce
 ready-to-use input files for VASP calculations.
 
-NBANDS policy is applied via runtime/lib/vasp_incar.py:
+NBANDS policy is applied via runtime.simflow_helpers.engines.vasp_incar:
 - Ordinary calc types (relax, scf, bands, etc.): NBANDS removed
 - Special calc types (optics, gw, etc.): NBANDS auto-calculated
 - User-explicit NBANDS: validated and preserved

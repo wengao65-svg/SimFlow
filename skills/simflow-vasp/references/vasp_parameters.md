@@ -109,7 +109,7 @@ occupied_bands = ceil((NELECT + |MAGMOM|) / 2)
 
 ### Implementation
 
-Core logic: `runtime/lib/vasp_incar.py`
+Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
 - `choose_nbands()` — returns `None` (don't write) or `int` (write this value)
 - `apply_nbands_policy()` — modifies INCAR dict in-place
 - `get_explicit_user_nbands()` — distinguishes user value from template residual

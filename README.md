@@ -29,9 +29,6 @@ Codex / OMX Host
 - **Domain Helpers**: optional VASP, CP2K, QE, LAMMPS, Gaussian, parser, plotting, and structure helpers
 - **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
 - **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
-- **Legacy Compatibility**: old DFT/AIMD/MD workflow files and compatibility
-  skill names remain as recipe/helper adapters, not as the canonical workflow
-  contract
 
 ## Workflow Layer Contract
 
@@ -169,9 +166,7 @@ simflow/
 │   └── shared/                # Retry, cache, credentials, transport
 ├── runtime/                   # Core runtime and optional helpers
 │   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade
-│   ├── simflow_helpers/       # Optional helper implementations
-│   ├── lib/                   # Compatibility import surface
-│   └── scripts/               # Legacy CLI wrappers during migration
+│   └── simflow_helpers/       # Optional helper implementations
 ├── templates/                 # Optional helper templates
 ├── schemas/                   # JSON schemas for validation
 ├── tests/                     # Unit, MCP, E2E tests
@@ -202,16 +197,9 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 - [Skill Design](docs/skill-design.md)
 - [MCP Design](docs/mcp-design.md)
 - [HPC Integration](docs/hpc-integration.md)
-- [Migration Plan](docs/migration.md)
 - [Custom Skills](docs/custom-skills.md)
 - [Credentials Policy](docs/credentials-policy.md)
 - [Docs Index](docs/README.md)
-
-## Examples
-
-- [DFT Legacy Recipe Example](docs/examples/dft_workflow.md)
-- [AIMD Legacy Recipe Example](docs/examples/aimd_workflow.md)
-- [Classical MD Legacy Recipe Example](docs/examples/md_workflow.md)
 
 ## License
 

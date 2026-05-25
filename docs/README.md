@@ -27,19 +27,7 @@ agent.
 - [State And Checkpoint](state-and-checkpoint.md): `.simflow/` state and
   recovery.
 
-## Compatibility And Migration
+## Development References
 
-- [Migration Plan](migration.md): legacy workflow/state migration.
-- [Target Repo Structure](target-repo-structure.md): current source layout and
-  legacy surface notes.
+- [Target Repo Structure](target-repo-structure.md): current source layout.
 - [Software Skills](software-skills.md): optional engine helper guidance.
-
-## Legacy Recipe Examples
-
-These examples are retained as recipe/helper documentation. They are not
-mandatory executor DAGs and do not imply old `simflow-dft`, `simflow-aimd`, or
-`simflow-md` CLIs.
-
-- [DFT Legacy Recipe Example](examples/dft_workflow.md)
-- [AIMD Legacy Recipe Example](examples/aimd_workflow.md)
-- [Classical MD Legacy Recipe Example](examples/md_workflow.md)

@@ -27,8 +27,8 @@ modeling choices, simulation software, analysis code, and writing format.
    hash checks before real local, remote, or HPC submit.
 4. **Optional helpers**: domain assistants for VASP, CP2K, QE, LAMMPS,
    Gaussian, parsers, templates, and analysis utilities.
-5. **Migration compatibility**: legacy DFT/AIMD/MD workflow files are loadable
-   as recipes and old project state can be inspected or migrated.
+5. **Skill and MCP integration**: canonical skills and MCP recording tools
+   expose the workflow layer to host agents without a central executor.
 
 ## Feature Matrix
 
@@ -40,7 +40,7 @@ modeling choices, simulation software, analysis code, and writing format.
 | Computation | Dry-run-first setup, validation, hash evidence, gated submit |
 | Analysis/visualization | Built-in or self-written helpers, all recorded with lineage |
 | Writing | Claim-to-evidence traceability; no fixed document structure |
-| DFT/AIMD/MD | Reference recipes/tags and legacy adapters |
+| DFT/AIMD/MD | Reference recipes/tags |
 | Engine helpers | Optional domain assistants, not workflow executors |
 
 ## Success Criteria
@@ -52,5 +52,5 @@ modeling choices, simulation software, analysis code, and writing format.
   evidence, credential scan, and matching hashes.
 - Unknown engine tasks return uncertainty and missing information instead of
   being forced into a default task.
-- Legacy DFT/AIMD/MD projects remain readable through recipe and migration
-  compatibility paths.
+- Current projects use canonical stages and open recipe/tag metadata instead of
+  fixed DFT/AIMD/MD workflow types.

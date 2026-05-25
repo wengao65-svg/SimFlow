@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Manage workflow checkpoints.
 
-Provides create, list, and restore operations for workflow checkpoints.
-Wraps runtime/lib/checkpoint.py with a CLI interface.
+Provides create, list, and restore operations for workflow checkpoints through
+the canonical runtime.simflow_core checkpoint API.
 """
 
 import argparse

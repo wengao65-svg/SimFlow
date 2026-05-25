@@ -53,10 +53,9 @@ Each artifact records its provenance:
 }
 ```
 
-Legacy artifact records may contain stage names such as `input_generation`,
-`compute`, `analysis`, or `visualization`. Migration maps those to
-`computation` or `analysis_visualization` while preserving the original legacy
-stage in metadata where needed.
+Artifact records should use canonical stage names. Helper activity details such
+as input generation or figure rendering belong in artifact metadata, not as
+top-level stage names.
 
 ## Versioning
 
