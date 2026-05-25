@@ -3,6 +3,7 @@
 
 import sys
 import tempfile
+import json
 from pathlib import Path
 
 import pytest
@@ -63,6 +64,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         writing_artifacts = list_artifacts(stage="writing", project_root=tmpdir)
         methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+        claim_map_path = project_root / ".simflow" / "reports" / "writing" / "claim_map.json"
         reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
         reproducibility_manifest_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json"
         final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
@@ -80,6 +82,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert {artifact["name"] for artifact in result["artifacts"]} == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "final_handoff.md",
             "final_handoff.json",
@@ -87,13 +90,14 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert {artifact["name"] for artifact in writing_artifacts} == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
             "verification_report.json",
         }
-        assert len(result["artifacts"]) == 5
+        assert len(result["artifacts"]) == 6
         assert {
             artifact["name"]
             for artifact in writing_artifacts
@@ -101,12 +105,14 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         } == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "final_handoff.md",
             "final_handoff.json",
         }
         assert methods_path.is_file()
         assert results_path.is_file()
+        assert claim_map_path.is_file()
         assert reproducibility_package_path.is_file()
         assert reproducibility_manifest_path.is_file()
         assert final_handoff_markdown_path.is_file()
@@ -115,6 +121,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
 
         methods_text = methods_path.read_text(encoding="utf-8")
         results_text = results_path.read_text(encoding="utf-8")
+        claim_map = json.loads(claim_map_path.read_text(encoding="utf-8"))
 
         assert "## Research Goal" in methods_text
         assert "## System and Material" in methods_text
@@ -128,4 +135,6 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert "## Visualization Summary" in results_text
         assert "Status: waiting_for_outputs" in results_text
         assert "degraded or waiting" in results_text
+        assert len(claim_map["claims"]) == 5
+        assert any(claim["status"] == "waiting_for_outputs" for claim in claim_map["claims"])
         assert "## Traceability / Source Artifact IDs" in results_text

@@ -71,7 +71,8 @@ def test_backbone_workflow_e2e():
         assert len(checkpoints) == 1
         assert checkpoints[0]["checkpoint_id"] == pipeline["checkpoint_id"]
         assert checkpoints[0]["stage_id"] == "proposal"
-        assert artifact_names == [
+        assert {
+            "search_log.json",
             "literature_matrix.json",
             "literature_matrix.csv",
             "review_summary.md",
@@ -79,7 +80,9 @@ def test_backbone_workflow_e2e():
             "proposal.md",
             "parameter_table.csv",
             "research_questions.json",
-        ]
+            "proposal_contract.json",
+        }.issubset(set(artifact_names))
+        assert any(artifact["type"] == "paper_notes" for artifact in artifacts)
 
         handoff = generate_handoff(str(simflow_dir))
         summary = handoff["handoff"]
@@ -90,6 +93,11 @@ def test_backbone_workflow_e2e():
         assert summary["latest_checkpoint"]["checkpoint_id"] == pipeline["checkpoint_id"]
         assert summary["latest_checkpoint"]["stage_id"] == "proposal"
         assert summary["plan_reference"] == "plans/workflow_plan.json"
-        assert summary["artifacts_count"] == 7
+        assert summary["artifacts_count"] == len(artifacts)
         assert sorted(summary["artifacts_by_stage"].keys()) == ["literature_review", "proposal"]
-        assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv", "research_questions.json"]
+        assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == [
+            "proposal.md",
+            "parameter_table.csv",
+            "research_questions.json",
+            "proposal_contract.json",
+        ]
