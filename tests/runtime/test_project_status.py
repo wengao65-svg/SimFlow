@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Tests for read-only SimFlow project status summaries."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
+
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.state import init_workflow, update_stage
+from runtime.simflow_core.status import (
+    build_evidence_graph,
+    build_handoff_summary,
+    build_project_status,
+)
+
+
+def _write(root: Path, relative_path: str, content: str = "content\n") -> None:
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def test_project_status_reports_progress_risks_and_next_action(tmp_path):
+    workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
+    update_stage("literature_review", "completed", project_root=str(tmp_path))
+    update_stage("proposal", "in_progress", project_root=str(tmp_path))
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"],
+        "literature_review",
+        "Literature review complete",
+        project_root=str(tmp_path),
+    )
+
+    _write(tmp_path, "literature/review.md")
+    literature = register_artifact(
+        "review.md",
+        "review_summary",
+        "literature_review",
+        path="literature/review.md",
+        project_root=str(tmp_path),
+    )
+    _write(tmp_path, "proposal/plan.md")
+    register_artifact(
+        "plan.md",
+        "proposal_plan",
+        "proposal",
+        path="proposal/plan.md",
+        parent_artifacts=[literature["artifact_id"]],
+        project_root=str(tmp_path),
+    )
+    register_artifact(
+        "missing.csv",
+        "analysis_table",
+        "analysis_visualization",
+        path="analysis/missing.csv",
+        project_root=str(tmp_path),
+    )
+    register_artifact(
+        "orphan.md",
+        "derived_note",
+        "writing",
+        path=None,
+        parent_artifacts=["art_missing_parent"],
+        project_root=str(tmp_path),
+    )
+    decision = record_gate_decision(
+        "hpc_submit",
+        "approved",
+        {"source": "test"},
+        agent="tester",
+        project_root=str(tmp_path),
+    )
+
+    status = build_project_status(str(tmp_path))
+
+    assert status["workflow"]["workflow_id"] == workflow["workflow_id"]
+    assert status["progress"]["completed_stages"] == ["literature_review"]
+    assert status["progress"]["progress_pct"] == 16.7
+    assert status["next_actions"] == [
+        {"action": "continue_stage", "stage": "proposal", "reason": "stage_in_progress"}
+    ]
+    assert status["artifacts"]["total"] == 4
+    assert status["artifacts"]["by_stage"]["proposal"] == 1
+    assert status["checkpoints"]["latest"]["checkpoint_id"] == checkpoint["checkpoint_id"]
+    assert status["gates"]["latest_decisions"]["hpc_submit"]["latest_decision_id"] == decision["decision_id"]
+
+    risk_codes = {risk["code"] for risk in status["risks"]}
+    assert "missing_artifact_paths" in risk_codes
+    assert "missing_lineage_parents" in risk_codes
+
+
+def test_evidence_graph_filters_stage_and_artifact(tmp_path):
+    init_workflow("custom", "literature_review", project_root=str(tmp_path))
+    _write(tmp_path, "literature/review.md")
+    parent = register_artifact(
+        "review.md",
+        "review_summary",
+        "literature_review",
+        path="literature/review.md",
+        project_root=str(tmp_path),
+    )
+    _write(tmp_path, "proposal/plan.md")
+    child = register_artifact(
+        "plan.md",
+        "proposal_plan",
+        "proposal",
+        path="proposal/plan.md",
+        parent_artifacts=[parent["artifact_id"]],
+        project_root=str(tmp_path),
+    )
+
+    proposal_graph = build_evidence_graph(str(tmp_path), stage="proposal")
+    assert [node["artifact_id"] for node in proposal_graph["nodes"]] == [child["artifact_id"]]
+    assert proposal_graph["links"] == []
+
+    artifact_graph = build_evidence_graph(str(tmp_path), artifact_id=child["artifact_id"])
+    node_ids = {node["artifact_id"] for node in artifact_graph["nodes"]}
+    assert node_ids == {parent["artifact_id"], child["artifact_id"]}
+    assert artifact_graph["links"] == [
+        {
+            "child_artifact_id": child["artifact_id"],
+            "parent_artifact_id": parent["artifact_id"],
+            "relationship": "derived_from",
+            "stage": "proposal",
+        }
+    ]
+
+
+def test_handoff_summary_is_compact_and_read_only(tmp_path):
+    workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
+    update_stage("literature_review", "completed", project_root=str(tmp_path))
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"],
+        "literature_review",
+        "Literature review complete",
+        project_root=str(tmp_path),
+    )
+
+    summary = build_handoff_summary(str(tmp_path))
+
+    assert summary["workflow"]["workflow_id"] == workflow["workflow_id"]
+    assert summary["completed_stages"] == ["literature_review"]
+    assert summary["latest_checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
+    assert "artifact_summary" in summary
+    assert not (tmp_path / ".simflow" / "reports" / "handoff").exists()
+
+
+def test_project_status_without_workflow_state_reports_risk(tmp_path):
+    status = build_project_status(str(tmp_path))
+
+    assert status["workflow"]["status"] == "missing"
+    risk_codes = {risk["code"] for risk in status["risks"]}
+    assert {"missing_workflow_state", "missing_checkpoint"}.issubset(risk_codes)
+    assert status["next_actions"][0]["action"] == "start_stage"
