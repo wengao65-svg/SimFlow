@@ -26,7 +26,9 @@ def generate_cp2k_inputs(
     """Generate a CP2K input deck and normalized coordinate file."""
     task_norm = normalize_calc_type(task)
     params = dict(params or {})
-    root, state = ensure_cp2k_project(project_root, "input_generation")
+    stage = "computation"
+    activity = "input_generation"
+    root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -113,13 +115,13 @@ def generate_cp2k_inputs(
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
     artifacts = [
-        register_report(root, "input_generation", task_norm, "generation_report", files["generation_report"]),
-        register_report(root, "input_generation", task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff"),
+        register_report(root, stage, task_norm, "generation_report", files["generation_report"], activity=activity),
+        register_report(root, stage, task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
     ]
     checkpoint = finalize_stage(
         root,
         state,
-        "input_generation",
+        stage,
         task_norm,
         files,
         "success",

@@ -18,7 +18,9 @@ from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | None = None) -> dict:
     """Parse CP2K outputs from a calculation directory and write analysis reports."""
-    root, state = ensure_cp2k_project(project_root, "analysis")
+    stage = "analysis_visualization"
+    activity = "analysis"
+    root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
     parser = CP2KParser()
     analysis = parser.parse_outputs(str(work_dir), project=project)
@@ -36,13 +38,13 @@ def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | No
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
     artifacts = [
-        register_report(root, "analysis", "parse", "analysis_report", files["analysis_report"]),
-        register_report(root, "analysis", "parse", "handoff_artifact", files["handoff_artifact"], artifact_type="handoff"),
+        register_report(root, stage, "parse", "analysis_report", files["analysis_report"], activity=activity),
+        register_report(root, stage, "parse", "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
     ]
     checkpoint = finalize_stage(
         root,
         state,
-        "analysis",
+        stage,
         "parse",
         files,
         "success" if analysis["status"] == "parsed" else "failed",

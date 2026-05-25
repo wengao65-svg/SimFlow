@@ -9,11 +9,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "simflow-cp2k" / "scripts" / "orchestrate_cp2k_task.py"
+GENERATE_SCRIPT = ROOT / "skills" / "simflow-cp2k" / "scripts" / "generate_cp2k_inputs.py"
+VALIDATE_SCRIPT = ROOT / "skills" / "simflow-cp2k" / "scripts" / "validate_cp2k_inputs.py"
+PARSE_SCRIPT = ROOT / "skills" / "simflow-cp2k" / "scripts" / "parse_cp2k_outputs.py"
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
 
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("orchestrate_cp2k_task", str(SCRIPT))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_script_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, str(path))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -184,3 +194,58 @@ def test_orchestrator_parses_outputs_when_present(monkeypatch):
         assert result["status"] == "success"
         assert analysis["status"] == "parsed"
         assert analysis["summary"]["final_energy"] == -17.05
+
+
+def test_cp2k_generation_wrapper_records_computation_stage():
+    module = _load_script_module("cp2k_generate_wrapper", GENERATE_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "structure.xyz").write_text(
+            "3\nwater\nO 0 0 0\nH 0.7 0.5 0\nH -0.7 0.5 0\n",
+            encoding="utf-8",
+        )
+
+        result = module.generate_cp2k_inputs(str(root / "structure.xyz"), "energy", str(root))
+        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+        cp2k_state = json.loads((root / ".simflow/state/cp2k.json").read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert {artifact["stage"] for artifact in artifacts} == {"computation"}
+        assert {artifact["lineage"]["parameters"]["activity"] for artifact in artifacts} == {"input_generation"}
+        assert cp2k_state["latest_stage"] == "computation"
+
+
+def test_cp2k_validation_wrapper_records_computation_stage():
+    generate = _load_script_module("cp2k_generate_wrapper_for_validation", GENERATE_SCRIPT)
+    validate = _load_script_module("cp2k_validate_wrapper", VALIDATE_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "structure.xyz").write_text(
+            "3\nwater\nO 0 0 0\nH 0.7 0.5 0\nH -0.7 0.5 0\n",
+            encoding="utf-8",
+        )
+        generate.generate_cp2k_inputs(str(root / "structure.xyz"), "energy", str(root))
+
+        result = validate.run_validation("energy", str(root), input_path="energy.inp")
+        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+        validation_artifacts = [artifact for artifact in artifacts if artifact["name"] == "validation_report"]
+
+        assert result["status"] == "success"
+        assert validation_artifacts
+        assert {artifact["stage"] for artifact in validation_artifacts} == {"computation"}
+        assert {artifact["lineage"]["parameters"]["activity"] for artifact in validation_artifacts} == {"input_validation"}
+
+
+def test_cp2k_parse_wrapper_records_analysis_visualization_stage():
+    module = _load_script_module("cp2k_parse_wrapper", PARSE_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+
+        result = module.parse_cp2k_outputs(str(root))
+        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+        cp2k_state = json.loads((root / ".simflow/state/cp2k.json").read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert {artifact["stage"] for artifact in artifacts} == {"analysis_visualization"}
+        assert {artifact["lineage"]["parameters"]["activity"] for artifact in artifacts} == {"analysis"}
+        assert cp2k_state["latest_stage"] == "analysis_visualization"

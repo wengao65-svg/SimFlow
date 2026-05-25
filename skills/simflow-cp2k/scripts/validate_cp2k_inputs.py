@@ -24,7 +24,9 @@ def run_validation(
 ) -> dict:
     """Validate a CP2K input deck and write the SimFlow report output."""
     task_norm = normalize_cp2k_task(task)
-    root, state = ensure_cp2k_project(project_root, "input_generation")
+    stage = "computation"
+    activity = "input_validation"
+    root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
 
     if input_path and not input_path.startswith("/"):
@@ -45,13 +47,13 @@ def run_validation(
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
     artifacts = [
-        register_report(root, "input_generation", task_norm, "validation_report", files["validation_report"]),
-        register_report(root, "input_generation", task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff"),
+        register_report(root, stage, task_norm, "validation_report", files["validation_report"], activity=activity),
+        register_report(root, stage, task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
     ]
     checkpoint = finalize_stage(
         root,
         state,
-        "input_generation",
+        stage,
         task_norm,
         files,
         "success" if report["status"] in {"pass", "skip"} else "failed",

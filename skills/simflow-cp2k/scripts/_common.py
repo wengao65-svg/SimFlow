@@ -33,15 +33,26 @@ def write_json_verified(root: Path, relative_path: str, data: dict[str, Any]) ->
     return relative_path
 
 
-def register_report(root: Path, stage: str, task: str, name: str, relative_path: str, artifact_type: str = "report") -> dict[str, Any]:
+def register_report(
+    root: Path,
+    stage: str,
+    task: str,
+    name: str,
+    relative_path: str,
+    artifact_type: str = "report",
+    activity: str | None = None,
+) -> dict[str, Any]:
     """Register a report-like artifact for the CP2K skill."""
+    parameters = {"task": task}
+    if activity:
+        parameters["activity"] = activity
     return register_artifact(
         name=name,
         artifact_type=artifact_type,
         stage=stage,
         path=relative_path,
         project_root=str(root),
-        parameters={"task": task},
+        parameters=parameters,
         software="cp2k",
     )
 
