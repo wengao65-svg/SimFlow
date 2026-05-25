@@ -3,12 +3,11 @@
   "version": "0.8.11",
   "description": "Codex-native computational simulation domain workflow layer",
   "author": {
-    "name": "SimFlow Maintainers",
-    "email": "maintainers@example.com",
-    "url": "https://github.com/simflow"
+    "name": "wengao65-svg",
+    "url": "https://github.com/wengao65-svg"
   },
-  "homepage": "https://github.com/simflow/simflow",
-  "repository": "https://github.com/simflow/simflow",
+  "homepage": "https://github.com/wengao65-svg/SimFlow",
+  "repository": "https://github.com/wengao65-svg/SimFlow",
   "license": "MIT",
   "keywords": [
     "simulation",
@@ -24,7 +23,7 @@
     "displayName": "SimFlow",
     "shortDescription": "Computational simulation workflow layer for Codex.",
     "longDescription": "SimFlow provides Codex skills and MCP tools for computational simulation research workflows with open recipe/tag guidance, state, artifact lineage, checkpoints, safety gates, handoff discipline, and optional domain helpers.",
-    "developerName": "SimFlow Maintainers",
+    "developerName": "wengao65-svg",
     "category": "Productivity",
     "capabilities": [
       "Interactive",

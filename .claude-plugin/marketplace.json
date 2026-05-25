@@ -2,8 +2,7 @@
   "name": "simflow-claude-dev",
   "description": "Development marketplace for the SimFlow Claude Code adapter.",
   "owner": {
-    "name": "SimFlow Maintainers",
-    "email": "maintainers@example.com"
+    "name": "wengao65-svg"
   },
   "plugins": [
     {
@@ -11,8 +10,7 @@
       "source": "./",
       "description": "Claude Code computational simulation workflow layer with recipe/tag guidance and approval-aware evidence tracking.",
       "author": {
-        "name": "SimFlow Maintainers",
-        "email": "maintainers@example.com"
+        "name": "wengao65-svg"
       },
       "strict": true
     }

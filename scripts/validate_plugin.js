@@ -111,6 +111,11 @@ const LEGACY_MANIFEST_FIELDS = [
   'state_directory',
   'type',
 ];
+const FORBIDDEN_PUBLIC_METADATA_VALUES = [
+  ['maintainers', 'example.com'].join('@'),
+  ['https://github.com', 'simflow'].join('/'),
+  ['https://github.com', 'simflow', 'simflow'].join('/'),
+];
 
 let errors = 0;
 let warnings = 0;
@@ -131,6 +136,10 @@ function check(label, condition, isWarning = false) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function containsForbiddenPublicMetadata(value) {
+  return FORBIDDEN_PUBLIC_METADATA_VALUES.some(forbidden => JSON.stringify(value).includes(forbidden));
 }
 
 function existsWithinRoot(relativePath) {
@@ -447,6 +456,7 @@ try {
   check('plugin.json has skills path', typeof plugin.skills === 'string' && plugin.skills.startsWith('./'));
   check('plugin.json has MCP path', typeof plugin.mcpServers === 'string' && plugin.mcpServers.startsWith('./'));
   check('plugin.json has author metadata', isPlainObject(plugin.author) && typeof plugin.author.name === 'string' && plugin.author.name.length > 0);
+  check('plugin.json does not use placeholder public metadata', !containsForbiddenPublicMetadata(plugin));
   check('plugin.json has license', typeof plugin.license === 'string' && plugin.license.length > 0);
   check('plugin.json has keywords', Array.isArray(plugin.keywords) && plugin.keywords.length > 0);
   check('plugin.json has interface block', isPlainObject(plugin.interface));

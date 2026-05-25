@@ -107,6 +107,11 @@ const FORBIDDEN_SOURCE_PATHS = [
   'skills/simflow-team',
 ];
 const RESTRICTED_VASP_ARTIFACT_NAMES = new Set(['POTCAR', 'WAVECAR', 'CHGCAR', 'OUTCAR', 'vasprun.xml']);
+const FORBIDDEN_PUBLIC_METADATA_VALUES = [
+  ['maintainers', 'example.com'].join('@'),
+  ['https://github.com', 'simflow'].join('/'),
+  ['https://github.com', 'simflow', 'simflow'].join('/'),
+];
 
 let errors = 0;
 let warnings = 0;
@@ -127,6 +132,10 @@ function check(label, condition, isWarning = false) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function containsForbiddenPublicMetadata(value) {
+  return FORBIDDEN_PUBLIC_METADATA_VALUES.some(forbidden => JSON.stringify(value).includes(forbidden));
 }
 
 function isPlainObject(value) {
@@ -302,6 +311,7 @@ function validateClaudeManifest(label, pluginPath) {
     check(`${label} plugin.json has version`, typeof plugin.version === 'string' && plugin.version.length > 0);
     check(`${label} plugin.json has description`, typeof plugin.description === 'string' && plugin.description.length > 0);
     check(`${label} plugin.json has author metadata`, isPlainObject(plugin.author) && typeof plugin.author.name === 'string' && plugin.author.name.length > 0);
+    check(`${label} plugin.json does not use placeholder public metadata`, !containsForbiddenPublicMetadata(plugin));
     check(`${label} plugin.json has license`, typeof plugin.license === 'string' && plugin.license.length > 0);
     check(`${label} plugin.json has keywords`, Array.isArray(plugin.keywords) && plugin.keywords.length > 0);
     check(`${label} plugin.json points to Claude MCP config`, plugin.mcpServers === './.claude.mcp.json');
@@ -318,6 +328,7 @@ function validateMarketplace(marketplacePath, marketplaceRoot, expectedSource, e
     console.log(`  ${label} root: ${marketplaceRoot}`);
     check(`${label} has name`, typeof marketplace.name === 'string' && marketplace.name.length > 0);
     check(`${label} has owner name`, typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0);
+    check(`${label} does not use placeholder public metadata`, !containsForbiddenPublicMetadata(marketplace));
     check(`${label} has plugins array`, Array.isArray(marketplace.plugins) && marketplace.plugins.length > 0);
     const simflow = Array.isArray(marketplace.plugins)
       ? marketplace.plugins.find(pluginEntry => pluginEntry.name === 'simflow')

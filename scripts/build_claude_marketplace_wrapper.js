@@ -228,8 +228,7 @@ function build() {
     name: MARKETPLACE_NAME,
     description: 'Claude Code marketplace wrapper for SimFlow.',
     owner: {
-      name: 'SimFlow Maintainers',
-      email: 'maintainers@example.com',
+      name: 'wengao65-svg',
     },
     plugins: [
       {
@@ -237,8 +236,7 @@ function build() {
         source: './plugins/simflow',
         description: 'Claude Code computational simulation workflow layer with recipe/tag guidance and approval-aware evidence tracking.',
         author: {
-          name: 'SimFlow Maintainers',
-          email: 'maintainers@example.com',
+          name: 'wengao65-svg',
         },
         strict: true,
       },

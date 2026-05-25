@@ -3,12 +3,11 @@
   "version": "0.8.11",
   "description": "Claude Code computational simulation workflow layer with recipe/tag guidance and approval-aware evidence tracking.",
   "author": {
-    "name": "SimFlow Maintainers",
-    "email": "maintainers@example.com",
-    "url": "https://github.com/simflow"
+    "name": "wengao65-svg",
+    "url": "https://github.com/wengao65-svg"
   },
-  "homepage": "https://github.com/simflow/simflow",
-  "repository": "https://github.com/simflow/simflow",
+  "homepage": "https://github.com/wengao65-svg/SimFlow",
+  "repository": "https://github.com/wengao65-svg/SimFlow",
   "license": "MIT",
   "keywords": [
     "simulation",
