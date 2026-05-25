@@ -124,3 +124,61 @@ def test_project_status_cockpit_tracks_progress_evidence_and_handoff(tmp_path):
         model["artifact_id"],
         dry_run["artifact_id"],
     }
+
+
+def test_readiness_cockpit_reports_stage_gaps_and_ready_transition(tmp_path):
+    workflow = init_workflow("custom", "proposal", project_root=str(tmp_path))
+    update_stage("proposal", "completed", project_root=str(tmp_path))
+    server = _load_state_server()
+
+    for evidence_key in [
+        "proposal",
+        "calculation_plan",
+        "parameter_rationale",
+        "resource_estimate",
+        "risk_register",
+    ]:
+        _write(tmp_path, f"proposal/{evidence_key}.json", "{}\n")
+        register_artifact(
+            f"{evidence_key}.json",
+            "proposal_evidence",
+            "proposal",
+            path=f"proposal/{evidence_key}.json",
+            metadata={"evidence_key": evidence_key},
+            project_root=str(tmp_path),
+        )
+
+    blocked = server.handle_request({
+        "tool": "stage_readiness",
+        "params": {"project_root": str(tmp_path), "stage": "proposal"},
+    })
+    assert blocked["status"] == "success"
+    assert blocked["data"]["readiness_status"] == "blocked"
+    assert {blocker["code"] for blocker in blocked["data"]["blockers"]} == {"missing_checkpoint"}
+
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"],
+        "proposal",
+        "Proposal evidence ready for handoff",
+        project_root=str(tmp_path),
+    )
+    ready = server.handle_request({
+        "tool": "stage_readiness",
+        "params": {"project_root": str(tmp_path), "stage": "proposal"},
+    })
+    project = server.handle_request({
+        "tool": "project_readiness",
+        "params": {"project_root": str(tmp_path)},
+    })
+
+    assert ready["status"] == "success"
+    assert ready["data"]["readiness_status"] == "ready"
+    assert ready["data"]["checkpoint"]["present"] is True
+    assert checkpoint["checkpoint_id"].startswith("ckpt_")
+    assert project["status"] == "success"
+    assert project["data"]["readiness_status"] == "incomplete"
+    proposal = next(stage for stage in project["data"]["stages"] if stage["stage"] == "proposal")
+    modeling = next(stage for stage in project["data"]["stages"] if stage["stage"] == "modeling")
+    assert proposal["readiness_status"] == "ready"
+    assert modeling["readiness_status"] == "incomplete"
+    assert not (tmp_path / ".simflow" / "reports" / "verify" / "verification_report.json").exists()
