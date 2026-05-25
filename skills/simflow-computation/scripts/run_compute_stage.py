@@ -15,7 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.simflow_core.artifacts import get_artifact, register_artifact
+from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
@@ -51,6 +51,8 @@ def _stage_output_artifacts(project_root: Path, stage_name: str) -> list[dict[st
         artifact = get_artifact(artifact_id, project_root=str(project_root))
         if artifact:
             artifacts.append(artifact)
+    if not artifacts:
+        artifacts = list_artifacts(stage=stage_name, project_root=str(project_root))
     return artifacts
 
 
@@ -93,7 +95,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
 
     params = params or {}
     contract = load_proposal_contract(str(project_root / ".simflow"))
-    input_artifacts = _stage_output_artifacts(project_root, "input_generation")
+    input_artifacts = _stage_output_artifacts(project_root, "computation")
     if not input_artifacts:
         return {"status": "error", "message": "Input generation stage has no registered outputs"}
 
@@ -220,7 +222,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     compute_plan_artifact = register_artifact(
         "compute_plan.json",
         "compute_plan",
-        "compute",
+        "computation",
         project_root=str(project_root),
         path=_relative_path(project_root, compute_plan_path),
         parent_artifacts=parent_artifact_ids,
@@ -230,7 +232,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     job_script_artifact = register_artifact(
         staged_script_path.name,
         "job_script",
-        "compute",
+        "computation",
         project_root=str(project_root),
         path=_relative_path(project_root, staged_script_path),
         parent_artifacts=[compute_plan_artifact["artifact_id"]],
@@ -240,7 +242,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     dry_run_artifact = register_artifact(
         "dry_run_report.json",
         "dry_run_report",
-        "compute",
+        "computation",
         project_root=str(project_root),
         path=_relative_path(project_root, dry_run_report_path),
         parent_artifacts=[compute_plan_artifact["artifact_id"]],

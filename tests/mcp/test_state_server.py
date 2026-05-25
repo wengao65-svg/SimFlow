@@ -101,7 +101,7 @@ def test_state_transition():
     from runtime.simflow_core.state import init_workflow, update_stage, read_state
     with tempfile.TemporaryDirectory() as tmpdir:
         init_workflow("dft", "literature", tmpdir)
-        update_stage("literature", "in_progress", tmpdir)
+        update_stage("literature_review", "in_progress", tmpdir)
         state = read_state(tmpdir)
         assert state is not None
 

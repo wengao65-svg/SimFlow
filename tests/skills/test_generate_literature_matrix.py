@@ -44,7 +44,7 @@ def test_generate_literature_matrix_writes_json_csv_and_registry_entries():
         result = generate_literature_matrix(str(project_root / ".simflow"))
         json_path = project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.json"
         csv_path = project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.csv"
-        artifacts = list_artifacts(project_root=tmpdir, stage="literature")
+        artifacts = list_artifacts(project_root=tmpdir, stage="literature_review")
         matrix = json.loads(json_path.read_text(encoding="utf-8"))
 
         assert result["status"] == "success"

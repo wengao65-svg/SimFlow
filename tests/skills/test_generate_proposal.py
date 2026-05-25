@@ -55,7 +55,7 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         research_questions_path = project_root / ".simflow" / "plans" / "research_questions.json"
         proposal_content = proposal_path.read_text(encoding="utf-8")
         proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
-        review_artifacts = list_artifacts(stage="review", project_root=tmpdir)
+        review_artifacts = list_artifacts(stage="literature_review", project_root=tmpdir)
         research_questions = json.loads(research_questions_path.read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
@@ -70,7 +70,12 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         assert len(proposal_artifacts) == 3
         assert proposal_artifacts[0]["name"] == "proposal.md"
         assert proposal_artifacts[0]["path"] == ".simflow/plans/proposal.md"
-        assert proposal_artifacts[0]["lineage"]["parent_artifacts"] == [artifact["artifact_id"] for artifact in review_artifacts]
+        expected_review_inputs = [
+            artifact["artifact_id"]
+            for artifact in review_artifacts
+            if artifact["name"] in {"review_summary.md", "gap_analysis.md"}
+        ]
+        assert proposal_artifacts[0]["lineage"]["parent_artifacts"] == expected_review_inputs
         assert proposal_artifacts[1]["name"] == "parameter_table.csv"
         assert proposal_artifacts[1]["path"] == ".simflow/plans/parameter_table.csv"
         assert proposal_artifacts[1]["lineage"]["parent_artifacts"] == [proposal_artifacts[0]["artifact_id"]]

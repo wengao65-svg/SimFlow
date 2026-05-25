@@ -222,7 +222,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
     manifest_artifact = register_artifact(
         "input_manifest.json",
         "input_manifest",
-        "input_generation",
+        "computation",
         project_root=str(project_root),
         path=_relative_path(project_root, manifest_path),
         parent_artifacts=parent_artifact_ids,
@@ -234,7 +234,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         file_artifacts.append(register_artifact(
             Path(rel_path).name,
             "input_files",
-            "input_generation",
+            "computation",
             project_root=str(project_root),
             path=rel_path,
             parent_artifacts=[manifest_artifact["artifact_id"]],

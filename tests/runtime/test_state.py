@@ -119,7 +119,7 @@ class TestState:
 
     def test_update_stage(self):
         init_workflow("dft", "literature", self.base_dir)
-        stage = update_stage("literature", "completed", self.base_dir)
+        stage = update_stage("literature_review", "completed", self.base_dir)
         assert stage["status"] == "completed"
         assert stage["completed_at"] is not None
 

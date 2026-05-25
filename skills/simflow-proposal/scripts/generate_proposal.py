@@ -31,7 +31,7 @@ def resolve_artifact_path(project_root: Path, artifact_path: str) -> Path:
 
 def load_review_artifacts(project_root: Path) -> tuple[dict[str, str], list[dict]]:
     """Load required review artifact contents from the canonical registry."""
-    artifacts = list_artifacts(stage="review", project_root=str(project_root))
+    artifacts = list_artifacts(stage="literature_review", project_root=str(project_root))
     by_name = {artifact.get("name"): artifact for artifact in artifacts if artifact.get("name") in REQUIRED_REVIEW_ARTIFACTS}
     missing = [name for name in REQUIRED_REVIEW_ARTIFACTS if name not in by_name]
     if missing:

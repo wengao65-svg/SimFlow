@@ -148,7 +148,6 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
 
     for runner_spec in runner_specs:
         activity = runner_spec["activity"]
-        update_stage(activity, "in_progress", project_root=str(project_root))
         stage_result, script_path = _execute_runner(runner_spec, project_root, params)
         success = stage_result.get("status") == "success"
         result["scripts"].append({
@@ -158,7 +157,6 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         })
         if not success:
             message = stage_result.get("message", f"Failed to execute activity: {activity}")
-            update_stage(activity, "failed", project_root=str(project_root), error_message=message)
             update_stage(stage_name, "failed", project_root=str(project_root), error_message=message)
             _update_workflow_progress(project_root, state, stage_name, stages, "failed")
             result["status"] = "error"
@@ -170,13 +168,6 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         inputs = _stage_inputs(stage_result, artifacts)
         aggregate_artifacts.extend(artifacts)
         aggregate_inputs.update(inputs)
-        update_stage(
-            activity,
-            "completed",
-            project_root=str(project_root),
-            outputs=_artifact_ids(artifacts),
-            inputs=inputs,
-        )
         if "manifest" in stage_result:
             manifests[activity] = stage_result["manifest"]
             result["manifest"] = stage_result["manifest"]

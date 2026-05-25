@@ -130,7 +130,7 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None, enrich
     json_artifact = register_artifact(
         "literature_matrix.json",
         "literature_matrix",
-        "literature",
+        "literature_review",
         project_root=str(project_root),
         path=json_registry_path,
         parameters={"row_count": len(rows)},
@@ -139,7 +139,7 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None, enrich
     csv_artifact = register_artifact(
         "literature_matrix.csv",
         "literature_matrix_csv",
-        "literature",
+        "literature_review",
         project_root=str(project_root),
         path=csv_registry_path,
         parent_artifacts=[json_artifact["artifact_id"]],

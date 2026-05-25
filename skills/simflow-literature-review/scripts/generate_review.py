@@ -30,7 +30,7 @@ def resolve_artifact_path(project_root: Path, artifact_path: str) -> Path:
 
 def load_latest_literature_matrix(project_root: Path) -> tuple[dict, dict]:
     """Load the latest registered literature matrix artifact."""
-    artifacts = list_artifacts(stage="literature", project_root=str(project_root))
+    artifacts = list_artifacts(stage="literature_review", project_root=str(project_root))
     candidates = [artifact for artifact in artifacts if artifact.get("name") == "literature_matrix.json" and artifact.get("path")]
     if not candidates:
         raise FileNotFoundError("No literature matrix artifact found")
@@ -139,7 +139,7 @@ def generate_review(workflow_dir: str, output_dir: str = None) -> dict:
     summary_artifact = register_artifact(
         "review_summary.md",
         "review_summary",
-        "review",
+        "literature_review",
         project_root=str(project_root),
         path=summary_registry_path,
         parent_artifacts=parent_artifacts,
@@ -149,7 +149,7 @@ def generate_review(workflow_dir: str, output_dir: str = None) -> dict:
     gap_artifact = register_artifact(
         "gap_analysis.md",
         "gap_analysis",
-        "review",
+        "literature_review",
         project_root=str(project_root),
         path=gap_registry_path,
         parent_artifacts=parent_artifacts,

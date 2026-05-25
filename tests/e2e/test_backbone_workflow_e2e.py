@@ -64,8 +64,8 @@ def test_backbone_workflow_e2e():
         assert pipeline["status"] == "success"
         assert [item["stage"] for item in pipeline["results"]] == ["literature_review", "proposal"]
         assert stages_state["literature_review"]["status"] == "completed"
-        assert stages_state["literature"]["status"] == "completed"
-        assert stages_state["review"]["status"] == "completed"
+        assert "literature" not in stages_state
+        assert "review" not in stages_state
         assert stages_state["proposal"]["status"] == "completed"
         assert workflow_after_pipeline["current_stage"] == "proposal"
         assert len(checkpoints) == 1
@@ -91,5 +91,5 @@ def test_backbone_workflow_e2e():
         assert summary["latest_checkpoint"]["stage_id"] == "proposal"
         assert summary["plan_reference"] == "plans/workflow_plan.json"
         assert summary["artifacts_count"] == 7
-        assert sorted(summary["artifacts_by_stage"].keys()) == ["literature", "proposal", "review"]
+        assert sorted(summary["artifacts_by_stage"].keys()) == ["literature_review", "proposal"]
         assert [artifact["name"] for artifact in summary["artifacts_by_stage"]["proposal"]] == ["proposal.md", "parameter_table.csv", "research_questions.json"]

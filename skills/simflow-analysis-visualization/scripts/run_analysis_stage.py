@@ -146,7 +146,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         return {"status": "error", "message": "No workflow state found"}
 
     contract = load_proposal_contract(str(project_root / ".simflow"))
-    compute_artifacts = _stage_output_artifacts(project_root, "compute")
+    compute_artifacts = _stage_output_artifacts(project_root, "computation")
     if not compute_artifacts:
         return {"status": "error", "message": "Compute stage has no registered outputs"}
 
@@ -203,7 +203,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     json_artifact = register_artifact(
         "analysis_report.json",
         "analysis_report",
-        "analysis",
+        "analysis_visualization",
         project_root=str(project_root),
         path=_relative_path(project_root, json_path),
         parent_artifacts=parent_artifact_ids,
@@ -213,7 +213,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     markdown_artifact = register_artifact(
         "analysis_report.md",
         "analysis_markdown",
-        "analysis",
+        "analysis_visualization",
         project_root=str(project_root),
         path=_relative_path(project_root, markdown_path),
         parent_artifacts=[json_artifact["artifact_id"]],

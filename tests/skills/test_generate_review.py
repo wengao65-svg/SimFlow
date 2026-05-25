@@ -48,8 +48,9 @@ def test_generate_review_writes_markdown_and_registry_entries():
         gap_path = project_root / ".simflow" / "reports" / "review" / "gap_analysis.md"
         summary = summary_path.read_text(encoding="utf-8")
         gap_analysis = gap_path.read_text(encoding="utf-8")
-        review_artifacts = list_artifacts(stage="review", project_root=tmpdir)
-        literature_artifacts = list_artifacts(stage="literature", project_root=tmpdir)
+        artifacts = list_artifacts(stage="literature_review", project_root=tmpdir)
+        review_artifacts = [artifact for artifact in artifacts if artifact["name"] in {"review_summary.md", "gap_analysis.md"}]
+        literature_artifact = next(artifact for artifact in artifacts if artifact["name"] == "literature_matrix.json")
 
         assert result["status"] == "success"
         assert summary_path.is_file()
@@ -63,8 +64,8 @@ def test_generate_review_writes_markdown_and_registry_entries():
         assert review_artifacts[0]["name"] == "review_summary.md"
         assert review_artifacts[0]["path"] == ".simflow/reports/review/review_summary.md"
         assert review_artifacts[1]["name"] == "gap_analysis.md"
-        assert review_artifacts[0]["lineage"]["parent_artifacts"] == [literature_artifacts[0]["artifact_id"]]
-        assert review_artifacts[1]["lineage"]["parent_artifacts"] == [literature_artifacts[0]["artifact_id"]]
+        assert review_artifacts[0]["lineage"]["parent_artifacts"] == [literature_artifact["artifact_id"]]
+        assert review_artifacts[1]["lineage"]["parent_artifacts"] == [literature_artifact["artifact_id"]]
 
 
 

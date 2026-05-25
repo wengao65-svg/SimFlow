@@ -148,7 +148,7 @@ def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifa
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
         modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
-        input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
+        input_generation_artifacts = list_artifacts(stage="computation", project_root=tmpdir)
 
         assert pipeline_result["status"] == "success"
         assert result["status"] == "completed"
@@ -158,8 +158,8 @@ def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifa
         assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
         assert stages_state["computation"]["status"] == "completed"
-        assert stages_state["input_generation"]["status"] == "completed"
-        assert set(stages_state["input_generation"]["inputs"]) == {artifact["artifact_id"] for artifact in modeling_artifacts}
+        assert "input_generation" not in stages_state
+        assert set(stages_state["computation"]["inputs"]) >= {artifact["artifact_id"] for artifact in modeling_artifacts}
         assert any(artifact["name"] == "input_manifest.json" for artifact in input_generation_artifacts)
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "INCAR").is_file()
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "KPOINTS").is_file()
@@ -194,8 +194,8 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
-        input_generation_artifacts = list_artifacts(stage="input_generation", project_root=tmpdir)
-        compute_artifacts = list_artifacts(stage="compute", project_root=tmpdir)
+        input_generation_artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        compute_artifacts = list_artifacts(stage="computation", project_root=tmpdir)
 
         assert pipeline_result["status"] == "success"
         assert result["status"] == "completed"
@@ -205,9 +205,9 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
         assert stages_state["computation"]["status"] == "completed"
-        assert stages_state["compute"]["status"] == "completed"
-        assert set(stages_state["compute"]["inputs"]) == {artifact["artifact_id"] for artifact in input_generation_artifacts}
-        assert {artifact["name"] for artifact in compute_artifacts} == {"compute_plan.json", "job_script.sh", "dry_run_report.json"}
+        assert "compute" not in stages_state
+        assert set(stages_state["computation"]["inputs"]) >= {artifact["artifact_id"] for artifact in input_generation_artifacts if artifact["name"] == "input_manifest.json"}
+        assert {"compute_plan.json", "job_script.sh", "dry_run_report.json"}.issubset({artifact["name"] for artifact in compute_artifacts})
         assert (project_root / ".simflow" / "reports" / "compute" / "compute_plan.json").is_file()
         assert (project_root / ".simflow" / "reports" / "compute" / "dry_run_report.json").is_file()
         assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
@@ -241,14 +241,13 @@ def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs()
         pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
 
         analysis_result = execute_stage(str(project_root / ".simflow"), "analysis_visualization", dry_run=False)
-        analysis_artifacts = list_artifacts(stage="analysis", project_root=tmpdir)
-        visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
+        artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+        artifact_names = {artifact["name"] for artifact in artifacts}
 
         assert pipeline_result["status"] == "success"
         assert analysis_result["status"] == "completed"
         assert analysis_result["manifest"]["status"] == "waiting_for_outputs"
-        assert {artifact["name"] for artifact in analysis_artifacts} == {"analysis_report.json", "analysis_report.md"}
-        assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
+        assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"} == artifact_names
         assert (project_root / ".simflow" / "reports" / "analysis" / "analysis_report.json").is_file()
         assert (project_root / ".simflow" / "reports" / "visualization" / "figures_manifest.json").is_file()
 
@@ -285,7 +284,8 @@ def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs
         )
 
         analysis_result = execute_stage(str(project_root / ".simflow"), "analysis_visualization", dry_run=False)
-        visualization_artifacts = list_artifacts(stage="visualization", project_root=tmpdir)
+        artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+        artifact_names = {artifact["name"] for artifact in artifacts}
 
         assert pipeline_result["status"] == "success"
         assert analysis_result["status"] == "completed"
@@ -293,10 +293,10 @@ def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs
         assert analysis_result["manifests"]["analysis"]["source_files"]
         if importlib.util.find_spec("matplotlib") is None:
             assert analysis_result["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
-            assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json"}
+            assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"} == artifact_names
         else:
             assert analysis_result["manifests"]["visualization"]["status"] == "completed"
-            assert {artifact["name"] for artifact in visualization_artifacts} == {"figures_manifest.json", "energy_convergence.png"}
+            assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json", "energy_convergence.png"} == artifact_names
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
 
 
@@ -400,16 +400,21 @@ def test_execute_stage_execute_generates_literature_artifacts():
         result = execute_stage(str(project_root / ".simflow"), "literature_review", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
-        artifacts = list_artifacts(stage="literature", project_root=tmpdir)
+        artifacts = list_artifacts(stage="literature_review", project_root=tmpdir)
 
         assert result["status"] == "completed"
         assert workflow["current_stage"] == "literature_review"
         assert workflow["status"] == "in_progress"
         assert stages_state["literature_review"]["status"] == "completed"
-        assert stages_state["literature"]["status"] == "completed"
-        assert stages_state["review"]["status"] == "completed"
-        assert len(stages_state["literature"]["outputs"]) == 2
-        assert len(artifacts) == 2
-        assert {artifact["name"] for artifact in artifacts} == {"literature_matrix.json", "literature_matrix.csv"}
+        assert "literature" not in stages_state
+        assert "review" not in stages_state
+        assert len(stages_state["literature_review"]["outputs"]) == 4
+        assert len(artifacts) == 4
+        assert {artifact["name"] for artifact in artifacts} == {
+            "literature_matrix.json",
+            "literature_matrix.csv",
+            "review_summary.md",
+            "gap_analysis.md",
+        }
         assert (project_root / ".simflow" / "artifacts" / "literature" / "literature_matrix.json").is_file()
-        assert result["artifacts"][0]["stage"] == "literature"
+        assert result["artifacts"][0]["stage"] == "literature_review"

@@ -37,17 +37,17 @@ def test_list_artifacts():
 
 def test_list_artifacts_by_stage():
     with tempfile.TemporaryDirectory() as tmpdir:
-        register_artifact("out1", "energy", "analysis", tmpdir)
+        register_artifact("out1", "energy", "analysis_visualization", tmpdir)
         register_artifact("out2", "structure", "modeling", tmpdir)
 
-        analysis_arts = list_artifacts(stage="analysis", base_dir=tmpdir)
+        analysis_arts = list_artifacts(stage="analysis_visualization", base_dir=tmpdir)
         assert len(analysis_arts) == 1
-        assert analysis_arts[0]["stage"] == "analysis"
+        assert analysis_arts[0]["stage"] == "analysis_visualization"
 
 
 def test_artifact_has_version():
     with tempfile.TemporaryDirectory() as tmpdir:
-        register_artifact("data", "test", "compute", tmpdir)
+        register_artifact("data", "test", "computation", tmpdir)
         arts = list_artifacts(base_dir=tmpdir)
         assert "version" in arts[0]
 

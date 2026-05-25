@@ -14,7 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.simflow_core.artifacts import get_artifact, register_artifact
+from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
@@ -42,6 +42,8 @@ def _stage_output_artifacts(project_root: Path, stage_name: str) -> list[dict[st
         artifact = get_artifact(artifact_id, project_root=str(project_root))
         if artifact:
             artifacts.append(artifact)
+    if not artifacts:
+        artifacts = list_artifacts(stage=stage_name, project_root=str(project_root))
     return artifacts
 
 
@@ -56,7 +58,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         return {"status": "error", "message": "No workflow state found"}
 
     contract = load_proposal_contract(str(project_root / ".simflow"))
-    analysis_artifacts = _stage_output_artifacts(project_root, "analysis")
+    analysis_artifacts = _stage_output_artifacts(project_root, "analysis_visualization")
     if not analysis_artifacts:
         return {"status": "error", "message": "Analysis stage has no registered outputs"}
 
@@ -173,7 +175,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
     manifest_artifact = register_artifact(
         "figures_manifest.json",
         "figures_manifest",
-        "visualization",
+        "analysis_visualization",
         project_root=str(project_root),
         path=_relative_path(project_root, manifest_path),
         parent_artifacts=parent_artifact_ids,
@@ -185,7 +187,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         figure_artifacts.append(register_artifact(
             figure["name"],
             "figure",
-            "visualization",
+            "analysis_visualization",
             project_root=str(project_root),
             path=figure["path"],
             parent_artifacts=[manifest_artifact["artifact_id"]],
