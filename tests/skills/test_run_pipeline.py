@@ -308,6 +308,7 @@ def test_computation_stage_emits_hpc_submit_gate_evidence():
         resource_estimate_path = compute_dir / "resource_estimate.json"
         credential_scan_path = security_dir / "credential_scan.json"
         job_script_path = compute_dir / "job_script.sh"
+        submit_readiness_summary_path = project_root / ".simflow" / "reports" / "compute" / "submit_readiness_summary.md"
 
         dry_run = json.loads(dry_run_path.read_text(encoding="utf-8"))
         input_validation = json.loads(input_validation_path.read_text(encoding="utf-8"))
@@ -315,10 +316,23 @@ def test_computation_stage_emits_hpc_submit_gate_evidence():
         credential_scan = json.loads(credential_scan_path.read_text(encoding="utf-8"))
         compute_result = result["results"][-1]
         submit_readiness = compute_result["manifests"]["compute"]["submit_readiness"]
+        user_submit_readiness = compute_result["manifests"]["compute"]["user_submit_readiness"]
 
         assert result["status"] == "success"
-        assert {"dry_run_report.json", "input_validation.json", "resource_estimate.json", "credential_scan.json"}.issubset(artifact_names)
-        assert {"dry_run_report", "input_validation_report", "resource_estimate", "credential_scan"}.issubset(artifact_types)
+        assert {
+            "dry_run_report.json",
+            "input_validation.json",
+            "resource_estimate.json",
+            "credential_scan.json",
+            "submit_readiness_summary.md",
+        }.issubset(artifact_names)
+        assert {
+            "dry_run_report",
+            "input_validation_report",
+            "resource_estimate",
+            "credential_scan",
+            "submit_readiness_summary",
+        }.issubset(artifact_types)
         assert dry_run["status"] in {"pass", "warning"}
         assert dry_run["script_hash"] == _sha256_file(job_script_path)
         assert dry_run["input_artifact_hash"] == _sha256_file(project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json")
@@ -329,6 +343,13 @@ def test_computation_stage_emits_hpc_submit_gate_evidence():
         assert submit_readiness["dry_run_evidence"] == "compute/dry_run_report.json"
         assert submit_readiness["script_hash"] == dry_run["script_hash"]
         assert submit_readiness["input_artifact_hash"] == dry_run["input_artifact_hash"]
+        assert user_submit_readiness["ready_for_approval"] is True
+        assert user_submit_readiness["real_submit_allowed"] is False
+        assert user_submit_readiness["approval_required"] is True
+        assert user_submit_readiness["failed_checks"] == []
+        assert user_submit_readiness["evidence"]["dry_run_report"] == ".simflow/artifacts/compute/dry_run_report.json"
+        assert submit_readiness_summary_path.is_file()
+        assert "Real submit allowed: False" in submit_readiness_summary_path.read_text(encoding="utf-8")
         assert check_gate("hpc_submit", {"project_root": tmpdir})["status"] == "block"
 
         record_gate_decision(

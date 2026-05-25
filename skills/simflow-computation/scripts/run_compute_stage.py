@@ -88,6 +88,75 @@ def _recommended_command(software: str, script_name: str, raw_plan: dict[str, An
     return f"{executable} > vasp.out"
 
 
+def _failed_readiness_checks(readiness: dict[str, Any]) -> list[str]:
+    checks = {
+        "input_validation": readiness["input_validation"]["status"],
+        "resource_estimate": readiness["resource_estimate"]["status"],
+        "credential_scan": readiness["credential_scan"]["status"],
+    }
+    return [name for name, status in checks.items() if status == "fail"]
+
+
+def _build_user_submit_readiness(readiness: dict[str, Any], evidence_paths: dict[str, str]) -> dict[str, Any]:
+    failed_checks = _failed_readiness_checks(readiness)
+    ready_for_approval = readiness["status"] in {"pass", "warning"} and not failed_checks
+    next_actions = [
+        "Review dry-run evidence, input validation, resource estimate, credential scan, and job script hash.",
+    ]
+    if ready_for_approval:
+        next_actions.append("Record an explicit hpc_submit gate approval before any real local, remote, or HPC submit.")
+    else:
+        next_actions.append("Fix failed readiness checks before requesting submit approval.")
+
+    return {
+        "status": readiness["status"],
+        "ready_for_approval": ready_for_approval,
+        "real_submit_allowed": False,
+        "approval_required": True,
+        "failed_checks": failed_checks,
+        "evidence": {
+            "calculation_manifest": evidence_paths["calculation_manifest"],
+            "input_validation": evidence_paths["input_validation"],
+            "resource_estimate": evidence_paths["resource_estimate"],
+            "credential_scan": evidence_paths["credential_scan"],
+            "dry_run_report": evidence_paths["dry_run_report"],
+        },
+        "hashes": {
+            "job_script_hash": readiness["dry_run_report"]["script_hash"],
+            "input_manifest_hash": readiness["dry_run_report"]["input_manifest_hash"],
+        },
+        "next_actions": next_actions,
+    }
+
+
+def _render_submit_readiness_summary(summary: dict[str, Any]) -> str:
+    failed = summary["failed_checks"] or ["none"]
+    evidence = summary["evidence"]
+    hashes = summary["hashes"]
+    return "\n".join([
+        "# Submit Readiness Summary",
+        "",
+        f"- Status: {summary['status']}",
+        f"- Ready for approval: {summary['ready_for_approval']}",
+        f"- Real submit allowed: {summary['real_submit_allowed']}",
+        f"- Approval required: {summary['approval_required']}",
+        "",
+        "## Evidence",
+        *(f"- {key}: {value}" for key, value in evidence.items()),
+        "",
+        "## Hashes",
+        f"- Job script hash: {hashes['job_script_hash']}",
+        f"- Input manifest hash: {hashes['input_manifest_hash']}",
+        "",
+        "## Failed Checks",
+        *(f"- {item}" for item in failed),
+        "",
+        "## Next Actions",
+        *(f"- {item}" for item in summary["next_actions"]),
+        "",
+    ])
+
+
 def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = False) -> dict:
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     state = read_state(project_root=str(project_root), state_file="workflow.json")
@@ -205,12 +274,18 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     compute_plan["submit_readiness"] = readiness["submit_readiness"]
     compute_plan["evidence_paths"] = evidence_paths
     compute_plan["readiness_status"] = readiness["status"]
+    compute_plan["user_submit_readiness"] = _build_user_submit_readiness(readiness, evidence_paths)
     dry_run_report = readiness["dry_run_report"]
 
     compute_plan_path = reports_dir / "compute_plan.json"
     dry_run_report_path = reports_dir / "dry_run_report.json"
+    submit_readiness_summary_path = reports_dir / "submit_readiness_summary.md"
     compute_plan_path.write_text(json.dumps(compute_plan, indent=2, ensure_ascii=False), encoding="utf-8")
     dry_run_report_path.write_text(json.dumps(dry_run_report, indent=2, ensure_ascii=False), encoding="utf-8")
+    submit_readiness_summary_path.write_text(
+        _render_submit_readiness_summary(compute_plan["user_submit_readiness"]),
+        encoding="utf-8",
+    )
 
     if dry_run:
         return {
@@ -220,6 +295,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             "planned_outputs": [
                 ".simflow/reports/compute/compute_plan.json",
                 ".simflow/reports/compute/dry_run_report.json",
+                ".simflow/reports/compute/submit_readiness_summary.md",
                 ".simflow/artifacts/compute/calculation_manifest.json",
                 ".simflow/artifacts/compute/input_validation.json",
                 ".simflow/artifacts/compute/resource_estimate.json",
@@ -311,6 +387,21 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         software=software,
         metadata={"evidence_keys": ["dry_run_report"]},
     )
+    submit_readiness_artifact = register_artifact(
+        "submit_readiness_summary.md",
+        "submit_readiness_summary",
+        "computation",
+        project_root=str(project_root),
+        path=_relative_path(project_root, submit_readiness_summary_path),
+        parent_artifacts=[dry_run_artifact["artifact_id"]],
+        parameters={
+            "readiness_status": readiness["status"],
+            "ready_for_approval": compute_plan["user_submit_readiness"]["ready_for_approval"],
+            "real_submit_allowed": False,
+        },
+        software=software,
+        metadata={"evidence_key": "submit_readiness"},
+    )
 
     return {
         "status": "success",
@@ -322,6 +413,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             resource_estimate_artifact,
             credential_scan_artifact,
             dry_run_artifact,
+            submit_readiness_artifact,
         ],
         "manifest": compute_plan,
         "inputs": parent_artifact_ids,
