@@ -13,8 +13,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 from runtime.simflow_core.state import (
+    ARTIFACT_CATEGORY_DIRS,
+    CANONICAL_ARTIFACT_STAGE_DIRS,
     ProjectRootError,
     ensure_simflow_dir,
+    ensure_workflow_initialized,
     get_plugin_root,
     init_workflow,
     read_state,
@@ -52,16 +55,16 @@ class TestState:
             sf / "state" / "metadata.json",
         ]:
             assert path.exists()
-        for dirname in ["literature", "proposal", "models", "compute", "analysis", "figures", "writing"]:
+        for dirname in CANONICAL_ARTIFACT_STAGE_DIRS + ARTIFACT_CATEGORY_DIRS:
             assert (sf / "artifacts" / dirname).is_dir()
         assert not (sf / "metadata.json").exists()
         assert not (sf / "workflow_state.json").exists()
 
     def test_init_workflow(self):
-        state = init_workflow("dft", "literature", self.base_dir)
+        state = init_workflow("dft", "literature_review", self.base_dir)
         assert state["workflow_id"].startswith("wf_")
         assert state["workflow_type"] == "dft"
-        assert state["current_stage"] == "literature"
+        assert state["current_stage"] == "literature_review"
         assert state["status"] == "initialized"
         sf = Path(self.base_dir) / ".simflow"
         for path in [
@@ -104,7 +107,7 @@ class TestState:
         host_state = omx / "session.json"
         host_state.write_text('{"owner":"oh-my-codex"}\n', encoding="utf-8")
 
-        init_workflow("custom", "literature", self.base_dir)
+        init_workflow("custom", "literature_review", self.base_dir)
 
         assert (Path(self.base_dir) / ".simflow" / "state" / "workflow.json").is_file()
         assert (Path(self.base_dir) / ".simflow" / "reports" / "status_summary.md").is_file()
@@ -118,10 +121,17 @@ class TestState:
         assert result["test"] is True
 
     def test_update_stage(self):
-        init_workflow("dft", "literature", self.base_dir)
+        init_workflow("dft", "literature_review", self.base_dir)
         stage = update_stage("literature_review", "completed", self.base_dir)
         assert stage["status"] == "completed"
         assert stage["completed_at"] is not None
+
+    def test_ensure_workflow_initialized_uses_canonical_default_entry(self):
+        state = ensure_workflow_initialized(project_root=self.base_dir)
+
+        assert state["workflow_type"] == "custom"
+        assert state["entry_point"] == "literature_review"
+        assert state["current_stage"] == "literature_review"
 
     def test_read_nonexistent_state(self):
         result = read_state(self.base_dir, "nonexistent.json")
@@ -135,10 +145,10 @@ class TestState:
         fake_plugin_root = Path(self.base_dir) / "simflow-cache"
         (fake_plugin_root / ".codex-plugin").mkdir(parents=True)
         (fake_plugin_root / "skills" / "simflow").mkdir(parents=True)
-        (fake_plugin_root / "runtime" / "lib").mkdir(parents=True)
+        (fake_plugin_root / "runtime" / "simflow_core").mkdir(parents=True)
         (fake_plugin_root / ".codex-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
         (fake_plugin_root / "skills" / "simflow" / "SKILL.md").write_text("# SimFlow\n", encoding="utf-8")
-        (fake_plugin_root / "runtime" / "lib" / "state.py").write_text("# marker\n", encoding="utf-8")
+        (fake_plugin_root / "runtime" / "simflow_core" / "state.py").write_text("# marker\n", encoding="utf-8")
 
         with pytest.raises(ProjectRootError):
             resolve_project_root(project_root=str(fake_plugin_root))

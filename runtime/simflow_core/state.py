@@ -23,6 +23,21 @@ CANONICAL_STATE_FILES = {
     "summary.json": {"state_root": ".simflow"},
     "metadata.json": {},
 }
+CANONICAL_ARTIFACT_STAGE_DIRS = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
+ARTIFACT_CATEGORY_DIRS = [
+    "literature",
+    "models",
+    "compute",
+    "analysis",
+    "figures",
+]
 
 
 class ProjectRootError(ValueError):
@@ -42,7 +57,7 @@ def is_plugin_root(path: str | Path) -> bool:
     return (
         (root / ".codex-plugin" / "plugin.json").is_file()
         and (root / "skills" / "simflow" / "SKILL.md").is_file()
-        and (root / "runtime" / "lib" / "state.py").is_file()
+        and (root / "runtime" / "simflow_core" / "state.py").is_file()
     )
 
 
@@ -95,13 +110,8 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
         sf / "state",
         sf / "plans",
         sf / "artifacts",
-        sf / "artifacts" / "literature",
-        sf / "artifacts" / "proposal",
-        sf / "artifacts" / "models",
-        sf / "artifacts" / "compute",
-        sf / "artifacts" / "analysis",
-        sf / "artifacts" / "figures",
-        sf / "artifacts" / "writing",
+        *[sf / "artifacts" / name for name in CANONICAL_ARTIFACT_STAGE_DIRS],
+        *[sf / "artifacts" / name for name in ARTIFACT_CATEGORY_DIRS],
         sf / "checkpoints",
         sf / "reports",
         sf / "logs",
@@ -222,7 +232,7 @@ def init_workflow(
 
 def ensure_workflow_initialized(
     workflow_type: str = "custom",
-    entry_point: str = "literature",
+    entry_point: str = "literature_review",
     base_dir: str = ".",
     project_root: Optional[str] = None,
 ) -> dict:
