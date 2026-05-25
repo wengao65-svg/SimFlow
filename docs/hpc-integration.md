@@ -32,17 +32,37 @@ Compute actions start with dry-run evidence. A dry-run package should record:
 The dry-run report is an artifact. Later approval must reference that artifact
 instead of relying on an agent-supplied boolean.
 
+The standard computation helper emits the following evidence package:
+
+| Evidence | Canonical path |
+| --- | --- |
+| Calculation manifest | `.simflow/artifacts/compute/calculation_manifest.json` |
+| Input validation | `.simflow/artifacts/compute/input_validation.json` |
+| Resource estimate | `.simflow/artifacts/compute/resource_estimate.json` |
+| Credential scan | `.simflow/artifacts/security/credential_scan.json` |
+| Dry-run report | `.simflow/artifacts/compute/dry_run_report.json` |
+
+`dry_run_report.json` must report `status` as `pass`, `warning`, or `fail`.
+It also carries the job `script_hash`, `input_artifact_hash`, and
+`input_manifest_hash` that submit connectors compare against the current script
+and approved evidence.
+
 ## Approval Gate
 
 Real submission requires an approval gate decision tied to evidence. The target
 submit contract requires:
 
 - `approval_token` or `gate_decision_id`
-- dry-run artifact id
+- dry-run evidence path
 - script hash approved by the gate
 - input artifact hash or manifest hash approved by the gate
 - scheduler or execution backend
 - project root
+
+The compute plan exposes these fields through `submit_readiness`. It is a
+handoff payload for submit tools, not approval by itself. A real submit remains
+blocked until the evidence-based `hpc_submit` gate has an approved decision for
+the same project and hashes.
 
 Submission must be blocked when:
 

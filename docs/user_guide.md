@@ -72,6 +72,22 @@ Before real local, remote, or HPC execution, record:
 - script/input hashes
 - gate decision id or approval token
 
+The computation helper writes the gate evidence to canonical project-local
+paths so later submit tools can verify the exact preparation state:
+
+| Evidence | Path |
+| --- | --- |
+| Calculation manifest | `.simflow/artifacts/compute/calculation_manifest.json` |
+| Input validation | `.simflow/artifacts/compute/input_validation.json` |
+| Resource estimate | `.simflow/artifacts/compute/resource_estimate.json` |
+| Dry-run report | `.simflow/artifacts/compute/dry_run_report.json` |
+| Credential scan | `.simflow/artifacts/security/credential_scan.json` |
+
+`dry_run_report.json` records `status`, `script_hash`, `input_artifact_hash`,
+and `input_manifest_hash`. The compute plan also contains `submit_readiness`,
+which names the dry-run evidence, script path, scheduler, and hashes expected by
+the submit connector.
+
 Changing the script or input hashes invalidates prior approval.
 
 ### Analysis And Figures
