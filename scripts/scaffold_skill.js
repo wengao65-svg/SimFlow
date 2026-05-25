@@ -33,35 +33,48 @@ fs.mkdirSync(path.join(skillDir, 'references'), { recursive: true });
 fs.mkdirSync(path.join(skillDir, 'assets'), { recursive: true });
 
 // Create SKILL.md
-const template = `# ${skillName} — ${description || 'New Skill'}
+const template = `---
+name: ${skillName}
+description: ${description || 'Describe when this SimFlow skill should be used.'}
+---
+
+# ${skillName} — ${description || 'Workflow-layer Skill'}
 
 ## 触发条件
 
-- TODO: 描述触发此 skill 的条件
+- TODO: 描述触发此 skill 的用户意图或研究阶段
 
 ## 输入条件
 
-- TODO: 列出必需输入
+- TODO: 列出可接受的输入、已有 artifact、用户提供文件或 checkpoint
 
 ## 输出 Artifact
 
-- TODO: 列出产出 artifact
+- TODO: 列出最低 evidence/artifact 要求
+- TODO: 说明脚本、输入、输出、环境和 lineage 如何记录
 
 ## 状态写入规则
 
-- TODO: 描述状态写入规则
+- 写入必须使用显式 project_root 下的 \`.simflow/\`
+- 不要从 plugin root、MCP cwd 或 \`.omx/\` 推断 workflow state
 
 ## Checkpoint 规则
 
-- TODO: 描述 checkpoint 策略
+- TODO: 描述阶段边界、失败恢复或人工交接时的 checkpoint 策略
 
 ## 禁止事项
 
-- TODO: 列出禁止事项
+- 不要把某个 parser、builder、report 文件名或软件包声明为唯一合法路径
+- 不要伪造文献、数据、计算结果、图表或 citation
+- 不要保存 credentials 或受限许可文件
+- 不要绕过 dry-run、approval gate 或 artifact lineage
 
 ## 需要人工确认的场景
 
-- TODO: 列出需要人工确认的场景
+- 真实 local/remote/HPC submit
+- destructive file operation
+- credentials、licensed/proprietary files 或高风险资源使用
+- TODO: 列出该 skill 的其他人工确认场景
 `;
 
 fs.writeFileSync(path.join(skillDir, 'SKILL.md'), template);
