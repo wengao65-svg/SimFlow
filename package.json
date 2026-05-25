@@ -19,7 +19,7 @@
     "scaffold:skill": "node scripts/scaffold_skill.js",
     "scaffold:stage": "node scripts/scaffold_stage.js",
     "test:schemas": "node tests/schemas/run_all.js",
-    "test:runtime": "cd runtime && python -m pytest tests/ -v",
+    "test:runtime": "python -m pytest tests/runtime/ -v",
     "test:e2e": "python -m pytest tests/e2e/ -v",
     "test:mcp": "python -m pytest tests/mcp/ -v",
     "test:all": "python -m pytest tests/ -v",

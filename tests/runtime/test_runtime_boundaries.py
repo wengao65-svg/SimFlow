@@ -1,5 +1,6 @@
 import subprocess
 import tempfile
+import json
 import tomllib
 from pathlib import Path
 
@@ -91,6 +92,19 @@ def test_runtime_lib_directory_has_no_python_sources_if_cache_remains():
 def test_pyproject_does_not_publish_cli_entry_points():
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert "scripts" not in pyproject["project"]
+
+
+def test_python_and_node_package_versions_match():
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert pyproject["project"]["version"] == package["version"]
+
+
+def test_npm_runtime_test_script_targets_repo_tests():
+    package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert package["scripts"]["test:runtime"] == "python -m pytest tests/runtime/ -v"
 
 
 def test_runtime_rejects_removed_recipe_and_stage_aliases():
