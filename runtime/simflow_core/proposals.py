@@ -12,6 +12,7 @@ from .state import read_state
 
 
 REQUIRED_PROPOSAL_ARTIFACTS = ("proposal.md", "parameter_table.csv", "research_questions.json")
+OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json",)
 SUPPORTED_SOFTWARE = {"vasp", "cp2k"}
 CORE_PARAMETER_KEYS = {"workflow_type", "software", "material"}
 TASK_KEYS = ("task", "job_type", "calculation", "calc_type", "task_type")
@@ -57,7 +58,8 @@ def resolve_artifact_path(project_root: Path, artifact_path: str) -> Path:
 
 def _load_required_artifacts(project_root: Path) -> dict[str, dict[str, Any]]:
     artifacts = list_artifacts(stage="proposal", project_root=str(project_root))
-    by_name = {artifact.get("name"): artifact for artifact in artifacts if artifact.get("name") in REQUIRED_PROPOSAL_ARTIFACTS}
+    known_names = {*REQUIRED_PROPOSAL_ARTIFACTS, *OPTIONAL_PROPOSAL_ARTIFACTS}
+    by_name = {artifact.get("name"): artifact for artifact in artifacts if artifact.get("name") in known_names}
     missing = [name for name in REQUIRED_PROPOSAL_ARTIFACTS if name not in by_name]
     if missing:
         raise FileNotFoundError(f"Missing proposal artifacts: {', '.join(missing)}")
@@ -137,6 +139,16 @@ def _extract_structure_hints(parameter_overrides: dict[str, Any], metadata: dict
     return hints
 
 
+def _load_optional_json(project_root: Path, artifact: dict[str, Any] | None) -> dict[str, Any]:
+    if not artifact:
+        return {}
+    path = resolve_artifact_path(project_root, artifact["path"])
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
 def load_proposal_contract(workflow_dir: str) -> dict[str, Any]:
     """Load proposal artifacts and normalize them into a downstream contract."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
@@ -158,6 +170,7 @@ def load_proposal_contract(workflow_dir: str) -> dict[str, Any]:
     parameter_overrides = {key: value for key, value in parameter_values.items() if key not in CORE_PARAMETER_KEYS}
     research_questions_payload = json.loads(research_questions_path.read_text(encoding="utf-8"))
     research_questions = _normalize_questions(research_questions_payload)
+    proposal_contract = _load_optional_json(project_root, artifacts.get("proposal_contract.json"))
 
     software = str(metadata_state.get("software") or parameter_values.get("software") or "").lower()
     if software not in SUPPORTED_SOFTWARE:
@@ -178,6 +191,13 @@ def load_proposal_contract(workflow_dir: str) -> dict[str, Any]:
         "parameter_overrides": parameter_overrides,
         "parameter_rows": parameter_rows,
         "research_questions": research_questions,
+        "decision_criteria": proposal_contract.get("decision_criteria", []),
+        "risk_register": proposal_contract.get("risk_register", []),
+        "resource_assumptions": proposal_contract.get("resource_assumptions", {}),
+        "source_artifact_ids": proposal_contract.get("source_artifact_ids", []),
+        "literature_evidence_summary": proposal_contract.get("literature_evidence_summary", {}),
+        "calculation_plan": proposal_contract.get("calculation_plan", {}),
+        "proposal_contract": proposal_contract,
         "proposal_markdown": proposal_markdown,
         "proposal_artifacts": {
             name: {

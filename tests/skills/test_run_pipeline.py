@@ -172,15 +172,27 @@ def test_run_pipeline_execute_runs_research_generators_through_review():
 
         assert result["status"] == "success"
         assert [item["stage"] for item in result["results"]] == ["literature_review"]
-        assert result["results"][0]["artifacts"][0]["name"] == "literature_matrix.json"
-        assert result["results"][0]["artifacts"][2]["name"] == "review_summary.md"
+        generated_names = {artifact["name"] for artifact in result["results"][0]["artifacts"]}
+        assert "literature_matrix.json" in generated_names
+        assert "review_summary.md" in generated_names
         assert workflow["current_stage"] == "literature_review"
         assert stages_state["literature_review"]["status"] == "completed"
         assert "literature" not in stages_state
         assert "review" not in stages_state
-        assert len(literature_artifacts) == 4
-        assert len(review_artifacts) == 4
-        assert stages_state["literature_review"]["inputs"] == [literature_artifacts[0]["artifact_id"]]
+        assert {
+            "literature_matrix.json",
+            "literature_matrix.csv",
+            "search_log.json",
+            "screening_record.json",
+            "citation_map.json",
+            "review_summary.md",
+            "gap_analysis.md",
+        }.issubset({artifact["name"] for artifact in literature_artifacts})
+        assert any(artifact["type"] == "paper_notes" for artifact in literature_artifacts)
+        assert len(literature_artifacts) == len(review_artifacts)
+        assert set(stages_state["literature_review"]["inputs"]).issubset(
+            {artifact["artifact_id"] for artifact in literature_artifacts}
+        )
         assert (project_root / ".simflow" / "reports" / "review" / "review_summary.md").is_file()
 
 

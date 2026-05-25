@@ -53,23 +53,30 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         proposal_path = project_root / ".simflow" / "plans" / "proposal.md"
         parameter_table_path = project_root / ".simflow" / "plans" / "parameter_table.csv"
         research_questions_path = project_root / ".simflow" / "plans" / "research_questions.json"
+        proposal_contract_path = project_root / ".simflow" / "plans" / "proposal_contract.json"
         proposal_content = proposal_path.read_text(encoding="utf-8")
         proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
         review_artifacts = list_artifacts(stage="literature_review", project_root=tmpdir)
         research_questions = json.loads(research_questions_path.read_text(encoding="utf-8"))
+        proposal_contract = json.loads(proposal_contract_path.read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
         assert proposal_path.is_file()
         assert parameter_table_path.is_file()
         assert research_questions_path.is_file()
+        assert proposal_contract_path.is_file()
         assert "# Proposal" in proposal_content
         assert "Goal: study Si surface reconstruction" in proposal_content
         assert "- encut: 520" in proposal_content
         assert "- kmesh: 4x4x1" in proposal_content
         assert "Focus on dimer buckling evidence" in proposal_content
-        assert len(proposal_artifacts) == 3
+        assert "## Decision Criteria" in proposal_content
+        assert "## Risk Register" in proposal_content
+        assert "## Resource Assumptions" in proposal_content
+        assert len(proposal_artifacts) == 4
         assert proposal_artifacts[0]["name"] == "proposal.md"
         assert proposal_artifacts[0]["path"] == ".simflow/plans/proposal.md"
+        assert proposal_artifacts[0]["metadata"]["evidence_key"] == "proposal"
         expected_review_inputs = [
             artifact["artifact_id"]
             for artifact in review_artifacts
@@ -79,11 +86,24 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         assert proposal_artifacts[1]["name"] == "parameter_table.csv"
         assert proposal_artifacts[1]["path"] == ".simflow/plans/parameter_table.csv"
         assert proposal_artifacts[1]["lineage"]["parent_artifacts"] == [proposal_artifacts[0]["artifact_id"]]
+        assert proposal_artifacts[1]["metadata"]["evidence_key"] == "parameter_rationale"
         assert proposal_artifacts[2]["name"] == "research_questions.json"
         assert proposal_artifacts[2]["path"] == ".simflow/plans/research_questions.json"
         assert proposal_artifacts[2]["lineage"]["parent_artifacts"] == [
             proposal_artifacts[0]["artifact_id"],
             proposal_artifacts[1]["artifact_id"],
+        ]
+        assert proposal_artifacts[3]["name"] == "proposal_contract.json"
+        assert proposal_artifacts[3]["path"] == ".simflow/plans/proposal_contract.json"
+        assert proposal_artifacts[3]["metadata"]["evidence_keys"] == [
+            "calculation_plan",
+            "resource_estimate",
+            "risk_register",
+        ]
+        assert proposal_artifacts[3]["lineage"]["parent_artifacts"] == [
+            proposal_artifacts[0]["artifact_id"],
+            proposal_artifacts[1]["artifact_id"],
+            proposal_artifacts[2]["artifact_id"],
         ]
 
         with parameter_table_path.open(encoding="utf-8", newline="") as handle:
@@ -103,6 +123,11 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         assert research_questions["questions"][0]["category"] == "goal"
         assert "study Si surface reconstruction" in research_questions["questions"][0]["question"]
         assert research_questions["questions"][1]["parameter_keys"] == ["encut", "kmesh"]
+        assert proposal_contract["calculation_plan"]["dry_run_first"] is True
+        assert proposal_contract["resource_assumptions"]["real_submit"] is False
+        assert proposal_contract["source_artifact_ids"] == expected_review_inputs
+        assert len(proposal_contract["decision_criteria"]) == 3
+        assert len(proposal_contract["risk_register"]) == 2
 
 
 def test_generate_proposal_requires_registered_review_artifacts():

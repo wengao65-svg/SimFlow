@@ -73,8 +73,14 @@ def test_load_proposal_contract_normalizes_registered_artifacts():
         assert contract["research_questions"][0]["category"] == "goal"
         assert contract["research_questions"][1]["parameter_keys"] == ["encut", "kmesh"]
         assert contract["proposal_artifacts"]["research_questions.json"]["artifact_id"] == proposal_artifacts[2]["artifact_id"]
+        assert contract["proposal_artifacts"]["proposal_contract.json"]["artifact_id"] == proposal_artifacts[3]["artifact_id"]
         assert contract["output_roots"]["reports"] == ".simflow/reports"
         assert "# Proposal" in contract["proposal_markdown"]
+        assert contract["calculation_plan"]["dry_run_first"] is True
+        assert contract["resource_assumptions"]["real_submit"] is False
+        assert contract["source_artifact_ids"]
+        assert len(contract["decision_criteria"]) == 3
+        assert len(contract["risk_register"]) == 2
 
 
 def test_load_proposal_contract_uses_metadata_over_parameter_table_values():
