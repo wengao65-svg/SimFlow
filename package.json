@@ -16,6 +16,8 @@
     "validate:skills": "node scripts/validate_skills.js",
     "validate:schemas": "node scripts/validate_schemas.js",
     "validate:all": "npm run validate:plugin && npm run validate:claude-plugin && npm run validate:skills && npm run validate:schemas",
+    "validate:release": "node scripts/validate_release.js",
+    "release:notes": "node scripts/generate_release_notes.js",
     "scaffold:skill": "node scripts/scaffold_skill.js",
     "scaffold:stage": "node scripts/scaffold_stage.js",
     "test:schemas": "node tests/schemas/run_all.js",

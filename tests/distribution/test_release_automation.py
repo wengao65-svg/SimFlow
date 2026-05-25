@@ -1,0 +1,46 @@
+"""Release automation smoke tests."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_release_validation_supports_local_skip_wrapper_mode():
+    env = os.environ.copy()
+    env["SIMFLOW_RELEASE_ALLOW_DIRTY"] = "1"
+    env["SIMFLOW_RELEASE_SKIP_WRAPPERS"] = "1"
+
+    result = subprocess.run(
+        ["node", "scripts/validate_release.js"],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Version Synchronization" in result.stdout
+    assert "Restricted Artifact Scan" in result.stdout
+    assert "wrapper build validation skipped" in result.stdout
+    assert "Errors: 0" in result.stdout
+
+
+def test_release_notes_command_emits_markdown():
+    result = subprocess.run(
+        ["node", "scripts/generate_release_notes.js", "--since=HEAD~1"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "# SimFlow Release Notes" in result.stdout
+    assert "## Release Gates" in result.stdout
+    assert "## Commits" in result.stdout

@@ -14,6 +14,7 @@ git log --oneline -n 5
 python -m pytest tests/ -q
 npm run validate:all
 python scripts/audit_skill_scripts.py
+npm run validate:release -- --skip-wrapper-build
 ```
 
 Expected result:
@@ -62,6 +63,12 @@ Expected result:
 
 ## 4. Marketplace Wrapper Gate
 
+For the full automated release gate from a clean tree, run:
+
+```bash
+npm run validate:release
+```
+
 Build and validate the Codex wrapper:
 
 ```bash
@@ -85,7 +92,22 @@ Expected result:
   removed source paths, and restricted VASP artifacts.
 - MCP stdio initialization and `tools/list` pass for all configured servers.
 
-## 5. Manual Install Smoke Gate
+## 5. Release Notes Gate
+
+Generate local release notes before tagging or publishing:
+
+```bash
+npm run release:notes -- --since=<previous-release-ref>
+```
+
+Expected result:
+
+- The output includes the target version, target commit, release gates, and
+  commit summary.
+- Any manual install-smoke results or known limitations are added to the final
+  release notes before publishing.
+
+## 6. Manual Install Smoke Gate
 
 Codex user path:
 
@@ -130,7 +152,7 @@ Expected result:
 - Real local, remote, or HPC submission remains blocked without dry-run
   evidence, matching hashes, credential scan, and explicit approval.
 
-## 6. Release Ref Rules
+## 7. Release Ref Rules
 
 - Do not push `.simflow/`, `dist/`, caches, or generated local artifacts.
 - Do not force-push release refs without explicit maintainer confirmation.
@@ -139,4 +161,3 @@ Expected result:
 - Do not publish marketplace branches from an unvalidated source checkout.
 - If restricted scientific artifacts are found in Git history, stop ordinary
   release work and run a controlled history cleanup before pushing.
-
