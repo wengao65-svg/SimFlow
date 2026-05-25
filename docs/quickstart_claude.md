@@ -13,14 +13,14 @@ This guide uses the Claude Code plugin marketplace path. SimFlow remains skill-d
 Regular users install the published Claude marketplace branch. Claude Code pins marketplace refs in the source string:
 
 ```bash
-claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
 For a generic git URL, use `#ref`:
 
 ```bash
-claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
@@ -31,7 +31,7 @@ claude plugin install simflow@simflow-claude-marketplace
 Build and install the local Claude marketplace wrapper:
 
 ```bash
-git clone <repo> ~/simflow
+git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
 cd ~/simflow
 npm install
 npm run build:claude-marketplace

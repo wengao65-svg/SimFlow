@@ -65,7 +65,7 @@ tasks to a default calculation.
 Install the published SimFlow Codex marketplace:
 
 ```bash
-codex plugin marketplace add <org>/simflow --ref codex-marketplace
+codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace
 codex
 ```
 
@@ -94,7 +94,7 @@ After upgrading, restart Codex or open a new thread. If needed, use `/plugins` t
 Developer local debugging uses the source checkout and local wrapper installer:
 
 ```bash
-git clone <repo> ~/simflow
+git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
 cd ~/simflow
 npm install
 npm run install:codex
@@ -128,14 +128,14 @@ npm run publish:codex-marketplace
 Install the published SimFlow Claude marketplace branch with Claude's source ref syntax:
 
 ```bash
-claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
 For a git URL, use `#claude-marketplace`:
 
 ```bash
-claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
 ```
 
 Developer local debugging uses the generated Claude marketplace wrapper:
