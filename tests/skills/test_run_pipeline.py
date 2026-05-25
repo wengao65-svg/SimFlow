@@ -551,6 +551,7 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
         stages_state = read_state(tmpdir, "stages.json")
         writing_artifacts = list_artifacts(stage="writing", project_root=tmpdir)
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+        claim_map_path = project_root / ".simflow" / "reports" / "writing" / "claim_map.json"
         reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
         final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
         final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
@@ -565,10 +566,11 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 5
+        assert len(stages_state["writing"]["outputs"]) == 6
         assert {artifact["name"] for artifact in writing_artifacts} == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "reproducibility_manifest.json",
             "final_handoff.md",
@@ -583,14 +585,19 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
         assert stage_output_names == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "final_handoff.md",
             "final_handoff.json",
         }
         assert results_path.is_file()
+        assert claim_map_path.is_file()
         assert reproducibility_package_path.is_file()
         assert final_handoff_markdown_path.is_file()
         assert final_handoff_json_path.is_file()
+        claim_map = json.loads(claim_map_path.read_text(encoding="utf-8"))
+        assert claim_map["claim_policy"].startswith("Scientific claims must trace")
+        assert any(claim["status"] == "waiting_for_outputs" and claim["speculative"] for claim in claim_map["claims"])
         assert "degraded or waiting" in results_path.read_text(encoding="utf-8")
 
 

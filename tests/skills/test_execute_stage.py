@@ -2,6 +2,7 @@
 """Tests for canonical stage executor behavior."""
 
 import importlib.util
+import json
 import shutil
 import sys
 import tempfile
@@ -384,6 +385,7 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         artifacts = list_artifacts(stage="writing", project_root=tmpdir)
         methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
         results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
+        claim_map_path = project_root / ".simflow" / "reports" / "writing" / "claim_map.json"
         reproducibility_package_path = project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md"
         final_handoff_markdown_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md"
         final_handoff_json_path = project_root / ".simflow" / "reports" / "handoff" / "final_handoff.json"
@@ -397,10 +399,11 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 5
+        assert len(stages_state["writing"]["outputs"]) == 6
         assert {artifact["name"] for artifact in artifacts} == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "reproducibility_manifest.json",
             "final_handoff.md",
@@ -415,15 +418,26 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         assert stage_output_names == {
             "methods.md",
             "results.md",
+            "claim_map.json",
             "reproducibility_package.md",
             "final_handoff.md",
             "final_handoff.json",
         }
         assert methods_path.is_file()
         assert results_path.is_file()
+        assert claim_map_path.is_file()
         assert reproducibility_package_path.is_file()
         assert final_handoff_markdown_path.is_file()
         assert final_handoff_json_path.is_file()
+        claim_map = json.loads(claim_map_path.read_text(encoding="utf-8"))
+        assert {claim["claim_id"] for claim in claim_map["claims"]} == {
+            "claim_001",
+            "claim_002",
+            "claim_003",
+            "claim_004",
+            "claim_005",
+        }
+        assert any(claim["speculative"] for claim in claim_map["claims"])
         assert "degraded or waiting" in results_path.read_text(encoding="utf-8")
 
 
