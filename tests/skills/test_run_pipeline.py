@@ -2,9 +2,11 @@
 """Tests for canonical pipeline behavior."""
 
 import importlib.util
+import json
 import shutil
 import sys
 import tempfile
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.gates import check_gate, record_gate_decision
 from runtime.simflow_core.state import init_workflow, read_state, write_state
 from runtime.simflow_helpers.stages.pipeline import run_pipeline
 from runtime.simflow_helpers.project.intake import init_research
@@ -34,6 +37,14 @@ DFT_STAGES = [
 H2O_CIF = ROOT / "examples" / "h2o" / "H2O.cif"
 VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"
 CP2K_FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _write_metadata(tmpdir: str):
@@ -259,6 +270,63 @@ def test_run_pipeline_execute_runs_precompute_vasp_chain():
         assert (project_root / ".simflow" / "reports" / "compute" / "compute_plan.json").is_file()
         assert (project_root / ".simflow" / "reports" / "compute" / "dry_run_report.json").is_file()
         assert (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").is_file()
+
+
+def test_computation_stage_emits_hpc_submit_gate_evidence():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "goal: prepare a VASP dry-run evidence package",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        artifact_names = {artifact["name"] for artifact in artifacts}
+        artifact_types = {artifact["type"] for artifact in artifacts}
+        compute_dir = project_root / ".simflow" / "artifacts" / "compute"
+        security_dir = project_root / ".simflow" / "artifacts" / "security"
+        dry_run_path = compute_dir / "dry_run_report.json"
+        input_validation_path = compute_dir / "input_validation.json"
+        resource_estimate_path = compute_dir / "resource_estimate.json"
+        credential_scan_path = security_dir / "credential_scan.json"
+        job_script_path = compute_dir / "job_script.sh"
+
+        dry_run = json.loads(dry_run_path.read_text(encoding="utf-8"))
+        input_validation = json.loads(input_validation_path.read_text(encoding="utf-8"))
+        resource_estimate = json.loads(resource_estimate_path.read_text(encoding="utf-8"))
+        credential_scan = json.loads(credential_scan_path.read_text(encoding="utf-8"))
+        compute_result = result["results"][-1]
+        submit_readiness = compute_result["manifests"]["compute"]["submit_readiness"]
+
+        assert result["status"] == "success"
+        assert {"dry_run_report.json", "input_validation.json", "resource_estimate.json", "credential_scan.json"}.issubset(artifact_names)
+        assert {"dry_run_report", "input_validation_report", "resource_estimate", "credential_scan"}.issubset(artifact_types)
+        assert dry_run["status"] in {"pass", "warning"}
+        assert dry_run["script_hash"] == _sha256_file(job_script_path)
+        assert dry_run["input_artifact_hash"] == _sha256_file(project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json")
+        assert input_validation["missing_required_files"] == []
+        assert resource_estimate["status"] in {"pass", "warning"}
+        assert credential_scan["findings"] == []
+        assert submit_readiness["project_root"] == tmpdir
+        assert submit_readiness["dry_run_evidence"] == "compute/dry_run_report.json"
+        assert submit_readiness["script_hash"] == dry_run["script_hash"]
+        assert submit_readiness["input_artifact_hash"] == dry_run["input_artifact_hash"]
+        assert check_gate("hpc_submit", {"project_root": tmpdir})["status"] == "block"
+
+        record_gate_decision(
+            "hpc_submit",
+            "approved",
+            {"reason": "reviewed generated dry-run evidence"},
+            project_root=tmpdir,
+            agent="test_agent",
+        )
+        assert check_gate("hpc_submit", {"project_root": tmpdir})["status"] == "pass"
 
 
 @pytest.mark.skipif(not H2O_CIF.exists(), reason="H2O.cif not available")

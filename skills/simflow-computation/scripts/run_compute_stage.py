@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.computation.readiness import build_computation_readiness, write_readiness_evidence
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
 from runtime.simflow_helpers.engines.vasp import build_vasp_task_plan
 
@@ -189,18 +190,22 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "gate_status": raw_plan["compute_plan"].get("hpc_submit_gate"),
         "validation_report": raw_plan.get("validation_report"),
     }
-    dry_run_report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "ready_for_approval" if compute_plan["gate_status"] else "planned",
-        "software": software,
-        "task": task,
-        "scheduler": scheduler,
-        "job_script": compute_plan["job_script"],
-        "recommended_command": compute_plan["recommended_command"],
-        "resource_estimate": resources,
-        "missing_inputs": raw_plan.get("classification", {}).get("missing_inputs", []),
-        "approval_required": True,
-    }
+    readiness = build_computation_readiness(
+        project_root=project_root,
+        software=software,
+        task=task,
+        scheduler=scheduler,
+        input_manifest=input_manifest,
+        input_manifest_path=input_manifest_path,
+        job_script_path=staged_script_path,
+        resource_estimate=resources,
+        compute_plan=compute_plan,
+    )
+    evidence_paths = write_readiness_evidence(project_root, readiness)
+    compute_plan["submit_readiness"] = readiness["submit_readiness"]
+    compute_plan["evidence_paths"] = evidence_paths
+    compute_plan["readiness_status"] = readiness["status"]
+    dry_run_report = readiness["dry_run_report"]
 
     compute_plan_path = reports_dir / "compute_plan.json"
     dry_run_report_path = reports_dir / "dry_run_report.json"
@@ -215,6 +220,11 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             "planned_outputs": [
                 ".simflow/reports/compute/compute_plan.json",
                 ".simflow/reports/compute/dry_run_report.json",
+                ".simflow/artifacts/compute/calculation_manifest.json",
+                ".simflow/artifacts/compute/input_validation.json",
+                ".simflow/artifacts/compute/resource_estimate.json",
+                ".simflow/artifacts/compute/dry_run_report.json",
+                ".simflow/artifacts/security/credential_scan.json",
                 f".simflow/artifacts/compute/{staged_script_path.name}",
             ],
         }
@@ -228,6 +238,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         parent_artifacts=parent_artifact_ids,
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
+        metadata={"evidence_keys": ["calculation_manifest", "compute_plan"]},
     )
     job_script_artifact = register_artifact(
         staged_script_path.name,
@@ -238,21 +249,80 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         parent_artifacts=[compute_plan_artifact["artifact_id"]],
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
+        metadata={"evidence_keys": ["job_script"]},
+    )
+    calculation_manifest_artifact = register_artifact(
+        "calculation_manifest.json",
+        "calculation_manifest",
+        "computation",
+        project_root=str(project_root),
+        path=evidence_paths["calculation_manifest"],
+        parent_artifacts=[compute_plan_artifact["artifact_id"], job_script_artifact["artifact_id"]],
+        parameters={"software": software, "task": task, "scheduler": scheduler},
+        software=software,
+        metadata={"evidence_keys": ["calculation_manifest"]},
+    )
+    input_validation_artifact = register_artifact(
+        "input_validation.json",
+        "input_validation_report",
+        "computation",
+        project_root=str(project_root),
+        path=evidence_paths["input_validation"],
+        parent_artifacts=[calculation_manifest_artifact["artifact_id"], input_manifest_artifact["artifact_id"]],
+        parameters={"software": software, "task": task, "scheduler": scheduler},
+        software=software,
+        metadata={"evidence_keys": ["input_validation_report"]},
+    )
+    resource_estimate_artifact = register_artifact(
+        "resource_estimate.json",
+        "resource_estimate",
+        "computation",
+        project_root=str(project_root),
+        path=evidence_paths["resource_estimate"],
+        parent_artifacts=[calculation_manifest_artifact["artifact_id"]],
+        parameters={"software": software, "task": task, "scheduler": scheduler},
+        software=software,
+        metadata={"evidence_keys": ["resource_estimate"]},
+    )
+    credential_scan_artifact = register_artifact(
+        "credential_scan.json",
+        "credential_scan",
+        "computation",
+        project_root=str(project_root),
+        path=evidence_paths["credential_scan"],
+        parent_artifacts=[calculation_manifest_artifact["artifact_id"]],
+        parameters={"software": software, "task": task, "scheduler": scheduler},
+        software=software,
+        metadata={"evidence_keys": ["credential_scan"]},
     )
     dry_run_artifact = register_artifact(
         "dry_run_report.json",
         "dry_run_report",
         "computation",
         project_root=str(project_root),
-        path=_relative_path(project_root, dry_run_report_path),
-        parent_artifacts=[compute_plan_artifact["artifact_id"]],
+        path=evidence_paths["dry_run_report"],
+        parent_artifacts=[
+            calculation_manifest_artifact["artifact_id"],
+            input_validation_artifact["artifact_id"],
+            resource_estimate_artifact["artifact_id"],
+            credential_scan_artifact["artifact_id"],
+        ],
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
+        metadata={"evidence_keys": ["dry_run_report"]},
     )
 
     return {
         "status": "success",
-        "artifacts": [compute_plan_artifact, job_script_artifact, dry_run_artifact],
+        "artifacts": [
+            compute_plan_artifact,
+            job_script_artifact,
+            calculation_manifest_artifact,
+            input_validation_artifact,
+            resource_estimate_artifact,
+            credential_scan_artifact,
+            dry_run_artifact,
+        ],
         "manifest": compute_plan,
         "inputs": parent_artifact_ids,
     }
