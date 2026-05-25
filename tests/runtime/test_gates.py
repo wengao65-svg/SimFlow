@@ -61,36 +61,50 @@ def test_load_gate_not_found():
     print("  load_gate_not_found OK")
 
 
-def test_evaluate_legacy_conditions_all_met():
-    """Legacy string conditions still use boolean runtime context."""
-    gate = load_gate("convergence_failure")
-    context = {
-        "convergence_check_performed": True,
-        "convergence_criteria_defined": True,
-    }
+def test_evaluate_non_dict_conditions_are_blocked():
+    """Non-evidence conditions never pass from boolean runtime context."""
+    gate = {"conditions": ["convergence_check_performed"]}
+    context = {"convergence_check_performed": True}
     result = evaluate_conditions(gate, context)
+    assert result["all_met"] is False
+    assert result["unmet"] == ["convergence_check_performed"]
+    assert result["details"][0]["kind"] == "unsupported"
+    assert result["details"][0]["error"] == "legacy_context_condition_not_supported"
+    print("  evaluate_non_dict_conditions_are_blocked OK")
+
+
+def test_evidence_conditions_all_met():
+    """Non-submit approval gates use recorded evidence, not booleans."""
+    gate = load_gate("convergence_failure")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _write_json(
+            Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "convergence_report.json",
+            {"check_performed": True, "criteria_defined": True},
+        )
+        result = evaluate_conditions(gate, {"project_root": tmpdir})
     assert result["all_met"] is True
     assert len(result["unmet"]) == 0
     assert result["met"] == [
         "convergence_check_performed",
         "convergence_criteria_defined",
     ]
-    assert all(detail["kind"] == "context" for detail in result["details"])
-    print("  evaluate_legacy_conditions_all_met OK")
+    assert all(detail["kind"] == "evidence" for detail in result["details"])
+    print("  evidence_conditions_all_met OK")
 
 
-def test_evaluate_legacy_conditions_partial():
-    """Partial legacy conditions returns all_met=False with unmet list."""
+def test_evidence_conditions_partial():
+    """Partial evidence conditions return all_met=False with unmet list."""
     gate = load_gate("convergence_failure")
-    context = {
-        "convergence_check_performed": True,
-        "convergence_criteria_defined": False,
-    }
-    result = evaluate_conditions(gate, context)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _write_json(
+            Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "convergence_report.json",
+            {"check_performed": True, "criteria_defined": False},
+        )
+        result = evaluate_conditions(gate, {"project_root": tmpdir})
     assert result["all_met"] is False
     assert "convergence_criteria_defined" in result["unmet"]
     assert "convergence_check_performed" in result["met"]
-    print("  evaluate_legacy_conditions_partial OK")
+    print("  evidence_conditions_partial OK")
 
 
 def test_hpc_submit_boolean_only_context_blocks():
@@ -156,12 +170,12 @@ def test_hpc_submit_missing_evidence_blocks():
 
 def test_check_gate_pass():
     """check_gate returns status=pass when all conditions met."""
-    gate = load_gate("convergence_failure")
-    context = {
-        "convergence_check_performed": True,
-        "convergence_criteria_defined": True,
-    }
-    result = check_gate("convergence_failure", context)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _write_json(
+            Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "convergence_report.json",
+            {"check_performed": True, "criteria_defined": True},
+        )
+        result = check_gate("convergence_failure", {"project_root": tmpdir})
     assert result["status"] == "pass"
     assert result["gate"] == "convergence_failure"
     assert "actions_on_approve" in result
@@ -187,11 +201,12 @@ def test_check_gate_block():
 
 def test_check_gate_with_thresholds():
     """resource_exceeds_budget gate includes thresholds in result."""
-    context = {
-        "resource_estimate_available": True,
-        "budget_threshold_defined": True,
-    }
-    result = check_gate("resource_exceeds_budget", context)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _write_json(
+            Path(tmpdir) / ".simflow" / "artifacts" / "proposal" / "resource_estimate.json",
+            {"status": "exceeds_budget", "budget_threshold_defined": True},
+        )
+        result = check_gate("resource_exceeds_budget", {"project_root": tmpdir})
     assert result["status"] == "pass"
     assert "thresholds" in result
     assert result["thresholds"]["cpu_hours"] == 10000

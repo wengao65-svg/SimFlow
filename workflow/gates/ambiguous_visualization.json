@@ -3,8 +3,20 @@
   "description": "可视化歧义审批门：图表展示结果有歧义时触发",
   "type": "approval",
   "conditions": [
-    "figures_generated",
-    "data_traceability_verified"
+    {
+      "id": "figures_generated",
+      "evidence": "analysis/figure_manifest.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "data_traceability_verified",
+      "evidence": "analysis/traceability_report.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    }
   ],
   "actions_on_approve": ["accept_figures", "proceed_to_writing"],
   "actions_on_reject": ["revise_visualization", "adjust_parameters"],

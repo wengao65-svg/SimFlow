@@ -27,6 +27,31 @@ def test_gate_has_required_fields():
         assert "trigger" in data or "conditions" in data, f"Gate {path.name} missing trigger/conditions"
 
 
+def test_gate_conditions_are_evidence_based():
+    required = {"id", "evidence", "path", "op"}
+    for path in GATES_DIR.glob("*.json"):
+        data = json.loads(path.read_text())
+        for index, condition in enumerate(data.get("conditions", [])):
+            assert isinstance(condition, dict), f"Gate {path.name} condition {index} is not evidence-based"
+            missing = required.difference(condition)
+            assert not missing, f"Gate {path.name} condition {index} missing {sorted(missing)}"
+
+
+def test_gate_actions_do_not_use_legacy_stage_aliases():
+    legacy_actions = {
+        "proceed_to_input_generation",
+        "iterate_to_input_generation",
+        "proceed_to_compute",
+        "proceed_to_visualization",
+        "iterate_to_visualization",
+    }
+    for path in GATES_DIR.glob("*.json"):
+        data = json.loads(path.read_text())
+        actions = data.get("actions_on_approve", []) + data.get("actions_on_reject", [])
+        offenders = [action for action in actions if action in legacy_actions]
+        assert offenders == [], f"Gate {path.name} uses legacy stage aliases in actions: {offenders}"
+
+
 def test_gate_type_valid():
     valid_types = {"approval", "verification", "safety", "threshold", "convergence"}
     for path in GATES_DIR.glob("*.json"):

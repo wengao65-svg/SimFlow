@@ -1,8 +1,9 @@
 """Verification gate engine for SimFlow workflows.
 
-Loads gate definitions from workflow/gates/ and evaluates conditions
-against a runtime context. Gates enforce approval workflows at critical
-stage transitions (e.g., HPC submit, convergence acceptance).
+Loads gate definitions from workflow/gates/ and evaluates conditions against
+recorded JSON evidence. Gates enforce approval workflows at critical stage
+transitions (e.g., HPC submit, convergence acceptance) without trusting
+boolean-only runtime context.
 """
 
 import json
@@ -128,16 +129,6 @@ def _evaluate_op(actual: Any, op: str, expected: Any) -> bool:
     raise ValueError(f"Unsupported gate condition op: {op}")
 
 
-def _evaluate_legacy_condition(condition: str, context: Dict[str, Any]) -> dict:
-    met = bool(context.get(condition))
-    return {
-        "id": condition,
-        "kind": "context",
-        "met": met,
-        "actual": context.get(condition),
-    }
-
-
 def _evaluate_evidence_condition(condition: dict, context: Dict[str, Any]) -> dict:
     cond_id = _condition_id(condition)
     evidence = condition.get("evidence")
@@ -186,9 +177,9 @@ def evaluate_conditions(gate: dict, context: Dict[str, Any]) -> dict:
 
     Args:
         gate: Gate definition dict
-        context: Runtime context. Legacy string conditions read boolean-like
-                 values from this dict. Evidence conditions read JSON artifacts
-                 from project_root/.simflow/ rather than trusting booleans.
+        context: Runtime context containing project_root/base_dir. Conditions
+                 read JSON artifacts from project_root/.simflow/ rather than
+                 trusting boolean flags.
 
     Returns:
         Dict with keys: all_met (bool), met (list), unmet (list), details (list)
@@ -201,7 +192,12 @@ def evaluate_conditions(gate: dict, context: Dict[str, Any]) -> dict:
         if isinstance(cond, dict):
             detail = _evaluate_evidence_condition(cond, context)
         else:
-            detail = _evaluate_legacy_condition(str(cond), context)
+            detail = {
+                "id": str(cond),
+                "kind": "unsupported",
+                "met": False,
+                "error": "legacy_context_condition_not_supported",
+            }
         cond_id = detail["id"]
         details.append(detail)
         if detail["met"]:
@@ -221,7 +217,7 @@ def check_gate(gate_name: str, context: Dict[str, Any]) -> dict:
 
     Args:
         gate_name: Gate name
-        context: Dict mapping condition names to boolean-like values
+        context: Dict containing project_root/base_dir for evidence lookup.
 
     Returns:
         Dict with keys:
