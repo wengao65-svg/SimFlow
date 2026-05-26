@@ -62,6 +62,11 @@ GENERATE_CP2K_INPUTS = _load_function(
     "generate_cp2k_inputs",
     "simflow_cp2k_inputs",
 )
+GENERATE_LAMMPS_INPUTS = _load_function(
+    "skills/simflow-lammps/scripts/generate_lammps_inputs.py",
+    "generate_lammps_inputs",
+    "simflow_lammps_inputs",
+)
 
 
 def _stage_output_artifacts(project_root: Path, stage_name: str) -> list[dict[str, Any]]:
@@ -89,6 +94,18 @@ def _normalize_vasp_task(task: str | None) -> str:
 def _normalize_task(software: str, task: str | None) -> str:
     if software == "cp2k":
         return normalize_cp2k_task(task or "energy")
+    if software == "lammps":
+        aliases = {
+            "relax": "minimize",
+            "relaxation": "minimize",
+            "min": "minimize",
+            "equilibrate": "nvt",
+            "equilibration": "nvt",
+            "production": "nve",
+            "md": "nve",
+        }
+        normalized = (task or "minimize").strip().lower().replace("-", "_")
+        return aliases.get(normalized, normalized)
     return _normalize_vasp_task(task)
 
 
@@ -109,8 +126,26 @@ def _stage_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[
         "pre_commands",
         "potcar_root",
         "use_vaspkit",
+        "pair_style",
+        "pair_coeff",
+        "force_field_source",
+        "potential_files",
+        "force_field_files",
     }
     return {key: value for key, value in merged.items() if key not in excluded}
+
+
+def _lammps_generation_params(contract: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    return {**contract.get("parameter_overrides", {}), **(params or {})}
+
+
+def _missing_lammps_generation_inputs(merged: dict[str, Any]) -> list[str]:
+    missing = []
+    if not merged.get("pair_coeff"):
+        missing.append("pair_coeff")
+    if not merged.get("force_field_source") and not merged.get("potential_files") and not merged.get("force_field_files"):
+        missing.append("force_field_source")
+    return missing
 
 
 def _as_path_values(value: Any) -> list[str]:
@@ -354,6 +389,36 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             "num_atoms": generation["parameters"]["natoms"],
             "elements": generation["parameters"]["elements"],
             "cp2k_parameters": generation["parameters"],
+        })
+    elif software == "lammps":
+        merged = _lammps_generation_params(contract, params)
+        missing = _missing_lammps_generation_inputs(merged)
+        if missing:
+            return {
+                "status": "error",
+                "message": "Missing LAMMPS input-generation parameters: " + ", ".join(missing),
+                "missing_inputs": missing,
+            }
+        generation = GENERATE_LAMMPS_INPUTS(
+            str(structure_path),
+            task,
+            str(artifacts_dir),
+            pair_style=str(merged.get("pair_style", "lj/cut")),
+            pair_coeff=str(merged["pair_coeff"]),
+            params=merged,
+        )
+        if generation.get("status") != "success":
+            return generation
+        generated_files = [
+            _relative_path(project_root, Path(path)) for path in generation["files_generated"]
+        ]
+        manifest.update({
+            "generated_files": generated_files,
+            "num_atoms": generation["structure"]["num_atoms"],
+            "elements": generation["structure"]["elements"],
+            "lammps_manifest": generation["manifest"],
+            "force_field_provenance": generation["manifest"]["force_field_provenance"],
+            "warnings": generation.get("warnings", []),
         })
     else:
         return {"status": "error", "message": f"Unsupported software for input generation: {software}"}

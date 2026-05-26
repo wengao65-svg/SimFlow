@@ -121,6 +121,27 @@ def test_load_proposal_contract_rejects_unsupported_software():
             raise AssertionError("Expected ValueError")
 
 
+def test_load_proposal_contract_accepts_lammps_direct_entry_metadata():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: computation",
+                "goal: prepare LAMMPS dry-run evidence",
+                "material: Si",
+                "software: lammps",
+                "parameters: {\"input_files\": [\"in.lammps\", \"data.lammps\"], \"task\": \"nvt\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
+
+        assert contract["software"] == "lammps"
+        assert contract["task"] == "nvt"
+        assert contract["direct_entry"] is True
+
+
 def test_load_proposal_contract_can_use_direct_modeling_entry_metadata():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)

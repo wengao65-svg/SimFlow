@@ -349,6 +349,101 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         )
 
 
+def test_execute_stage_allows_direct_lammps_computation_entry_with_existing_inputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        inputs_dir = project_root / "inputs" / "lammps"
+        inputs_dir.mkdir(parents=True, exist_ok=True)
+        (inputs_dir / "in.lammps").write_text(
+            "\n".join([
+                "units metal",
+                "atom_style atomic",
+                "read_data data.lammps",
+                "pair_style lj/cut 2.5",
+                "pair_coeff * * 1.0 1.0",
+                "run 0",
+                "",
+            ]),
+            encoding="utf-8",
+        )
+        (inputs_dir / "data.lammps").write_text(
+            "\n".join([
+                "LAMMPS data file",
+                "",
+                "1 atoms",
+                "1 atom types",
+                "",
+                "0.0 1.0 xlo xhi",
+                "0.0 1.0 ylo yhi",
+                "0.0 1.0 zlo zhi",
+                "",
+                "Masses",
+                "",
+                "1 28.0855",
+                "",
+                "Atoms # atomic",
+                "",
+                "1 1 0.0 0.0 0.0",
+                "",
+            ]),
+            encoding="utf-8",
+        )
+        init_research(
+            input_text="\n".join([
+                "entry_stage: computation",
+                "goal: dry-run existing LAMMPS inputs",
+                "material: Si",
+                "software: lammps",
+                "parameters: {\"input_files\": [\"inputs/lammps/in.lammps\", \"inputs/lammps/data.lammps\"], \"task\": \"nvt\", \"num_atoms\": 1}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        input_manifest = result["manifests"]["input_generation"]
+        compute_manifest = result["manifests"]["compute"]
+
+        assert result["status"] == "completed"
+        assert input_manifest["software"] == "lammps"
+        assert input_manifest["source"] == "user_provided_input_files"
+        assert input_manifest["generated_files"] == [
+            "inputs/lammps/in.lammps",
+            "inputs/lammps/data.lammps",
+        ]
+        assert compute_manifest["software"] == "lammps"
+        assert compute_manifest["recommended_command"] == "lmp -in in.lammps"
+        assert compute_manifest["dry_run"] is True
+        assert compute_manifest["real_submit"] is False
+
+
+def test_execute_stage_generates_lammps_inputs_from_modeling_artifact():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build LAMMPS input evidence",
+                "material: Si",
+                "software: lammps",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"], \"task\": \"minimize\", \"pair_style\": \"lj/cut\", \"pair_coeff\": \"* * 1.0 1.0\", \"force_field_source\": \"dimensionless LJ smoke fixture\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+        modeling_result = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        input_manifest = result["manifests"]["input_generation"]
+
+        assert modeling_result["status"] == "completed"
+        assert result["status"] == "completed"
+        assert input_manifest["software"] == "lammps"
+        assert input_manifest["task"] == "minimize"
+        assert input_manifest["force_field_provenance"]["redistributed_by_simflow"] is False
+        assert ".simflow/artifacts/input_generation/in.lammps" in input_manifest["generated_files"]
+        assert ".simflow/artifacts/input_generation/data.lammps" in input_manifest["generated_files"]
+        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "lammps_input_manifest.json").is_file()
+
+
 
 def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:

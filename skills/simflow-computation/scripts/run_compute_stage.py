@@ -78,6 +78,12 @@ def _recommended_executable(software: str, input_manifest: dict[str, Any], raw_p
         if executables:
             return executables[0]["executable"]
         return "cp2k.psmp"
+    if software == "lammps":
+        input_name = next(
+            (Path(path).name for path in input_manifest.get("generated_files", []) if Path(path).name.startswith("in.")),
+            "in.lammps",
+        )
+        return f"lmp -in {input_name}"
     task = input_manifest.get("task", "scf")
     return "vasp_gam" if task in {"scf", "static"} else "vasp_std"
 
@@ -85,7 +91,35 @@ def _recommended_executable(software: str, input_manifest: dict[str, Any], raw_p
 def _recommended_command(software: str, script_name: str, raw_plan: dict[str, Any], executable: str) -> str:
     if software == "cp2k":
         return raw_plan["compute_plan"].get("recommended_command", f"{executable} -i <input.inp> -o cp2k.log")
+    if software == "lammps":
+        return raw_plan["compute_plan"].get("recommended_command", executable)
     return f"{executable} > vasp.out"
+
+
+def _build_lammps_task_plan(task: str, input_manifest: dict[str, Any]) -> dict[str, Any]:
+    num_atoms = int(input_manifest.get("num_atoms") or 50)
+    task_class = "minimize" if task == "minimize" else "production"
+    resources = {
+        "estimated_walltime_hours": 1 if task_class == "minimize" else 2,
+        "recommended_nodes": 1,
+        "recommended_ntasks": min(64, max(1, (num_atoms // 1000) + 1) * 16),
+        "recommended_memory_gb": max(4, min(256, num_atoms // 250 + 4)),
+    }
+    input_name = next(
+        (Path(path).name for path in input_manifest.get("generated_files", []) if Path(path).name.startswith("in.")),
+        "in.lammps",
+    )
+    return {
+        "compute_plan": {
+            "resources": resources,
+            "recommended_command": f"lmp -in {input_name}",
+            "hpc_submit_gate": "approval_required",
+        },
+        "validation_report": {
+            "status": "warning" if input_manifest.get("warnings") else "pass",
+            "warnings": input_manifest.get("warnings", []),
+        },
+    }
 
 
 def _failed_readiness_checks(readiness: dict[str, Any]) -> list[str]:
@@ -213,6 +247,8 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
                 ),
             },
         )
+    elif software == "lammps":
+        raw_plan = _build_lammps_task_plan(task, input_manifest)
     else:
         return {"status": "error", "message": f"Unsupported software for compute stage: {software}"}
 

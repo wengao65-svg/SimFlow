@@ -13,7 +13,7 @@ from .state import read_state
 
 REQUIRED_PROPOSAL_ARTIFACTS = ("proposal.md", "parameter_table.csv", "research_questions.json")
 OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json",)
-SUPPORTED_SOFTWARE = {"vasp", "cp2k"}
+SUPPORTED_SOFTWARE = {"vasp", "cp2k", "lammps"}
 CORE_PARAMETER_KEYS = {"workflow_type", "software", "material"}
 CANONICAL_STAGE_SEQUENCE = [
     "literature_review",
