@@ -164,7 +164,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         return {"status": "error", "message": "No workflow state found"}
 
     params = params or {}
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     input_artifacts = _stage_output_artifacts(project_root, "computation")
     if not input_artifacts:
         return {"status": "error", "message": "Input generation stage has no registered outputs"}

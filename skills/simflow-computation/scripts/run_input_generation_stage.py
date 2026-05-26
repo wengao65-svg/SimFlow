@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -112,6 +113,102 @@ def _stage_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[
     return {key: value for key, value in merged.items() if key not in excluded}
 
 
+def _as_path_values(value: Any) -> list[str]:
+    if value in (None, "", False):
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [str(item) for item in value.values() if item]
+    if isinstance(value, (list, tuple)):
+        paths: list[str] = []
+        for item in value:
+            if isinstance(item, dict) and item.get("path"):
+                paths.append(str(item["path"]))
+            elif item:
+                paths.append(str(item))
+        return paths
+    return []
+
+
+def _direct_input_file_values(contract: dict[str, Any], params: dict[str, Any]) -> list[str]:
+    merged = {**contract.get("parameter_overrides", {}), **(params or {})}
+    values: list[str] = []
+    for key in ("input_files", "existing_input_files", "calculation_inputs", "vasp_input_files", "cp2k_input_files"):
+        values.extend(_as_path_values(merged.get(key)))
+    input_dir = merged.get("input_dir") or merged.get("calculation_dir")
+    if input_dir:
+        values.append(str(input_dir))
+    return list(dict.fromkeys(values))
+
+
+def _resolve_direct_input_files(project_root: Path, values: list[str]) -> list[Path]:
+    resolved: list[Path] = []
+    for value in values:
+        path = Path(value).expanduser()
+        path = path if path.is_absolute() else project_root / path
+        if path.is_dir():
+            for child_name in ("INCAR", "KPOINTS", "POSCAR", "POTCAR", "input.inp", "structure.cif"):
+                child = path / child_name
+                if child.is_file():
+                    resolved.append(child.resolve())
+            continue
+        if path.is_file():
+            resolved.append(path.resolve())
+    return list(dict.fromkeys(resolved))
+
+
+def _common_artifact_dir(project_root: Path, files: list[Path]) -> str:
+    if not files:
+        return "."
+    parents = [path.parent for path in files]
+    common = Path(os.path.commonpath([str(parent) for parent in parents]))
+    try:
+        return str(common.resolve().relative_to(project_root))
+    except ValueError:
+        return str(common.resolve())
+
+
+def _direct_input_manifest(
+    project_root: Path,
+    contract: dict[str, Any],
+    params: dict[str, Any],
+    dry_run: bool,
+) -> dict[str, Any] | None:
+    input_files = _resolve_direct_input_files(project_root, _direct_input_file_values(contract, params))
+    if not input_files:
+        return None
+
+    software = contract["software"]
+    task = _normalize_task(software, params.get("task") or params.get("job_type") or contract.get("task") or contract.get("job_type"))
+    generated_files = [_relative_path(project_root, path) for path in input_files]
+    artifact_dir = _common_artifact_dir(project_root, input_files)
+    required_names = {path.name for path in input_files}
+    manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "software": software,
+        "task": task,
+        "status": "planned" if dry_run else "completed",
+        "source": "user_provided_input_files",
+        "parent_artifact_ids": [],
+        "generated_files": generated_files,
+        "input_files": generated_files,
+        "artifact_dir": artifact_dir,
+        "missing_optional_inputs": ["POTCAR"] if software == "vasp" and "POTCAR" not in required_names else [],
+        "downstream_compute_hints": {
+            "recommended_scheduler": params.get("scheduler", "slurm"),
+            "software": software,
+            "task": task,
+        },
+    }
+    if software == "vasp":
+        manifest.setdefault("num_atoms", int(params.get("num_atoms") or contract.get("parameter_overrides", {}).get("num_atoms") or 1))
+        manifest.setdefault("elements", params.get("elements") or contract.get("parameter_overrides", {}).get("elements") or [])
+        manifest.setdefault("kpoints_mesh", params.get("kpoints_mesh") or [1, 1, 1])
+        manifest.setdefault("potcar", {"status": "not_redistributed"})
+    return manifest
+
+
 def _materialize_cp2k_structure(source_path: Path, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if source_path.suffix.lower() == ".cif":
@@ -129,10 +226,55 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         return {"status": "error", "message": "No workflow state found"}
 
     params = params or {}
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     modeling_artifacts = _stage_output_artifacts(project_root, "modeling")
     if not modeling_artifacts:
-        return {"status": "error", "message": "Modeling stage has no registered outputs"}
+        direct_manifest = _direct_input_manifest(project_root, contract, params, dry_run)
+        if not direct_manifest:
+            return {"status": "error", "message": "Modeling stage has no registered outputs"}
+        if dry_run:
+            direct_manifest["planned_outputs"] = [".simflow/reports/input_generation/input_manifest.json"]
+            return {
+                "status": "dry_run_complete",
+                "manifest": direct_manifest,
+                "inputs": [],
+                "planned_outputs": direct_manifest["planned_outputs"],
+            }
+        reports_dir = project_root / ".simflow" / "reports" / "input_generation"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = reports_dir / "input_manifest.json"
+        manifest_path.write_text(json.dumps(direct_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        manifest_artifact = register_artifact(
+            "input_manifest.json",
+            "input_manifest",
+            "computation",
+            project_root=str(project_root),
+            path=_relative_path(project_root, manifest_path),
+            parent_artifacts=[],
+            parameters={"software": direct_manifest["software"], "task": direct_manifest["task"]},
+            software=direct_manifest["software"],
+            metadata={"source": "user_provided_input_files"},
+        )
+        file_artifacts = [
+            register_artifact(
+                Path(rel_path).name,
+                "input_files",
+                "computation",
+                project_root=str(project_root),
+                path=rel_path,
+                parent_artifacts=[manifest_artifact["artifact_id"]],
+                parameters={"software": direct_manifest["software"], "task": direct_manifest["task"]},
+                software=direct_manifest["software"],
+                metadata={"source": "user_provided"},
+            )
+            for rel_path in direct_manifest["generated_files"]
+        ]
+        return {
+            "status": "success",
+            "artifacts": [manifest_artifact, *file_artifacts],
+            "manifest": direct_manifest,
+            "inputs": [],
+        }
 
     structure_artifact = next((artifact for artifact in modeling_artifacts if artifact.get("type") == "structure"), None)
     structure_manifest_artifact = next((artifact for artifact in modeling_artifacts if artifact.get("type") == "structure_manifest"), None)

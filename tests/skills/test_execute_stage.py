@@ -305,6 +305,50 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
 
 
+def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        inputs_dir = project_root / "inputs" / "vasp"
+        inputs_dir.mkdir(parents=True, exist_ok=True)
+        (inputs_dir / "INCAR").write_text("ENCUT = 520\n", encoding="utf-8")
+        (inputs_dir / "KPOINTS").write_text("Gamma\n0\nGamma\n1 1 1\n0 0 0\n", encoding="utf-8")
+        (inputs_dir / "POSCAR").write_text(
+            "Si\n1.0\n3.0 0.0 0.0\n0.0 3.0 0.0\n0.0 0.0 3.0\nSi\n1\nDirect\n0.0 0.0 0.0\n",
+            encoding="utf-8",
+        )
+        init_research(
+            input_text="\n".join([
+                "entry_stage: computation",
+                "goal: dry-run existing VASP inputs",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"input_files\": [\"inputs/vasp/INCAR\", \"inputs/vasp/KPOINTS\", \"inputs/vasp/POSCAR\"], \"task\": \"static\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        input_manifest = result["manifests"]["input_generation"]
+        compute_manifest = result["manifests"]["compute"]
+
+        assert result["status"] == "completed"
+        assert input_manifest["source"] == "user_provided_input_files"
+        assert input_manifest["generated_files"] == [
+            "inputs/vasp/INCAR",
+            "inputs/vasp/KPOINTS",
+            "inputs/vasp/POSCAR",
+        ]
+        assert input_manifest["missing_optional_inputs"] == ["POTCAR"]
+        assert compute_manifest["dry_run"] is True
+        assert compute_manifest["real_submit"] is False
+        assert compute_manifest["approval_required_for_real_submit"] is True
+        assert compute_manifest["readiness_status"] == "pass"
+        assert {"input_manifest.json", "compute_plan.json", "dry_run_report.json"}.issubset(
+            {artifact["name"] for artifact in artifacts}
+        )
+
+
 
 def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:
