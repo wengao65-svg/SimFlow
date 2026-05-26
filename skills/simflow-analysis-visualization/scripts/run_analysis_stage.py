@@ -61,6 +61,51 @@ def _relative_path(project_root: Path, path: Path) -> str:
     return str(path.resolve().relative_to(project_root))
 
 
+def _as_path_values(value: Any) -> list[str]:
+    if value in (None, "", False):
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [str(item) for item in value.values() if item]
+    if isinstance(value, (list, tuple)):
+        values: list[str] = []
+        for item in value:
+            if isinstance(item, dict) and item.get("path"):
+                values.append(str(item["path"]))
+            elif item:
+                values.append(str(item))
+        return values
+    return []
+
+
+def _direct_output_values(contract: dict[str, Any], params: dict[str, Any]) -> list[str]:
+    merged = {**contract.get("parameter_overrides", {}), **(params or {})}
+    values: list[str] = []
+    for key in ("output_files", "existing_output_files", "compute_outputs", "analysis_inputs"):
+        values.extend(_as_path_values(merged.get(key)))
+    output_dir = merged.get("output_dir") or merged.get("calculation_dir")
+    if output_dir:
+        values.append(str(output_dir))
+    return list(dict.fromkeys(values))
+
+
+def _resolve_direct_output_files(project_root: Path, values: list[str]) -> list[Path]:
+    resolved: list[Path] = []
+    for value in values:
+        path = Path(value).expanduser()
+        path = path if path.is_absolute() else project_root / path
+        if path.is_dir():
+            for child_name in ("vasprun.xml", "OUTCAR", "OSZICAR", "EIGENVAL", "cp2k.out", "cp2k.log"):
+                child = path / child_name
+                if child.is_file():
+                    resolved.append(child.resolve())
+            continue
+        if path.is_file():
+            resolved.append(path.resolve())
+    return list(dict.fromkeys(resolved))
+
+
 def _trajectory_status(task: str, source_files: list[str]) -> dict[str, Any]:
     if task not in {"md", "aimd", "aimd_nvt", "aimd_nve", "aimd_npt"}:
         return {"status": "not_requested"}
@@ -107,6 +152,34 @@ def _analyze_vasp(calc_dir: Path) -> tuple[str, dict[str, Any]]:
     }
 
 
+def _analyze_vasp_files(project_root: Path, output_files: list[Path]) -> tuple[str, dict[str, Any]]:
+    if not output_files:
+        return "waiting_for_outputs", {
+            "status": "waiting_for_outputs",
+            "source_files": [],
+            "raw_results": None,
+            "conclusions": "Compute outputs are not available yet.",
+        }
+
+    analysis = ANALYZE_RESULTS("vasp", [str(path) for path in output_files])
+    primary = next((item for item in analysis["results"] if item.get("status") == "success"), {})
+    status = "completed" if analysis.get("num_successful", 0) else "waiting_for_outputs"
+    return status, {
+        "status": status,
+        "source_files": [_relative_path(project_root, path) for path in output_files],
+        "raw_results": analysis,
+        "final_energy": analysis.get("final_energy"),
+        "total_energy": primary.get("total_energy"),
+        "energy_converged": analysis.get("all_converged"),
+        "job_type": primary.get("job_type"),
+        "warnings": primary.get("warnings", []),
+        "errors": primary.get("errors", []),
+        "conclusions": "Parsed user-provided VASP outputs successfully."
+        if status == "completed"
+        else "User-provided VASP outputs could not be parsed.",
+    }
+
+
 def _analyze_cp2k(calc_dir: Path) -> tuple[str, dict[str, Any]]:
     parser = CP2KParser()
     parsed = parser.parse_outputs(str(calc_dir))
@@ -145,17 +218,24 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     if not state:
         return {"status": "error", "message": "No workflow state found"}
 
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    params = params or {}
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     compute_artifacts = _stage_output_artifacts(project_root, "computation")
-    if not compute_artifacts:
+    direct_output_files = _resolve_direct_output_files(
+        project_root,
+        _direct_output_values(contract, params),
+    ) if not compute_artifacts else []
+    if not compute_artifacts and not direct_output_files:
         return {"status": "error", "message": "Compute stage has no registered outputs"}
 
     compute_plan_artifact = next((artifact for artifact in compute_artifacts if artifact.get("type") == "compute_plan"), None)
-    if not compute_plan_artifact:
+    if compute_artifacts and not compute_plan_artifact:
         return {"status": "error", "message": "Compute plan is missing"}
 
-    compute_plan_path = project_root / compute_plan_artifact["path"]
-    compute_plan = json.loads(compute_plan_path.read_text(encoding="utf-8"))
+    compute_plan = {}
+    if compute_plan_artifact:
+        compute_plan_path = project_root / compute_plan_artifact["path"]
+        compute_plan = json.loads(compute_plan_path.read_text(encoding="utf-8"))
     software = contract["software"]
     task = compute_plan.get("task") or contract.get("task") or contract.get("job_type") or "unknown"
     calc_dir = project_root / ".simflow" / "artifacts" / "compute"
@@ -165,8 +245,9 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
-        "compute_plan_artifact_id": compute_plan_artifact["artifact_id"],
+        "compute_plan_artifact_id": compute_plan_artifact["artifact_id"] if compute_plan_artifact else None,
         "parent_artifact_ids": parent_artifact_ids,
+        "compute_context": "registered_compute_artifacts" if compute_artifacts else "user_provided_outputs",
         "status": "planned" if dry_run else "waiting_for_outputs",
         "source_files": [],
     }
@@ -182,8 +263,27 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
             ],
         }
 
+    direct_output_artifacts: list[dict[str, Any]] = []
+    if direct_output_files:
+        direct_output_artifacts = [
+            register_artifact(
+                path.name,
+                "user_provided_compute_output",
+                "analysis_visualization",
+                project_root=str(project_root),
+                path=_relative_path(project_root, path),
+                parent_artifacts=[],
+                parameters={"software": software, "task": task},
+                software=software,
+                metadata={"source": "user_provided"},
+            )
+            for path in direct_output_files
+        ]
+        parent_artifact_ids = [artifact["artifact_id"] for artifact in direct_output_artifacts]
+        report["parent_artifact_ids"] = parent_artifact_ids
+
     if software == "vasp":
-        status, details = _analyze_vasp(calc_dir)
+        status, details = _analyze_vasp_files(project_root, direct_output_files) if direct_output_files else _analyze_vasp(calc_dir)
         analysis_script = "skills/simflow-analysis-visualization/scripts/analyze_dft_results.py"
     elif software == "cp2k":
         status, details = _analyze_cp2k(calc_dir)
@@ -201,7 +301,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     markdown_path = reports_dir / "analysis_report.md"
     report["analysis_provenance"] = {
         "input_artifact_ids": parent_artifact_ids,
-        "compute_plan_artifact_id": compute_plan_artifact["artifact_id"],
+        "compute_plan_artifact_id": compute_plan_artifact["artifact_id"] if compute_plan_artifact else None,
         "analysis_script": analysis_script,
         "report_script": "skills/simflow-analysis-visualization/scripts/generate_analysis_report.py",
         "source_files": report.get("source_files", []),
@@ -237,7 +337,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
 
     return {
         "status": "success",
-        "artifacts": [json_artifact, markdown_artifact],
+        "artifacts": [*direct_output_artifacts, json_artifact, markdown_artifact],
         "manifest": report,
         "inputs": parent_artifact_ids,
     }

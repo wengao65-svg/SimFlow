@@ -57,7 +57,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
     if not state:
         return {"status": "error", "message": "No workflow state found"}
 
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     analysis_artifacts = _stage_output_artifacts(project_root, "analysis_visualization")
     if not analysis_artifacts:
         return {"status": "error", "message": "Analysis stage has no registered outputs"}

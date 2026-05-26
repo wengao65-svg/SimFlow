@@ -382,6 +382,37 @@ def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs()
         assert analysis_result["status"] == "completed"
         assert analysis_result["manifest"]["status"] == "waiting_for_outputs"
         assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"} == artifact_names
+
+
+def test_execute_stage_allows_direct_analysis_entry_with_user_outputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        outputs_dir = project_root / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(VASP_RUN_XML, outputs_dir / "vasprun.xml")
+        init_research(
+            input_text="\n".join([
+                "entry_stage: analysis_visualization",
+                "goal: analyze existing VASP output",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"output_files\": [\"outputs/vasprun.xml\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "analysis_visualization", dry_run=False)
+        artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+        analysis_manifest = result["manifests"]["analysis"]
+
+        assert result["status"] == "completed"
+        assert analysis_manifest["compute_context"] == "user_provided_outputs"
+        assert analysis_manifest["source_files"] == ["outputs/vasprun.xml"]
+        assert analysis_manifest["analysis_provenance"]["compute_plan_artifact_id"] is None
+        assert any(artifact["type"] == "user_provided_compute_output" for artifact in artifacts)
+        assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"}.issubset(
+            {artifact["name"] for artifact in artifacts}
+        )
         assert (project_root / ".simflow" / "reports" / "analysis" / "analysis_report.json").is_file()
         assert (project_root / ".simflow" / "reports" / "visualization" / "figures_manifest.json").is_file()
 
