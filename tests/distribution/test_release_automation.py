@@ -45,3 +45,20 @@ def test_release_notes_command_emits_markdown():
     assert "# SimFlow Release Notes" in result.stdout
     assert "## Release Gates" in result.stdout
     assert "## Commits" in result.stdout
+
+
+def test_marketplace_publish_workflows_cover_codex_and_claude():
+    codex = ROOT / ".github" / "workflows" / "publish-codex-marketplace.yml"
+    claude = ROOT / ".github" / "workflows" / "publish-claude-marketplace.yml"
+
+    assert codex.exists()
+    assert claude.exists()
+
+    codex_text = codex.read_text()
+    claude_text = claude.read_text()
+
+    assert "npm run build:codex-marketplace" in codex_text
+    assert "npm run publish:codex-marketplace -- --no-build" in codex_text
+    assert "npm run build:claude-marketplace" in claude_text
+    assert "SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin" in claude_text
+    assert "npm run publish:claude-marketplace -- --no-build" in claude_text
