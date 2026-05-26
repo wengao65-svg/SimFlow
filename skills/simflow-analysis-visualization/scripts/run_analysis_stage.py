@@ -18,6 +18,7 @@ from runtime.simflow_core.artifacts import get_artifact, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
+from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -96,7 +97,18 @@ def _resolve_direct_output_files(project_root: Path, values: list[str]) -> list[
         path = Path(value).expanduser()
         path = path if path.is_absolute() else project_root / path
         if path.is_dir():
-            for child_name in ("vasprun.xml", "OUTCAR", "OSZICAR", "EIGENVAL", "cp2k.out", "cp2k.log"):
+            for child_name in (
+                "vasprun.xml",
+                "OUTCAR",
+                "OSZICAR",
+                "EIGENVAL",
+                "cp2k.out",
+                "cp2k.log",
+                "log.lammps",
+                "lammps.log",
+                "dump.lammps",
+                "data.lammps",
+            ):
                 child = path / child_name
                 if child.is_file():
                     resolved.append(child.resolve())
@@ -212,6 +224,56 @@ def _analyze_cp2k(calc_dir: Path) -> tuple[str, dict[str, Any]]:
     }
 
 
+def _analyze_lammps_files(project_root: Path, output_files: list[Path]) -> tuple[str, dict[str, Any]]:
+    log_files = [path for path in output_files if path.name in {"log.lammps", "lammps.log"} or "log" in path.name.lower()]
+    dump_files = [path for path in output_files if "dump" in path.name.lower()]
+    data_files = [path for path in output_files if path.name.endswith(".data") or path.name == "data.lammps"]
+    if not log_files:
+        return "waiting_for_outputs", {
+            "status": "waiting_for_outputs",
+            "source_files": [_relative_path(project_root, path) for path in output_files],
+            "raw_results": None,
+            "warnings": [{"code": "missing_lammps_log", "message": "No LAMMPS log file was provided."}],
+            "errors": [],
+            "conclusions": "LAMMPS outputs are incomplete; no log file was available for parsing.",
+        }
+
+    parser = LAMMPSParser()
+    parsed = []
+    for path in log_files:
+        item = parser.parse(str(path))
+        parsed.append({
+            "file": _relative_path(project_root, path),
+            "status": "success",
+            "job_type": item.job_type,
+            "converged": item.converged,
+            "final_energy": item.final_energy,
+            "parameters": item.parameters,
+            "metadata": item.metadata,
+            "warnings": item.warnings,
+            "errors": item.errors,
+        })
+    primary = parsed[-1]
+    warnings = []
+    if not dump_files:
+        warnings.append({"code": "missing_lammps_dump", "message": "No trajectory dump was provided; trajectory analyses are unavailable."})
+    if not data_files:
+        warnings.append({"code": "missing_lammps_data", "message": "No data file was provided; atom typing and masses may be unavailable."})
+    return "completed", {
+        "status": "completed",
+        "source_files": [_relative_path(project_root, path) for path in output_files],
+        "raw_results": {"software": "lammps", "results": parsed},
+        "final_energy": primary.get("final_energy"),
+        "total_energy": primary.get("final_energy"),
+        "temperature": primary.get("metadata", {}).get("final_temp"),
+        "trajectory_steps": primary.get("metadata", {}).get("total_steps"),
+        "energy_converged": primary.get("converged"),
+        "warnings": [*warnings, *primary.get("warnings", [])],
+        "errors": primary.get("errors", []),
+        "conclusions": "Parsed user-provided LAMMPS log evidence successfully.",
+    }
+
+
 def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = False) -> dict:
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     state = read_state(project_root=str(project_root), state_file="workflow.json")
@@ -288,6 +350,9 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
     elif software == "cp2k":
         status, details = _analyze_cp2k(calc_dir)
         analysis_script = "runtime/simflow_helpers/engines/cp2k"
+    elif software == "lammps":
+        status, details = _analyze_lammps_files(project_root, direct_output_files)
+        analysis_script = "runtime/simflow_helpers/engines/parsers/lammps_parser.py"
     else:
         return {"status": "error", "message": f"Unsupported software for analysis stage: {software}"}
 

@@ -179,6 +179,11 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                         "plotting_script": "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
                         "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
                     })
+        elif software == "lammps":
+            manifest["status"] = "no_plot_data"
+            manifest["skipped_reasons"].append(
+                "LAMMPS plotting is not implemented in the stage runner; register self-written plots as traceable artifacts."
+            )
         else:
             return {"status": "error", "message": f"Unsupported software for visualization stage: {software}"}
 

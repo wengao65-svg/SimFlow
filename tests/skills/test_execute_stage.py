@@ -512,6 +512,39 @@ def test_execute_stage_allows_direct_analysis_entry_with_user_outputs():
         assert (project_root / ".simflow" / "reports" / "visualization" / "figures_manifest.json").is_file()
 
 
+def test_execute_stage_allows_direct_lammps_analysis_entry_with_user_log():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        outputs_dir = project_root / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "tests" / "fixtures" / "lammps_log.lammps", outputs_dir / "log.lammps")
+        init_research(
+            input_text="\n".join([
+                "entry_stage: analysis_visualization",
+                "goal: analyze existing LAMMPS log",
+                "material: Si",
+                "software: lammps",
+                "parameters: {\"output_files\": [\"outputs/log.lammps\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "analysis_visualization", dry_run=False)
+        analysis_manifest = result["manifests"]["analysis"]
+        visualization_manifest = result["manifests"]["visualization"]
+        artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+
+        assert result["status"] == "completed"
+        assert analysis_manifest["software"] == "lammps"
+        assert analysis_manifest["status"] == "completed"
+        assert analysis_manifest["source_files"] == ["outputs/log.lammps"]
+        assert analysis_manifest["final_energy"] == -37.65467
+        assert analysis_manifest["temperature"] == 2567.89012
+        assert analysis_manifest["trajectory_steps"] == 1000
+        assert visualization_manifest["status"] == "no_plot_data"
+        assert any(artifact["type"] == "user_provided_compute_output" for artifact in artifacts)
+
+
 
 def test_execute_stage_execute_runs_analysis_and_visualization_with_vasp_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:

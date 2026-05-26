@@ -11,13 +11,18 @@ class LAMMPSParser(BaseParser):
         content = self._read_file(file_path)
         result = ParseResult(software="lammps", job_type="md", converged=True)
 
-        step_pattern = re.compile(r"^\s*(\d+)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)", re.MULTILINE)
+        step_pattern = re.compile(
+            r"^\s*(\d+)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)",
+            re.MULTILINE,
+        )
         thermo_data = step_pattern.findall(content)
         if thermo_data:
             result.metadata["thermo_steps"] = len(thermo_data)
             result.metadata["total_steps"] = int(thermo_data[-1][0])
-            result.final_energy = float(thermo_data[-1][2])
-            result.metadata["final_temp"] = float(thermo_data[-1][3])
+            result.final_energy = float(thermo_data[-1][4])
+            result.metadata["final_temp"] = float(thermo_data[-1][1])
+            result.metadata["final_potential_energy"] = float(thermo_data[-1][2])
+            result.metadata["final_kinetic_energy"] = float(thermo_data[-1][3])
 
         timestep_match = re.search(r"timestep\s+([\d.]+)", content)
         if timestep_match:
