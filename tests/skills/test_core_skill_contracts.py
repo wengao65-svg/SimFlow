@@ -23,8 +23,11 @@ CORE_SKILLS = [
 ENGINE_DOMAIN_SKILLS = [
     "simflow-vasp",
     "simflow-cp2k",
-    "simflow-qe",
     "simflow-lammps",
+]
+
+UNSUPPORTED_ENGINE_PLACEHOLDERS = [
+    "simflow-qe",
     "simflow-gaussian",
 ]
 
@@ -130,14 +133,24 @@ def test_engine_skills_are_domain_assistants_not_workflow_executors():
         assert "unknown" in lowered or "未知" in text
 
 
+def test_unsupported_engine_placeholders_do_not_claim_runtime_support():
+    for skill_name in UNSUPPORTED_ENGINE_PLACEHOLDERS:
+        text = _skill_text(skill_name)
+        lowered = text.lower()
+        assert "reserved" in lowered
+        assert "does not currently provide a supported" in lowered
+        assert "do not claim supported" in lowered
+        assert "approval gate" in lowered
+        assert "project_root" in text
+        assert ".simflow" in text
+
+
 def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
     vasp_text = _skill_text("simflow-vasp")
     cp2k_text = _skill_text("simflow-cp2k")
-    qe_text = _skill_text("simflow-qe")
 
     assert "Do not default unknown VASP tasks to `static`" in vasp_text
     assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
-    assert "不要默认未知 QE 任务为 SCF" in qe_text
 
 
 def test_support_skills_do_not_reintroduce_fixed_executor_contracts():
