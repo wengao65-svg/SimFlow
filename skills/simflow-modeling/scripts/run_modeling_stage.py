@@ -153,7 +153,7 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         return {"status": "error", "message": "No workflow state found"}
 
     params = params or {}
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     proposal_artifact_ids = [artifact["artifact_id"] for artifact in contract["proposal_artifacts"].values()]
     spec = _resolve_structure_spec(project_root, contract, params)
     source_structure = _source_structure_manifest(project_root, spec)

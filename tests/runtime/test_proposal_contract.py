@@ -119,3 +119,26 @@ def test_load_proposal_contract_rejects_unsupported_software():
             assert str(exc) == "Unsupported software for Milestone C: qe"
         else:
             raise AssertionError("Expected ValueError")
+
+
+def test_load_proposal_contract_can_use_direct_modeling_entry_metadata():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build Si model from supplied parameters",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
+
+        assert contract["direct_entry"] is True
+        assert contract["proposal_artifacts"] == {}
+        assert contract["source_artifact_ids"] == []
+        assert contract["literature_evidence_summary"]["status"] == "not_provided"
+        assert contract["structure_hints"]["structure_type"] == "diamond"

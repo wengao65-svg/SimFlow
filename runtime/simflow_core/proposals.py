@@ -15,6 +15,14 @@ REQUIRED_PROPOSAL_ARTIFACTS = ("proposal.md", "parameter_table.csv", "research_q
 OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json",)
 SUPPORTED_SOFTWARE = {"vasp", "cp2k"}
 CORE_PARAMETER_KEYS = {"workflow_type", "software", "material"}
+CANONICAL_STAGE_SEQUENCE = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
 TASK_KEYS = ("task", "job_type", "calculation", "calc_type", "task_type")
 STRUCTURE_HINT_KEYS = {
     "structure_file",
@@ -64,6 +72,18 @@ def _load_required_artifacts(project_root: Path) -> dict[str, dict[str, Any]]:
     if missing:
         raise FileNotFoundError(f"Missing proposal artifacts: {', '.join(missing)}")
     return by_name
+
+
+def _stage_index(stage: str | None) -> int:
+    if stage in CANONICAL_STAGE_SEQUENCE:
+        return CANONICAL_STAGE_SEQUENCE.index(stage)
+    return 0
+
+
+def _allows_direct_contract(metadata: dict[str, Any], minimum_stage: str) -> bool:
+    entry_stage = metadata.get("entry_point")
+    current_stage = metadata.get("current_stage")
+    return max(_stage_index(entry_stage), _stage_index(current_stage)) >= _stage_index(minimum_stage)
 
 
 def _read_parameter_rows(parameter_table_path: Path) -> list[dict[str, str]]:
@@ -149,12 +169,117 @@ def _load_optional_json(project_root: Path, artifact: dict[str, Any] | None) -> 
     return payload if isinstance(payload, dict) else {}
 
 
-def load_proposal_contract(workflow_dir: str) -> dict[str, Any]:
+def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
+    rows = [
+        {
+            "parameter": "workflow_type",
+            "value": str(metadata.get("workflow_type", "dft")),
+            "source": "metadata",
+            "notes": "Direct entry metadata.",
+        },
+        {
+            "parameter": "software",
+            "value": str(metadata.get("software", "vasp")),
+            "source": "metadata",
+            "notes": "Direct entry metadata.",
+        },
+        {
+            "parameter": "material",
+            "value": str(metadata.get("material", "Not specified")),
+            "source": "metadata",
+            "notes": "Direct entry metadata.",
+        },
+    ]
+    for key, value in metadata.get("parameters", {}).items():
+        rows.append({
+            "parameter": key,
+            "value": json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value),
+            "source": "metadata.parameters",
+            "notes": "User-provided direct entry parameter.",
+        })
+    return rows
+
+
+def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
+    software = str(metadata.get("software") or "vasp").lower()
+    if software not in SUPPORTED_SOFTWARE:
+        raise ValueError(f"Unsupported software for Milestone C: {software or 'unknown'}")
+
+    workflow_type = str(metadata.get("workflow_type") or "dft")
+    material = metadata.get("material") or "Not specified"
+    research_goal = metadata.get("research_goal") or ""
+    parameter_values = metadata.get("parameters", {})
+    parameter_overrides = {key: value for key, value in parameter_values.items() if key not in CORE_PARAMETER_KEYS}
+    task = _select_task(parameter_overrides)
+    research_questions = [{
+        "question_id": "rq_001",
+        "category": "goal",
+        "priority": "primary",
+        "question": f"How should {research_goal or 'the current research goal'} be investigated for {material} using {software}?",
+        "source": "metadata.research_goal",
+    }]
+    direct_contract = {
+        "source": "direct_entry_metadata",
+        "literature_evidence_summary": {
+            "status": "not_provided",
+            "artifact_ids": [],
+            "summary_points": [],
+            "open_questions": ["No proposal artifacts were registered before this direct stage entry."],
+        },
+        "risk_register": [{
+            "risk_id": "risk_direct_entry_001",
+            "risk": "No registered proposal artifacts were available for this direct stage entry.",
+            "mitigation": "Keep generated model artifacts linked to direct user inputs and avoid evidence-backed proposal claims.",
+            "severity": "medium",
+        }],
+        "resource_assumptions": {
+            "real_submit": False,
+            "dry_run_first": True,
+            "resource_estimate_status": "direct_entry_unestimated",
+        },
+    }
+    return {
+        "workflow_type": workflow_type,
+        "software": software,
+        "material": material,
+        "research_goal": research_goal,
+        "task": task,
+        "job_type": task,
+        "structure_hints": _extract_structure_hints(parameter_overrides, metadata),
+        "parameter_overrides": parameter_overrides,
+        "parameter_rows": _metadata_parameter_rows(metadata),
+        "research_questions": research_questions,
+        "decision_criteria": [],
+        "risk_register": direct_contract["risk_register"],
+        "resource_assumptions": direct_contract["resource_assumptions"],
+        "source_artifact_ids": [],
+        "literature_evidence_summary": direct_contract["literature_evidence_summary"],
+        "calculation_plan": {},
+        "proposal_contract": direct_contract,
+        "proposal_markdown": "",
+        "proposal_artifacts": {},
+        "direct_entry": True,
+        "output_roots": {
+            "plans": ".simflow/plans",
+            "artifacts": ".simflow/artifacts",
+            "reports": ".simflow/reports",
+            "checkpoints": ".simflow/checkpoints",
+            "state": ".simflow/state",
+        },
+    }
+
+
+def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = False) -> dict[str, Any]:
     """Load proposal artifacts and normalize them into a downstream contract."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     metadata_state = read_state(project_root=str(project_root), state_file="metadata.json")
 
-    artifacts = _load_required_artifacts(project_root)
+    try:
+        artifacts = _load_required_artifacts(project_root)
+    except FileNotFoundError:
+        if allow_direct_entry and _allows_direct_contract(metadata_state, "modeling"):
+            return _build_direct_entry_contract(metadata_state)
+        raise
 
     proposal_path = resolve_artifact_path(project_root, artifacts["proposal.md"]["path"])
     parameter_table_path = resolve_artifact_path(project_root, artifacts["parameter_table.csv"]["path"])

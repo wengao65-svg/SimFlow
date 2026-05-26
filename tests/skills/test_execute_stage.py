@@ -169,6 +169,46 @@ def test_modeling_runner_registers_user_provided_structure_source():
         assert source_artifact["artifact_id"] in structure_artifact["lineage"]["parent_artifacts"]
 
 
+def test_execute_stage_allows_direct_modeling_entry_with_user_structure():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        source_poscar = project_root / "inputs" / "POSCAR"
+        source_poscar.parent.mkdir(parents=True, exist_ok=True)
+        source_poscar.write_text(
+            "Si\n1.0\n3.0 0.0 0.0\n0.0 3.0 0.0\n0.0 0.0 3.0\nSi\n1\nDirect\n0.0 0.0 0.0\n",
+            encoding="utf-8",
+        )
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: preserve a user-provided Si model",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"structure_file\": \"inputs/POSCAR\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
+        modeling_artifacts = list_artifacts(stage="modeling", project_root=tmpdir)
+
+        assert result["status"] == "completed"
+        assert result["manifest"]["source_mode"] == "existing_file"
+        assert result["manifest"]["proposal_artifact_ids"] == []
+        assert proposal_artifacts == []
+        assert workflow["current_stage"] == "modeling"
+        assert {artifact["type"] for artifact in modeling_artifacts} == {
+            "user_provided_structure",
+            "structure_manifest",
+            "structure",
+        }
+        source_artifact = next(artifact for artifact in modeling_artifacts if artifact["path"] == "inputs/POSCAR")
+        assert source_artifact["artifact_id"] in stages_state["modeling"]["inputs"]
+
+
 
 def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifacts():
     with tempfile.TemporaryDirectory() as tmpdir:
