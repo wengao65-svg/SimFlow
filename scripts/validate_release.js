@@ -247,6 +247,32 @@ function validateSafeExamples() {
     fs.rmSync(exampleRoot, { recursive: true, force: true });
   }
   runCheck('Si band-structure example metadata validates without real POTCAR', 'python', ['examples/si_band_structure/validate_inputs.py']);
+
+  const lammpsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'simflow-lammps-safe-example-'));
+  try {
+    const result = spawnSync('python', ['examples/lammps_safe_dry_run/run_example.py', '--project-root', lammpsRoot], {
+      cwd: ROOT,
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    if (result.status !== 0) {
+      fail('LAMMPS safe dry-run example completes', [result.stdout, result.stderr].filter(Boolean).join('\n'));
+    } else {
+      let summary = {};
+      try {
+        summary = JSON.parse(result.stdout);
+      } catch (error) {
+        fail('LAMMPS safe dry-run example emits JSON summary', result.stdout);
+      }
+      check('LAMMPS safe dry-run example completes', summary.status === 'success', result.stdout);
+      check('LAMMPS safe dry-run example records dry-run evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
+      check('LAMMPS safe dry-run example records credential scan evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'security', 'credential_scan.json')));
+      check('LAMMPS safe dry-run example keeps submit gate blocked', summary.hpc_submit_gate_status === 'block', result.stdout);
+    }
+  } finally {
+    fs.rmSync(lammpsRoot, { recursive: true, force: true });
+  }
 }
 
 function validateReleaseNotesCommand() {

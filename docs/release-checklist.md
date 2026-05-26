@@ -55,6 +55,7 @@ Run the redistributable dry-run example into a disposable directory:
 tmpdir="$(mktemp -d)"
 python examples/safe_dry_run/run_example.py --project-root "$tmpdir"
 python examples/si_band_structure/validate_inputs.py
+python examples/lammps_safe_dry_run/run_example.py --project-root "$tmpdir-lammps"
 python examples/h2o/run_cp2k_workflow.py --dry-run
 ```
 
@@ -65,6 +66,7 @@ Expected result:
   handoff reports under the disposable project root.
 - The Si example validates committed input metadata without requiring real
   POTCAR content.
+- The LAMMPS example records synthetic dry-run evidence and keeps submit gated.
 - The H2O CP2K example can run in dry-run mode without HPC credentials.
 
 ## 4. Public Metadata Gate

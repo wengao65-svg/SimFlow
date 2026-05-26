@@ -44,6 +44,38 @@ def test_safe_dry_run_example_produces_state_artifacts_checkpoints_and_handoff(t
     assert (tmp_path / ".simflow" / "reports" / "safe_example_summary.json").is_file()
 
 
+def test_lammps_safe_dry_run_example_records_computation_evidence(tmp_path):
+    result = subprocess.run(
+        [
+            "python",
+            "examples/lammps_safe_dry_run/run_example.py",
+            "--project-root",
+            str(tmp_path),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    summary = json.loads(result.stdout)
+    assert summary["status"] == "success"
+    assert summary["software"] == "lammps"
+    assert summary["real_submit"] is False
+    assert summary["artifact_count"] >= 7
+    assert summary["hpc_submit_gate_status"] == "block"
+
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "in.lammps").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "data.lammps").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "calculation_manifest.json").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "input_validation.json").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "resource_estimate.json").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "dry_run_report.json").is_file()
+    assert (tmp_path / ".simflow" / "artifacts" / "security" / "credential_scan.json").is_file()
+    assert (tmp_path / ".simflow" / "reports" / "handoff" / "lammps_safe_handoff.md").is_file()
+
+
 def test_safe_examples_do_not_use_removed_runtime_lib_imports():
     for script in (ROOT / "examples").rglob("*.py"):
         text = script.read_text(encoding="utf-8")
