@@ -16,6 +16,14 @@ from runtime.simflow_core.state import read_state
 
 
 REQUIRED_REVIEW_ARTIFACTS = ("review_summary.md", "gap_analysis.md")
+CANONICAL_STAGE_SEQUENCE = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -48,6 +56,39 @@ def load_review_artifacts(project_root: Path) -> tuple[dict[str, str], list[dict
         contents[name] = path.read_text(encoding="utf-8")
         selected.append(artifact)
     return contents, selected
+
+
+def _stage_index(stage: str | None) -> int:
+    if stage in CANONICAL_STAGE_SEQUENCE:
+        return CANONICAL_STAGE_SEQUENCE.index(stage)
+    return 0
+
+
+def _allows_direct_proposal_entry(metadata: dict, state: dict) -> bool:
+    """Return whether missing literature evidence is allowed for this workflow entry."""
+    entry_stage = metadata.get("entry_point") or state.get("entry_point")
+    current_stage = metadata.get("current_stage") or state.get("current_stage")
+    return max(_stage_index(entry_stage), _stage_index(current_stage)) >= _stage_index("proposal")
+
+
+def build_partial_review_inputs(metadata: dict, missing_message: str) -> tuple[dict[str, str], list[dict]]:
+    """Build explicit no-literature placeholders for direct proposal entry."""
+    goal = metadata.get("research_goal", "the current research goal") or "the current research goal"
+    material = metadata.get("material", "the target system") or "the target system"
+    return (
+        {
+            "review_summary.md": "\n".join([
+                "- Literature review artifacts were not provided for this direct proposal entry.",
+                f"- Proposal scope is based on user intent: {goal}.",
+                f"- Target system from intake metadata: {material}.",
+            ]),
+            "gap_analysis.md": "\n".join([
+                "- Literature evidence is missing and must be supplied or verified before evidence-backed claims are made.",
+                "- Citation-backed assumptions are unavailable at proposal generation time.",
+            ]),
+        },
+        [],
+    )
 
 
 def build_parameter_rows(metadata: dict) -> list[dict]:
@@ -153,6 +194,7 @@ def build_proposal_contract(
     goal = metadata.get("research_goal", "Not specified")
     gap_bullets = extract_gap_bullets(gap_analysis)
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
+    literature_status = "provided" if source_artifact_ids else "not_provided"
     literature_summary = [
         line[2:].strip()
         for line in review_summary.splitlines()
@@ -167,6 +209,7 @@ def build_proposal_contract(
         "research_goal": goal,
         "source_artifact_ids": source_artifact_ids,
         "literature_evidence_summary": {
+            "status": literature_status,
             "artifact_ids": source_artifact_ids,
             "summary_points": literature_summary,
             "open_questions": gap_bullets,
@@ -207,6 +250,12 @@ def build_proposal_contract(
             },
         ],
         "risk_register": [
+            *([] if source_artifact_ids else [{
+                "risk_id": "risk_000",
+                "risk": "No registered literature review artifacts were available at proposal entry.",
+                "mitigation": "Treat literature-dependent claims as unverified until review artifacts or citations are registered.",
+                "severity": "high",
+            }]),
             {
                 "risk_id": "risk_001",
                 "risk": "Proposal evidence may be incomplete if the literature stage only has metadata or notes.",
@@ -305,7 +354,9 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
     try:
         review_contents, review_artifacts = load_review_artifacts(project_root)
     except FileNotFoundError as exc:
-        return {"status": "error", "message": str(exc)}
+        if not _allows_direct_proposal_entry(metadata, state):
+            return {"status": "error", "message": str(exc)}
+        review_contents, review_artifacts = build_partial_review_inputs(metadata, str(exc))
 
     proposal_dir = Path(output_dir).expanduser() if output_dir else project_root / ".simflow" / "plans"
     if not proposal_dir.is_absolute():

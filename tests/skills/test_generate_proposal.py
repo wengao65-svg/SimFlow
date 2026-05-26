@@ -155,6 +155,33 @@ def test_generate_proposal_requires_registered_review_artifacts():
         assert result["message"] == "Missing review artifacts: review_summary.md, gap_analysis.md"
 
 
+def test_generate_proposal_allows_direct_proposal_entry_without_literature_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        init_research(
+            input_text="\n".join([
+                "entry_stage: proposal",
+                "goal: design Si static calculation",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"encut\": 520}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = generate_proposal(str(project_root / ".simflow"))
+        proposal_contract_path = project_root / ".simflow" / "plans" / "proposal_contract.json"
+        proposal_contract = json.loads(proposal_contract_path.read_text(encoding="utf-8"))
+        proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
+
+        assert result["status"] == "success"
+        assert proposal_contract["source_artifact_ids"] == []
+        assert proposal_contract["literature_evidence_summary"]["status"] == "not_provided"
+        assert proposal_contract["risk_register"][0]["risk_id"] == "risk_000"
+        assert len(proposal_artifacts) == 4
+
+
 def test_generate_proposal_errors_without_workflow_state():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = generate_proposal(str(Path(tmpdir) / ".simflow"))
