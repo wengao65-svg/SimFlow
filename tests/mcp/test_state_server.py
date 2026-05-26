@@ -39,6 +39,14 @@ def test_tools_list_exposes_real_input_schema():
     schemas = {tool["name"]: tool["inputSchema"] for tool in listed}
 
     assert schemas["init_workflow"]["required"] == ["project_root", "workflow_type"]
+    assert schemas["init_workflow"]["properties"]["entry_point"]["enum"] == [
+        "literature_review",
+        "proposal",
+        "modeling",
+        "computation",
+        "analysis_visualization",
+        "writing",
+    ]
     assert schemas["write_state"]["required"] == ["project_root", "data"]
     assert schemas["update_stage"]["required"] == ["project_root", "stage_name", "status"]
     assert schemas["workflow_status"]["required"] == ["project_root"]
@@ -73,7 +81,7 @@ def test_init_workflow_tool_uses_simflow_not_omx():
 
         result = execute({
             "workflow_type": "custom",
-            "entry_point": "literature",
+            "entry_point": "literature_review",
             "project_root": tmpdir,
         })
 
@@ -88,10 +96,30 @@ def test_init_workflow_tool_rejects_missing_project_root_from_plugin_root():
     """MCP cwd is plugin_root; init must not silently write there."""
     from tools.init_workflow import execute
 
-    result = execute({"workflow_type": "custom", "entry_point": "literature"})
+    result = execute({"workflow_type": "custom", "entry_point": "literature_review"})
 
     assert result["status"] == "error"
     assert "project_root" in result["message"]
+
+
+def test_init_workflow_tool_defaults_to_literature_review():
+    from tools.init_workflow import execute
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = execute({"workflow_type": "custom", "project_root": tmpdir})
+
+        assert result["status"] == "success"
+        assert result["data"]["current_stage"] == "literature_review"
+
+
+def test_init_workflow_tool_rejects_legacy_entry_aliases():
+    from tools.init_workflow import execute
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = execute({"workflow_type": "custom", "entry_point": "literature", "project_root": tmpdir})
+
+        assert result["status"] == "error"
+        assert "canonical stage" in result["message"]
 
 
 def test_state_read_write():

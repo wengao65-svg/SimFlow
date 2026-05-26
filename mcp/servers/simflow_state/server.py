@@ -75,7 +75,17 @@ TOOL_SCHEMAS = {
         "properties": {
             "project_root": {"type": "string"},
             "workflow_type": {"type": "string"},
-            "entry_point": {"type": "string"},
+            "entry_point": {
+                "type": "string",
+                "enum": [
+                    "literature_review",
+                    "proposal",
+                    "modeling",
+                    "computation",
+                    "analysis_visualization",
+                    "writing",
+                ],
+            },
         },
         "additionalProperties": False,
     },

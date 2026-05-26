@@ -2,6 +2,15 @@
 
 from runtime.simflow_core.state import ProjectRootError, init_workflow
 
+CANONICAL_ENTRY_POINTS = {
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+}
+
 
 def _project_root(params: dict) -> str:
     project_root = params.get("project_root")
@@ -12,9 +21,12 @@ def _project_root(params: dict) -> str:
 
 def execute(params: dict) -> dict:
     workflow_type = params.get("workflow_type")
-    entry_point = params.get("entry_point", "literature")
+    entry_point = params.get("entry_point", "literature_review")
     if not workflow_type:
         return {"status": "error", "message": "workflow_type is required"}
+    if entry_point not in CANONICAL_ENTRY_POINTS:
+        allowed = ", ".join(sorted(CANONICAL_ENTRY_POINTS))
+        return {"status": "error", "message": f"entry_point must be a canonical stage: {allowed}"}
     try:
         project_root = _project_root(params)
         state = init_workflow(workflow_type, entry_point, project_root=project_root)
