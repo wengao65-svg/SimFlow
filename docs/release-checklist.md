@@ -171,6 +171,8 @@ Expected result:
 - Skill routing works through the host agent.
 - Real local, remote, or HPC submission remains blocked without dry-run
   evidence, matching hashes, credential scan, and explicit approval.
+- Results are recorded in `docs/release-smoke-results.md` before the release is
+  announced.
 
 ## 8. Release Ref Rules
 

@@ -198,6 +198,8 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 - [HPC Integration](docs/hpc-integration.md)
 - [Custom Skills](docs/custom-skills.md)
 - [Credentials Policy](docs/credentials-policy.md)
+- [Current Limitations](docs/current-limitations.md)
+- [Release Checklist](docs/release-checklist.md)
 - [Docs Index](docs/README.md)
 
 ## License

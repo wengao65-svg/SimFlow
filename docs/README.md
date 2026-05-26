@@ -21,6 +21,10 @@ agent.
 
 - [Release Checklist](release-checklist.md): source, wrapper, metadata, and
   install-smoke gates before publishing.
+- [Release Smoke Results](release-smoke-results.md): local record template for
+  Codex and Claude install-smoke results.
+- [Current Limitations](current-limitations.md): supported helpers,
+  unsupported placeholders, and release boundaries.
 - [HPC Integration](hpc-integration.md): dry-run-first submit evidence and hash
   requirements.
 - [Credentials Policy](credentials-policy.md): credential handling boundaries.
