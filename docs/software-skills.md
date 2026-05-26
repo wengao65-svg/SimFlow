@@ -39,24 +39,18 @@ workflow.
 questions, validation risks, and handoff notes. Unknown requests should remain
 open and record uncertainty.
 
-## Quantum ESPRESSO
-
-`simflow-qe` can assist with QE input structure, pseudopotential provenance,
-resource considerations, output checks, and optional parser/helper usage. It
-does not require QE as the only engine for a recipe and does not own stage
-progression.
-
 ## LAMMPS
 
 `simflow-lammps` can assist with data/input scripts, force-field provenance,
 trajectory analysis, and common MD checks. It must not treat every unknown
 request as a fixed MD alias.
 
-## Gaussian
+## Unsupported Placeholders
 
-`simflow-gaussian` can assist with route sections, basis provenance, log/fchk
-inspection, frequency/optimization status, and analysis notes. It remains a
-domain helper and does not define a global workflow path.
+`simflow-qe` and `simflow-gaussian` are reserved placeholders in the current
+product build. They should state that QE/Gaussian support is unavailable, avoid
+generating engine-specific inputs or validation claims, and only record
+user-provided files as generic artifacts when traceability is requested.
 
 ## Analysis Helpers
 

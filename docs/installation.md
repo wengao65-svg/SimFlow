@@ -108,12 +108,14 @@ dependencies only when you want local helper scripts to use those libraries:
 
 ```bash
 pip install -e ".[vasp]"       # pymatgen-backed VASP helpers
-pip install -e ".[qe]"         # pymatgen-backed Quantum ESPRESSO helpers
 pip install -e ".[lammps]"     # MDAnalysis-backed LAMMPS analysis helpers
-pip install -e ".[gaussian]"   # pymatgen-backed Gaussian helpers
 pip install -e ".[structure]"  # pymatgen and ASE structure helpers
 pip install -e ".[all]"        # all optional scientific helpers
 ```
+
+QE and Gaussian skills are reserved placeholders in the current product build.
+Do not advertise `.[qe]` or `.[gaussian]` as supported install extras until
+those helpers have product support and release tests.
 
 PyPI distribution is not the current primary user install path. Do not document
 or rely on a direct PyPI package install as the release path until a PyPI

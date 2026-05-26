@@ -128,6 +128,55 @@ function validatePublicMetadata() {
   check('public metadata has no placeholder maintainer or repository values', findings.length === 0, findings.join('\n'));
 }
 
+function validateSupportMatrix() {
+  console.log('\n--- Support Matrix ---');
+  const pyproject = fs.readFileSync(path.join(ROOT, 'pyproject.toml'), 'utf-8');
+  const unsupportedExtras = [];
+  if (/^\s*qe\s*=.*$/m.test(pyproject)) {
+    unsupportedExtras.push('pyproject.toml exposes unsupported qe extra');
+  }
+  if (/^\s*gaussian\s*=.*$/m.test(pyproject)) {
+    unsupportedExtras.push('pyproject.toml exposes unsupported gaussian extra');
+  }
+  check('unsupported QE/Gaussian extras are not exposed', unsupportedExtras.length === 0, unsupportedExtras.join('\n'));
+
+  const publicDocs = [
+    'README.md',
+    'docs/PRD.md',
+    'docs/installation.md',
+    'docs/software-skills.md',
+    'docs/skill-design.md',
+    'skills/README.md',
+  ];
+  const forbiddenClaims = [
+    /optional\s+VASP,\s*CP2K,\s*QE/i,
+    /Quantum ESPRESSO\s*\|\s*Plane-wave DFT input and output guidance/i,
+    /Gaussian\s*\|\s*Quantum chemistry input and output guidance/i,
+    /pip install -e "\.\[qe\]"/i,
+    /pip install -e "\.\[gaussian\]"/i,
+    /simflow-qe`\s+can assist/i,
+    /simflow-gaussian`\s+can assist/i,
+    /VASP,\s*QE,\s*CP2K,\s*LAMMPS,\s*and\s*Gaussian\s+remain/i,
+  ];
+  const docFindings = [];
+  for (const relativePath of publicDocs) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
+    for (const pattern of forbiddenClaims) {
+      if (pattern.test(content)) {
+        docFindings.push(`${relativePath}: ${pattern}`);
+      }
+    }
+  }
+  check('public docs do not claim supported QE/Gaussian helpers', docFindings.length === 0, docFindings.join('\n'));
+
+  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
+  const prd = fs.readFileSync(path.join(ROOT, 'docs', 'PRD.md'), 'utf-8');
+  const softwareSkills = fs.readFileSync(path.join(ROOT, 'docs', 'software-skills.md'), 'utf-8');
+  check('README states QE/Gaussian unsupported placeholder status', /QE \/ Gaussian \| Unsupported placeholders/.test(readme));
+  check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, and LAMMPS/.test(prd));
+  check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
+}
+
 function validateRestrictedArtifacts() {
   console.log('\n--- Restricted Artifact Scan ---');
   const tracked = run('git', ['ls-files'], { capture: true }).split(/\r?\n/).filter(Boolean);
@@ -244,6 +293,7 @@ function main() {
   validateCleanTree();
   validateVersionSync();
   validatePublicMetadata();
+  validateSupportMatrix();
   validateRestrictedArtifacts();
   validateSafeExamples();
   validateReleaseNotesCommand();

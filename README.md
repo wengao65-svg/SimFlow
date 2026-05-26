@@ -26,7 +26,7 @@ Codex / OMX Host
 - **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
 - **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
 - **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
-- **Domain Helpers**: optional VASP, CP2K, QE, LAMMPS, Gaussian, parser, plotting, and structure helpers
+- **Domain Helpers**: supported VASP, CP2K, and LAMMPS helpers, plus generic parser, plotting, and structure helpers
 - **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
 - **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
 
@@ -50,9 +50,8 @@ stage directly when the needed inputs and evidence are present.
 |--------|-------------|
 | VASP | DFT, AIMD, phonon, NEB, defects, surfaces, output inspection |
 | CP2K | Quickstep DFT, AIMD, common CP2K task checks |
-| Quantum ESPRESSO | Plane-wave DFT input and output guidance |
 | LAMMPS | Classical MD setup and trajectory analysis guidance |
-| Gaussian | Quantum chemistry input and output guidance |
+| QE / Gaussian | Unsupported placeholders; user-provided files can still be recorded as generic artifacts |
 
 These helpers suggest and validate. They do not limit what the host agent can
 do, and they should return uncertainty rather than silently mapping unknown

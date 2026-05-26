@@ -22,10 +22,12 @@ The refactored workflow layer centers on a small core set:
 - `simflow-writing`
 - `simflow-safety-gates`
 
-Engine-specific skills such as VASP, QE, CP2K, LAMMPS, and Gaussian remain
-useful domain assistants. They provide checklists, templates, troubleshooting,
-validation suggestions, official-documentation pointers, and artifact
-registration guidance. They do not own workflow progression.
+Engine-specific skills for VASP, CP2K, and LAMMPS are the supported domain
+assistants in the current product build. They provide checklists, templates,
+troubleshooting, validation suggestions, official-documentation pointers, and
+artifact registration guidance. QE and Gaussian skills are reserved
+unsupported placeholders that may only record user-provided files as generic
+artifacts. Engine skills do not own workflow progression.
 
 ## Skill Contract
 

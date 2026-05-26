@@ -48,11 +48,10 @@ Project intake, stage execution, and pipeline helpers live under
 `runtime/simflow_helpers/`; tests and integrations should import those helpers
 directly instead of depending on CLI or wrapper scripts.
 
-Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-qe`,
-`simflow-lammps`, and `simflow-gaussian` are domain assistants. They may provide
-templates, checks, troubleshooting, and artifact registration guidance. They do
-not own workflow progression and must not make helper scripts the only valid
-path.
+Engine skills such as `simflow-vasp`, `simflow-cp2k`, and `simflow-lammps` are
+the supported domain assistants in the current product build. `simflow-qe` and
+`simflow-gaussian` are reserved unsupported placeholders. Engine skills do not
+own workflow progression and must not make helper scripts the only valid path.
 
 ## Workflow Definitions
 

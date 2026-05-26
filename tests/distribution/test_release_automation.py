@@ -26,6 +26,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Version Synchronization" in result.stdout
+    assert "Support Matrix" in result.stdout
     assert "Restricted Artifact Scan" in result.stdout
     assert "wrapper build validation skipped" in result.stdout
     assert "Errors: 0" in result.stdout
