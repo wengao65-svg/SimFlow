@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.state import read_state
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -121,3 +122,64 @@ def test_research_workflow_script_supports_plan_only_dry_run(tmp_path):
     assert summary["artifact_summary"]["total"] == 0
     assert summary["completed_stages"] == []
     assert (tmp_path / ".simflow" / "reports" / "research_workflow_summary.json").is_file()
+
+
+def test_research_workflow_script_supports_explicit_entry_stage(tmp_path):
+    result = subprocess.run(
+        [
+            "python",
+            str(SCRIPT),
+            "--project-root",
+            str(tmp_path),
+            "--text",
+            _research_text(),
+            "--entry-stage",
+            "modeling",
+            "--target-stage",
+            "computation",
+            "--dry-run",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    summary = json.loads(result.stdout)
+
+    assert summary["status"] == "success"
+    assert summary["init"]["entry_stage"] == "modeling"
+    assert summary["target_stage"] == "computation"
+    assert summary["stages_executed"] == 2
+    workflow = read_state(project_root=str(tmp_path), state_file="workflow.json")
+    metadata = read_state(project_root=str(tmp_path), state_file="metadata.json")
+    assert workflow["entry_point"] == "modeling"
+    assert metadata["stages"] == ["modeling", "computation", "analysis_visualization", "writing"]
+
+
+def test_research_workflow_script_rejects_target_before_entry_stage(tmp_path):
+    result = subprocess.run(
+        [
+            "python",
+            str(SCRIPT),
+            "--project-root",
+            str(tmp_path),
+            "--text",
+            _research_text(),
+            "--entry-stage",
+            "computation",
+            "--target-stage",
+            "proposal",
+            "--dry-run",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 1
+    assert payload["status"] == "error"
+    assert "earlier than entry_stage" in payload["message"]

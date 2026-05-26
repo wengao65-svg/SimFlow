@@ -9,7 +9,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.state import read_state
-from runtime.simflow_helpers.project.intake import init_research, load_workflow_definition, parse_research_input
+from runtime.simflow_helpers.project.intake import (
+    CANONICAL_STAGE_SEQUENCE,
+    canonical_stage_suffix,
+    init_research,
+    load_workflow_definition,
+    normalize_entry_stage,
+    parse_research_input,
+)
 
 
 def test_load_workflow_definition_dft():
@@ -49,6 +56,30 @@ def test_parse_research_input_collects_offline_source_inputs():
     ]
 
 
+def test_parse_research_input_normalizes_entry_stage_aliases():
+    parsed = parse_research_input("goal: analyze outputs\nstage: analysis\n")
+
+    assert parsed["entry_stage"] == "analysis_visualization"
+    assert parsed["entry_stage_requested"] == "analysis"
+    assert normalize_entry_stage("input-generation") == "computation"
+    assert normalize_entry_stage("draft") == "writing"
+    assert canonical_stage_suffix("modeling") == [
+        "modeling",
+        "computation",
+        "analysis_visualization",
+        "writing",
+    ]
+
+
+def test_parse_research_input_rejects_unknown_entry_stage():
+    try:
+        parse_research_input("goal: test\nentry_stage: invalid_stage\n")
+    except ValueError as exc:
+        assert "Unknown entry stage" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
+
+
 def test_init_research_writes_canonical_metadata_for_dft():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = init_research(
@@ -65,6 +96,15 @@ def test_init_research_writes_canonical_metadata_for_dft():
         assert workflow_state["current_stage"] == "literature_review"
         assert metadata["workflow_type"] == "dft"
         assert metadata["entry_point"] == "literature_review"
+        assert metadata["entry_points"] == [
+            "literature_review",
+            "proposal",
+            "modeling",
+            "computation",
+            "analysis_visualization",
+            "writing",
+        ]
+        assert metadata["available_entry_points"] == CANONICAL_STAGE_SEQUENCE
         assert metadata["current_stage"] == "literature_review"
         assert metadata["stages"] == [
             "literature_review",
@@ -95,6 +135,7 @@ def test_init_research_uses_workflow_default_entry_for_aimd():
         assert result["current_stage"] == "proposal"
         assert workflow_state["current_stage"] == "proposal"
         assert metadata["entry_point"] == "proposal"
+        assert metadata["available_entry_points"] == CANONICAL_STAGE_SEQUENCE
         assert metadata["stages"] == [
             "proposal",
             "modeling",
@@ -103,6 +144,42 @@ def test_init_research_uses_workflow_default_entry_for_aimd():
             "writing",
         ]
         assert metadata["research_sources"]["total_items"] == 0
+
+
+def test_init_research_accepts_each_canonical_entry_stage():
+    for entry_stage in CANONICAL_STAGE_SEQUENCE:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = init_research(
+                input_text="goal: enter anywhere\nmaterial: Si\nsoftware: vasp\n",
+                entry_stage=entry_stage,
+                output_dir=tmpdir,
+            )
+            metadata = read_state(tmpdir, "metadata.json")
+            workflow_state = read_state(tmpdir, "workflow.json")
+
+            assert result["status"] == "success"
+            assert result["current_stage"] == entry_stage
+            assert workflow_state["current_stage"] == entry_stage
+            assert workflow_state["entry_point"] == entry_stage
+            assert metadata["entry_point"] == entry_stage
+            assert metadata["current_stage"] == entry_stage
+            assert metadata["stages"] == canonical_stage_suffix(entry_stage)
+            assert metadata["entry_points"] == canonical_stage_suffix(entry_stage)
+            assert metadata["available_entry_points"] == CANONICAL_STAGE_SEQUENCE
+
+
+def test_init_research_entry_stage_argument_overrides_input_text():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = init_research(
+            input_text="goal: stage conflict\nstage: proposal\n",
+            entry_stage="writing",
+            output_dir=tmpdir,
+        )
+        metadata = read_state(tmpdir, "metadata.json")
+
+        assert result["current_stage"] == "writing"
+        assert metadata["entry_point"] == "writing"
+        assert metadata["entry_stage_requested"] == "writing"
 
 
 

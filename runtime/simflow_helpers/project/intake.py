@@ -18,6 +18,58 @@ from runtime.simflow_core.state import init_workflow, write_state
 from runtime.simflow_core.workflow import load_recipe
 
 
+CANONICAL_STAGE_SEQUENCE = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
+
+ENTRY_STAGE_ALIASES = {
+    "literature": "literature_review",
+    "literature_review": "literature_review",
+    "review": "literature_review",
+    "proposal": "proposal",
+    "plan": "proposal",
+    "planning": "proposal",
+    "modeling": "modeling",
+    "modelling": "modeling",
+    "model": "modeling",
+    "input_generation": "computation",
+    "compute": "computation",
+    "computation": "computation",
+    "analysis": "analysis_visualization",
+    "visualization": "analysis_visualization",
+    "analysis_visualization": "analysis_visualization",
+    "write": "writing",
+    "draft": "writing",
+    "writing": "writing",
+}
+
+
+def normalize_entry_stage(value: str | None) -> str | None:
+    """Normalize a user-facing entry stage to a canonical stage id."""
+    if value is None:
+        return None
+    key = value.strip().lower().replace("-", "_").replace(" ", "_")
+    if not key:
+        return None
+    if key not in ENTRY_STAGE_ALIASES:
+        allowed = ", ".join(CANONICAL_STAGE_SEQUENCE)
+        raise ValueError(f"Unknown entry stage: {value}. Expected one of: {allowed}")
+    return ENTRY_STAGE_ALIASES[key]
+
+
+def canonical_stage_suffix(entry_stage: str) -> list[str]:
+    """Return canonical stages from entry_stage through writing."""
+    normalized = normalize_entry_stage(entry_stage)
+    if normalized not in CANONICAL_STAGE_SEQUENCE:
+        raise ValueError(f"Unknown entry stage: {entry_stage}")
+    return CANONICAL_STAGE_SEQUENCE[CANONICAL_STAGE_SEQUENCE.index(normalized):]
+
+
 def load_workflow_definition(workflow_type: str) -> dict:
     """Load workflow metadata from canonical recipes."""
     normalized = (workflow_type or "dft").lower()
@@ -93,6 +145,8 @@ def parse_research_input(input_text: str) -> dict:
         "method": "",
         "software": "vasp",
         "workflow_type": "dft",
+        "entry_stage": None,
+        "entry_stage_requested": None,
         "parameters": {},
         "source_inputs": empty_research_source_inputs(),
     }
@@ -114,6 +168,9 @@ def parse_research_input(input_text: str) -> dict:
                 result["method"] = value
             elif key in ("software", "code"):
                 result["software"] = value.lower()
+            elif key in ("entry_stage", "entry_point", "current_stage", "stage"):
+                result["entry_stage_requested"] = value
+                result["entry_stage"] = normalize_entry_stage(value)
             elif key in ("parameters", "params"):
                 try:
                     result["parameters"] = json.loads(value)
@@ -134,7 +191,8 @@ def parse_research_input(input_text: str) -> dict:
 
 
 def init_research(input_file: str = None, input_text: str = None,
-                  workflow_type: str = None, output_dir: str = ".") -> dict:
+                  workflow_type: str = None, output_dir: str = ".",
+                  entry_stage: str = None) -> dict:
     """Initialize a new research workflow."""
     if input_file:
         content = Path(input_file).read_text(encoding="utf-8")
@@ -155,8 +213,9 @@ def init_research(input_file: str = None, input_text: str = None,
 
     workflow = load_workflow_definition(parsed.get("workflow_type", "dft"))
     wf_type = workflow["workflow_type"]
-    stages = workflow["stages"]
-    entry_point = workflow["default_entry"]
+    explicit_entry_stage = normalize_entry_stage(entry_stage) if entry_stage else parsed.get("entry_stage")
+    entry_point = explicit_entry_stage or workflow["default_entry"]
+    stages = canonical_stage_suffix(entry_point) if explicit_entry_stage else workflow["stages"]
 
     state = init_workflow(wf_type, entry_point, project_root=output_dir)
     workflow_id = state["workflow_id"]
@@ -172,9 +231,12 @@ def init_research(input_file: str = None, input_text: str = None,
         "workflow_name": workflow["name"],
         "recipe_definition": workflow["path"],
         "entry_point": entry_point,
-        "entry_points": workflow["entry_points"],
+        "entry_points": stages,
+        "available_entry_points": CANONICAL_STAGE_SEQUENCE,
+        "entry_stage_requested": entry_stage or parsed.get("entry_stage_requested") or entry_point,
         "stage_dependencies": workflow["stage_dependencies"],
         "stages": stages,
+        "canonical_stages": stages,
         "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],
@@ -203,11 +265,12 @@ def main():
     parser.add_argument("--type", dest="workflow_type",
                         choices=["dft", "aimd", "md"], help="Workflow type")
     parser.add_argument("--output-dir", default=".", help="Output directory")
+    parser.add_argument("--entry-stage", help="Canonical stage to enter from")
     args = parser.parse_args()
 
     try:
         result = init_research(args.input_file, args.input_text,
-                               args.workflow_type, args.output_dir)
+                               args.workflow_type, args.output_dir, args.entry_stage)
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))
