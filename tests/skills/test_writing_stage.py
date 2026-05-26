@@ -138,3 +138,31 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert len(claim_map["claims"]) == 5
         assert any(claim["status"] == "waiting_for_outputs" for claim in claim_map["claims"])
         assert "## Traceability / Source Artifact IDs" in results_text
+
+
+def test_run_writing_stage_allows_direct_writing_entry_with_missing_upstream_artifacts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: writing",
+                "goal: draft an evidence-limited project note",
+                "material: Si",
+                "software: vasp",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_writing_stage(str(project_root / ".simflow"), dry_run=False)
+        claim_map_path = project_root / ".simflow" / "reports" / "writing" / "claim_map.json"
+        methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
+        claim_map = json.loads(claim_map_path.read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert result["inputs"] == []
+        assert result["manifest"]["writing_input_status"] == "partial_missing_upstream_artifacts"
+        assert result["manifest"]["analysis_status"] == "missing_evidence"
+        assert claim_map["source_artifact_ids"] == []
+        assert any(claim["status"] == "missing_evidence" for claim in claim_map["claims"])
+        assert any(claim["speculative"] is True for claim in claim_map["claims"])
+        assert "Path: not_provided" in methods_path.read_text(encoding="utf-8")

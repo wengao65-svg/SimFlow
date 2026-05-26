@@ -55,6 +55,14 @@ REQUIRED_ARTIFACTS = {
     "analysis_report": "analysis_report.json",
     "figures_manifest": "figures_manifest.json",
 }
+CANONICAL_STAGE_SEQUENCE = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -91,6 +99,18 @@ def _resolve_required_artifacts(project_root: Path) -> dict[str, dict[str, Any]]
     if missing:
         raise FileNotFoundError(f"Missing writing inputs: {', '.join(sorted(set(missing)))}")
     return resolved
+
+
+def _stage_index(stage: str | None) -> int:
+    if stage in CANONICAL_STAGE_SEQUENCE:
+        return CANONICAL_STAGE_SEQUENCE.index(stage)
+    return 0
+
+
+def _allows_partial_writing_entry(metadata: dict[str, Any], state: dict[str, Any]) -> bool:
+    entry_stage = metadata.get("entry_point") or state.get("entry_point")
+    current_stage = metadata.get("current_stage") or state.get("current_stage")
+    return max(_stage_index(entry_stage), _stage_index(current_stage)) >= _stage_index("writing")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -196,6 +216,14 @@ def _claim_entry(
     }
 
 
+def _artifact_ids_for(required_artifacts: dict[str, dict[str, Any]], *keys: str) -> list[str]:
+    return [
+        required_artifacts[key]["artifact_id"]
+        for key in keys
+        if key in required_artifacts and required_artifacts[key].get("artifact_id")
+    ]
+
+
 def _build_claim_map(
     *,
     contract: dict[str, Any],
@@ -207,37 +235,46 @@ def _build_claim_map(
 ) -> dict[str, Any]:
     analysis_completed = analysis_report.get("status") == "completed"
     figures_completed = figures_manifest.get("status") == "completed"
+    proposal_sources = _artifact_ids_for(required_artifacts, "proposal", "research_questions")
+    modeling_sources = _artifact_ids_for(required_artifacts, "structure_manifest")
+    compute_sources = _artifact_ids_for(required_artifacts, "compute_plan")
+    analysis_sources = _artifact_ids_for(required_artifacts, "analysis_report")
+    figure_sources = _artifact_ids_for(required_artifacts, "figures_manifest")
     claims = [
         _claim_entry(
             "claim_001",
             f"The writing target addresses: {contract.get('research_goal') or 'the recorded research goal'}.",
-            [required_artifacts["proposal"]["artifact_id"], required_artifacts["research_questions"]["artifact_id"]],
-            status="supported_by_proposal",
+            proposal_sources,
+            status="supported_by_proposal" if proposal_sources else "missing_evidence",
+            speculative=not bool(proposal_sources),
         ),
         _claim_entry(
             "claim_002",
             f"The modeled system is {contract.get('material', 'the recorded material')} with source mode {structure_manifest.get('source_mode', 'unknown')}.",
-            [required_artifacts["structure_manifest"]["artifact_id"]],
-            status="supported_by_modeling_artifact",
+            modeling_sources,
+            status="supported_by_modeling_artifact" if modeling_sources else "missing_evidence",
+            speculative=not bool(modeling_sources),
         ),
         _claim_entry(
             "claim_003",
             "Computation is represented as a dry-run-first package; real submit is not claimed as completed.",
-            [required_artifacts["compute_plan"]["artifact_id"]],
-            status="dry_run_evidence_only" if not compute_plan.get("real_submit") else "submitted_with_record",
-            speculative=False,
+            compute_sources,
+            status=("dry_run_evidence_only" if not compute_plan.get("real_submit") else "submitted_with_record")
+            if compute_sources
+            else "missing_evidence",
+            speculative=not bool(compute_sources),
         ),
         _claim_entry(
             "claim_004",
             analysis_report.get("conclusions", "Analysis outputs are not ready."),
-            [required_artifacts["analysis_report"]["artifact_id"]],
+            analysis_sources,
             status="supported_by_analysis" if analysis_completed else "waiting_for_outputs",
             speculative=not analysis_completed,
         ),
         _claim_entry(
             "claim_005",
             "Figure claims are limited to traceable figures listed in the figures manifest.",
-            [required_artifacts["figures_manifest"]["artifact_id"]],
+            figure_sources,
             status="supported_by_figures" if figures_completed else "no_final_figure_claim",
             speculative=not figures_completed,
         ),
@@ -247,6 +284,7 @@ def _build_claim_map(
         "claim_policy": "Scientific claims must trace to registered artifacts; incomplete computation or analysis is not written as complete.",
         "source_artifact_ids": list(dict.fromkeys(
             artifact["artifact_id"] for artifact in required_artifacts.values()
+            if artifact.get("artifact_id")
         )),
         "analysis_status": analysis_report.get("status"),
         "visualization_status": figures_manifest.get("status"),
@@ -261,38 +299,67 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         return {"status": "error", "message": "No workflow state found"}
 
     params = params or {}
+    metadata = read_state(project_root=str(project_root), state_file="metadata.json")
 
     try:
-        contract = load_proposal_contract(str(project_root / ".simflow"))
+        contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
         required_artifacts = _resolve_required_artifacts(project_root)
     except Exception as exc:
-        return {"status": "error", "message": str(exc)}
+        if not _allows_partial_writing_entry(metadata, state):
+            return {"status": "error", "message": str(exc)}
+        try:
+            contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
+        except Exception:
+            contract = {
+                "workflow_type": metadata.get("workflow_type", state.get("workflow_type")),
+                "software": metadata.get("software"),
+                "material": metadata.get("material"),
+                "research_goal": metadata.get("research_goal"),
+                "parameter_rows": [],
+            }
+        required_artifacts = {}
+        missing_writing_inputs = str(exc)
+    else:
+        missing_writing_inputs = ""
 
-    parent_artifact_ids = [
-        required_artifacts[key]["artifact_id"]
-        for key in (
-            "proposal",
-            "parameter_table",
-            "research_questions",
-            "structure_manifest",
-            "compute_plan",
-            "analysis_report",
-            "figures_manifest",
-        )
-    ]
+    parent_artifact_ids = [artifact["artifact_id"] for artifact in required_artifacts.values()]
 
-    proposal_path = project_root / required_artifacts["proposal"]["path"]
-    parameter_table_path = project_root / required_artifacts["parameter_table"]["path"]
-    structure_manifest_path = project_root / required_artifacts["structure_manifest"]["path"]
-    compute_plan_path = project_root / required_artifacts["compute_plan"]["path"]
-    analysis_report_path = project_root / required_artifacts["analysis_report"]["path"]
-    figures_manifest_path = project_root / required_artifacts["figures_manifest"]["path"]
+    if required_artifacts:
+        proposal_path = project_root / required_artifacts["proposal"]["path"]
+        parameter_table_path = project_root / required_artifacts["parameter_table"]["path"]
+        structure_manifest_path = project_root / required_artifacts["structure_manifest"]["path"]
+        compute_plan_path = project_root / required_artifacts["compute_plan"]["path"]
+        analysis_report_path = project_root / required_artifacts["analysis_report"]["path"]
+        figures_manifest_path = project_root / required_artifacts["figures_manifest"]["path"]
 
-    parameter_rows = _read_parameter_rows(parameter_table_path)
-    structure_manifest = _read_json(structure_manifest_path)
-    compute_plan = _read_json(compute_plan_path)
-    analysis_report = _read_json(analysis_report_path)
-    figures_manifest = _read_json(figures_manifest_path)
+        parameter_rows = _read_parameter_rows(parameter_table_path)
+        structure_manifest = _read_json(structure_manifest_path)
+        compute_plan = _read_json(compute_plan_path)
+        analysis_report = _read_json(analysis_report_path)
+        figures_manifest = _read_json(figures_manifest_path)
+        proposal_reference = _relative_path(project_root, proposal_path)
+        writing_input_status = "complete"
+    else:
+        parameter_rows = contract.get("parameter_rows", [])
+        structure_manifest = {
+            "source_mode": "not_provided",
+            "structure_files": [],
+            "validation": {"status": "missing_evidence"},
+        }
+        compute_plan = {"dry_run": True, "real_submit": False, "task": contract.get("task") or "unknown"}
+        analysis_report = {
+            "status": "missing_evidence",
+            "software": contract.get("software") or "unknown",
+            "task": contract.get("task") or "unknown",
+            "conclusions": "No analysis artifacts were provided for this direct writing entry.",
+        }
+        figures_manifest = {
+            "status": "missing_evidence",
+            "figures": [],
+            "skipped_reasons": ["No figures manifest was provided for this direct writing entry."],
+        }
+        proposal_reference = "not_provided"
+        writing_input_status = "partial_missing_upstream_artifacts"
 
     methods_path = project_root / ".simflow" / "reports" / "writing" / "methods.md"
     results_path = project_root / ".simflow" / "reports" / "writing" / "results.md"
@@ -318,6 +385,8 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "material": contract.get("material"),
         "analysis_status": analysis_report.get("status"),
         "visualization_status": figures_manifest.get("status"),
+        "writing_input_status": writing_input_status,
+        "missing_writing_inputs": missing_writing_inputs,
         "source_artifact_ids": parent_artifact_ids,
         "status": "planned" if dry_run else "completed",
         "outputs": [
@@ -374,7 +443,7 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         *(f"- {artifact_id}" for artifact_id in parent_artifact_ids),
         "",
         "## Proposal Reference",
-        f"- Path: {_relative_path(project_root, proposal_path)}",
+        f"- Path: {proposal_reference}",
     ])
     methods_path.write_text(methods_content, encoding="utf-8")
 
