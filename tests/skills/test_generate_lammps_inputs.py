@@ -75,3 +75,5 @@ def test_generate_lammps_inputs_returns_clarification_for_unknown_job():
         assert result["status"] == "needs_clarification"
         assert "viscosity" in result["message"]
         assert result["supported_job_types"] == ["minimize", "npt", "nve", "nvt"]
+        assert "use inspect_lammps_inputs.py for static evidence checks" in result["candidate_paths"]
+        assert "force-field provenance" in result["missing_information"]

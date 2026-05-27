@@ -201,6 +201,17 @@ def generate_lammps_inputs(
             "status": "needs_clarification",
             "message": f"Unsupported LAMMPS helper job type: {job_type}",
             "supported_job_types": sorted(SUPPORTED_JOB_TYPES),
+            "candidate_paths": [
+                "record user-provided LAMMPS input/log/dump files as generic artifacts",
+                "use inspect_lammps_inputs.py for static evidence checks",
+                "write a project-specific script when the task is outside the small template helper",
+            ],
+            "missing_information": [
+                "intended ensemble or analysis observable",
+                "force-field provenance",
+                "input/data/log/dump files to inspect",
+                "whether any real execution is requested",
+            ],
         }
 
     output_path = Path(output_dir)
@@ -280,7 +291,7 @@ def main():
             helper_name="lammps_generate_inputs",
             software="lammps",
             input_paths=[args.input],
-            output_paths=result["files_generated"],
+            output_paths=result.get("files_generated", []),
         )
         print(json.dumps(result, indent=2))
     except Exception as e:
