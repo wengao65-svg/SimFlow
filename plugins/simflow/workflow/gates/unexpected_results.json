@@ -3,11 +3,23 @@
   "description": "异常结果审批门：分析结果与预期偏差较大时触发",
   "type": "approval",
   "conditions": [
-    "analysis_completed",
-    "expected_range_defined"
+    {
+      "id": "analysis_completed",
+      "evidence": "analysis/result_review.json",
+      "path": "$.analysis_completed",
+      "op": "eq",
+      "value": true
+    },
+    {
+      "id": "expected_range_defined",
+      "evidence": "analysis/result_review.json",
+      "path": "$.expected_range_defined",
+      "op": "eq",
+      "value": true
+    }
   ],
-  "actions_on_approve": ["accept_results", "proceed_to_visualization"],
-  "actions_on_reject": ["investigate_cause", "iterate_to_input_generation"],
+  "actions_on_approve": ["accept_results", "proceed_to_analysis_visualization"],
+  "actions_on_reject": ["investigate_cause", "revise_computation_plan"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

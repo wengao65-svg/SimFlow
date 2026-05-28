@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from runtime.lib.gates import check_gate, get_gate_decisions
-from runtime.lib.state import ProjectRootError, resolve_project_root
+from runtime.simflow_core.gates import check_gate, get_gate_decisions
+from runtime.simflow_core.state import ProjectRootError, resolve_project_root
 
 
 class BaseHPCConnector(ABC):

@@ -3,10 +3,22 @@
   "description": "异常优化审批门：结构优化结果异常时触发",
   "type": "approval",
   "conditions": [
-    "optimization_completed",
-    "structure_validated"
+    {
+      "id": "optimization_completed",
+      "evidence": "modeling/optimization_report.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "structure_validated",
+      "evidence": "modeling/structure_validation.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    }
   ],
-  "actions_on_approve": ["accept_structure", "proceed_to_input_generation"],
+  "actions_on_approve": ["accept_structure", "record_modeling_decision"],
   "actions_on_reject": ["suggest_remodeling", "iterate_to_modeling"],
   "auto_approve": false,
   "timeout_minutes": 30

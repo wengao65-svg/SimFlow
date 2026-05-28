@@ -12,9 +12,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.state import read_state
-from runtime.lib.verification import (
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.state import read_state
+from runtime.simflow_core.verification import (
     VERIFY_REPORT_JSON,
     VERIFY_REPORT_MARKDOWN,
     build_final_delivery_report,

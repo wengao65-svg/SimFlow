@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Manage workflow checkpoints.
 
-Provides create, list, and restore operations for workflow checkpoints.
-Wraps runtime/lib/checkpoint.py with a CLI interface.
+Provides create, list, and restore operations for workflow checkpoints through
+the canonical runtime.simflow_core checkpoint API.
 """
 
 import argparse
@@ -12,8 +12,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.checkpoint import create_checkpoint, list_checkpoints, restore_checkpoint
-from runtime.lib.state import read_state
+from runtime.simflow_core.checkpoints import create_checkpoint, list_checkpoints, restore_checkpoint
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_core.state import read_state
 
 
 def manage_checkpoint(workflow_dir: str, action: str, checkpoint_id: str = None) -> dict:
@@ -59,10 +60,18 @@ def main():
     parser.add_argument("--action", required=True, choices=["create", "list", "restore", "latest"],
                         help="Checkpoint action")
     parser.add_argument("--checkpoint-id", help="Checkpoint ID (for restore)")
+    add_helper_recording_args(parser, default_stage="checkpoint")
     args = parser.parse_args()
 
     try:
         result = manage_checkpoint(args.workflow_dir, args.action, args.checkpoint_id)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="manage_checkpoint",
+            metadata={"action": args.action, "checkpoint_id": args.checkpoint_id},
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

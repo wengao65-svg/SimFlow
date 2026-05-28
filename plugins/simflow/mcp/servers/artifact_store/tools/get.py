@@ -1,7 +1,7 @@
 """Tool: Get artifact by ID."""
 
-from runtime.lib.artifact import get_artifact
-from runtime.lib.state import ProjectRootError
+from runtime.simflow_core.artifacts import get_artifact
+from runtime.simflow_core.state import ProjectRootError
 
 
 def _project_root(params: dict) -> str:

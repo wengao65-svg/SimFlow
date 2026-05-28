@@ -14,11 +14,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.state import read_state
-from runtime.lib.utils import generate_id
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_core.state import read_state
+from runtime.simflow_core.utils import generate_id
+from runtime.simflow_core.workflow import load_recipe
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[3] / "templates" / "reports" / "handoff.md.template"
-WORKFLOWS_DIR = Path(__file__).resolve().parents[3] / "workflow" / "workflows"
 
 
 def render_template(template_content: str, variables: dict) -> str:
@@ -37,17 +38,16 @@ def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
 
 
 def load_workflow_stages(workflow_type: str, metadata: dict) -> list[str]:
-    """Load canonical workflow stages from metadata or workflow definitions."""
+    """Load workflow stages from metadata or canonical recipes."""
     stages = metadata.get("stages", [])
     if isinstance(stages, list) and stages:
         return stages
 
-    normalized = (workflow_type or "dft").lower()
-    path = WORKFLOWS_DIR / f"{normalized}.json"
-    if not path.exists():
-        path = WORKFLOWS_DIR / "dft.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    loaded = data.get("stages", [])
+    try:
+        recipe = load_recipe((workflow_type or "dft").lower())
+    except FileNotFoundError:
+        recipe = load_recipe("dft")
+    loaded = recipe.get("stages", [])
     return [stage["name"] if isinstance(stage, dict) else stage for stage in loaded]
 
 
@@ -253,10 +253,19 @@ def main():
     parser = argparse.ArgumentParser(description="Generate workflow handoff summary")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output", help="Output markdown file path")
+    add_helper_recording_args(parser, default_stage="writing")
     args = parser.parse_args()
 
     try:
         result = generate_handoff(args.workflow_dir, args.output)
+        output_paths = [args.output] if args.output else []
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_handoff",
+            output_paths=output_paths,
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

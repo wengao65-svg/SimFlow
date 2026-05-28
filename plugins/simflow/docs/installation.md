@@ -1,117 +1,99 @@
 # SimFlow Installation Guide
 
+SimFlow is distributed to users as Codex and Claude Code plugins. It is not a
+primary command-line workflow executor, and the source checkout is mainly for
+development, validation, and marketplace publishing.
+
 ## System Requirements
 
 | Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
+| --- | --- | --- |
 | Python | 3.10 | 3.12+ |
-| Node.js | 18 (optional, for schema validation) | 20+ |
-| OS | Linux, macOS, WSL2 | Linux |
+| Node.js | 18 for repository validation | 20+ |
+| OS | Linux, macOS, WSL2 | Linux or WSL2 |
 | Git | 2.0 | latest |
 
-SimFlow is a pure Python package with no compiled extensions. It runs on any platform with Python 3.10+.
+The runtime, MCP servers, and bundled skill helper scripts use the Python
+standard library by default. Optional scientific Python packages are only needed
+for engine-specific helper features.
 
-## Dependencies
+## Install For Codex Users
 
-### Core (no extra install needed)
-
-SimFlow core has **zero external dependencies** — the runtime, template engine, state management, parsers, and MCP servers use only the Python standard library.
-
-| Component | Dependencies |
-|-----------|-------------|
-| `runtime/lib/` (state, checkpoint, gates, template, parsers) | stdlib only |
-| `mcp/servers/` (literature, structure, hpc, state) | stdlib only |
-| `skills/` (CLI scripts) | stdlib only |
-| Schema validation | Node.js + `ajv` (dev only) |
-
-### Optional (per software package)
-
-Install optional dependencies based on which simulation software you use:
+Install the published Codex marketplace branch:
 
 ```bash
-# VASP support (pymatgen for structure manipulation)
-pip install "simflow[vasp]"
-
-# Quantum ESPRESSO support
-pip install "simflow[qe]"
-
-# LAMMPS support (MDAnalysis for trajectory analysis)
-pip install "simflow[lammps]"
-
-# Gaussian support
-pip install "simflow[gaussian]"
-
-# Structure building (pymatgen + ASE)
-pip install "simflow[structure]"
-
-# All software packages
-pip install "simflow[all]"
-
-# Development (all + testing tools)
-pip install "simflow[dev]"
+codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace
+codex
 ```
 
-### Optional dependency details
+Then install and enable `simflow` from Codex:
 
-| Package | Version | Used by | Purpose |
-|---------|---------|---------|---------|
-| `pymatgen` | >=2023.0 | VASP, QE, Gaussian, structure | Crystal structure manipulation, VASP input generation |
-| `MDAnalysis` | >=2.5 | LAMMPS, trajectory analysis | RDF, MSD, trajectory parsing |
-| `ase` | >=3.22 | structure | Alternative structure builder |
-| `pytest` | >=7.0 | dev | Test runner |
-
-## Installation Methods
-
-### Method 1: pip install (recommended)
-
-```bash
-# Basic install (core only)
-pip install simflow
-
-# With specific software support
-pip install "simflow[vasp]"
-pip install "simflow[all]"
-
-# Development install (editable)
-git clone https://github.com/<your-org>/simflow.git
-cd simflow
-pip install -e ".[dev]"
+```text
+/plugins
 ```
 
-### Method 2: From source
+Verify that SimFlow is available:
+
+```text
+/mcp
+$simflow
+```
+
+Update the marketplace when a new SimFlow version is published:
 
 ```bash
-git clone https://github.com/<your-org>/simflow.git
-cd simflow
+codex plugin marketplace upgrade simflow-marketplace
+```
 
-# Create virtual environment (recommended)
+Restart Codex or open a new thread after upgrading.
+
+## Install For Claude Code Users
+
+Install the published Claude marketplace branch:
+
+```bash
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+For a git URL, use Claude's `#ref` syntax:
+
+```bash
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+Verify typical skill names:
+
+```text
+/simflow:simflow
+/simflow:simflow-vasp
+/simflow:simflow-cp2k
+/simflow:simflow-writing
+```
+
+## Developer Source Checkout
+
+Use the source checkout when developing SimFlow, validating release candidates,
+or building marketplace wrappers:
+
+```bash
+git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
+cd ~/simflow
 python -m venv .venv
 source .venv/bin/activate
-
-# Install in editable mode
 pip install -e ".[dev]"
-
-# Install Node.js dependencies (optional, for schema validation)
 npm install
 ```
 
-### Method 3: Claude Code plugin
-
-SimFlow also ships a Claude Code adapter as a separate distribution layer from the Codex marketplace. Install the published Claude marketplace branch with Claude's ref syntax:
+Local Codex wrapper install:
 
 ```bash
-claude plugin marketplace add <org>/simflow@claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
+npm run install:codex
+codex
 ```
 
-For a git URL, use `#ref`:
-
-```bash
-claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-```
-
-For local testing from a source checkout:
+Local Claude wrapper install:
 
 ```bash
 npm run build:claude-marketplace
@@ -119,222 +101,133 @@ claude plugin marketplace add ./dist/claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
-Claude plugin skills are namespaced, for example `/simflow:simflow`, `/simflow:simflow-vasp`, `/simflow:simflow-cp2k`, and `/simflow:simflow-writing`. `claude plugin marketplace add` supports `--scope` and `--sparse`; it does not use a `--ref` option.
+## Optional Python Dependencies
 
-## Verification
-
-### Run the test suite
+The plugin core does not require scientific Python packages. Install optional
+dependencies only when you want local helper scripts to use those libraries:
 
 ```bash
-# All tests (309 tests, ~3 seconds)
-python -m pytest tests/ -v
-
-# CP2K-specific tests
-python -m pytest tests/runtime/test_cp2k_input.py tests/runtime/test_cp2k_parser.py -v
-
-# VASP-specific tests
-python -m pytest tests/runtime/test_vasp_*.py -v
-
-# MCP server tests
-python -m pytest tests/mcp/ -v
-
-# E2E workflow tests
-python -m pytest tests/e2e/ -v
+pip install -e ".[vasp]"       # pymatgen-backed VASP helpers
+pip install -e ".[lammps]"     # MDAnalysis-backed LAMMPS analysis helpers
+pip install -e ".[structure]"  # pymatgen and ASE structure helpers
+pip install -e ".[all]"        # all optional scientific helpers
 ```
 
-### Validate project structure
+QE and Gaussian skills are reserved placeholders in the current product build.
+Do not advertise `.[qe]` or `.[gaussian]` as supported install extras until
+those helpers have product support and release tests.
+
+PyPI distribution is not the current primary user install path. Do not document
+or rely on a direct PyPI package install as the release path until a PyPI
+release has been published and verified.
+
+## Validation
+
+Validate the source checkout:
 
 ```bash
-# Requires Node.js
-npm install
+python -m pytest tests/ -q
 npm run validate:all
+python scripts/audit_skill_scripts.py
 ```
 
-### Quick smoke test
+Validate marketplace wrappers:
 
-```python
-from lib.cp2k_input import generate_input, read_cif_to_xyz
-from lib.parsers.cp2k_parser import CP2KParser
-from lib.template import render_string
-from lib.state import init_workflow
+```bash
+npm run build:codex-marketplace
+SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin
 
-# Generate a CP2K input
-inp = generate_input({"steps": 10}, "aimd_nvt")
-assert "STEPS 10" in inp
-
-# Render a template
-result = render_string("Hello {{ name }}", {"name": "SimFlow"})
-assert result == "Hello SimFlow"
-
-print("SimFlow OK")
+npm run build:claude-marketplace
+SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin
 ```
+
+Smoke-test MCP startup from the source checkout:
+
+```bash
+npm run validate:plugin
+npm run validate:claude-plugin
+```
+
+These validators initialize the configured SimFlow MCP servers over stdio and
+verify `tools/list` responses.
+
+## Runtime Layout
+
+Current source layout:
+
+```text
+simflow/
+├── skills/                    # Workflow-layer and domain helper skills
+├── workflow/                  # Stage, recipe, gate, and policy definitions
+├── mcp/                       # MCP servers and connectors
+├── runtime/
+│   ├── simflow_core/          # State, artifacts, checkpoints, gates, status
+│   └── simflow_helpers/       # Optional literature, modeling, compute, engine helpers
+├── templates/                 # Optional helper templates
+├── schemas/                   # JSON schemas
+├── tests/                     # Unit, MCP, and E2E tests
+├── docs/                      # User, release, and developer documentation
+└── scripts/                   # Validation, scaffold, and marketplace scripts
+```
+
+Legacy runtime library and script directories are not current public entry
+points.
 
 ## Configuration
 
-### Environment Variables
+| Variable | Purpose |
+| --- | --- |
+| `MP_API_KEY` | Materials Project API key |
+| `S2_API_KEY` | Semantic Scholar API key |
+| `SIMFLOW_SSH_HOST` | SSH HPC host |
+| `SIMFLOW_SSH_USER` | SSH username |
+| `SIMFLOW_SSH_KEY` | SSH key file path |
+| `SIMFLOW_HPC_HOST` | Optional HPC host alias for helper scripts |
+| `SIMFLOW_HPC_BASE` | Optional remote working directory |
+| `SIMFLOW_PARTITION` | Optional scheduler partition |
+| `SIMFLOW_NTASKS` | Optional MPI task count |
 
-| Variable | Required | Purpose | Example |
-|----------|----------|---------|---------|
-| `SIMFLOW_HPC_HOST` | For HPC | SSH host alias | `hpc` |
-| `SIMFLOW_HPC_BASE` | For HPC | Remote working directory | `simflow/jobs` |
-| `SIMFLOW_CP2K_ENV` | For CP2K | Path to CP2K env.sh on HPC | `source $CP2K_ROOT/env.sh` |
-| `SIMFLOW_CP2K_EXE` | For CP2K | CP2K executable path on HPC | `cp2k.psmp` |
-| `SIMFLOW_VASP_ENV` | For VASP | Path to VASP env.sh on HPC | `source $VASP_ROOT/env.sh` |
-| `SIMFLOW_PARTITION` | For SLURM | SLURM partition name | `cpu` |
-| `SIMFLOW_NTASKS` | For SLURM | Number of MPI tasks | `32` |
-| `MP_API_KEY` | Optional | Materials Project API key | `your-api-key` |
-| `S2_API_KEY` | Optional | Semantic Scholar API key | `your-api-key` |
-
-Missing optional credentials gracefully fall back to mock/dry-run mode.
-
-### HPC SSH Setup
-
-SimFlow uses SSH to connect to HPC clusters. Configure your `~/.ssh/config`:
-
-```
-Host hpc
-    HostName your-cluster.example.com
-    User your-username
-    IdentityFile ~/.ssh/id_rsa
-    ForwardAgent no
-```
-
-Test connectivity:
-
-```bash
-ssh hpc hostname
-```
-
-### CP2K Setup Example
-
-```bash
-# On HPC: CP2K should be installed and accessible
-# Set environment variables locally:
-export SIMFLOW_HPC_HOST="hpc"
-export SIMFLOW_HPC_BASE="simflow/cp2k_jobs"
-export SIMFLOW_CP2K_ENV="source $CP2K_ROOT/scripts/env.sh"
-export SIMFLOW_CP2K_EXE="$CP2K_ROOT/bin/cp2k.psmp"
-export SIMFLOW_PARTITION="cpu"
-export SIMFLOW_NTASKS="64"
-
-# Test CP2K workflow (dry run)
-python examples/h2o/run_cp2k_workflow.py --dry-run
-```
-
-### VASP Setup Example
-
-```bash
-export SIMFLOW_HPC_HOST="hpc"
-export SIMFLOW_HPC_BASE="simflow/vasp_jobs"
-export SIMFLOW_VASP_ENV="source $VASP_ROOT/env.sh"
-export SIMFLOW_PARTITION="gpu"
-export SIMFLOW_NTASKS="16"
-```
-
-## Project Structure
-
-```
-simflow/
-├── runtime/                   # Core libraries
-│   ├── lib/
-│   │   ├── cp2k_input.py      # CP2K input generation
-│   │   ├── parsers/           # Output parsers (CP2K, VASP)
-│   │   ├── state.py           # Workflow state management
-│   │   ├── template.py        # Template rendering engine
-│   │   ├── gates.py           # Verification gate engine
-│   │   ├── artifact.py        # Artifact tracking
-│   │   └── checkpoint.py      # Checkpoint/recovery
-│   └── scripts/               # CLI scripts
-├── skills/                    # Skill definitions (23 skills)
-├── templates/                 # Input templates (VASP, CP2K, QE, LAMMPS, SLURM)
-├── mcp/                       # MCP servers and connectors
-├── workflow/                  # Stage, gate, policy definitions
-├── tests/                     # Test suite (309 tests)
-├── docs/                      # Documentation
-├── examples/                  # Example workflows
-├── schemas/                   # JSON schemas
-└── scripts/                   # Utility scripts
-```
+Credentials may be read from the environment but must not be written to
+`.simflow/`, artifacts, reports, checkpoints, logs, or handoff packages.
 
 ## Troubleshooting
 
-### ImportError: No module named 'lib'
+### MCP servers do not appear
 
-SimFlow's `runtime/lib/` is not on the Python path by default. Either:
-
-```bash
-# Option 1: Install in editable mode
-pip install -e .
-
-# Option 2: Add to path in your script
-import sys
-sys.path.insert(0, "runtime")
-```
-
-### SSH connection failed
+Run source validation:
 
 ```bash
-# Test SSH connectivity
-ssh -o ConnectTimeout=10 hpc hostname
-
-# Check SSH config
-cat ~/.ssh/config | grep -A5 "Host hpc"
-
-# Verify key permissions
-chmod 600 ~/.ssh/id_rsa
-```
-
-### Tests failing
-
-```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run with verbose output
-python -m pytest tests/ -v --tb=long
-
-# Run specific test file
-python -m pytest tests/runtime/test_cp2k_input.py -v
-```
-
-### pymatgen/MDAnalysis not found
-
-```bash
-# Install optional dependencies
-pip install "simflow[all]"
-
-# Or install individually
-pip install pymatgen MDAnalysis ase
-```
-
-### Node.js validation fails
-
-```bash
-# Install Node.js dependencies
-npm install
-
-# Run validation separately
 npm run validate:plugin
-npm run validate:skills
-npm run validate:schemas
+npm run validate:claude-plugin
 ```
 
-## Upgrading
+Check that the installed plugin contains:
+
+```text
+skills/
+mcp/
+runtime/
+workflow/
+schemas/
+scripts/start_mcp_server.py
+```
+
+### Optional scientific helper fails to import a package
+
+Install the relevant optional dependency in the environment where the helper is
+running:
 
 ```bash
-# pip install
-pip install --upgrade simflow
-
-# From source
-cd simflow
-git pull
-pip install -e ".[dev]"
+pip install -e ".[all]"
 ```
 
-## Uninstalling
+### HPC or remote submit is blocked
 
-```bash
-pip uninstall simflow
-```
+This is expected unless dry-run evidence, credential scan, matching hashes, and
+an explicit `hpc_submit` approval decision are present. Local execution is also
+approval-gated.
 
-SimFlow stores per-project state in `.simflow/` — delete this directory to remove all workflow data.
+### Remove project state
+
+SimFlow stores per-project workflow state in `.simflow/`. Delete that directory
+only when you intentionally want to remove local workflow state.

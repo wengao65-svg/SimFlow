@@ -52,16 +52,15 @@ SimFlow distinguishes `plugin_root` from `project_root`. `plugin_root` is the in
 
 ## State Schema
 
-Workflow state follows `schemas/state.schema.json`. Modern projects use
-canonical stages and may store DFT/AIMD/MD as `recipe` or `tags`; legacy
-`workflow_type` values are retained only for migration context.
+Workflow state follows `schemas/state.schema.json`. Projects use canonical
+stages and may store DFT/AIMD/MD as `recipe` or `tags`.
 
 ```json
 {
   "workflow_id": "wf_001",
   "workflow_type": "custom",
   "recipe": "dft",
-  "tags": ["dft", "legacy_migrated"],
+  "tags": ["dft"],
   "status": "running",
   "current_stage": "computation",
   "stages": {

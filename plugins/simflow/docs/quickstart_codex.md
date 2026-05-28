@@ -1,4 +1,4 @@
-# SimFlow v0.8.6 Codex Quick Start
+# SimFlow Codex Quick Start
 
 This guide uses the Codex plugin installation path. SimFlow is not exposed as a primary CLI; users interact with it through Codex plugins, skills, and MCP tools.
 
@@ -13,7 +13,7 @@ This guide uses the Codex plugin installation path. SimFlow is not exposed as a 
 Regular users install SimFlow from the published `codex-marketplace` branch. They do not need to clone the source repository.
 
 ```bash
-codex plugin marketplace add <org>/simflow --ref codex-marketplace
+codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace
 codex
 ```
 
@@ -81,7 +81,7 @@ After upgrading, restart Codex or open a new thread. If needed, use `/plugins` t
 Developers can still test from a source checkout:
 
 ```bash
-git clone <repo> ~/simflow
+git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
 cd ~/simflow
 npm install
 npm run install:codex

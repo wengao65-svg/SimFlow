@@ -22,10 +22,12 @@ The refactored workflow layer centers on a small core set:
 - `simflow-writing`
 - `simflow-safety-gates`
 
-Engine-specific skills such as VASP, QE, CP2K, LAMMPS, and Gaussian remain
-useful domain assistants. They provide checklists, templates, troubleshooting,
-validation suggestions, official-documentation pointers, and artifact
-registration guidance. They do not own workflow progression.
+Engine-specific skills for VASP, CP2K, and LAMMPS are the supported domain
+assistants in the current product build. They provide checklists, templates,
+troubleshooting, validation suggestions, official-documentation pointers, and
+artifact registration guidance. QE and Gaussian skills are reserved
+unsupported placeholders that may only record user-provided files as generic
+artifacts. Engine skills do not own workflow progression.
 
 ## Skill Contract
 
@@ -84,3 +86,26 @@ same hard boundaries:
 Skill contract tests should check for the presence of evidence, artifact,
 safety, and handoff language. They should also reject accidental hard-coded
 requirements that make a helper the only valid path.
+
+## Script Contract
+
+Skill scripts are optional helpers. They are allowed to parse files, generate
+templates, inspect outputs, or package reports, but they must not become the
+canonical workflow executor.
+
+Canonical stage runners use this callable contract:
+
+```python
+run_<stage>_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = True) -> dict
+```
+
+Executable helper CLIs must support:
+
+- `--project-root` for explicit `.simflow/` recording
+- `--stage` for the canonical evidence boundary
+- `--record-helper-run` to opt into helper-run artifact and lineage recording
+
+Without `--record-helper-run`, helper scripts should remain standalone and
+avoid writing SimFlow state. With `--record-helper-run`, they must use
+`runtime.simflow_core.helpers.record_helper_run` or the shared script-contract
+wrapper so scripts, inputs, outputs, environment, and lineage are recorded.

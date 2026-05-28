@@ -3,11 +3,23 @@
   "description": "收敛失败审批门：计算结果未达到收敛标准时触发",
   "type": "approval",
   "conditions": [
-    "convergence_check_performed",
-    "convergence_criteria_defined"
+    {
+      "id": "convergence_check_performed",
+      "evidence": "compute/convergence_report.json",
+      "path": "$.check_performed",
+      "op": "eq",
+      "value": true
+    },
+    {
+      "id": "convergence_criteria_defined",
+      "evidence": "compute/convergence_report.json",
+      "path": "$.criteria_defined",
+      "op": "eq",
+      "value": true
+    }
   ],
-  "actions_on_approve": ["accept_with_warning", "proceed_to_visualization"],
-  "actions_on_reject": ["suggest_parameter_adjustment", "iterate_to_input_generation"],
+  "actions_on_approve": ["accept_with_warning", "proceed_to_analysis_visualization"],
+  "actions_on_reject": ["suggest_parameter_adjustment", "revise_computation_plan"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

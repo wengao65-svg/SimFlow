@@ -26,12 +26,9 @@ Codex / OMX Host
 - **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
 - **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
 - **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
-- **Domain Helpers**: optional VASP, CP2K, QE, LAMMPS, Gaussian, parser, plotting, and structure helpers
+- **Domain Helpers**: supported VASP, CP2K, and LAMMPS helpers, plus generic parser, plotting, and structure helpers
 - **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
 - **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
-- **Legacy Compatibility**: old DFT/AIMD/MD workflow files and compatibility
-  skill names remain as recipe/helper adapters, not as the canonical workflow
-  contract
 
 ## Workflow Layer Contract
 
@@ -53,9 +50,8 @@ stage directly when the needed inputs and evidence are present.
 |--------|-------------|
 | VASP | DFT, AIMD, phonon, NEB, defects, surfaces, output inspection |
 | CP2K | Quickstep DFT, AIMD, common CP2K task checks |
-| Quantum ESPRESSO | Plane-wave DFT input and output guidance |
 | LAMMPS | Classical MD setup and trajectory analysis guidance |
-| Gaussian | Quantum chemistry input and output guidance |
+| QE / Gaussian | Unsupported placeholders; user-provided files can still be recorded as generic artifacts |
 
 These helpers suggest and validate. They do not limit what the host agent can
 do, and they should return uncertainty rather than silently mapping unknown
@@ -68,7 +64,7 @@ tasks to a default calculation.
 Install the published SimFlow Codex marketplace:
 
 ```bash
-codex plugin marketplace add <org>/simflow --ref codex-marketplace
+codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace
 codex
 ```
 
@@ -97,7 +93,7 @@ After upgrading, restart Codex or open a new thread. If needed, use `/plugins` t
 Developer local debugging uses the source checkout and local wrapper installer:
 
 ```bash
-git clone <repo> ~/simflow
+git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
 cd ~/simflow
 npm install
 npm run install:codex
@@ -131,14 +127,14 @@ npm run publish:codex-marketplace
 Install the published SimFlow Claude marketplace branch with Claude's source ref syntax:
 
 ```bash
-claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
 For a git URL, use `#claude-marketplace`:
 
 ```bash
-claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
 ```
 
 Developer local debugging uses the generated Claude marketplace wrapper:
@@ -160,7 +156,6 @@ simflow/
 │   ├── stages/                # Research intent contracts
 │   ├── recipes/               # Optional JSON reference recipes
 │   └── gates/                 # Verification and approval gates
-├── agents/                    # 9 workflow agents
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
 │   │   ├── literature/        # arXiv, Crossref, Semantic Scholar
@@ -168,9 +163,9 @@ simflow/
 │   │   ├── hpc/               # SLURM, PBS, SSH, Local
 │   │   └── state/             # Workflow state management
 │   └── shared/                # Retry, cache, credentials, transport
-├── runtime/                   # Libraries and scripts
-│   ├── lib/                   # State, artifact, checkpoint, gates, template, parsers
-│   └── scripts/               # CLI scripts for workflow operations
+├── runtime/                   # Core runtime and optional helpers
+│   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade
+│   └── simflow_helpers/       # Optional helper implementations
 ├── templates/                 # Optional helper templates
 ├── schemas/                   # JSON schemas for validation
 ├── tests/                     # Unit, MCP, E2E tests
@@ -201,16 +196,11 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 - [Skill Design](docs/skill-design.md)
 - [MCP Design](docs/mcp-design.md)
 - [HPC Integration](docs/hpc-integration.md)
-- [Migration Plan](docs/migration.md)
 - [Custom Skills](docs/custom-skills.md)
 - [Credentials Policy](docs/credentials-policy.md)
+- [Current Limitations](docs/current-limitations.md)
+- [Release Checklist](docs/release-checklist.md)
 - [Docs Index](docs/README.md)
-
-## Examples
-
-- [DFT Legacy Recipe Example](docs/examples/dft_workflow.md)
-- [AIMD Legacy Recipe Example](docs/examples/aimd_workflow.md)
-- [Classical MD Legacy Recipe Example](docs/examples/md_workflow.md)
 
 ## License
 

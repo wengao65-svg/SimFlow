@@ -11,10 +11,10 @@ ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
 
-from lib.parsers.vasp_parser import VASPParser
-from lib.parsers.qe_parser import QEParser
-from lib.parsers.lammps_parser import LAMMPSParser
-from lib.parsers.gaussian_parser import GaussianParser
+from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
+from runtime.simflow_helpers.engines.parsers.qe_parser import QEParser
+from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
+from runtime.simflow_helpers.engines.parsers.gaussian_parser import GaussianParser
 from mcp.shared.stdio_server import run_mcp_server
 
 PARSERS = {
@@ -64,6 +64,27 @@ TOOL_DESCRIPTIONS = {
     "check_convergence": "Check calculation convergence from supported output files.",
 }
 
+TOOL_SCHEMAS = {
+    "parse": {
+        "type": "object",
+        "required": ["software", "file_path"],
+        "properties": {
+            "software": {"type": "string"},
+            "file_path": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "check_convergence": {
+        "type": "object",
+        "required": ["software", "file_path"],
+        "properties": {
+            "software": {"type": "string"},
+            "file_path": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     tool = request.get("tool")
@@ -77,4 +98,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("parsers", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("parsers", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

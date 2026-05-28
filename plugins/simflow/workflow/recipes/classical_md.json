@@ -10,5 +10,5 @@
   "recommended_checks": ["force-field source recorded", "units documented", "boundary conditions documented", "trajectory completeness", "analysis script traceability"],
   "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling"],
   "handoff_notes": ["Record force-field provenance, simulation protocol, trajectory status, scripts, and limitations."],
-  "metadata": {"schema_version": "1.0.0", "legacy_aliases": ["md"]}
+  "metadata": {"schema_version": "1.0.0"}
 }

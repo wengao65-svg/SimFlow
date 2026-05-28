@@ -12,9 +12,9 @@ SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 if str(SIMFLOW_ROOT) not in sys.path:
     sys.path.insert(0, str(SIMFLOW_ROOT))
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.checkpoint import create_checkpoint
-from runtime.lib.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
 
 
 def ensure_cp2k_project(project_root: str, stage: str) -> tuple[Path, dict[str, Any]]:
@@ -33,15 +33,26 @@ def write_json_verified(root: Path, relative_path: str, data: dict[str, Any]) ->
     return relative_path
 
 
-def register_report(root: Path, stage: str, task: str, name: str, relative_path: str, artifact_type: str = "report") -> dict[str, Any]:
+def register_report(
+    root: Path,
+    stage: str,
+    task: str,
+    name: str,
+    relative_path: str,
+    artifact_type: str = "report",
+    activity: str | None = None,
+) -> dict[str, Any]:
     """Register a report-like artifact for the CP2K skill."""
+    parameters = {"task": task}
+    if activity:
+        parameters["activity"] = activity
     return register_artifact(
         name=name,
         artifact_type=artifact_type,
         stage=stage,
         path=relative_path,
         project_root=str(root),
-        parameters={"task": task},
+        parameters=parameters,
         software="cp2k",
     )
 
