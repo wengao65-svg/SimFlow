@@ -17,7 +17,10 @@ from pathlib import Path
 
 # Add runtime to path for vasp_potcar/vasp_incar modules
 SIMFLOW_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(SIMFLOW_ROOT))
 sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
     from pymatgen.core import Structure
@@ -26,8 +29,8 @@ except ImportError:
     print(json.dumps({"status": "error", "message": "pymatgen not installed"}))
     sys.exit(1)
 
-from lib.vasp_potcar import read_poscar_species, validate_potcar, get_potcar_nelect
-from lib.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+from runtime.simflow_helpers.engines.vasp_potcar import read_poscar_species, validate_potcar, get_potcar_nelect
+from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
 
 
 def generate_incar(job_type: str, params: dict, structure: Structure = None,
@@ -222,6 +225,7 @@ def main():
                         help="Path to VASP pseudopotential library (overrides SIMFLOW_VASP_POTCAR_PATH)")
     parser.add_argument("--use-vaspkit", action="store_true",
                         help="Use vaspkit for POTCAR generation")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
@@ -230,6 +234,15 @@ def main():
                                        params, args.kppa,
                                        potcar_root=args.potcar_root,
                                        use_vaspkit=args.use_vaspkit)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="vasp_generate_inputs",
+            software="vasp",
+            input_paths=[args.poscar],
+            output_paths=result.get("files_generated", []),
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

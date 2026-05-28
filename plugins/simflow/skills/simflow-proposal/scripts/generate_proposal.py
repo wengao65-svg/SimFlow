@@ -10,11 +10,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.artifact import list_artifacts, register_artifact
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_core.state import read_state
 
 
 REQUIRED_REVIEW_ARTIFACTS = ("review_summary.md", "gap_analysis.md")
+CANONICAL_STAGE_SEQUENCE = [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing",
+]
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -31,7 +40,7 @@ def resolve_artifact_path(project_root: Path, artifact_path: str) -> Path:
 
 def load_review_artifacts(project_root: Path) -> tuple[dict[str, str], list[dict]]:
     """Load required review artifact contents from the canonical registry."""
-    artifacts = list_artifacts(stage="review", project_root=str(project_root))
+    artifacts = list_artifacts(stage="literature_review", project_root=str(project_root))
     by_name = {artifact.get("name"): artifact for artifact in artifacts if artifact.get("name") in REQUIRED_REVIEW_ARTIFACTS}
     missing = [name for name in REQUIRED_REVIEW_ARTIFACTS if name not in by_name]
     if missing:
@@ -47,6 +56,39 @@ def load_review_artifacts(project_root: Path) -> tuple[dict[str, str], list[dict
         contents[name] = path.read_text(encoding="utf-8")
         selected.append(artifact)
     return contents, selected
+
+
+def _stage_index(stage: str | None) -> int:
+    if stage in CANONICAL_STAGE_SEQUENCE:
+        return CANONICAL_STAGE_SEQUENCE.index(stage)
+    return 0
+
+
+def _allows_direct_proposal_entry(metadata: dict, state: dict) -> bool:
+    """Return whether missing literature evidence is allowed for this workflow entry."""
+    entry_stage = metadata.get("entry_point") or state.get("entry_point")
+    current_stage = metadata.get("current_stage") or state.get("current_stage")
+    return max(_stage_index(entry_stage), _stage_index(current_stage)) >= _stage_index("proposal")
+
+
+def build_partial_review_inputs(metadata: dict, missing_message: str) -> tuple[dict[str, str], list[dict]]:
+    """Build explicit no-literature placeholders for direct proposal entry."""
+    goal = metadata.get("research_goal", "the current research goal") or "the current research goal"
+    material = metadata.get("material", "the target system") or "the target system"
+    return (
+        {
+            "review_summary.md": "\n".join([
+                "- Literature review artifacts were not provided for this direct proposal entry.",
+                f"- Proposal scope is based on user intent: {goal}.",
+                f"- Target system from intake metadata: {material}.",
+            ]),
+            "gap_analysis.md": "\n".join([
+                "- Literature evidence is missing and must be supplied or verified before evidence-backed claims are made.",
+                "- Citation-backed assumptions are unavailable at proposal generation time.",
+            ]),
+        },
+        [],
+    )
 
 
 def build_parameter_rows(metadata: dict) -> list[dict]:
@@ -136,12 +178,132 @@ def build_research_questions(metadata: dict, gap_analysis: str, parameter_rows: 
     }
 
 
-def build_proposal_markdown(metadata: dict, review_summary: str, gap_analysis: str, parameter_rows: list[dict]) -> str:
+def build_proposal_contract(
+    metadata: dict,
+    review_artifacts: list[dict],
+    review_summary: str,
+    gap_analysis: str,
+    parameter_rows: list[dict],
+    research_questions: dict,
+    generated_at: str,
+) -> dict:
+    """Build the machine-readable proposal contract consumed by later stages."""
+    workflow_type = metadata.get("workflow_type", "dft")
+    software = metadata.get("software", "vasp")
+    material = metadata.get("material", "Not specified")
+    goal = metadata.get("research_goal", "Not specified")
+    gap_bullets = extract_gap_bullets(gap_analysis)
+    source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
+    literature_status = "provided" if source_artifact_ids else "not_provided"
+    literature_summary = [
+        line[2:].strip()
+        for line in review_summary.splitlines()
+        if line.startswith("- ")
+    ][:5]
+
+    return {
+        "generated_at": generated_at,
+        "workflow_type": workflow_type,
+        "software": software,
+        "material": material,
+        "research_goal": goal,
+        "source_artifact_ids": source_artifact_ids,
+        "literature_evidence_summary": {
+            "status": literature_status,
+            "artifact_ids": source_artifact_ids,
+            "summary_points": literature_summary,
+            "open_questions": gap_bullets,
+        },
+        "calculation_plan": {
+            "stage": "proposal",
+            "recipe_or_tag": workflow_type,
+            "software": software,
+            "material": material,
+            "planned_next_stages": ["modeling", "computation", "analysis_visualization", "writing"],
+            "dry_run_first": True,
+            "real_submit_requires_approval": True,
+        },
+        "parameter_rationale": [
+            {
+                "parameter": row["parameter"],
+                "value": row["value"],
+                "source": row["source"],
+                "rationale": row["notes"],
+            }
+            for row in parameter_rows
+        ],
+        "decision_criteria": [
+            {
+                "criterion_id": "dc_001",
+                "criterion": "The selected modeling and computation path preserves the stated research goal and material.",
+                "evidence": ["research_goal", "material", "proposal.md"],
+            },
+            {
+                "criterion_id": "dc_002",
+                "criterion": "All real compute submissions remain blocked until dry-run evidence and approval are recorded.",
+                "evidence": ["calculation_plan", "approval_triggers"],
+            },
+            {
+                "criterion_id": "dc_003",
+                "criterion": "Analysis and writing claims must trace back to registered literature, model, compute, analysis, or figure artifacts.",
+                "evidence": ["source_artifact_ids", "artifact_lineage"],
+            },
+        ],
+        "risk_register": [
+            *([] if source_artifact_ids else [{
+                "risk_id": "risk_000",
+                "risk": "No registered literature review artifacts were available at proposal entry.",
+                "mitigation": "Treat literature-dependent claims as unverified until review artifacts or citations are registered.",
+                "severity": "high",
+            }]),
+            {
+                "risk_id": "risk_001",
+                "risk": "Proposal evidence may be incomplete if the literature stage only has metadata or notes.",
+                "mitigation": "Mark inaccessible full text and keep claims limited to available evidence.",
+                "severity": "medium",
+            },
+            {
+                "risk_id": "risk_002",
+                "risk": "Compute cost, license, or queue constraints may change the feasible calculation path.",
+                "mitigation": "Keep resource assumptions explicit and require approval before real submit.",
+                "severity": "medium",
+            },
+        ],
+        "resource_assumptions": {
+            "real_submit": False,
+            "dry_run_first": True,
+            "approval_triggers": ["large_resource_commitment", "licensed_or_proprietary_file_handling"],
+            "resource_estimate_status": "proposal_level_assumption",
+        },
+        "research_question_ids": [item["question_id"] for item in research_questions.get("questions", [])],
+    }
+
+
+def build_proposal_markdown(
+    metadata: dict,
+    review_summary: str,
+    gap_analysis: str,
+    parameter_rows: list[dict],
+    proposal_contract: dict,
+) -> str:
     """Render a deterministic proposal markdown document."""
     gap_bullets = extract_gap_bullets(gap_analysis) or ["No explicit gaps were listed in the review stage."]
     summary_lines = [line for line in review_summary.splitlines() if line.startswith("- ")][:5]
     summary_section = summary_lines or ["- Review summary did not contain bullet evidence."]
     parameter_lines = [f"- {row['parameter']}: {row['value']}" for row in parameter_rows]
+    decision_lines = [
+        f"- {item['criterion_id']}: {item['criterion']}"
+        for item in proposal_contract["decision_criteria"]
+    ]
+    risk_lines = [
+        f"- {item['risk_id']}: {item['risk']} Mitigation: {item['mitigation']}"
+        for item in proposal_contract["risk_register"]
+    ]
+    resource_lines = [
+        f"- {key}: {json.dumps(value, ensure_ascii=False) if isinstance(value, list) else value}"
+        for key, value in proposal_contract["resource_assumptions"].items()
+    ]
+    source_lines = [f"- {artifact_id}" for artifact_id in proposal_contract["source_artifact_ids"]]
 
     return "\n".join([
         "# Proposal",
@@ -166,6 +328,18 @@ def build_proposal_markdown(metadata: dict, review_summary: str, gap_analysis: s
         "## Validation Focus",
         *[f"- {bullet}" for bullet in gap_bullets],
         "",
+        "## Decision Criteria",
+        *decision_lines,
+        "",
+        "## Risk Register",
+        *risk_lines,
+        "",
+        "## Resource Assumptions",
+        *resource_lines,
+        "",
+        "## Source Artifact IDs",
+        *source_lines,
+        "",
     ])
 
 
@@ -180,7 +354,9 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
     try:
         review_contents, review_artifacts = load_review_artifacts(project_root)
     except FileNotFoundError as exc:
-        return {"status": "error", "message": str(exc)}
+        if not _allows_direct_proposal_entry(metadata, state):
+            return {"status": "error", "message": str(exc)}
+        review_contents, review_artifacts = build_partial_review_inputs(metadata, str(exc))
 
     proposal_dir = Path(output_dir).expanduser() if output_dir else project_root / ".simflow" / "plans"
     if not proposal_dir.is_absolute():
@@ -191,15 +367,26 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
     parameter_rows = build_parameter_rows(metadata)
     research_questions = build_research_questions(metadata, review_contents["gap_analysis.md"], parameter_rows)
     research_questions["generated_at"] = generated_at
+    proposal_contract = build_proposal_contract(
+        metadata,
+        review_artifacts,
+        review_contents["review_summary.md"],
+        review_contents["gap_analysis.md"],
+        parameter_rows,
+        research_questions,
+        generated_at,
+    )
 
     proposal_path = proposal_dir / "proposal.md"
     parameter_table_path = proposal_dir / "parameter_table.csv"
     research_questions_path = proposal_dir / "research_questions.json"
+    proposal_contract_path = proposal_dir / "proposal_contract.json"
     proposal_content = build_proposal_markdown(
         metadata,
         review_contents["review_summary.md"],
         review_contents["gap_analysis.md"],
         parameter_rows,
+        proposal_contract,
     )
     proposal_path.write_text(proposal_content, encoding="utf-8")
     with parameter_table_path.open("w", encoding="utf-8", newline="") as handle:
@@ -207,10 +394,12 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         writer.writeheader()
         writer.writerows(parameter_rows)
     research_questions_path.write_text(json.dumps(research_questions, indent=2, ensure_ascii=False), encoding="utf-8")
+    proposal_contract_path.write_text(json.dumps(proposal_contract, indent=2, ensure_ascii=False), encoding="utf-8")
 
     proposal_registry_path = str(proposal_path.resolve().relative_to(project_root)) if proposal_path.resolve().is_relative_to(project_root) else str(proposal_path.resolve())
     parameter_registry_path = str(parameter_table_path.resolve().relative_to(project_root)) if parameter_table_path.resolve().is_relative_to(project_root) else str(parameter_table_path.resolve())
     questions_registry_path = str(research_questions_path.resolve().relative_to(project_root)) if research_questions_path.resolve().is_relative_to(project_root) else str(research_questions_path.resolve())
+    contract_registry_path = str(proposal_contract_path.resolve().relative_to(project_root)) if proposal_contract_path.resolve().is_relative_to(project_root) else str(proposal_contract_path.resolve())
     parent_artifacts = [artifact["artifact_id"] for artifact in review_artifacts]
 
     proposal_artifact = register_artifact(
@@ -222,6 +411,7 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=parent_artifacts,
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
+        metadata={"evidence_key": "proposal"},
     )
     parameter_artifact = register_artifact(
         "parameter_table.csv",
@@ -232,6 +422,7 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"]],
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
+        metadata={"evidence_key": "parameter_rationale"},
     )
     research_questions_artifact = register_artifact(
         "research_questions.json",
@@ -242,6 +433,22 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"], parameter_artifact["artifact_id"]],
         parameters={"question_count": len(research_questions["questions"])},
         software=metadata.get("software"),
+        metadata={"evidence_key": "research_questions"},
+    )
+    proposal_contract_artifact = register_artifact(
+        "proposal_contract.json",
+        "proposal_contract",
+        "proposal",
+        project_root=str(project_root),
+        path=contract_registry_path,
+        parent_artifacts=[
+            proposal_artifact["artifact_id"],
+            parameter_artifact["artifact_id"],
+            research_questions_artifact["artifact_id"],
+        ],
+        parameters={"decision_criteria_count": len(proposal_contract["decision_criteria"])},
+        software=metadata.get("software"),
+        metadata={"evidence_keys": ["calculation_plan", "resource_estimate", "risk_register"]},
     )
 
     return {
@@ -251,8 +458,9 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
             "proposal": str(proposal_path),
             "parameter_table": str(parameter_table_path),
             "research_questions": str(research_questions_path),
+            "proposal_contract": str(proposal_contract_path),
         },
-        "artifacts": [proposal_artifact, parameter_artifact, research_questions_artifact],
+        "artifacts": [proposal_artifact, parameter_artifact, research_questions_artifact, proposal_contract_artifact],
     }
 
 
@@ -260,10 +468,18 @@ def main():
     parser = argparse.ArgumentParser(description="Generate proposal artifacts")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--output-dir", help="Optional output directory for proposal artifacts")
+    add_helper_recording_args(parser, default_stage="proposal")
     args = parser.parse_args()
 
     try:
         result = generate_proposal(args.workflow_dir, args.output_dir)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="generate_proposal",
+            output_paths=list(result.get("output_files", {}).values()),
+        )
         print(json.dumps(result, indent=2))
     except Exception as exc:
         print(json.dumps({"status": "error", "message": str(exc)}))

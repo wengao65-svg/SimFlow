@@ -3,8 +3,20 @@
   "description": "论文结构调整审批门：论文结构需要调整时触发",
   "type": "approval",
   "conditions": [
-    "draft_completed",
-    "section_completeness_checked"
+    {
+      "id": "draft_completed",
+      "evidence": "writing/draft_review.json",
+      "path": "$.draft_completed",
+      "op": "eq",
+      "value": true
+    },
+    {
+      "id": "section_completeness_checked",
+      "evidence": "writing/draft_review.json",
+      "path": "$.section_completeness_checked",
+      "op": "eq",
+      "value": true
+    }
   ],
   "actions_on_approve": ["finalize_manuscript"],
   "actions_on_reject": ["revise_structure", "rewrite_sections"],

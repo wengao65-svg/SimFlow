@@ -13,7 +13,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.cp2k_input import extract_last_frame, generate_input, normalize_calc_type, read_cif_to_xyz, read_xyz_structure, write_xyz
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_helpers.engines.cp2k_input import extract_last_frame, generate_input, normalize_calc_type, read_cif_to_xyz, read_xyz_structure, write_xyz
 
 
 def generate_cp2k_inputs(
@@ -26,7 +27,9 @@ def generate_cp2k_inputs(
     """Generate a CP2K input deck and normalized coordinate file."""
     task_norm = normalize_calc_type(task)
     params = dict(params or {})
-    root, state = ensure_cp2k_project(project_root, "input_generation")
+    stage = "computation"
+    activity = "input_generation"
+    root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -113,13 +116,13 @@ def generate_cp2k_inputs(
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
     artifacts = [
-        register_report(root, "input_generation", task_norm, "generation_report", files["generation_report"]),
-        register_report(root, "input_generation", task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff"),
+        register_report(root, stage, task_norm, "generation_report", files["generation_report"], activity=activity),
+        register_report(root, stage, task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
     ]
     checkpoint = finalize_stage(
         root,
         state,
-        "input_generation",
+        stage,
         task_norm,
         files,
         "success",
@@ -143,6 +146,7 @@ def main() -> None:
     parser.add_argument("--project-root", required=True, help="User project root for .simflow and reports")
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to project_root")
     parser.add_argument("--params", default="{}", help="JSON parameter overrides")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
@@ -152,6 +156,15 @@ def main() -> None:
             project_root=args.project_root,
             calc_dir=args.calc_dir,
             params=json.loads(args.params),
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="cp2k_generate_inputs",
+            software="cp2k",
+            input_paths=[args.structure],
+            output_paths=result.get("files_generated", []),
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

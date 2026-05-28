@@ -8,14 +8,16 @@
   },
   "conditions": [
     {
-      "field": "{{ field }}",
-      "operator": "{{ operator }}",
-      "value": "{{ value }}"
+      "id": "{{ condition_id }}",
+      "evidence": "{{ evidence_path }}",
+      "path": "{{ json_path }}",
+      "op": "{{ operator }}",
+      "value": "{{ expected_value }}"
     }
   ],
   "action": "{{ action }}",
-  "approval_required": {{ approval_required }},
+  "approval_required": false,
   "message": "{{ message }}",
-  "timeout_minutes": {{ timeout_minutes }},
+  "timeout_minutes": 30,
   "on_timeout": "{{ on_timeout }}"
 }

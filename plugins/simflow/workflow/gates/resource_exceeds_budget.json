@@ -3,8 +3,20 @@
   "description": "资源超预算审批门：资源估算超出合理范围时触发",
   "type": "approval",
   "conditions": [
-    "resource_estimate_available",
-    "budget_threshold_defined"
+    {
+      "id": "resource_estimate_available",
+      "evidence": "proposal/resource_estimate.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning", "exceeds_budget"]
+    },
+    {
+      "id": "budget_threshold_defined",
+      "evidence": "proposal/resource_estimate.json",
+      "path": "$.budget_threshold_defined",
+      "op": "eq",
+      "value": true
+    }
   ],
   "thresholds": {
     "cpu_hours": 10000,

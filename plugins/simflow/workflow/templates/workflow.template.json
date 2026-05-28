@@ -1,6 +1,6 @@
 {
   "workflow_name": "{{ workflow_name }}",
-  "workflow_type": "{{ workflow_type }}",
+  "recipe": "{{ recipe }}",
   "description": "{{ description }}",
   "stages": [
     {

@@ -13,9 +13,10 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.cp2k_validation import normalize_cp2k_task
-from runtime.lib.cp2k_workflows import build_cp2k_task_plan
-from runtime.lib.parsers.cp2k_parser import CP2KParser
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_helpers.engines.cp2k_validation import normalize_cp2k_task
+from runtime.simflow_helpers.engines.cp2k_workflows import build_cp2k_task_plan
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 
 def orchestrate_cp2k_task(
@@ -139,6 +140,7 @@ def main() -> None:
     parser.add_argument("--project-root", required=True, help="User project root for .simflow and reports")
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to project_root")
     parser.add_argument("--options", default="{}", help="JSON options")
+    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
@@ -147,6 +149,14 @@ def main() -> None:
             project_root=args.project_root,
             calc_dir=args.calc_dir,
             options=json.loads(args.options),
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="cp2k_orchestrate_task",
+            software="cp2k",
+            output_paths=list(result.get("reports", {}).values()),
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

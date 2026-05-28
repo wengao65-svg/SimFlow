@@ -90,6 +90,27 @@ TOOL_DESCRIPTIONS = {
     "get": "Fetch structure data by material or database identifier.",
 }
 
+TOOL_SCHEMAS = {
+    "search": {
+        "type": "object",
+        "required": ["formula"],
+        "properties": {
+            "formula": {"type": "string"},
+            "backend": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "get": {
+        "type": "object",
+        "required": ["material_id"],
+        "properties": {
+            "material_id": {"type": "string"},
+            "backend": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+}
+
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
@@ -99,4 +120,4 @@ def handle_request(request: dict) -> dict:
 if __name__ == "__main__":
     from mcp.shared.stdio_server import run_mcp_server
 
-    run_mcp_server("structure", TOOLS, TOOL_DESCRIPTIONS)
+    run_mcp_server("structure", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)

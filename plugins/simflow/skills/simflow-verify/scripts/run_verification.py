@@ -15,8 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from runtime.lib.verification import create_verification_report, add_check, finalize_report
-from runtime.lib.utils import now_iso
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_core.verification import create_verification_report, add_check, finalize_report
+from runtime.simflow_core.utils import now_iso
 
 
 def verify_structure(structure_file: str) -> dict:
@@ -127,11 +128,20 @@ def main():
     parser.add_argument("--software", choices=["vasp", "qe", "lammps", "gaussian"],
                         help="Software type")
     parser.add_argument("--output-dir", help="Directory containing calculation outputs")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
         result = run_verification(args.workflow_dir, args.stage,
                                   args.software, args.output_dir)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="run_verification",
+            software=args.software,
+            input_paths=[args.output_dir] if args.output_dir else [],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

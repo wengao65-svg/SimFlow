@@ -3,10 +3,22 @@
   "description": "参数调整审批门：输入文件参数需要调整时触发",
   "type": "approval",
   "conditions": [
-    "parameter_consistency_checked",
-    "software_compatibility_verified"
+    {
+      "id": "parameter_consistency_checked",
+      "evidence": "compute/parameter_validation.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "software_compatibility_verified",
+      "evidence": "compute/software_compatibility.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    }
   ],
-  "actions_on_approve": ["generate_inputs", "proceed_to_compute"],
+  "actions_on_approve": ["record_parameter_decision", "continue_computation"],
   "actions_on_reject": ["revise_parameters", "iterate_to_proposal"],
   "auto_approve": false,
   "timeout_minutes": 30

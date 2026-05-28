@@ -1,7 +1,7 @@
 """Tool: Register an artifact."""
 
-from runtime.lib.artifact import register_artifact
-from runtime.lib.state import ProjectRootError
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.state import ProjectRootError
 
 
 def _project_root(params: dict) -> str:

@@ -13,12 +13,15 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
-from runtime.lib.parsers.cp2k_parser import CP2KParser
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
 
 def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | None = None) -> dict:
     """Parse CP2K outputs from a calculation directory and write analysis reports."""
-    root, state = ensure_cp2k_project(project_root, "analysis")
+    stage = "analysis_visualization"
+    activity = "analysis"
+    root, state = ensure_cp2k_project(project_root, stage)
     work_dir = (root / calc_dir).resolve()
     parser = CP2KParser()
     analysis = parser.parse_outputs(str(work_dir), project=project)
@@ -36,13 +39,13 @@ def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | No
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
     artifacts = [
-        register_report(root, "analysis", "parse", "analysis_report", files["analysis_report"]),
-        register_report(root, "analysis", "parse", "handoff_artifact", files["handoff_artifact"], artifact_type="handoff"),
+        register_report(root, stage, "parse", "analysis_report", files["analysis_report"], activity=activity),
+        register_report(root, stage, "parse", "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
     ]
     checkpoint = finalize_stage(
         root,
         state,
-        "analysis",
+        stage,
         "parse",
         files,
         "success" if analysis["status"] == "parsed" else "failed",
@@ -62,6 +65,7 @@ def main() -> None:
     parser.add_argument("--project-root", required=True, help="User project root for .simflow and reports")
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to project_root")
     parser.add_argument("--project", help="Optional CP2K project prefix to prefer when multiple outputs exist")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -69,6 +73,14 @@ def main() -> None:
             project_root=args.project_root,
             calc_dir=args.calc_dir,
             project=args.project,
+        )
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="cp2k_parse_outputs",
+            software="cp2k",
+            output_paths=list(result.get("reports", {}).values()),
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

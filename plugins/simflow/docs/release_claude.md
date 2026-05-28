@@ -44,7 +44,7 @@ This replaces the `claude-marketplace` branch contents with `dist/claude-marketp
 ## User Smoke Test
 
 ```bash
-claude plugin marketplace add <org>/simflow@claude-marketplace
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 claude plugin details simflow@simflow-claude-marketplace
 ```
@@ -52,7 +52,7 @@ claude plugin details simflow@simflow-claude-marketplace
 For git URLs, use `#claude-marketplace`:
 
 ```bash
-claude plugin marketplace add https://github.com/<org>/simflow.git#claude-marketplace
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
 ```
 
 Verify these skill invocations:
@@ -65,4 +65,3 @@ Verify these skill invocations:
 ```
 
 Verify the installed plugin exposes the seven SimFlow MCP servers and that real HPC submission still requires explicit approval.
-

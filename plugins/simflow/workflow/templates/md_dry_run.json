@@ -1,7 +1,7 @@
 {
   "name": "md_dry_run",
-  "description": "MD 工作流 dry-run 示例：Cu 纳米颗粒 MD",
-  "workflow_type": "md",
+  "description": "Classical MD recipe dry-run example: Cu nanoparticle MD",
+  "recipe": "classical_md",
   "software": "lammps",
   "dry_run": true,
   "stages": [
@@ -11,7 +11,7 @@
         "research_goal": "MD simulation of Cu nanoparticle melting",
         "system_info": "Cu nanoparticle, 10000 atoms, EAM potential"
       },
-      "expected_outputs": ["proposal.md", "parameter_table.json", "resource_estimate.json"]
+      "evidence_outputs": ["proposal", "parameter_rationale", "resource_estimate"]
     },
     {
       "name": "modeling",
@@ -19,23 +19,25 @@
         "proposal": "proposal.md",
         "structure": "Cu FCC nanoparticle, 5nm diameter"
       },
-      "expected_outputs": ["data.cu_np", "model.json"]
+      "evidence_outputs": ["structure_files", "structure_manifest", "validation_report"]
     },
     {
-      "name": "input_generation",
+      "name": "computation",
+      "activity": "input_generation",
       "inputs": {
         "model": "data.cu_np",
         "parameters": "parameter_table.json",
         "software": "lammps"
       },
-      "expected_outputs": ["in.lammps", "input_manifest.json"]
+      "evidence_outputs": ["input_files", "calculation_manifest", "input_validation_report"]
     },
     {
-      "name": "compute",
+      "name": "computation",
+      "activity": "dry_run",
       "inputs": {
         "manifest": "input_manifest.json"
       },
-      "expected_outputs": ["job_script.sh", "dry_run_report.json"],
+      "evidence_outputs": ["job_script", "dry_run_report", "resource_estimate"],
       "dry_run_only": true
     }
   ]

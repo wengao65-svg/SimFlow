@@ -1,6 +1,6 @@
 """Tool: Update stage state."""
 
-from runtime.lib.state import ProjectRootError, update_stage
+from runtime.simflow_core.state import ProjectRootError, update_stage
 
 
 def _project_root(params: dict) -> str:

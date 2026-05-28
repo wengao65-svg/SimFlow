@@ -21,6 +21,7 @@ description: Use when a user asks to prepare, validate, dry-run, or submit compu
 
 - Calculation manifest describing software, commands, inputs, resources, environment, and intended outputs.
 - Input validation report, dry-run report, resource estimate, credential scan report, and script or input hashes.
+- Canonical submit-readiness evidence under `.simflow/artifacts/compute/` and `.simflow/artifacts/security/`, including `dry_run_report.json`, `input_validation.json`, `resource_estimate.json`, `calculation_manifest.json`, and `credential_scan.json`.
 - Job record only when a real job is approved and submitted; waiting or planned jobs must remain labeled as such.
 
 ## Status write rules
@@ -28,6 +29,7 @@ description: Use when a user asks to prepare, validate, dry-run, or submit compu
 - Resolve `project_root` explicitly before writing `.simflow/` state, artifacts, gates, or checkpoints.
 - Register scripts, inputs, validation results, dry-run evidence, hashes, and job records as artifacts with lineage.
 - Record approval gate decisions by id; do not replace evidence with agent-provided boolean flags.
+- Preserve the `submit_readiness` payload so submit helpers can verify the dry-run evidence path, script hash, input hash, and scheduler before real execution.
 
 ## Checkpoint rules
 

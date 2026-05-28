@@ -16,9 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from build_structure import build_from_file, build_from_params, build_from_type
 from make_supercell import make_supercell
-from runtime.lib.artifact import register_artifact
-from runtime.lib.proposal_contract import load_proposal_contract
-from runtime.lib.state import read_state
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.state import read_state
 from validate_structure import validate_structure
 
 
@@ -127,6 +127,24 @@ def _write_structure_from_spec(spec: dict[str, Any], output_path: Path) -> dict[
     raise ValueError(f"Unsupported structure spec mode: {spec['mode']}")
 
 
+def _registry_path(project_root: Path, path: Path) -> str:
+    resolved = path.resolve()
+    return str(resolved.relative_to(project_root)) if resolved.is_relative_to(project_root) else str(resolved)
+
+
+def _source_structure_manifest(project_root: Path, spec: dict[str, Any]) -> dict[str, Any] | None:
+    if spec.get("mode") != "existing_file":
+        return None
+    source_path = Path(spec["path"]).expanduser().resolve()
+    return {
+        "source_mode": "existing_file",
+        "source_path": str(source_path),
+        "registry_path": _registry_path(project_root, source_path),
+        "preserved_original": True,
+        "note": "User-provided structure is registered as source evidence and not overwritten.",
+    }
+
+
 def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = False) -> dict:
     """Run the canonical modeling stage and register artifacts."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
@@ -135,9 +153,10 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         return {"status": "error", "message": "No workflow state found"}
 
     params = params or {}
-    contract = load_proposal_contract(str(project_root / ".simflow"))
+    contract = load_proposal_contract(str(project_root / ".simflow"), allow_direct_entry=True)
     proposal_artifact_ids = [artifact["artifact_id"] for artifact in contract["proposal_artifacts"].values()]
     spec = _resolve_structure_spec(project_root, contract, params)
+    source_structure = _source_structure_manifest(project_root, spec)
     supercell = _parse_supercell(params.get("supercell") or contract.get("parameter_overrides", {}).get("supercell"))
 
     manifest: dict[str, Any] = {
@@ -147,6 +166,7 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         "material": contract["material"],
         "proposal_artifact_ids": proposal_artifact_ids,
         "research_question_ids": [item["question_id"] for item in contract.get("research_questions", [])],
+        "source_structure": source_structure,
         "supercell": supercell,
         "status": "planned" if dry_run else "completed",
     }
@@ -163,12 +183,30 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
             "source_mode": spec["mode"],
             "structure_files": [".simflow/artifacts/modeling/POSCAR"],
             "validation": "would_run",
-            "notes": ["Dry-run only; no structure files were created."],
+            "notes": ["Dry-run only; no generated structure files were created."],
         })
     else:
         artifacts_dir = project_root / ".simflow" / "artifacts" / "modeling"
         reports_dir = project_root / ".simflow" / "reports" / "modeling"
         structure_path = artifacts_dir / "POSCAR"
+        source_structure_artifact = None
+        if source_structure:
+            source_structure_artifact = register_artifact(
+                Path(source_structure["source_path"]).name,
+                "user_provided_structure",
+                "modeling",
+                project_root=str(project_root),
+                path=source_structure["registry_path"],
+                parent_artifacts=proposal_artifact_ids,
+                parameters={"source_mode": "existing_file"},
+                software=contract["software"],
+                metadata={
+                    "source": "user_provided",
+                    "preserve_original": True,
+                    "evidence_key": "model_source",
+                },
+            )
+            source_structure["artifact_id"] = source_structure_artifact["artifact_id"]
         write_info = _write_structure_from_spec(spec, structure_path)
         final_structure_path = structure_path
         if supercell:
@@ -184,6 +222,7 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         reports_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = reports_dir / "structure_manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        source_artifact_ids = [source_structure_artifact["artifact_id"]] if source_structure_artifact else []
 
         manifest_artifact = register_artifact(
             "structure_manifest.json",
@@ -191,9 +230,10 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
             "modeling",
             project_root=str(project_root),
             path=str(manifest_path.resolve().relative_to(project_root)),
-            parent_artifacts=proposal_artifact_ids,
+            parent_artifacts=[*proposal_artifact_ids, *source_artifact_ids],
             parameters={"source_mode": manifest["source_mode"]},
             software=contract["software"],
+            metadata={"evidence_key": "model_manifest"},
         )
         structure_artifact = register_artifact(
             Path(final_structure_path).name,
@@ -201,13 +241,17 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
             "modeling",
             project_root=str(project_root),
             path=str(final_structure_path.resolve().relative_to(project_root)),
-            parent_artifacts=[manifest_artifact["artifact_id"]],
+            parent_artifacts=[manifest_artifact["artifact_id"], *source_artifact_ids],
             parameters={"supercell": supercell},
             software=contract["software"],
+            metadata={"evidence_key": "model_artifact"},
         )
+        artifacts = [manifest_artifact, structure_artifact]
+        if source_structure_artifact:
+            artifacts.insert(0, source_structure_artifact)
         return {
             "status": "success",
-            "artifacts": [manifest_artifact, structure_artifact],
+            "artifacts": artifacts,
             "manifest": manifest,
             "inputs": proposal_artifact_ids,
         }
@@ -234,6 +278,7 @@ def run_modeling_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         parent_artifacts=proposal_artifact_ids,
         parameters={"source_mode": manifest["source_mode"]},
         software=contract["software"],
+        metadata={"evidence_key": "model_manifest"},
     )
     return {
         "status": "success",

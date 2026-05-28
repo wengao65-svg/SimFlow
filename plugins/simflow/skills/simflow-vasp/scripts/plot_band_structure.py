@@ -9,13 +9,15 @@ Falls back to auto-detecting segment boundaries from k-coordinate jumps.
 """
 
 import argparse
+import json
 import math
 import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "runtime"))
-from lib.parsers.vasp_parser import VASPParser
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
 
 
 def parse_kpoints_labels(kpoints_path: str) -> list[tuple[list[float], str]]:
@@ -227,9 +229,10 @@ def main():
     parser.add_argument("--emax", type=float, default=None, help="Max energy for y-axis")
     parser.add_argument("--title", default="Band Structure", help="Plot title")
     parser.add_argument("--show", action="store_true", help="Show interactive plot")
+    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
-    plot_band_structure(
+    output = plot_band_structure(
         eigenval_path=args.eigenval,
         kpoints_path=args.kpoints,
         output_path=args.output,
@@ -239,6 +242,22 @@ def main():
         title=args.title,
         show=args.show,
     )
+    result = {
+        "status": "success",
+        "output": output,
+        "input_files": [args.eigenval, args.kpoints] if args.kpoints else [args.eigenval],
+        "software": "vasp",
+    }
+    result = maybe_record_helper_run(
+        args=args,
+        result=result,
+        script_path=Path(__file__).resolve(),
+        helper_name="vasp_plot_band_structure",
+        software="vasp",
+        input_paths=result["input_files"],
+        output_paths=[output],
+    )
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

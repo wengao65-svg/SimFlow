@@ -6,6 +6,11 @@ import json
 import sys
 from pathlib import Path
 
+_simflow_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_simflow_root))
+
+from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+
 from pymatgen.core import Structure
 
 
@@ -56,10 +61,19 @@ def main():
     parser.add_argument("--nz", type=int, required=True, help="Supercell dimension along c")
     parser.add_argument("--output", default="POSCAR_supercell", help="Output file")
     parser.add_argument("--format", choices=["poscar", "cif"], default="poscar")
+    add_helper_recording_args(parser, default_stage="modeling")
     args = parser.parse_args()
 
     try:
         result = make_supercell(args.input, [args.nx, args.ny, args.nz], args.output, args.format)
+        result = maybe_record_helper_run(
+            args=args,
+            result=result,
+            script_path=Path(__file__).resolve(),
+            helper_name="make_supercell",
+            input_paths=[args.input],
+            output_paths=[args.output],
+        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

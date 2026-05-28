@@ -21,16 +21,10 @@ SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
 language that triggers a SimFlow skill. In Claude Code, use namespaced skills
 such as `/simflow:simflow`.
 
-The `simflow` console entry point is limited to maintenance commands:
-
-```bash
-simflow inspect-legacy --project-root /path/to/project
-simflow migrate --project-root /path/to/project
-simflow convert-workflow workflow/workflows/dft.json --output /tmp/dft.recipe.json
-```
-
-It is not the primary research interface and should not be treated as a
-workflow executor.
+Legacy runtime CLI scripts have been removed from the packaged source. User
+work should enter through skills and, when needed, MCP/runtime helpers that
+write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
+records. Do not treat SimFlow as a command-line workflow executor.
 
 ## Canonical Stages
 
@@ -45,14 +39,12 @@ workflow executor.
 
 Any stage can be entered directly when the needed evidence is available.
 
-## Recipes And Legacy Workflows
+## Recipes
 
 DFT, AIMD, classical MD, phonon, NEB, and custom paths are recipes or tags. They
 are reference paths, not fixed executor DAGs.
 
-Legacy files under `workflow/workflows/dft.json`, `aimd.json`, and `md.json`
-remain for compatibility. SimFlow can load them as recipe sources and migrate
-old `.simflow/` state, but new work should use canonical stages and recipes.
+Current work should use canonical stages and recipes under `workflow/recipes/`.
 
 ## Common Work Patterns
 
@@ -79,6 +71,22 @@ Before real local, remote, or HPC execution, record:
 - credential scan
 - script/input hashes
 - gate decision id or approval token
+
+The computation helper writes the gate evidence to canonical project-local
+paths so later submit tools can verify the exact preparation state:
+
+| Evidence | Path |
+| --- | --- |
+| Calculation manifest | `.simflow/artifacts/compute/calculation_manifest.json` |
+| Input validation | `.simflow/artifacts/compute/input_validation.json` |
+| Resource estimate | `.simflow/artifacts/compute/resource_estimate.json` |
+| Dry-run report | `.simflow/artifacts/compute/dry_run_report.json` |
+| Credential scan | `.simflow/artifacts/security/credential_scan.json` |
+
+`dry_run_report.json` records `status`, `script_hash`, `input_artifact_hash`,
+and `input_manifest_hash`. The compute plan also contains `submit_readiness`,
+which names the dry-run evidence, script path, scheduler, and hashes expected by
+the submit connector.
 
 Changing the script or input hashes invalidates prior approval.
 
