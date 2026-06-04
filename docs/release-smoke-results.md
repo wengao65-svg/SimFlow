@@ -6,24 +6,24 @@ credentials, hostnames that should remain private, or proprietary file content.
 
 ## Candidate
 
-- Version: 0.8.11
-- Source commit: `713e4e8d335c1136a15fce2f94303a7f3f92497c`
-- Codex marketplace commit: `22e41fcde70df8569fd418c96cbf23825b7f4bbf`
-- Claude marketplace commit: `837626beac14ca3819cc60f795890ea18346fed8`
-- Date: 2026-05-31
-- Operator: Codex validation plus user manual remote push
+- Version: 0.8.12
+- Source candidate commit: `70f3447b5651a771d788a804e45bacb2573cb31e`
+- Codex marketplace candidate commit: `272f2c7055bdd5eddc93a2e98088b7fa56b32a81`
+- Claude marketplace candidate commit: `d9231c713b5ab367066f82e6751f9fa1c52353f2`
+- Date: 2026-06-04
+- Operator: Codex validation with planned three-branch atomic remote push
 
 ## Automated Gates
 
-- [x] `git status --short` clean except ignored local runtime/build artifacts
-- [x] `python -m pytest tests/ -q`
-- [x] `npm run validate:all`
-- [x] `python scripts/audit_skill_scripts.py`
-- [x] `npm run validate:release -- --skip-wrapper-build`
+- [x] `git status --short --branch` clean except ignored local `.simflow/` and `dist/`
+- [x] `python -m pytest tests/ -q`: 535 passed, 7 skipped
+- [x] `npm run validate:all`: 0 errors
+- [x] `python scripts/audit_skill_scripts.py`: all helper contracts OK
+- [x] `npm run validate:release`: 0 errors
 - [x] `npm run build:codex-marketplace`
-- [x] `SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin`
+- [x] `SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin`: 0 errors
 - [x] `npm run build:claude-marketplace`
-- [x] `SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin`
+- [x] `SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin`: 0 errors
 
 ## Codex Install Smoke
 
@@ -38,7 +38,7 @@ credentials, hostnames that should remain private, or proprietary file content.
 Notes:
 
 ```text
-Not run in this workspace after the manual remote push.
+Not run in this workspace before the 0.8.12 remote push.
 ```
 
 ## Claude Code Install Smoke
@@ -56,12 +56,12 @@ Not run in this workspace after the manual remote push.
 Notes:
 
 ```text
-Not run in this workspace after the manual remote push.
+Not run in this workspace before the 0.8.12 remote push.
 ```
 
 ## Known Limitations For Release Notes
 
-- Supported engine helpers: VASP and CP2K are the mature workflow paths; LAMMPS has safe dry-run/input inspection plus improving analysis support.
+- Supported engine helpers: VASP and CP2K are the mature workflow paths; LAMMPS has safe dry-run/input inspection plus analysis_visualization traceability.
 - Unsupported placeholders: QE and Gaussian remain placeholder skills, not supported workflow executors.
 - Manual warnings: Real local, remote, or HPC execution remains blocked without dry-run evidence, hash checks, credential scan, and explicit approval.
-- Follow-up issues: Complete manual Codex/Claude install smoke checks; continue 0.8.12 work on LAMMPS analysis_visualization traceability.
+- Follow-up issues: Complete manual Codex/Claude install smoke checks after publishing; continue post-0.8.12 install smoke verification.
