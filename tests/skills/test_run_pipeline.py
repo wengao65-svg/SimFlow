@@ -521,6 +521,49 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
         assert {"analysis_report.json", "analysis_report.md"}.issubset({artifact["name"] for artifact in analysis_artifacts})
 
 
+def test_run_pipeline_execute_runs_direct_lammps_analysis_visualization_with_fixture_outputs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        outputs_dir = project_root / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "tests" / "fixtures" / "lammps_log.lammps", outputs_dir / "log.lammps")
+
+        init_research(
+            input_text="\n".join([
+                "entry_stage: analysis_visualization",
+                "goal: analyze existing LAMMPS log",
+                "material: Si",
+                "software: lammps",
+                "parameters: {\"output_files\": [\"outputs/log.lammps\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="analysis_visualization", dry_run=False)
+        analysis_artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+        visualization_manifest = result["results"][0]["manifests"]["visualization"]
+
+        assert result["status"] == "success"
+        assert [item["stage"] for item in result["results"]] == ["analysis_visualization"]
+        assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
+        assert result["results"][0]["manifests"]["analysis"]["source_files"] == ["outputs/log.lammps"]
+        assert visualization_manifest["figure_traceability"]["source_files"] == ["outputs/log.lammps"]
+        assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"}.issubset(
+            {artifact["name"] for artifact in analysis_artifacts}
+        )
+        if importlib.util.find_spec("matplotlib") is None:
+            assert visualization_manifest["status"] == "skipped_optional_dependency"
+            assert "matplotlib is not installed." in visualization_manifest["skipped_reasons"]
+        else:
+            assert visualization_manifest["status"] == "completed"
+            assert "energy_convergence.png" in {artifact["name"] for artifact in analysis_artifacts}
+            assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
+            figure = visualization_manifest["figures"][0]
+            assert figure["source_data"] == "outputs/log.lammps"
+            assert figure["num_steps"] == 11
+            assert visualization_manifest["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
+
+
 def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)

@@ -27,6 +27,15 @@ def test_parse_qe_energies():
     assert isinstance(result["steps"], list)
 
 
+def test_parse_lammps_energies():
+    from plot_energy_curve import parse_energies
+    result = parse_energies(str(FIXTURE_DIR / "lammps_log.lammps"), "lammps")
+    assert len(result["energies"]) == 11
+    assert result["steps"] == list(range(0, 1001, 100))
+    assert result["energies"][0] == -43.55252
+    assert result["energies"][-1] == -37.98765
+
+
 def test_plot_generation():
     try:
         import matplotlib

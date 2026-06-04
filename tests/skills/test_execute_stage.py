@@ -541,7 +541,12 @@ def test_execute_stage_allows_direct_lammps_analysis_entry_with_user_log():
         assert analysis_manifest["final_energy"] == -37.65467
         assert analysis_manifest["temperature"] == 2567.89012
         assert analysis_manifest["trajectory_steps"] == 1000
-        assert visualization_manifest["status"] == "no_plot_data"
+        if importlib.util.find_spec("matplotlib") is None:
+            assert visualization_manifest["status"] == "skipped_optional_dependency"
+        else:
+            assert visualization_manifest["status"] == "completed"
+            assert visualization_manifest["figures"][0]["source_data"] == "outputs/log.lammps"
+            assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
         assert any(artifact["type"] == "user_provided_compute_output" for artifact in artifacts)
 
 
