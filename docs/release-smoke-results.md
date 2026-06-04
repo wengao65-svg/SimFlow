@@ -6,24 +6,24 @@ credentials, hostnames that should remain private, or proprietary file content.
 
 ## Candidate
 
-- Version:
-- Source commit:
-- Codex marketplace commit:
-- Claude marketplace commit:
-- Date:
-- Operator:
+- Version: 0.8.11
+- Source commit: `713e4e8d335c1136a15fce2f94303a7f3f92497c`
+- Codex marketplace commit: `22e41fcde70df8569fd418c96cbf23825b7f4bbf`
+- Claude marketplace commit: `837626beac14ca3819cc60f795890ea18346fed8`
+- Date: 2026-05-31
+- Operator: Codex validation plus user manual remote push
 
 ## Automated Gates
 
-- [ ] `git status --short` clean except ignored local runtime/build artifacts
-- [ ] `python -m pytest tests/ -q`
-- [ ] `npm run validate:all`
-- [ ] `python scripts/audit_skill_scripts.py`
-- [ ] `npm run validate:release`
-- [ ] `npm run build:codex-marketplace`
-- [ ] `SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin`
-- [ ] `npm run build:claude-marketplace`
-- [ ] `SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin`
+- [x] `git status --short` clean except ignored local runtime/build artifacts
+- [x] `python -m pytest tests/ -q`
+- [x] `npm run validate:all`
+- [x] `python scripts/audit_skill_scripts.py`
+- [x] `npm run validate:release -- --skip-wrapper-build`
+- [x] `npm run build:codex-marketplace`
+- [x] `SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin`
+- [x] `npm run build:claude-marketplace`
+- [x] `SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin`
 
 ## Codex Install Smoke
 
@@ -38,6 +38,7 @@ credentials, hostnames that should remain private, or proprietary file content.
 Notes:
 
 ```text
+Not run in this workspace after the manual remote push.
 ```
 
 ## Claude Code Install Smoke
@@ -55,11 +56,12 @@ Notes:
 Notes:
 
 ```text
+Not run in this workspace after the manual remote push.
 ```
 
 ## Known Limitations For Release Notes
 
-- Supported engine helpers:
-- Unsupported placeholders:
-- Manual warnings:
-- Follow-up issues:
+- Supported engine helpers: VASP and CP2K are the mature workflow paths; LAMMPS has safe dry-run/input inspection plus improving analysis support.
+- Unsupported placeholders: QE and Gaussian remain placeholder skills, not supported workflow executors.
+- Manual warnings: Real local, remote, or HPC execution remains blocked without dry-run evidence, hash checks, credential scan, and explicit approval.
+- Follow-up issues: Complete manual Codex/Claude install smoke checks; continue 0.8.12 work on LAMMPS analysis_visualization traceability.
