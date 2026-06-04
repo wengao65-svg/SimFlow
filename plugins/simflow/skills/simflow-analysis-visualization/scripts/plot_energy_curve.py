@@ -61,26 +61,34 @@ def parse_energies(file_path: str, software: str) -> dict:
     elif software == "lammps":
         # LAMMPS log: look for thermo data after "Step" header
         energies = []
+        steps = []
         in_thermo = False
+        step_col = -1
         pe_col = -1
         for line in content.split("\n"):
-            if line.startswith("Step"):
-                parts = line.split()
+            stripped = line.strip()
+            if stripped.startswith("Step"):
+                parts = stripped.split()
+                step_col = 0
+                pe_col = -1
                 for i, p in enumerate(parts):
                     if p.lower() in ("pe", "poteng"):
                         pe_col = i
                         break
                 in_thermo = True
                 continue
-            if in_thermo and line.strip() and not line.startswith("#"):
-                parts = line.split()
-                if pe_col >= 0 and len(parts) > pe_col:
+            if in_thermo and stripped and not stripped.startswith("#"):
+                parts = stripped.split()
+                if "Loop" in stripped:
+                    in_thermo = False
+                    continue
+                if pe_col >= 0 and len(parts) > max(step_col, pe_col):
                     try:
+                        steps.append(int(float(parts[step_col])))
                         energies.append(float(parts[pe_col]))
                     except ValueError:
-                        if "Loop" in line:
-                            in_thermo = False
-        return {"energies": energies, "steps": list(range(1, len(energies) + 1))}
+                        continue
+        return {"energies": energies, "steps": steps or list(range(1, len(energies) + 1))}
 
     raise ValueError(f"Unsupported software: {software}")
 
