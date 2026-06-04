@@ -180,10 +180,43 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                         "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
                     })
         elif software == "lammps":
-            manifest["status"] = "no_plot_data"
-            manifest["skipped_reasons"].append(
-                "LAMMPS plotting is not implemented in the stage runner; register self-written plots as traceable artifacts."
+            log_file = next(
+                (
+                    path
+                    for path in source_files
+                    if path.is_file()
+                    and (path.name in {"log.lammps", "lammps.log"} or "log" in path.name.lower())
+                ),
+                None,
             )
+            if log_file is None:
+                manifest["status"] = "no_plot_data"
+                manifest["skipped_reasons"].append("LAMMPS log file is not available for plotting.")
+            else:
+                data = parse_energies(str(log_file), "lammps")
+                if not data["energies"]:
+                    manifest["status"] = "no_plot_data"
+                    manifest["skipped_reasons"].append(
+                        "LAMMPS log did not contain plottable thermo potential-energy data."
+                    )
+                else:
+                    result = plot_energy_curve(
+                        data["energies"],
+                        data["steps"],
+                        str(figure_path),
+                        title="LAMMPS Potential Energy Trace",
+                        software="lammps",
+                    )
+                    manifest["status"] = "completed"
+                    manifest["figures"].append({
+                        "name": figure_path.name,
+                        "path": _relative_path(project_root, figure_path),
+                        "title": "LAMMPS Potential Energy Trace",
+                        "num_steps": result["num_steps"],
+                        "source_data": _relative_path(project_root, log_file),
+                        "plotting_script": "skills/simflow-analysis-visualization/scripts/plot_energy_curve.py",
+                        "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
+                    })
         else:
             return {"status": "error", "message": f"Unsupported software for visualization stage: {software}"}
 

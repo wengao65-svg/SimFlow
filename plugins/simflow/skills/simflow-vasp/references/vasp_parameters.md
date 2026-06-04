@@ -1,6 +1,19 @@
-# VASP Key Parameters Reference
+# VASP Parameter Reference
 
-## INCAR Essential Parameters
+Use this reference for parameter policy and risk reminders. Verify task-specific details against official VASP documentation when the choice affects a scientific result.
+
+## Official parameter sources
+
+- INCAR overview: https://www.vasp.at/wiki/INCAR
+- INCAR tag category: https://www.vasp.at/wiki/Category:INCAR_tag
+- KPOINTS: https://www.vasp.at/wiki/KPOINTS
+- POSCAR: https://www.vasp.at/wiki/POSCAR
+- POTCAR: https://www.vasp.at/wiki/POTCAR
+- NBANDS: https://www.vasp.at/wiki/NBANDS
+- NELECT: https://www.vasp.at/wiki/NELECT
+- Smearing: https://www.vasp.at/wiki/Smearing_technique
+
+## INCAR essential parameters
 
 | Parameter | Description | Typical Range |
 |-----------|-------------|---------------|
@@ -15,9 +28,12 @@
 | KPOINTS | k-point mesh | 4x4x4 to 12x12x12 |
 | POTCAR | Pseudopotential | PAW recommended |
 
-## Common Calculation Types
+Treat these ranges as prompts for review, not universal defaults. Values should be tied to pseudopotentials, structure size, target property, and convergence evidence.
+
+## Common calculation motifs
 
 ### Static SCF
+
 ```
 NSW = 0
 ISMEAR = 0
@@ -25,6 +41,7 @@ SIGMA = 0.05
 ```
 
 ### Geometry Optimization
+
 ```
 NSW = 100
 IBRION = 2
@@ -33,6 +50,7 @@ EDIFFG = -0.02
 ```
 
 ### DOS Calculation
+
 ```
 NSW = 0
 ISMEAR = -5
@@ -40,11 +58,34 @@ LORBIT = 11
 NEDOS = 3001
 ```
 
-## Convergence Criteria
+## Convergence criteria
 
 - SCF: EDIFF < 1E-6
 - Ionic: |forces| < 0.01 eV/A
 - Energy change: < 1E-5 eV between ionic steps
+
+These are common research-grade targets, not automatic pass/fail standards. Record the user's intended accuracy and the property being computed.
+
+## Smearing policy reminders
+
+- Metals usually need finite smearing and careful Fermi-level interpretation.
+- Insulators/semiconductors often use small smearing or tetrahedron-style approaches for final static/DOS work, depending on the task.
+- Do not reuse a smearing setting blindly across relax, static, DOS, band, and optical workflows.
+- Record `ISMEAR`, `SIGMA`, and whether total energies are being compared across compatible settings.
+
+## KPOINTS policy reminders
+
+- Mesh k-points are normally used for relax/static/DOS/AIMD.
+- Line-mode k-points are normally used for band structures after a converged charge-density predecessor.
+- Gamma-centered meshes are often used for large supercells, surfaces, defects, and molecules; Monkhorst-Pack may be appropriate for bulk systems.
+- K-point convergence evidence should be recorded for quantitative energies, forces, barriers, and formation energies.
+
+## POTCAR and NELECT discipline
+
+- SimFlow must not generate, copy, distribute, snapshot, or print POTCAR content.
+- Record metadata only: element order, pseudopotential family/flavor/date labels, ZVAL-derived `NELECT` when locally available, and hashes/provenance when allowed.
+- POSCAR species order and POTCAR block order must match.
+- Do not mix pseudopotential families or variants in comparative studies without explicit rationale.
 
 ## NBANDS Policy
 
@@ -53,7 +94,7 @@ is to let VASP auto-determine NBANDS, which is safe for ordinary calculations.
 
 ### NELECT: Valence Electrons (not atomic number total)
 
-**Critical**: NELECT in VASP is the total number of **valence electrons** from
+Critical: NELECT in VASP is the total number of valence electrons from
 POTCAR ZVAL, NOT the sum of atomic numbers. For example, Si 8-atom cell:
 - Atomic number total = 14 × 8 = 112 (wrong for NELECT)
 - POTCAR ZVAL for Si = 4
@@ -113,3 +154,11 @@ Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
 - `choose_nbands()` — returns `None` (don't write) or `int` (write this value)
 - `apply_nbands_policy()` — modifies INCAR dict in-place
 - `get_explicit_user_nbands()` — distinguishes user value from template residual
+
+## Advanced-method parameter provenance
+
+- DFT+U: record `LDAU`, `LDAUTYPE`, `LDAUL`, `LDAUU`, `LDAUJ`, target orbitals, literature/user provenance, and sensitivity plan.
+- SOC/noncollinear: record `LSORBIT`, `LNONCOLLINEAR`, `SAXIS`, `MAGMOM`, executable family, symmetry choices, and scalar-relativistic predecessor.
+- Hybrid: record `LHFCALC`, `HFSCREEN`, `AEXX`, `ALGO`, k mesh, restart strategy, and resource estimate.
+- Optics/dielectric: record `LOPTICS`, `LEPSILON`, `NBANDS`, `NEDOS`, smearing, and tensor interpretation.
+- AIMD: record `IBRION`, `NSW`, `POTIM`, `TEBEG`, `TEEND`, `MDALGO` or thermostat tags, ensemble, timestep, and output cadence.
