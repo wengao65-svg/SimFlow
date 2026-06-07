@@ -1,6 +1,7 @@
 # SimFlow
 
-A **Codex-native** computational simulation workflow layer for agentic research.
+A computational simulation workflow layer for traceable, safety-gated agentic
+research.
 
 SimFlow is not a centralized workflow executor. It does not decide the science
 for Codex, Claude Code, or another host agent. The host agent chooses the
@@ -11,7 +12,7 @@ traceable, recoverable, reviewable, and safety-gated.
 ## Architecture
 
 ```
-Codex / OMX Host
+Host Agent (Claude Code, Codex, or compatible agent)
   -> SimFlow Skills          (intent-specific workflow guidance)
   -> SimFlow Workflow Layer  (research stages, recipes, gates, policies)
   -> MCP Servers             (state, artifacts, lineage, checkpoints, gates)
@@ -59,6 +60,39 @@ tasks to a default calculation.
 
 ## Quick Start
 
+Choose the plugin marketplace path for your host agent. Claude Code users
+install from the published `claude-marketplace` branch; Codex users install
+from the published `codex-marketplace` branch.
+
+### Claude Code
+
+Install the published SimFlow Claude marketplace branch with Claude's source
+ref syntax:
+
+```bash
+claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+For a git URL, use `#claude-marketplace`:
+
+```bash
+claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
+claude plugin install simflow@simflow-claude-marketplace
+```
+
+Claude plugin skills are namespaced:
+
+```text
+/simflow:simflow
+/simflow:simflow-vasp
+/simflow:simflow-cp2k
+/simflow:simflow-writing
+```
+
+See [Claude Code Quick Start](docs/quickstart_claude.md) for local testing,
+validation, and Claude-specific details.
+
 ### Codex
 
 Install the published SimFlow Codex marketplace:
@@ -68,13 +102,8 @@ codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace
 codex
 ```
 
-Then install SimFlow inside Codex:
-
-```text
-/plugins
-```
-
-Select and install `simflow`, then verify tools and skills:
+Then install `simflow` inside Codex with `/plugins`, and verify tools and
+skills:
 
 ```text
 /mcp
@@ -90,62 +119,13 @@ codex
 
 After upgrading, restart Codex or open a new thread. If needed, use `/plugins` to update or reinstall `simflow`.
 
-Developer local debugging uses the source checkout and local wrapper installer:
-
-```bash
-git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
-cd ~/simflow
-npm install
-npm run install:codex
-codex
-```
-
 SimFlow skills are invoked through Codex skill routing, for example `$simflow`, `$simflow-vasp`, `@simflow-vasp`, or a natural-language request. `/simflow` is not a SimFlow invocation path.
 
-`npm run install:codex` is for developer local debugging. It generates a wrapper marketplace at `~/.cache/simflow/codex-marketplace` and registers that wrapper with Codex. The published `codex-marketplace` branch has the same Codex marketplace shape:
+See [Codex 快速上手](docs/quickstart_codex.md) for local wrapper debugging,
+validation, and Codex-specific marketplace details.
 
-```text
-.agents/plugins/marketplace.json
-plugins/simflow/
-```
-
-The marketplace entry uses `source.path: "./plugins/simflow"`. The source repository root is not the default marketplace root because current Codex CLI builds reject root-local plugin entries such as `source.path: "./"`.
-
-Maintainers build and publish the Codex marketplace branch from `main`:
-
-```bash
-npm run build:codex-marketplace
-npm run publish:codex-marketplace
-```
-
-`npm run build:marketplace` remains available as a local wrapper build command. `plugins/simflow` is copied as a real directory, not a symlink.
-
-`/skills` can be used as an enhanced check when the active Codex build supports it, but SimFlow release acceptance is based on `/plugins`, `/mcp`, valid `SKILL.md` frontmatter, and real skill triggering through `$simflow`, `$simflow-vasp`, `@simflow-vasp`, or natural-language tasks.
-
-### Claude Code
-
-Install the published SimFlow Claude marketplace branch with Claude's source ref syntax:
-
-```bash
-claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-```
-
-For a git URL, use `#claude-marketplace`:
-
-```bash
-claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
-```
-
-Developer local debugging uses the generated Claude marketplace wrapper:
-
-```bash
-npm run build:claude-marketplace
-claude plugin marketplace add ./dist/claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-```
-
-Claude plugin skills are namespaced, for example `/simflow:simflow`, `/simflow:simflow-vasp`, `/simflow:simflow-cp2k`, and `/simflow:simflow-writing`. The Claude adapter is a parallel distribution layer; it does not replace the Codex marketplace, Codex install/update flow, MCP startup wrapper, or workflow business logic.
+Developer checkout and maintainer build details are covered in the
+[Installation Guide](docs/installation.md).
 
 ## Project Structure
 
@@ -187,8 +167,8 @@ Missing credentials gracefully fall back to mock/dry-run mode.
 
 ## Documentation
 
-- [Codex 快速上手](docs/quickstart_codex.md)
 - [Claude Code Quick Start](docs/quickstart_claude.md)
+- [Codex 快速上手](docs/quickstart_codex.md)
 - [Installation Guide](docs/installation.md)
 - [User Guide](docs/user_guide.md)
 - [Technical Design](docs/technical-design.md)
