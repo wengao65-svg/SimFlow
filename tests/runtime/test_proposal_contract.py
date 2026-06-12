@@ -74,13 +74,58 @@ def test_load_proposal_contract_normalizes_registered_artifacts():
         assert contract["research_questions"][1]["parameter_keys"] == ["encut", "kmesh"]
         assert contract["proposal_artifacts"]["research_questions.json"]["artifact_id"] == proposal_artifacts[2]["artifact_id"]
         assert contract["proposal_artifacts"]["proposal_contract.json"]["artifact_id"] == proposal_artifacts[3]["artifact_id"]
+        assert contract["proposal_artifacts"]["protocol_contract.json"]["artifact_id"] == proposal_artifacts[4]["artifact_id"]
         assert contract["output_roots"]["reports"] == ".simflow/reports"
         assert "# Proposal" in contract["proposal_markdown"]
+        assert "## Protocol Outline" in contract["proposal_markdown"]
         assert contract["calculation_plan"]["dry_run_first"] is True
         assert contract["resource_assumptions"]["real_submit"] is False
+        assert contract["protocol_contract"]["schema_version"] == "protocol_contract.v1"
+        assert contract["protocol_contract"]["objective"]["material"] == "Si(001)"
+        assert contract["protocol_contract"]["dry_run_requirements"]["dry_run_first"] is True
+        assert contract["protocol_contract"]["dry_run_requirements"]["real_submit_requires_approval"] is True
+        assert len(contract["protocol_contract"]["ordered_steps"]) == 4
+        assert len(contract["protocol_contract"]["acceptance_gates"]) == 4
         assert contract["source_artifact_ids"]
         assert len(contract["decision_criteria"]) == 3
         assert len(contract["risk_register"]) == 2
+
+
+def test_generate_proposal_registers_protocol_contract_artifact():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = _prepare_proposal(tmpdir)
+
+        artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
+        by_name = {artifact["name"]: artifact for artifact in artifacts}
+        protocol_path = project_root / ".simflow" / "plans" / "protocol_contract.json"
+        protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+
+        assert "protocol_contract.json" in by_name
+        assert by_name["protocol_contract.json"]["type"] == "protocol_contract"
+        assert by_name["protocol_contract.json"]["metadata"]["evidence_keys"] == [
+            "ordered_steps",
+            "acceptance_gates",
+            "dry_run_requirements",
+        ]
+        assert protocol["inputs"][4]["name"] == "literature_evidence"
+        assert protocol["inputs"][4]["status"] == "provided"
+        assert protocol["control_groups"][0]["status"] == "needs_definition"
+
+
+def test_load_proposal_contract_allows_missing_protocol_contract_artifact_for_old_projects():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = _prepare_proposal(tmpdir)
+        protocol_path = project_root / ".simflow" / "plans" / "protocol_contract.json"
+        protocol_path.unlink()
+        artifacts_path = project_root / ".simflow" / "state" / "artifacts.json"
+        artifacts = json.loads(artifacts_path.read_text(encoding="utf-8"))
+        artifacts = [artifact for artifact in artifacts if artifact.get("name") != "protocol_contract.json"]
+        artifacts_path.write_text(json.dumps(artifacts, indent=2), encoding="utf-8")
+
+        contract = load_proposal_contract(str(project_root / ".simflow"))
+
+        assert contract["protocol_contract"] == {}
+        assert "protocol_contract.json" not in contract["proposal_artifacts"]
 
 
 def test_load_proposal_contract_uses_metadata_over_parameter_table_values():
@@ -140,6 +185,7 @@ def test_load_proposal_contract_accepts_lammps_direct_entry_metadata():
         assert contract["software"] == "lammps"
         assert contract["task"] == "nvt"
         assert contract["direct_entry"] is True
+        assert contract["protocol_contract"] == {}
 
 
 def test_load_proposal_contract_can_use_direct_modeling_entry_metadata():
@@ -163,3 +209,30 @@ def test_load_proposal_contract_can_use_direct_modeling_entry_metadata():
         assert contract["source_artifact_ids"] == []
         assert contract["literature_evidence_summary"]["status"] == "not_provided"
         assert contract["structure_hints"]["structure_type"] == "diamond"
+        assert contract["protocol_contract"] == {}
+
+
+def test_generate_proposal_direct_entry_protocol_marks_missing_literature():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: proposal",
+                "goal: compare vacancy formation energies",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"supercell\": \"2x2x2\", \"defect\": \"vacancy\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = generate_proposal(str(project_root / ".simflow"))
+        protocol = json.loads(Path(result["output_files"]["protocol_contract"]).read_text(encoding="utf-8"))
+
+        assert result["status"] == "success"
+        assert protocol["evidence_limits"]["literature_status"] == "not_provided"
+        assert protocol["evidence_limits"]["claims_policy"].startswith("Treat literature-dependent claims as unverified")
+        literature_input = next(item for item in protocol["inputs"] if item["name"] == "literature_evidence")
+        assert literature_input["status"] == "not_provided"
+        assert protocol["dry_run_requirements"]["dry_run_first"] is True
+        assert protocol["failure_branches"][0]["condition"] == "required_inputs_or_literature_evidence_missing"

@@ -12,7 +12,7 @@ from .state import read_state
 
 
 REQUIRED_PROPOSAL_ARTIFACTS = ("proposal.md", "parameter_table.csv", "research_questions.json")
-OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json",)
+OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json", "protocol_contract.json")
 SUPPORTED_SOFTWARE = {"vasp", "cp2k", "lammps"}
 CORE_PARAMETER_KEYS = {"workflow_type", "software", "material"}
 CANONICAL_STAGE_SEQUENCE = [
@@ -256,6 +256,7 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
         "literature_evidence_summary": direct_contract["literature_evidence_summary"],
         "calculation_plan": {},
         "proposal_contract": direct_contract,
+        "protocol_contract": {},
         "proposal_markdown": "",
         "proposal_artifacts": {},
         "direct_entry": True,
@@ -296,6 +297,7 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
     research_questions_payload = json.loads(research_questions_path.read_text(encoding="utf-8"))
     research_questions = _normalize_questions(research_questions_payload)
     proposal_contract = _load_optional_json(project_root, artifacts.get("proposal_contract.json"))
+    protocol_contract = _load_optional_json(project_root, artifacts.get("protocol_contract.json"))
 
     software = str(metadata_state.get("software") or parameter_values.get("software") or "").lower()
     if software not in SUPPORTED_SOFTWARE:
@@ -323,6 +325,7 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
         "literature_evidence_summary": proposal_contract.get("literature_evidence_summary", {}),
         "calculation_plan": proposal_contract.get("calculation_plan", {}),
         "proposal_contract": proposal_contract,
+        "protocol_contract": protocol_contract,
         "proposal_markdown": proposal_markdown,
         "proposal_artifacts": {
             name: {
