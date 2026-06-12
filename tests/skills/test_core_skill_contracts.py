@@ -106,6 +106,32 @@ def test_analysis_visualization_allows_agent_written_analysis():
     assert "self-written Python" in text
     assert "Do not require a fixed parser" in text
     assert "Figure lineage" in text
+    assert "Built-in analysis and visualization stage runners are optional reference routes" in text
+
+
+def test_analysis_visualization_reference_map_is_routable():
+    text = _skill_text("simflow-analysis-visualization")
+    references = [
+        "plotting_principles.md",
+        "simulation_output_map.md",
+        "analysis_methods.md",
+        "data_intake_and_profiling.md",
+        "community_postprocessing_tools.md",
+        "figure_contract_and_visual_qa.md",
+        "tool_specific_visualization_patterns.md",
+        "tooling_index.md",
+    ]
+
+    for reference in references:
+        assert reference in text
+        assert (SKILLS / "simflow-analysis-visualization" / "references" / reference).is_file()
+
+    assert "data intake/profiling" in text
+    assert "community post-processing" in text
+    assert "GPUMDkit" in text
+    assert "VASPKIT-style optional tools" in text
+    assert "publication figure QA" in text
+    assert "tool-specific visualization" in text
 
 
 def test_modeling_preserves_user_provided_models():

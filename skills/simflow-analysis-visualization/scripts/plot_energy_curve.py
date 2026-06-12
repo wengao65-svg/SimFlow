@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Plot energy convergence curves from DFT/MD calculations.
 
-Reads energy data from VASP OSZICAR, QE output, or LAMMPS logs
-and generates convergence plots.
+Reads energy data from VASP OSZICAR or LAMMPS logs and generates convergence
+plots.
 """
 
 import argparse
@@ -41,21 +41,6 @@ def parse_energies(file_path: str, software: str) -> dict:
                         energies.append(float(parts[2]))
                     except ValueError:
                         continue
-        return {"energies": energies, "steps": list(range(1, len(energies) + 1))}
-
-    elif software == "qe":
-        # QE: look for !    total energy lines
-        energies = []
-        for line in content.split("\n"):
-            if "!" in line and "total energy" in line:
-                parts = line.split()
-                for i, p in enumerate(parts):
-                    if p == "energy" and i > 0:
-                        try:
-                            energies.append(float(parts[i - 1]))
-                        except ValueError:
-                            pass
-                        break
         return {"energies": energies, "steps": list(range(1, len(energies) + 1))}
 
     elif software == "lammps":
@@ -142,8 +127,8 @@ def plot_energy_curve(
 
 def main():
     parser = argparse.ArgumentParser(description="Plot energy convergence curves")
-    parser.add_argument("--file", required=True, help="Output file (OSZICAR, QE out, LAMMPS log)")
-    parser.add_argument("--software", required=True, choices=["vasp", "qe", "lammps"],
+    parser.add_argument("--file", required=True, help="Output file (OSZICAR or LAMMPS log)")
+    parser.add_argument("--software", required=True, choices=["vasp", "lammps"],
                         help="Computational software")
     parser.add_argument("--output", default="energy_convergence.png", help="Output plot path")
     parser.add_argument("--title", default="Energy Convergence", help="Plot title")

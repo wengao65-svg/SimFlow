@@ -442,6 +442,7 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_without_outputs():
         assert "analysis" not in stages_state
         assert "visualization" not in stages_state
         assert result["results"][0]["manifest"]["status"] == "waiting_for_outputs"
+        assert result["results"][0]["manifest"]["visual_qa"]["status"] == "skipped"
         assert {artifact["name"] for artifact in analysis_artifacts} == {
             "analysis_report.json",
             "analysis_report.md",
@@ -498,8 +499,10 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
         assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["input_artifact_ids"]
         assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["analysis_script"].endswith("analyze_dft_results.py")
         assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["analysis_report_artifact_id"]
+        assert "visual_qa" in result["results"][0]["manifests"]["visualization"]
         if importlib.util.find_spec("matplotlib") is None:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
+            assert result["results"][0]["manifests"]["visualization"]["visual_qa"]["status"] == "skipped_optional_dependency"
             assert {artifact["name"] for artifact in visualization_artifacts} == {
                 "analysis_report.json",
                 "analysis_report.md",
@@ -507,16 +510,25 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
             }
         else:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "completed"
+            assert result["results"][0]["manifests"]["visualization"]["visual_qa"]["status"] in {
+                "passed",
+                "warning",
+                "skipped_optional_dependency",
+                "review_needed",
+            }
             assert {artifact["name"] for artifact in visualization_artifacts} == {
                 "analysis_report.json",
                 "analysis_report.md",
                 "figures_manifest.json",
+                "energy_convergence_visual_qa.json",
                 "energy_convergence.png",
             }
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
+            assert (project_root / ".simflow" / "reports" / "visualization" / "energy_convergence_visual_qa.json").is_file()
             figure = result["results"][0]["manifests"]["visualization"]["figures"][0]
             assert figure["source_data"].endswith("OSZICAR")
             assert figure["plotting_script"].endswith("plot_energy_curve.py")
+            assert figure["visual_qa"]["audit_artifact_id"]
             assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
         assert {"analysis_report.json", "analysis_report.md"}.issubset({artifact["name"] for artifact in analysis_artifacts})
 
@@ -548,19 +560,23 @@ def test_run_pipeline_execute_runs_direct_lammps_analysis_visualization_with_fix
         assert result["results"][0]["manifests"]["analysis"]["status"] == "completed"
         assert result["results"][0]["manifests"]["analysis"]["source_files"] == ["outputs/log.lammps"]
         assert visualization_manifest["figure_traceability"]["source_files"] == ["outputs/log.lammps"]
+        assert "visual_qa" in visualization_manifest
         assert {"analysis_report.json", "analysis_report.md", "figures_manifest.json"}.issubset(
             {artifact["name"] for artifact in analysis_artifacts}
         )
         if importlib.util.find_spec("matplotlib") is None:
             assert visualization_manifest["status"] == "skipped_optional_dependency"
             assert "matplotlib is not installed." in visualization_manifest["skipped_reasons"]
+            assert visualization_manifest["visual_qa"]["status"] == "skipped_optional_dependency"
         else:
             assert visualization_manifest["status"] == "completed"
             assert "energy_convergence.png" in {artifact["name"] for artifact in analysis_artifacts}
+            assert "energy_convergence_visual_qa.json" in {artifact["name"] for artifact in analysis_artifacts}
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
             figure = visualization_manifest["figures"][0]
             assert figure["source_data"] == "outputs/log.lammps"
             assert figure["num_steps"] == 11
+            assert figure["visual_qa"]["audit_artifact_id"]
             assert visualization_manifest["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
 
 
@@ -686,9 +702,11 @@ def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_output
         assert result["results"][0]["manifests"]["analysis"]["source_files"]
         assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["analysis_script"] == "runtime/simflow_helpers/engines/cp2k"
         assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["source_files"]
+        assert "visual_qa" in result["results"][0]["manifests"]["visualization"]
         assert trajectory_status in {"available", "skipped_optional_dependency"}
         if importlib.util.find_spec("matplotlib") is None:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"
+            assert result["results"][0]["manifests"]["visualization"]["visual_qa"]["status"] == "skipped_optional_dependency"
             assert {artifact["name"] for artifact in visualization_artifacts} == {
                 "analysis_report.json",
                 "analysis_report.md",
@@ -696,14 +714,22 @@ def test_run_pipeline_execute_runs_postcompute_cp2k_md_chain_with_fixture_output
             }
         else:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "completed"
+            assert result["results"][0]["manifests"]["visualization"]["visual_qa"]["status"] in {
+                "passed",
+                "warning",
+                "skipped_optional_dependency",
+                "review_needed",
+            }
             assert {artifact["name"] for artifact in visualization_artifacts} == {
                 "analysis_report.json",
                 "analysis_report.md",
                 "figures_manifest.json",
+                "energy_convergence_visual_qa.json",
                 "energy_convergence.png",
             }
             assert (project_root / ".simflow" / "artifacts" / "visualization" / "energy_convergence.png").is_file()
             figure = result["results"][0]["manifests"]["visualization"]["figures"][0]
             assert figure["source_data"].endswith(".ener")
+            assert figure["visual_qa"]["audit_artifact_id"]
             assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["figures"][0]["name"] == "energy_convergence.png"
         assert {"analysis_report.json", "analysis_report.md"}.issubset({artifact["name"] for artifact in analysis_artifacts})

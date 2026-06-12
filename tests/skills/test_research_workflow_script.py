@@ -77,6 +77,7 @@ def test_research_workflow_script_runs_literature_to_writing(tmp_path):
     assert compute_plan["user_submit_readiness"]["real_submit_allowed"] is False
     assert analysis_report["analysis_provenance"]["input_artifact_ids"]
     assert figures_manifest["figure_traceability"]["analysis_report_artifact_id"]
+    assert figures_manifest["visual_qa"]["status"] == "skipped"
     assert any(claim["claim_id"] == "claim_004" for claim in claim_map["claims"])
     assert any(claim["speculative"] for claim in claim_map["claims"])
 

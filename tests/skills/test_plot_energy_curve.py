@@ -19,12 +19,14 @@ def test_parse_vasp_energies():
     assert len(result["steps"]) == len(result["energies"])
 
 
-def test_parse_qe_energies():
+def test_parse_qe_energies_is_rejected():
     from plot_energy_curve import parse_energies
-    result = parse_energies(str(FIXTURE_DIR / "pw_output_Si.out"), "qe")
-    # QE parsing depends on exact output format; may return 0 energies for simplified fixtures
-    assert isinstance(result["energies"], list)
-    assert isinstance(result["steps"], list)
+    try:
+        parse_energies(str(FIXTURE_DIR / "pw_output_Si.out"), "qe")
+    except ValueError as exc:
+        assert "Unsupported software" in str(exc)
+    else:
+        raise AssertionError("QE must not be exposed as a supported energy-plot helper route")
 
 
 def test_parse_lammps_energies():

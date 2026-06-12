@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the canonical analysis stage for Milestone C."""
+"""Run the built-in optional analysis stage runner for Milestone C."""
 
 from __future__ import annotations
 
@@ -409,7 +409,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the canonical analysis stage")
+    parser = argparse.ArgumentParser(description="Run the built-in optional analysis stage runner")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--params", type=str, default="{}", help="JSON parameters for the stage")
     parser.add_argument("--dry-run", action="store_true", default=False)
