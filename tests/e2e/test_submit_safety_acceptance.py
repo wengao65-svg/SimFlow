@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mcp.servers.hpc.connectors.local import LocalConnector
 from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.state import init_workflow
 
 
 def _sha256_file(path: Path) -> str:
@@ -30,6 +31,7 @@ def _make_script(project_root: Path) -> Path:
 
 
 def _write_submit_evidence(project_root: Path, script: Path, *, credential_scan: bool = True) -> dict:
+    init_workflow("custom", "computation", project_root=str(project_root))
     script_hash = _sha256_file(script)
     input_hash = "input-manifest-sha256"
     artifacts = project_root / ".simflow" / "artifacts"

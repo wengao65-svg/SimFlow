@@ -14,6 +14,15 @@ from .status import _artifact_path_status, _lineage_links, _read_project_state, 
 ROOT = Path(__file__).resolve().parents[2]
 STAGES_DIR = ROOT / "workflow" / "stages"
 APPROVED_DECISIONS = {"approve", "approved", "allow", "allowed", "pass", "passed"}
+COMPUTATION_INTAKE_EVIDENCE = {
+    "calculation_manifest",
+    "input_files",
+    "input_validation_report",
+    "dry_run_report",
+    "resource_estimate",
+    "credential_scan",
+    "job_record_if_submitted",
+}
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -198,12 +207,20 @@ def _build_actions(
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     for item in missing_evidence:
-        actions.append({
-            "action": "record_evidence_artifact",
-            "stage": stage,
-            "evidence_key": item["evidence_key"],
-            "reason": "required_stage_evidence_missing",
-        })
+        if stage == "computation" and item["evidence_key"] in COMPUTATION_INTAKE_EVIDENCE:
+            actions.append({
+                "action": "record_computation_evidence",
+                "stage": stage,
+                "evidence_key": item["evidence_key"],
+                "reason": "required_stage_evidence_missing",
+            })
+        else:
+            actions.append({
+                "action": "record_evidence_artifact",
+                "stage": stage,
+                "evidence_key": item["evidence_key"],
+                "reason": "required_stage_evidence_missing",
+            })
     for blocker in blockers:
         if blocker["code"] == "missing_workflow_state":
             actions.append({"action": "initialize_workflow", "stage": stage, "reason": blocker["code"]})
@@ -221,6 +238,12 @@ def _build_actions(
         actions.append({"action": "start_stage", "stage": stage, "reason": "stage_pending"})
     if not actions and stage_status == "in_progress":
         actions.append({"action": "complete_or_checkpoint_stage", "stage": stage, "reason": "stage_in_progress"})
+    if not actions and stage == "computation" and stage_status == "waiting":
+        actions.append({
+            "action": "record_computation_evidence",
+            "stage": stage,
+            "reason": "stage_waiting_for_user_provided_computation_evidence",
+        })
     return actions
 
 

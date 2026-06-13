@@ -66,6 +66,7 @@ the same project and hashes.
 
 Submission must be blocked when:
 
+- the project root does not contain initialized SimFlow workflow state
 - approval is missing
 - dry-run evidence is missing
 - input validation evidence is missing
@@ -106,3 +107,8 @@ After a compute preparation or submission step, handoff notes should state:
 - which hashes were approved
 - whether outputs are complete, partial, missing, or unknown
 - what checkpoint records the current state
+
+After a successful real `hpc.submit`, the MCP submit tool writes a
+`job_record_if_submitted` computation artifact and appends the same record to
+`.simflow/state/jobs.json`. This record is the evidence that makes the
+conditional computation readiness key `job_record_if_submitted` present.

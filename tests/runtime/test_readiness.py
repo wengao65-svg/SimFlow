@@ -55,6 +55,16 @@ def test_stage_readiness_reports_missing_evidence_for_current_stage(tmp_path):
     assert readiness["actions"][0]["action"] == "record_evidence_artifact"
 
 
+def test_computation_readiness_points_missing_evidence_to_generic_intake(tmp_path):
+    init_workflow("custom", "computation", project_root=str(tmp_path))
+
+    readiness = build_stage_readiness(str(tmp_path), stage="computation")
+
+    assert readiness["readiness_status"] == "incomplete"
+    assert readiness["actions"][0]["action"] == "record_computation_evidence"
+    assert {action["action"] for action in readiness["actions"]} == {"record_computation_evidence"}
+
+
 def test_evidence_matches_by_type_name_and_metadata(tmp_path):
     init_workflow("custom", "proposal", project_root=str(tmp_path))
     for rel_path in [

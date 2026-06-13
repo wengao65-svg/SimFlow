@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 
 from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.state import init_workflow, read_state
 
 SERVER_DIR = Path(__file__).resolve().parents[2] / "mcp" / "servers" / "hpc"
 
@@ -33,6 +35,7 @@ def _write_json(path: Path, payload: dict):
 
 def _authorized_submit_params(project_root: str, script_path: str) -> dict:
     root = Path(project_root)
+    init_workflow("custom", "computation", project_root=project_root)
     input_hash = "input-manifest-sha256"
     script_hash = _sha256_file(script_path)
     artifacts = root / ".simflow" / "artifacts"
@@ -229,8 +232,15 @@ def test_local_submit_with_gate_decision_executes():
         result = server.handle_request(request)
         assert result["status"] == "success"
         assert result["success"] is True
+        assert result["job_id"].startswith("local_")
         assert "local-ok" in result["stdout"]
         assert result["gate_decision_id"] == params["gate_decision_id"]
+        assert result["job_record_artifact_id"].startswith("art_")
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        assert any(artifact["type"] == "job_record_if_submitted" for artifact in artifacts)
+        jobs = read_state(project_root=tmpdir, state_file="jobs.json")
+        assert jobs[-1]["artifact_id"] == result["job_record_artifact_id"]
+        assert jobs[-1]["job_id"] == result["job_id"]
     print("  local submit approved execution OK")
 
 

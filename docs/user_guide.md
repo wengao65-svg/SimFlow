@@ -100,7 +100,10 @@ Before real local, remote, or HPC execution, record:
 
 A job record is only required after a real local, remote, or HPC submit has
 occurred. Dry-run-only computation evidence does not need
-`job_record_if_submitted`.
+`job_record_if_submitted`. When a real `hpc.submit` succeeds through the MCP
+submit tool, SimFlow records a `job_record_if_submitted` computation artifact
+with the scheduler job id, gate decision, approved hashes, script path, and
+submit result.
 
 The computation helper writes the gate evidence to canonical project-local
 paths so later submit tools can verify the exact preparation state:

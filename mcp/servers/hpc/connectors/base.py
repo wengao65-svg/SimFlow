@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from runtime.simflow_core.gates import check_gate, get_gate_decisions
-from runtime.simflow_core.state import ProjectRootError, resolve_project_root
+from runtime.simflow_core.state import ProjectRootError, read_state, resolve_project_root
 
 
 class BaseHPCConnector(ABC):
@@ -168,6 +168,12 @@ class BaseHPCConnector(ABC):
             root = resolve_project_root(project_root=project_root)
         except ProjectRootError as exc:
             return {"status": "error", "message": str(exc), "code": "invalid_project_root"}
+        if not read_state(project_root=str(root), state_file="workflow.json"):
+            return {
+                "status": "error",
+                "message": "Submit requires an initialized SimFlow workflow under project_root.",
+                "code": "missing_workflow_state",
+            }
 
         current_script_hash = self._sha256_file(script)
         if current_script_hash != script_hash:

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
 from connectors.slurm import SlurmConnector
 from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.state import init_workflow
 
 
 def _sha256_file(path: str) -> str:
@@ -31,6 +32,7 @@ def _write_json(path: Path, payload: dict):
 
 def _authorized_submit_kwargs(script_path: str) -> dict:
     project_root = Path(script_path).parent
+    init_workflow("custom", "computation", project_root=str(project_root))
     input_hash = "input-manifest-sha256"
     script_hash = _sha256_file(script_path)
     artifacts = project_root / ".simflow" / "artifacts"

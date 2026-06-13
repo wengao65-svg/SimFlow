@@ -54,11 +54,13 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["handoff_summary"]["required"] == ["project_root"]
     assert schemas["stage_readiness"]["required"] == ["project_root"]
     assert schemas["project_readiness"]["required"] == ["project_root"]
+    assert schemas["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["write_state"]["additionalProperties"] is False
     assert schemas["workflow_status"]["additionalProperties"] is False
     assert schemas["evidence_graph"]["additionalProperties"] is False
     assert schemas["stage_readiness"]["additionalProperties"] is False
     assert schemas["project_readiness"]["additionalProperties"] is False
+    assert schemas["record_computation_evidence"]["additionalProperties"] is False
 
 
 def test_state_init_via_runtime():
@@ -252,6 +254,67 @@ def test_project_readiness_tool_requires_project_root():
 
     assert result["status"] == "error"
     assert "project_root" in result["message"]
+
+
+def test_record_computation_evidence_tool_registers_tracked_only_evidence():
+    """MCP exposes generic computation evidence intake for tracked-only tools."""
+    from runtime.simflow_core.artifacts import list_artifacts
+    from runtime.simflow_core.state import init_workflow, read_state, write_state
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        init_workflow("mlp_md", "computation", project_root=tmpdir)
+        write_state(
+            {
+                "workflow_type": "mlp_md",
+                "entry_point": "computation",
+                "current_stage": "computation",
+                "research_goal": "record GPUMD NEP training evidence",
+                "material": "Si",
+                "software": "gpumd",
+                "toolchain": ["gpumd", "nep"],
+            },
+            project_root=tmpdir,
+            state_file="metadata.json",
+        )
+        evidence_dir = root / "user_compute"
+        evidence_dir.mkdir()
+        for name in [
+            "calculation_manifest.json",
+            "run.in",
+            "input_validation.json",
+            "dry_run_report.json",
+            "resource_estimate.json",
+        ]:
+            (evidence_dir / name).write_text("{}\n", encoding="utf-8")
+
+        result = server.handle_request({
+            "tool": "record_computation_evidence",
+            "params": {
+                "project_root": tmpdir,
+                "evidence_params": {
+                    "software": "gpumd",
+                    "task": "nep_training",
+                    "command": "gpumd < run.in",
+                    "complete_stage": True,
+                    "evidence": {
+                        "calculation_manifest": "user_compute/calculation_manifest.json",
+                        "input_files": ["user_compute/run.in"],
+                        "input_validation_report": "user_compute/input_validation.json",
+                        "dry_run_report": "user_compute/dry_run_report.json",
+                        "resource_estimate": "user_compute/resource_estimate.json",
+                    },
+                },
+            },
+        })
+
+        assert result["status"] == "success"
+        assert result["data"]["stage_completed"] is True
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        assert any(artifact["type"] == "evidence_intake_manifest" for artifact in artifacts)
+        stages = read_state(project_root=tmpdir, state_file="stages.json")
+        assert stages["computation"]["status"] == "completed"
 
 
 if __name__ == "__main__":
