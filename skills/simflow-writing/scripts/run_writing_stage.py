@@ -205,6 +205,7 @@ def _claim_entry(
     source_artifact_ids: list[str],
     *,
     status: str,
+    evidence_state: str | None = None,
     speculative: bool = False,
 ) -> dict[str, Any]:
     return {
@@ -212,6 +213,7 @@ def _claim_entry(
         "claim": claim,
         "source_artifact_ids": source_artifact_ids,
         "status": status,
+        "evidence_state": evidence_state or status,
         "speculative": speculative,
     }
 
@@ -221,6 +223,60 @@ def _artifact_ids_for(required_artifacts: dict[str, dict[str, Any]], *keys: str)
         required_artifacts[key]["artifact_id"]
         for key in keys
         if key in required_artifacts and required_artifacts[key].get("artifact_id")
+    ]
+
+
+def _degraded_evidence_states(
+    compute_plan: dict[str, Any],
+    analysis_report: dict[str, Any],
+    figures_manifest: dict[str, Any],
+) -> list[dict[str, Any]]:
+    states: list[dict[str, Any]] = []
+    if not compute_plan.get("real_submit", False):
+        states.append({
+            "area": "computation",
+            "state": "dry_run_only",
+            "severity": "info",
+            "claim_policy": "Do not describe the calculation as submitted or completed.",
+        })
+
+    analysis_status = analysis_report.get("status", "unknown")
+    if analysis_status != "completed":
+        states.append({
+            "area": "analysis",
+            "state": analysis_status,
+            "severity": "warning" if analysis_status in {"waiting_for_outputs", "missing_evidence"} else "info",
+            "claim_policy": "Do not present analysis-derived conclusions as final results.",
+        })
+
+    visualization_status = figures_manifest.get("status", "unknown")
+    if visualization_status != "completed":
+        states.append({
+            "area": "visualization",
+            "state": visualization_status,
+            "severity": "warning" if visualization_status in {"waiting_for_outputs", "missing_evidence"} else "info",
+            "claim_policy": "Do not make finalized figure claims from degraded visualization evidence.",
+            "skipped_reasons": figures_manifest.get("skipped_reasons", []),
+        })
+
+    visual_qa = figures_manifest.get("visual_qa", {})
+    visual_qa_status = visual_qa.get("status") if isinstance(visual_qa, dict) else None
+    if visual_qa_status and visual_qa_status not in {"passed", "skipped"}:
+        states.append({
+            "area": "visual_qa",
+            "state": visual_qa_status,
+            "severity": "warning" if visual_qa_status == "error" else "info",
+            "claim_policy": "Do not treat figure QA as passed.",
+        })
+    return states
+
+
+def _degraded_state_lines(states: list[dict[str, Any]]) -> list[str]:
+    if not states:
+        return ["- None recorded."]
+    return [
+        f"- {item['area']}: {item['state']} ({item['claim_policy']})"
+        for item in states
     ]
 
 
@@ -235,6 +291,10 @@ def _build_claim_map(
 ) -> dict[str, Any]:
     analysis_completed = analysis_report.get("status") == "completed"
     figures_completed = figures_manifest.get("status") == "completed"
+    degraded_states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    compute_state = "dry_run_only" if not compute_plan.get("real_submit") else "submitted_with_record"
+    analysis_state = "supported_by_analysis" if analysis_completed else analysis_report.get("status", "waiting_for_outputs")
+    figure_state = "supported_by_figures" if figures_completed else figures_manifest.get("status", "no_final_figure_claim")
     proposal_sources = _artifact_ids_for(required_artifacts, "proposal", "research_questions")
     modeling_sources = _artifact_ids_for(required_artifacts, "structure_manifest")
     compute_sources = _artifact_ids_for(required_artifacts, "compute_plan")
@@ -246,6 +306,7 @@ def _build_claim_map(
             f"The writing target addresses: {contract.get('research_goal') or 'the recorded research goal'}.",
             proposal_sources,
             status="supported_by_proposal" if proposal_sources else "missing_evidence",
+            evidence_state="supported_by_proposal" if proposal_sources else "missing_evidence",
             speculative=not bool(proposal_sources),
         ),
         _claim_entry(
@@ -253,6 +314,7 @@ def _build_claim_map(
             f"The modeled system is {contract.get('material', 'the recorded material')} with source mode {structure_manifest.get('source_mode', 'unknown')}.",
             modeling_sources,
             status="supported_by_modeling_artifact" if modeling_sources else "missing_evidence",
+            evidence_state="supported_by_modeling_artifact" if modeling_sources else "missing_evidence",
             speculative=not bool(modeling_sources),
         ),
         _claim_entry(
@@ -262,6 +324,7 @@ def _build_claim_map(
             status=("dry_run_evidence_only" if not compute_plan.get("real_submit") else "submitted_with_record")
             if compute_sources
             else "missing_evidence",
+            evidence_state=compute_state if compute_sources else "missing_evidence",
             speculative=not bool(compute_sources),
         ),
         _claim_entry(
@@ -269,6 +332,7 @@ def _build_claim_map(
             analysis_report.get("conclusions", "Analysis outputs are not ready."),
             analysis_sources,
             status="supported_by_analysis" if analysis_completed else "waiting_for_outputs",
+            evidence_state=analysis_state,
             speculative=not analysis_completed,
         ),
         _claim_entry(
@@ -276,6 +340,7 @@ def _build_claim_map(
             "Figure claims are limited to traceable figures listed in the figures manifest.",
             figure_sources,
             status="supported_by_figures" if figures_completed else "no_final_figure_claim",
+            evidence_state=figure_state,
             speculative=not figures_completed,
         ),
     ]
@@ -288,6 +353,8 @@ def _build_claim_map(
         )),
         "analysis_status": analysis_report.get("status"),
         "visualization_status": figures_manifest.get("status"),
+        "degraded_evidence_states": degraded_states,
+        "unresolved_degraded_state_count": len(degraded_states),
         "claims": claims,
     }
 
@@ -447,6 +514,7 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     ])
     methods_path.write_text(methods_content, encoding="utf-8")
 
+    degraded_states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
     results_content = "\n".join([
         "# Results",
         "",
@@ -455,6 +523,9 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "",
         "## Visualization Summary",
         *_visualization_summary(figures_manifest),
+        "",
+        "## Degraded Evidence States",
+        *_degraded_state_lines(degraded_states),
         "",
         "## Traceability / Source Artifact IDs",
         *(f"- {artifact_id}" for artifact_id in parent_artifact_ids),

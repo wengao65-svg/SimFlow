@@ -130,12 +130,25 @@ record scripts, commands, inputs, outputs, environment, and figure lineage.
 Incomplete outputs, failed convergence, missing frames, or speculative
 interpretations must be labeled.
 
+For tracked-only tools, custom notebooks, external post-processing suites, or
+manually prepared figures, record evidence through generic analysis evidence
+intake instead of adding a recipe-specific parser. The intake records analysis
+scripts, input data, derived outputs, environment notes, figure files, figure
+manifests, visual QA, and claim evidence maps as `analysis_visualization`
+artifacts.
+
 ### Writing
 
 Writing outputs can be a draft, proposal, internal report, figure captions,
 slides, or another user-requested format. Key claims should trace to literature,
 modeling, computation, analysis, or figure artifacts. Unfinished calculations
 must not be written as completed results.
+
+Writing claim maps include degraded evidence states such as `dry_run_only`,
+`waiting_for_outputs`, `missing_evidence`, and `skipped_optional_dependency`.
+These states are explicit reminders that the text may describe plans,
+limitations, or pending evidence, but must not present those items as completed
+scientific results.
 
 ## Environment Variables
 

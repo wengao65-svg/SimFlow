@@ -55,12 +55,14 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["stage_readiness"]["required"] == ["project_root"]
     assert schemas["project_readiness"]["required"] == ["project_root"]
     assert schemas["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]
+    assert schemas["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["write_state"]["additionalProperties"] is False
     assert schemas["workflow_status"]["additionalProperties"] is False
     assert schemas["evidence_graph"]["additionalProperties"] is False
     assert schemas["stage_readiness"]["additionalProperties"] is False
     assert schemas["project_readiness"]["additionalProperties"] is False
     assert schemas["record_computation_evidence"]["additionalProperties"] is False
+    assert schemas["record_analysis_evidence"]["additionalProperties"] is False
 
 
 def test_state_init_via_runtime():
@@ -315,6 +317,71 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
         assert any(artifact["type"] == "evidence_intake_manifest" for artifact in artifacts)
         stages = read_state(project_root=tmpdir, state_file="stages.json")
         assert stages["computation"]["status"] == "completed"
+
+
+def test_record_analysis_evidence_tool_registers_custom_analysis_evidence():
+    """MCP exposes generic analysis evidence intake for custom workflows."""
+    from runtime.simflow_core.artifacts import list_artifacts
+    from runtime.simflow_core.state import init_workflow, read_state, write_state
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        init_workflow("custom", "analysis_visualization", project_root=tmpdir)
+        write_state(
+            {
+                "workflow_type": "custom",
+                "entry_point": "analysis_visualization",
+                "current_stage": "analysis_visualization",
+                "research_goal": "record custom analysis evidence",
+                "material": "Si",
+                "software": "python",
+            },
+            project_root=tmpdir,
+            state_file="metadata.json",
+        )
+        evidence_dir = root / "analysis_user"
+        evidence_dir.mkdir()
+        for name in [
+            "analyze.py",
+            "input.csv",
+            "analysis_report.json",
+            "environment.json",
+            "figure.png",
+            "figures_manifest.json",
+            "claim_evidence_map.json",
+        ]:
+            (evidence_dir / name).write_text("{}\n", encoding="utf-8")
+
+        result = server.handle_request({
+            "tool": "record_analysis_evidence",
+            "params": {
+                "project_root": tmpdir,
+                "evidence_params": {
+                    "software": "python",
+                    "task": "custom_metrics",
+                    "command": "python analyze.py",
+                    "complete_stage": True,
+                    "evidence": {
+                        "analysis_script": "analysis_user/analyze.py",
+                        "analysis_inputs": ["analysis_user/input.csv"],
+                        "analysis_outputs": {"path": "analysis_user/analysis_report.json", "name": "analysis_report.json"},
+                        "analysis_environment": "analysis_user/environment.json",
+                        "figure_files": ["analysis_user/figure.png"],
+                        "figure_manifest": {"path": "analysis_user/figures_manifest.json", "name": "figures_manifest.json"},
+                        "claim_evidence_map": "analysis_user/claim_evidence_map.json",
+                    },
+                },
+            },
+        })
+
+        assert result["status"] == "success"
+        assert result["data"]["stage_completed"] is True
+        artifacts = list_artifacts(stage="analysis_visualization", project_root=tmpdir)
+        assert any(artifact["type"] == "analysis_evidence_intake_manifest" for artifact in artifacts)
+        assert any(artifact["name"] == "analysis_report.json" for artifact in artifacts)
+        stages = read_state(project_root=tmpdir, state_file="stages.json")
+        assert stages["analysis_visualization"]["status"] == "completed"
 
 
 if __name__ == "__main__":

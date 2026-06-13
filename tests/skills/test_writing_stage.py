@@ -135,8 +135,16 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
         assert "## Visualization Summary" in results_text
         assert "Status: waiting_for_outputs" in results_text
         assert "degraded or waiting" in results_text
+        assert "## Degraded Evidence States" in results_text
         assert len(claim_map["claims"]) == 5
+        assert claim_map["unresolved_degraded_state_count"] >= 3
+        assert {item["area"] for item in claim_map["degraded_evidence_states"]} >= {
+            "computation",
+            "analysis",
+            "visualization",
+        }
         assert any(claim["status"] == "waiting_for_outputs" for claim in claim_map["claims"])
+        assert any(claim["evidence_state"] == "dry_run_only" for claim in claim_map["claims"])
         assert "## Traceability / Source Artifact IDs" in results_text
 
 
@@ -163,6 +171,8 @@ def test_run_writing_stage_allows_direct_writing_entry_with_missing_upstream_art
         assert result["manifest"]["writing_input_status"] == "partial_missing_upstream_artifacts"
         assert result["manifest"]["analysis_status"] == "missing_evidence"
         assert claim_map["source_artifact_ids"] == []
+        assert claim_map["unresolved_degraded_state_count"] >= 3
         assert any(claim["status"] == "missing_evidence" for claim in claim_map["claims"])
+        assert any(claim["evidence_state"] == "missing_evidence" for claim in claim_map["claims"])
         assert any(claim["speculative"] is True for claim in claim_map["claims"])
         assert "Path: not_provided" in methods_path.read_text(encoding="utf-8")

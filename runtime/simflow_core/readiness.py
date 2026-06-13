@@ -23,6 +23,15 @@ COMPUTATION_INTAKE_EVIDENCE = {
     "credential_scan",
     "job_record_if_submitted",
 }
+ANALYSIS_INTAKE_EVIDENCE = {
+    "analysis_script",
+    "analysis_inputs",
+    "analysis_outputs",
+    "analysis_environment",
+    "figure_files",
+    "figure_manifest",
+    "claim_evidence_map",
+}
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -214,6 +223,13 @@ def _build_actions(
                 "evidence_key": item["evidence_key"],
                 "reason": "required_stage_evidence_missing",
             })
+        elif stage == "analysis_visualization" and item["evidence_key"] in ANALYSIS_INTAKE_EVIDENCE:
+            actions.append({
+                "action": "record_analysis_evidence",
+                "stage": stage,
+                "evidence_key": item["evidence_key"],
+                "reason": "required_stage_evidence_missing",
+            })
         else:
             actions.append({
                 "action": "record_evidence_artifact",
@@ -243,6 +259,12 @@ def _build_actions(
             "action": "record_computation_evidence",
             "stage": stage,
             "reason": "stage_waiting_for_user_provided_computation_evidence",
+        })
+    if not actions and stage == "analysis_visualization" and stage_status == "waiting":
+        actions.append({
+            "action": "record_analysis_evidence",
+            "stage": stage,
+            "reason": "stage_waiting_for_user_provided_analysis_evidence",
         })
     return actions
 
