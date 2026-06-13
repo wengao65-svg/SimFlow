@@ -163,16 +163,38 @@ def test_load_proposal_contract_errors_when_research_questions_artifact_is_missi
             raise AssertionError("Expected FileNotFoundError")
 
 
-def test_load_proposal_contract_tracks_unknown_software_without_blocking_workflow():
+def test_load_proposal_contract_tracks_qe_alias_without_blocking_workflow():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = _prepare_proposal(tmpdir, software="qe")
 
         contract = load_proposal_contract(str(project_root / ".simflow"))
 
-        assert contract["software"] == "qe"
-        assert contract["helper_support"]["unknown"] == ["qe"]
-        assert contract["helper_support"]["support_levels"]["qe"] == "unknown"
-        assert contract["toolchain_plan"]["activities"]["primary"] == ["qe"]
+        assert contract["software"] == "quantum_espresso"
+        assert contract["helper_support"]["tracked_only"] == ["quantum_espresso"]
+        assert contract["helper_support"]["support_levels"]["quantum_espresso"] == "tracked_only"
+        assert contract["toolchain_plan"]["activities"]["primary"] == ["quantum_espresso"]
+
+
+def test_non_mlp_recipes_share_optional_toolchain_support_contract():
+    scenarios = [
+        ("dft", "quantum_espresso", "tracked_only"),
+        ("aimd", "cp2k", "helper_supported"),
+        ("classical_md", "gromacs", "tracked_only"),
+    ]
+    for workflow_type, software, support_level in scenarios:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = _prepare_proposal(
+                tmpdir,
+                workflow_type=workflow_type,
+                software=software,
+            )
+
+            contract = load_proposal_contract(str(project_root / ".simflow"))
+
+            assert contract["workflow_type"] == workflow_type
+            assert contract["software"] == software
+            assert contract["helper_support"]["support_levels"][software] == support_level
+            assert contract["toolchain_plan"]["activities"]["primary"] == [software]
 
 
 def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():

@@ -15,8 +15,9 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
-from runtime.simflow_core.proposals import capability_warning, load_proposal_contract
+from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import capability_warning
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
 
 

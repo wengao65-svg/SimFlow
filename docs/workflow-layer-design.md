@@ -124,6 +124,11 @@ and recommended checks. They must not prevent custom workflows, unknown
 software names, or unlisted analysis scripts when those choices are recorded
 with adequate evidence.
 
+Software helper support is resolved by the shared toolchain contract, not by
+individual recipe files. Recipes may suggest applicable tools or activity
+roles, but they must not define separate support-level fields such as
+tracked-only or unsupported software lists.
+
 For the current refactor, recipes use JSON so the project does not add a YAML
 runtime dependency.
 

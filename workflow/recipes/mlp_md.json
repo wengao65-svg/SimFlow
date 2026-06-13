@@ -5,7 +5,6 @@
   "description": "MLP-MD recipe guidance. It is not an executor DAG and does not add new top-level workflow stages.",
   "tags": ["mlp_md", "machine_learning_potential", "molecular_dynamics", "active_learning", "reference_recipe"],
   "applicable_software": ["vasp", "cp2k", "lammps", "gpumd", "nep", "neptrainkit", "deepmd", "dpgen", "mace", "nequip", "allegro", "ase", "custom"],
-  "tracked_only_software": ["gpumd", "nep", "neptrainkit", "deepmd", "dpgen", "mace", "nequip", "allegro", "ase", "custom"],
   "stages": ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"],
   "evidence_outputs": [
     "structure_manifest",
@@ -52,5 +51,16 @@
   "handoff_notes": [
     "Record toolchain, iteration id, candidate pool, selected structures, label provenance, dataset split, training run, validation metrics, anomaly criteria, and production-MD gate decision."
   ],
-  "metadata": {"schema_version": "1.0.0"}
+  "metadata": {
+    "schema_version": "1.0.0",
+    "toolchain_activities": {
+      "sampling": ["cp2k", "lammps", "gpumd", "ase", "custom"],
+      "selection": ["neptrainkit", "python", "custom"],
+      "labeling": ["vasp", "cp2k"],
+      "dataset_build": ["custom", "ase", "python"],
+      "training": ["gpumd", "nep", "deepmd", "mace", "nequip", "allegro", "custom"],
+      "validation_md": ["gpumd", "lammps", "custom"],
+      "analysis": ["python", "neptrainkit", "custom"]
+    }
+  }
 }

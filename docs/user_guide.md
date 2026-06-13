@@ -52,16 +52,18 @@ Software names are proposal metadata, helper-routing hints, and artifact
 provenance. They are not a required registry entry before a project can move
 through SimFlow.
 
-If a proposal names a supported helper such as VASP, CP2K, or LAMMPS, stage
-runners may use the corresponding helper path. If it names a tracked-only or
-unknown tool, SimFlow should still record the plan, user scripts, commands,
-outputs, versions, environment, limitations, and lineage. Built-in stage
-runners return a `capability_warning` when automation is requested for a tool
-without helper support.
+If a proposal names a helper-supported tool such as VASP, CP2K, or LAMMPS,
+stage runners may use the corresponding helper path. If it names a
+tracked-only or unknown tool, SimFlow should still record the plan, user
+scripts, commands, outputs, versions, environment, limitations, and lineage.
+Built-in stage runners return a `capability_warning` when automation is
+requested for a tool without helper support.
 
-MLP-MD workflows commonly use several tools in one experiment. Record the
-planned choices in `toolchain` or `toolchain_plan`, then record the concrete
-runtime fact in artifact metadata as `actual_tool_used`.
+All recipes use the same toolchain contract. DFT, AIMD, classical MD, phonon,
+NEB, and MLP-MD workflows may record single-tool or multi-tool plans in
+`toolchain` or `toolchain_plan`, then record the concrete runtime fact in
+artifact metadata as `actual_tool_used`. Recipe files can suggest activity
+roles, but they do not define software support levels.
 
 ## Common Work Patterns
 

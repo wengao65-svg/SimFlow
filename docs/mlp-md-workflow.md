@@ -33,23 +33,26 @@ Recommended artifact metadata:
 
 ## Toolchain Semantics
 
-MLP-MD proposals may name a primary `software` value and a multi-tool
-`toolchain`, but those fields are not workflow admission requirements. They are
-planning and provenance metadata from the proposal stage.
+MLP-MD uses the same shared toolchain contract as DFT, AIMD, classical MD,
+phonon, and NEB recipes. Proposals may name a primary `software` value and a
+multi-tool `toolchain`, but those fields are not workflow admission
+requirements. They are planning and provenance metadata from the proposal
+stage.
 
 Proposal contracts expose:
 
 - `toolchain_plan`: activity-level tool suggestions such as sampling,
-  labeling, training, validation MD, and analysis. It is not an executor DAG.
+  labeling, training, validation MD, and analysis. These activity labels come
+  from recipe metadata and are not an executor DAG.
 - `helper_support`: support levels for named tools. Current values are
   `helper_supported`, `tracked_only`, and `unknown`.
 - `actual_tool_used`: artifact/runtime metadata for the concrete tool, command,
   version, and environment when known.
 
-Only `vasp`, `cp2k`, and `lammps` currently have SimFlow helper support. Other
-MLP tools such as `gpumd`, `nep`, `neptrainkit`, `deepmd`, `mace`, `nequip`,
-`allegro`, `ase`, and `python` are tracked for provenance and handoff unless a
-dedicated helper is added later.
+Only `vasp`, `cp2k`, and `lammps` currently have SimFlow helper support.
+MLP-MD tools such as `gpumd`, `nep`, `neptrainkit`, `deepmd`, `mace`,
+`nequip`, `allegro`, `ase`, and `python` are classified by the shared
+toolchain contract, not by this recipe file.
 
 When a user asks a built-in stage runner to automate a `tracked_only` or
 `unknown` tool, the stage returns a `capability_warning` and keeps the stage in

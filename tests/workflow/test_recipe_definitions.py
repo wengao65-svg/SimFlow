@@ -48,6 +48,14 @@ def test_recipe_has_open_contract_fields():
         assert isinstance(data["stages"], list) and data["stages"]
 
 
+def test_recipes_do_not_define_software_support_levels():
+    forbidden = {"tracked_only_software", "helper_supported_software", "unsupported_software"}
+    for path in sorted(RECIPES_DIR.glob("*.json")):
+        data = json.loads(path.read_text())
+        present = forbidden & set(data)
+        assert not present, f"Recipe {path.name} must not define support-level fields: {sorted(present)}"
+
+
 def test_recipe_stages_use_canonical_stage_names():
     for path in sorted(RECIPES_DIR.glob("*.json")):
         data = json.loads(path.read_text())

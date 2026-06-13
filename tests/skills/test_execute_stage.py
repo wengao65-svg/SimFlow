@@ -475,6 +475,32 @@ def test_execute_stage_returns_capability_warning_for_tracked_only_input_generat
         assert stages_state["computation"]["status"] == "waiting"
 
 
+def test_execute_stage_returns_capability_warning_for_tracked_only_classical_md_tool():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build classical MD workflow",
+                "method: classical_md",
+                "material: Si",
+                "software: gromacs",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        modeling = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        stages_state = read_state(tmpdir, "stages.json")
+
+        assert modeling["status"] == "completed"
+        assert result["status"] == "capability_warning"
+        assert result["warning"]["software"] == "gromacs"
+        assert result["warning"]["support_level"] == "tracked_only"
+        assert stages_state["computation"]["status"] == "waiting"
+
+
 
 def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:

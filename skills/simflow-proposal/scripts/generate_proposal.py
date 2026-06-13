@@ -13,6 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import (
+    build_toolchain_plan,
+    classify_tool_support,
+    extract_toolchain,
+    normalize_tool_name,
+)
 
 
 REQUIRED_REVIEW_ARTIFACTS = ("review_summary.md", "gap_analysis.md")
@@ -24,22 +30,6 @@ CANONICAL_STAGE_SEQUENCE = [
     "analysis_visualization",
     "writing",
 ]
-SUPPORTED_HELPER_SOFTWARE = {"vasp", "cp2k", "lammps"}
-TRACKED_ONLY_SOFTWARE = {
-    "gpumd",
-    "nep",
-    "neptrainkit",
-    "deepmd",
-    "dpgen",
-    "mace",
-    "nequip",
-    "allegro",
-    "ase",
-    "custom",
-    "python",
-}
-
-
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
     """Resolve the project root from either a project root or .simflow path."""
     path = Path(workflow_dir).expanduser().resolve()
@@ -187,108 +177,15 @@ def _parameter_value_map(parameter_rows: list[dict]) -> dict:
     }
 
 
-def _normalize_tool_name(value) -> str:
-    return str(value).strip().lower().replace("-", "_")
-
-
-def _coerce_toolchain(value) -> list[str]:
-    if value in (None, ""):
-        return []
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            parsed = value.replace(";", ",").split(",")
-        return [_normalize_tool_name(item) for item in _coerce_toolchain(parsed)]
-    if isinstance(value, dict):
-        return _coerce_toolchain(value.get("tools") or value.get("software") or value.get("stack") or [])
-    if isinstance(value, (list, tuple, set)):
-        tools = []
-        for item in value:
-            if isinstance(item, dict):
-                name = item.get("name") or item.get("software") or item.get("tool")
-                if name:
-                    tools.append(_normalize_tool_name(name))
-            else:
-                tools.append(_normalize_tool_name(item))
-        return [tool for tool in tools if tool]
-    return [_normalize_tool_name(value)]
-
-
 def _extract_toolchain(metadata: dict, parameter_rows: list[dict]) -> list[str]:
-    parameter_values = _parameter_value_map(parameter_rows)
-    tools = []
-    for value in (
-        metadata.get("toolchain"),
-        metadata.get("software_stack"),
-        parameter_values.get("toolchain"),
-        parameter_values.get("software_stack"),
-    ):
-        tools.extend(_coerce_toolchain(value))
-    software = _normalize_tool_name(metadata.get("software") or parameter_values.get("software") or "")
-    if software and software != "custom":
-        tools.insert(0, software)
-    seen = set()
-    return [tool for tool in tools if tool and not (tool in seen or seen.add(tool))]
-
-
-def _software_support(toolchain: list[str]) -> dict:
-    builtin = [tool for tool in toolchain if tool in SUPPORTED_HELPER_SOFTWARE]
-    tracked_only = [
-        tool
-        for tool in toolchain
-        if tool not in SUPPORTED_HELPER_SOFTWARE and tool in TRACKED_ONLY_SOFTWARE
-    ]
-    unknown = [
-        tool
-        for tool in toolchain
-        if tool not in SUPPORTED_HELPER_SOFTWARE and tool not in TRACKED_ONLY_SOFTWARE
-    ]
-    return {
-        "builtin_helpers": builtin,
-        "tracked_only": tracked_only,
-        "unknown": unknown,
-        "support_levels": {
-            **{tool: "helper_supported" for tool in builtin},
-            **{tool: "tracked_only" for tool in tracked_only},
-            **{tool: "unknown" for tool in unknown},
-        },
-        "policy": "Builtin helper software may use SimFlow helpers; tracked-only tools are recorded for provenance, lineage, and handoff only.",
-    }
-
-
-def _toolchain_plan(workflow_type: str, software: str, toolchain: list[str]) -> dict:
-    if workflow_type == "mlp_md":
-        provided = toolchain or ([software] if software and software != "custom" else [])
-        return {
-            "plan_id": "toolchain_plan_001",
-            "source": "proposal_metadata",
-            "policy": "Recommended activity-level tool choices; this is not an executor DAG.",
-            "activities": {
-                "sampling": [tool for tool in provided if tool in {"cp2k", "lammps", "gpumd", "ase"}] or ["cp2k", "lammps", "custom"],
-                "selection": [tool for tool in provided if tool in {"neptrainkit", "python"}] or ["neptrainkit", "custom"],
-                "labeling": [tool for tool in provided if tool in {"vasp", "cp2k"}] or ["vasp", "cp2k"],
-                "dataset_build": [tool for tool in provided if tool in {"ase", "python"}] or ["custom", "ase"],
-                "training": [tool for tool in provided if tool in {"gpumd", "nep", "deepmd", "mace", "nequip", "allegro"}] or ["gpumd", "nep", "deepmd", "mace", "nequip", "custom"],
-                "validation_md": [tool for tool in provided if tool in {"gpumd", "lammps"}] or ["gpumd", "lammps", "custom"],
-                "analysis": [tool for tool in provided if tool in {"python", "neptrainkit"}] or ["python", "custom"],
-            },
-        }
-    return {
-        "plan_id": "toolchain_plan_001",
-        "source": "proposal_metadata",
-        "policy": "Primary tool preference for downstream helper routing and provenance.",
-        "activities": {
-            "primary": toolchain or ([software] if software else ["custom"]),
-        },
-    }
+    return extract_toolchain(metadata, _parameter_value_map(parameter_rows))
 
 
 def build_research_questions(metadata: dict, gap_analysis: str, parameter_rows: list[dict]) -> dict:
     """Build deterministic machine-readable research questions for Milestone C."""
     goal = metadata.get("research_goal", "the current research goal").strip() or "the current research goal"
     material = metadata.get("material", "the target system").strip() or "the target system"
-    software = metadata.get("software", "custom").strip() or "custom"
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
     gap_bullets = extract_gap_bullets(gap_analysis)
     parameter_keys = [
         row["parameter"]
@@ -345,7 +242,7 @@ def build_proposal_contract(
 ) -> dict:
     """Build the machine-readable proposal contract consumed by later stages."""
     workflow_type = metadata.get("workflow_type", "dft")
-    software = metadata.get("software", "custom")
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
     material = metadata.get("material", "Not specified")
     goal = metadata.get("research_goal", "Not specified")
     gap_bullets = extract_gap_bullets(gap_analysis)
@@ -353,9 +250,9 @@ def build_proposal_contract(
     toolchain = _extract_toolchain(metadata, parameter_rows)
     if software and software != "custom" and software not in toolchain:
         toolchain = [software, *toolchain]
-    software_support = _software_support(toolchain)
+    software_support = classify_tool_support(toolchain)
     software_support["requested_software"] = software
-    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
     literature_status = "provided" if source_artifact_ids else "not_provided"
     literature_summary = [
         line[2:].strip()
@@ -459,7 +356,7 @@ def build_protocol_contract(
 ) -> dict:
     """Build a software-neutral protocol contract for downstream stage handoff."""
     workflow_type = metadata.get("workflow_type", "dft")
-    software = metadata.get("software", "custom")
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
     material = metadata.get("material", "Not specified")
     goal = metadata.get("research_goal", "Not specified")
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
@@ -473,9 +370,9 @@ def build_protocol_contract(
     toolchain = _extract_toolchain(metadata, parameter_rows)
     if software and software != "custom" and software not in toolchain:
         toolchain = [software, *toolchain]
-    software_support = _software_support(toolchain)
+    software_support = classify_tool_support(toolchain)
     software_support["requested_software"] = software
-    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
 
     inputs = [
         {

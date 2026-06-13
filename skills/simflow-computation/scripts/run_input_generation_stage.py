@@ -22,11 +22,13 @@ from runtime.simflow_core.artifacts import get_artifact, register_artifact
 from runtime.simflow_core.proposals import (
     STRUCTURE_HINT_KEYS,
     TASK_KEYS,
-    capability_warning,
     load_proposal_contract,
-    support_level_for_tool,
 )
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import (
+    build_actual_tool_used,
+    capability_warning,
+)
 from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
 
 VASP_TASK_ALIASES = {
@@ -229,13 +231,7 @@ def _direct_input_manifest(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
-        "actual_tool_used": {
-            "name": software,
-            "support_level": support_level_for_tool(contract, software),
-            "command": None,
-            "version": None,
-            "environment": None,
-        },
+        "actual_tool_used": build_actual_tool_used(contract, software),
         "status": "planned" if dry_run else "completed",
         "source": "user_provided_input_files",
         "parent_artifact_ids": [],
@@ -349,13 +345,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
-        "actual_tool_used": {
-            "name": software,
-            "support_level": support_level_for_tool(contract, software),
-            "command": None,
-            "version": None,
-            "environment": None,
-        },
+        "actual_tool_used": build_actual_tool_used(contract, software),
         "status": "planned" if dry_run else "completed",
         "source_structure": structure_artifact["path"],
         "structure_artifact_id": structure_artifact["artifact_id"],

@@ -16,8 +16,9 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
-from runtime.simflow_core.proposals import capability_warning, load_proposal_contract, support_level_for_tool
+from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import build_actual_tool_used, capability_warning
 from runtime.simflow_helpers.computation.readiness import build_computation_readiness, write_readiness_evidence
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
 from runtime.simflow_helpers.engines.vasp import build_vasp_task_plan
@@ -283,13 +284,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
-        "actual_tool_used": {
-            "name": software,
-            "support_level": support_level_for_tool(contract, software),
-            "command": None,
-            "version": None,
-            "environment": None,
-        },
+        "actual_tool_used": build_actual_tool_used(contract, software),
         "dry_run": True,
         "real_submit": False,
         "approval_required_for_real_submit": True,

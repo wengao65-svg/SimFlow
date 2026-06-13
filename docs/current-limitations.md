@@ -16,9 +16,9 @@ artifact-recording assistance. They remain optional helpers and do not make
 SimFlow a workflow executor.
 
 Software names outside this helper set do not block workflow planning or
-artifact tracking. SimFlow records them as `tracked_only` or `unknown`
-toolchain metadata and requires user-provided scripts, official documentation,
-or custom artifacts for the scientific work.
+artifact tracking. A shared toolchain contract records them as `tracked_only`
+or `unknown` metadata and requires user-provided scripts, official
+documentation, or custom artifacts for the scientific work.
 
 ## Unsupported Placeholders
 
@@ -31,10 +31,12 @@ artifacts with explicit unsupported status. Do not advertise engine-specific
 input generation, validation, parsing, or scientific conclusions for these
 engines until product support and release tests are added.
 
-The same boundary applies to MLP tools without dedicated helpers in this
-release, including GPUMD, NEP, NEPTrainKit, DeePMD, MACE, NequIP, and Allegro.
-They may appear in proposal toolchains and artifact provenance, but SimFlow
-does not provide engine-specific automation for them yet.
+The same boundary applies across DFT, AIMD, classical MD, phonon, NEB, and
+MLP-MD recipes. Tools without dedicated helpers in this release, including
+Quantum ESPRESSO, ABINIT, GROMACS, OpenMM, Phonopy, GPUMD, NEP, NEPTrainKit,
+DeePMD, MACE, NequIP, and Allegro, may appear in proposal toolchains and
+artifact provenance, but SimFlow does not provide engine-specific automation
+for them yet.
 
 ## Execution Boundary
 
