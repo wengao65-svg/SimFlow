@@ -215,3 +215,35 @@ def test_init_research_writes_normalized_research_sources_to_metadata():
         assert research_sources["items"][1]["path"] == "refs/references.bib"
         assert research_sources["items"][2]["doi"] == "10.1000/alpha"
         assert research_sources["items"][5]["label"] == "manual-gap"
+
+
+def test_parse_research_input_collects_toolchain_metadata():
+    parsed = parse_research_input(
+        "goal: MLP-MD\nmethod: mlp_md\nsoftware: gpumd\ntoolchain: cp2k, vasp, gpumd, nep, neptrainkit\n"
+    )
+
+    assert parsed["workflow_type"] == "mlp_md"
+    assert parsed["software"] == "gpumd"
+    assert parsed["toolchain"] == ["cp2k", "vasp", "gpumd", "nep", "neptrainkit"]
+
+
+def test_init_research_accepts_mlp_md_recipe_without_new_stages():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = init_research(
+            input_text="\n".join([
+                "goal: build a NEP-driven MLP-MD workflow",
+                "method: mlp_md",
+                "material: REE hydrate",
+                "software: gpumd",
+                "toolchain: cp2k, vasp, gpumd, nep, neptrainkit",
+            ]),
+            output_dir=tmpdir,
+        )
+        metadata = read_state(tmpdir, "metadata.json")
+
+        assert result["workflow_type"] == "mlp_md"
+        assert result["current_stage"] == "literature_review"
+        assert metadata["recipe_definition"].endswith("workflow/recipes/mlp_md.json")
+        assert metadata["stages"] == CANONICAL_STAGE_SEQUENCE
+        assert metadata["software"] == "gpumd"
+        assert metadata["toolchain"] == ["cp2k", "vasp", "gpumd", "nep", "neptrainkit"]

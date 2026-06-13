@@ -12,6 +12,8 @@ agent.
   and safety gates.
 - [Workflow Layer Design](workflow-layer-design.md): canonical stage and recipe
   semantics.
+- [MLP-MD Workflow Recipe](mlp-md-workflow.md): machine-learning-potential MD
+  stage mapping, evidence roles, and production-readiness gate.
 - [Skill Design](skill-design.md): skill-first contracts and domain assistant
   rules.
 - [MCP Design](mcp-design.md): recording-tool boundaries and project-root

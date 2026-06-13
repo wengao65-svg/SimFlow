@@ -81,6 +81,7 @@ def test_backbone_workflow_e2e():
             "parameter_table.csv",
             "research_questions.json",
             "proposal_contract.json",
+            "protocol_contract.json",
         }.issubset(set(artifact_names))
         assert any(artifact["type"] == "paper_notes" for artifact in artifacts)
 
@@ -100,4 +101,5 @@ def test_backbone_workflow_e2e():
             "parameter_table.csv",
             "research_questions.json",
             "proposal_contract.json",
+            "protocol_contract.json",
         ]

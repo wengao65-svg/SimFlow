@@ -54,6 +54,7 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         parameter_table_path = project_root / ".simflow" / "plans" / "parameter_table.csv"
         research_questions_path = project_root / ".simflow" / "plans" / "research_questions.json"
         proposal_contract_path = project_root / ".simflow" / "plans" / "proposal_contract.json"
+        protocol_contract_path = project_root / ".simflow" / "plans" / "protocol_contract.json"
         proposal_content = proposal_path.read_text(encoding="utf-8")
         proposal_artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
         review_artifacts = list_artifacts(stage="literature_review", project_root=tmpdir)
@@ -65,6 +66,7 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         assert parameter_table_path.is_file()
         assert research_questions_path.is_file()
         assert proposal_contract_path.is_file()
+        assert protocol_contract_path.is_file()
         assert "# Proposal" in proposal_content
         assert "Goal: study Si surface reconstruction" in proposal_content
         assert "- encut: 520" in proposal_content
@@ -73,7 +75,7 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
         assert "## Decision Criteria" in proposal_content
         assert "## Risk Register" in proposal_content
         assert "## Resource Assumptions" in proposal_content
-        assert len(proposal_artifacts) == 4
+        assert len(proposal_artifacts) == 5
         assert proposal_artifacts[0]["name"] == "proposal.md"
         assert proposal_artifacts[0]["path"] == ".simflow/plans/proposal.md"
         assert proposal_artifacts[0]["metadata"]["evidence_key"] == "proposal"
@@ -104,6 +106,19 @@ def test_generate_proposal_writes_markdown_csv_json_and_registry_entries():
             proposal_artifacts[0]["artifact_id"],
             proposal_artifacts[1]["artifact_id"],
             proposal_artifacts[2]["artifact_id"],
+        ]
+        assert proposal_artifacts[4]["name"] == "protocol_contract.json"
+        assert proposal_artifacts[4]["path"] == ".simflow/plans/protocol_contract.json"
+        assert proposal_artifacts[4]["metadata"]["evidence_keys"] == [
+            "ordered_steps",
+            "acceptance_gates",
+            "dry_run_requirements",
+        ]
+        assert proposal_artifacts[4]["lineage"]["parent_artifacts"] == [
+            proposal_artifacts[0]["artifact_id"],
+            proposal_artifacts[1]["artifact_id"],
+            proposal_artifacts[2]["artifact_id"],
+            proposal_artifacts[3]["artifact_id"],
         ]
 
         with parameter_table_path.open(encoding="utf-8", newline="") as handle:
@@ -179,7 +194,7 @@ def test_generate_proposal_allows_direct_proposal_entry_without_literature_artif
         assert proposal_contract["source_artifact_ids"] == []
         assert proposal_contract["literature_evidence_summary"]["status"] == "not_provided"
         assert proposal_contract["risk_register"][0]["risk_id"] == "risk_000"
-        assert len(proposal_artifacts) == 4
+        assert len(proposal_artifacts) == 5
 
 
 def test_generate_proposal_errors_without_workflow_state():

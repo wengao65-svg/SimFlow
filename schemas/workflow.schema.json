@@ -23,7 +23,7 @@
     },
     "recipe": {
       "type": "string",
-      "description": "Optional recipe name such as dft, aimd, classical_md, phonon, neb, or custom"
+      "description": "Optional recipe name such as dft, aimd, classical_md, phonon, neb, mlp_md, or custom"
     },
     "tags": {
       "type": "array",

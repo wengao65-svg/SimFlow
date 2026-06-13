@@ -70,7 +70,7 @@ def assert_canonical_package_surface(plugin_root: Path) -> None:
         "writing",
     ]:
         assert (plugin_root / "workflow" / "stages" / f"{name}.json").is_file()
-    for name in ["dft", "aimd", "classical_md", "phonon", "neb", "custom"]:
+    for name in ["dft", "aimd", "classical_md", "phonon", "neb", "custom", "mlp_md"]:
         assert (plugin_root / "workflow" / "recipes" / f"{name}.json").is_file()
     restricted = [path for path in plugin_root.rglob("*") if path.name in RESTRICTED_VASP_NAMES]
     assert restricted == []

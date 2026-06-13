@@ -24,6 +24,19 @@ CANONICAL_STAGE_SEQUENCE = [
     "analysis_visualization",
     "writing",
 ]
+SUPPORTED_HELPER_SOFTWARE = {"vasp", "cp2k", "lammps"}
+TRACKED_ONLY_SOFTWARE = {
+    "gpumd",
+    "nep",
+    "neptrainkit",
+    "deepmd",
+    "dpgen",
+    "mace",
+    "nequip",
+    "allegro",
+    "ase",
+    "custom",
+}
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -113,6 +126,15 @@ def build_parameter_rows(metadata: dict) -> list[dict]:
             "notes": "Target material or system under study.",
         },
     ]
+    for key in ("toolchain", "software_stack"):
+        if key in metadata and metadata.get(key) not in (None, "", [], {}):
+            value = metadata[key]
+            rows.append({
+                "parameter": key,
+                "value": json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value),
+                "source": "metadata",
+                "notes": "Software/toolchain provenance for multi-tool workflows.",
+            })
     for key, value in metadata.get("parameters", {}).items():
         rows.append({
             "parameter": key,
@@ -142,6 +164,88 @@ def _as_list(value) -> list:
 def _provided(value) -> bool:
     """Return whether a metadata value is meaningful enough for protocol intake."""
     return value not in (None, "", "Not specified")
+
+
+def _parse_parameter_value(value):
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return ""
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return stripped
+
+
+def _parameter_value_map(parameter_rows: list[dict]) -> dict:
+    return {
+        row["parameter"]: _parse_parameter_value(row.get("value", ""))
+        for row in parameter_rows
+        if row.get("parameter")
+    }
+
+
+def _normalize_tool_name(value) -> str:
+    return str(value).strip().lower().replace("-", "_")
+
+
+def _coerce_toolchain(value) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = value.replace(";", ",").split(",")
+        return [_normalize_tool_name(item) for item in _coerce_toolchain(parsed)]
+    if isinstance(value, dict):
+        return _coerce_toolchain(value.get("tools") or value.get("software") or value.get("stack") or [])
+    if isinstance(value, (list, tuple, set)):
+        tools = []
+        for item in value:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("software") or item.get("tool")
+                if name:
+                    tools.append(_normalize_tool_name(name))
+            else:
+                tools.append(_normalize_tool_name(item))
+        return [tool for tool in tools if tool]
+    return [_normalize_tool_name(value)]
+
+
+def _extract_toolchain(metadata: dict, parameter_rows: list[dict]) -> list[str]:
+    parameter_values = _parameter_value_map(parameter_rows)
+    tools = []
+    for value in (
+        metadata.get("toolchain"),
+        metadata.get("software_stack"),
+        parameter_values.get("toolchain"),
+        parameter_values.get("software_stack"),
+    ):
+        tools.extend(_coerce_toolchain(value))
+    software = _normalize_tool_name(metadata.get("software") or parameter_values.get("software") or "")
+    if software and software != "custom":
+        tools.insert(0, software)
+    seen = set()
+    return [tool for tool in tools if tool and not (tool in seen or seen.add(tool))]
+
+
+def _software_support(toolchain: list[str]) -> dict:
+    return {
+        "builtin_helpers": [tool for tool in toolchain if tool in SUPPORTED_HELPER_SOFTWARE],
+        "tracked_only": [
+            tool
+            for tool in toolchain
+            if tool not in SUPPORTED_HELPER_SOFTWARE and tool in TRACKED_ONLY_SOFTWARE
+        ],
+        "unknown": [
+            tool
+            for tool in toolchain
+            if tool not in SUPPORTED_HELPER_SOFTWARE and tool not in TRACKED_ONLY_SOFTWARE
+        ],
+        "policy": "Builtin helper software may use SimFlow helpers; tracked-only tools are recorded for provenance, lineage, and handoff only.",
+    }
 
 
 def build_research_questions(metadata: dict, gap_analysis: str, parameter_rows: list[dict]) -> dict:
@@ -210,6 +314,8 @@ def build_proposal_contract(
     goal = metadata.get("research_goal", "Not specified")
     gap_bullets = extract_gap_bullets(gap_analysis)
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
+    toolchain = _extract_toolchain(metadata, parameter_rows)
+    software_support = _software_support(toolchain)
     literature_status = "provided" if source_artifact_ids else "not_provided"
     literature_summary = [
         line[2:].strip()
@@ -221,6 +327,8 @@ def build_proposal_contract(
         "generated_at": generated_at,
         "workflow_type": workflow_type,
         "software": software,
+        "toolchain": toolchain,
+        "software_support": software_support,
         "material": material,
         "research_goal": goal,
         "source_artifact_ids": source_artifact_ids,
@@ -234,6 +342,8 @@ def build_proposal_contract(
             "stage": "proposal",
             "recipe_or_tag": workflow_type,
             "software": software,
+            "toolchain": toolchain,
+            "software_support": software_support,
             "material": material,
             "planned_next_stages": ["modeling", "computation", "analysis_visualization", "writing"],
             "dry_run_first": True,
@@ -316,6 +426,8 @@ def build_protocol_contract(
         "approval_triggers",
         ["large_resource_commitment", "licensed_or_proprietary_file_handling"],
     )
+    toolchain = _extract_toolchain(metadata, parameter_rows)
+    software_support = _software_support(toolchain)
 
     inputs = [
         {
@@ -367,6 +479,14 @@ def build_protocol_contract(
             "status": "provided" if parameter_rows else "not_provided",
             "parameter_count": len(parameter_rows),
         },
+        {
+            "input_id": "input_007",
+            "name": "toolchain",
+            "source": "metadata.toolchain_or_parameter_table",
+            "required": workflow_type == "mlp_md",
+            "status": "provided" if toolchain else "missing",
+            "value": toolchain,
+        },
     ]
 
     variables = [
@@ -417,6 +537,8 @@ def build_protocol_contract(
             "material": material,
             "workflow_type": workflow_type,
             "software": software,
+            "toolchain": toolchain,
+            "software_support": software_support,
         },
         "evidence_limits": {
             "literature_status": literature_status,
@@ -429,6 +551,8 @@ def build_protocol_contract(
             ),
         },
         "inputs": inputs,
+        "toolchain": toolchain,
+        "software_support": software_support,
         "variables": variables,
         "control_groups": control_groups,
         "ordered_steps": [
@@ -588,6 +712,11 @@ def build_proposal_markdown(
         for key, value in proposal_contract["resource_assumptions"].items()
     ]
     source_lines = [f"- {artifact_id}" for artifact_id in proposal_contract["source_artifact_ids"]]
+    toolchain = protocol_contract.get("toolchain", [])
+    support = protocol_contract.get("software_support", {})
+    toolchain_lines = [f"- Toolchain: {json.dumps(toolchain, ensure_ascii=False)}"]
+    if support.get("tracked_only"):
+        toolchain_lines.append(f"- Tracked-only tools: {json.dumps(support['tracked_only'], ensure_ascii=False)}")
     protocol_gate_lines = [
         f"- {gate['gate_id']}: {gate['name']}"
         for gate in protocol_contract.get("acceptance_gates", [])
@@ -601,6 +730,7 @@ def build_proposal_markdown(
         f"- Material: {metadata.get('material', 'Not specified')}",
         f"- Workflow type: {metadata.get('workflow_type', 'dft')}",
         f"- Software: {metadata.get('software', 'vasp')}",
+        *toolchain_lines,
         "",
         "## Review Inputs",
         *summary_section,
@@ -608,6 +738,7 @@ def build_proposal_markdown(
         "## Proposed Plan",
         f"- Start from the {metadata.get('workflow_type', 'dft')} workflow entry point defined in canonical metadata.",
         f"- Use {metadata.get('software', 'vasp')} as the primary simulation engine unless review findings force a change.",
+        "- Record multi-tool workflows through toolchain metadata; only built-in helper software is treated as helper-supported.",
         f"- Focus the next modeling decisions on {metadata.get('material', 'the target system')} with the user goal kept explicit.",
         "",
         "## Protocol Outline",
@@ -718,7 +849,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=parent_artifacts,
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
-        metadata={"evidence_key": "proposal"},
+        metadata={
+            "evidence_key": "proposal",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     parameter_artifact = register_artifact(
         "parameter_table.csv",
@@ -729,7 +864,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"]],
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
-        metadata={"evidence_key": "parameter_rationale"},
+        metadata={
+            "evidence_key": "parameter_rationale",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     research_questions_artifact = register_artifact(
         "research_questions.json",
@@ -740,7 +879,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"], parameter_artifact["artifact_id"]],
         parameters={"question_count": len(research_questions["questions"])},
         software=metadata.get("software"),
-        metadata={"evidence_key": "research_questions"},
+        metadata={
+            "evidence_key": "research_questions",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     proposal_contract_artifact = register_artifact(
         "proposal_contract.json",
@@ -755,7 +898,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         ],
         parameters={"decision_criteria_count": len(proposal_contract["decision_criteria"])},
         software=metadata.get("software"),
-        metadata={"evidence_keys": ["calculation_plan", "resource_estimate", "risk_register"]},
+        metadata={
+            "evidence_keys": ["calculation_plan", "resource_estimate", "risk_register"],
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     protocol_contract_artifact = register_artifact(
         "protocol_contract.json",
@@ -774,7 +921,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
             "gate_count": len(protocol_contract["acceptance_gates"]),
         },
         software=metadata.get("software"),
-        metadata={"evidence_keys": ["ordered_steps", "acceptance_gates", "dry_run_requirements"]},
+        metadata={
+            "evidence_keys": ["ordered_steps", "acceptance_gates", "dry_run_requirements"],
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
 
     return {

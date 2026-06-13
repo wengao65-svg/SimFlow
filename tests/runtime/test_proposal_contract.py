@@ -25,7 +25,14 @@ from generate_review import generate_review
 from runtime.simflow_helpers.project.intake import init_research
 
 
-def _prepare_proposal(tmpdir: str, *, software: str = "vasp", parameters: str = '{"encut": 520, "kmesh": "4x4x1"}') -> Path:
+def _prepare_proposal(
+    tmpdir: str,
+    *,
+    software: str = "vasp",
+    workflow_type: str = "dft",
+    parameters: str = '{"encut": 520, "kmesh": "4x4x1"}',
+    toolchain: str | None = None,
+) -> Path:
     project_root = Path(tmpdir)
     pdf_path = project_root / "papers" / "surface.pdf"
     bib_path = project_root / "refs" / "references.bib"
@@ -38,7 +45,9 @@ def _prepare_proposal(tmpdir: str, *, software: str = "vasp", parameters: str = 
         input_text="\n".join([
             "goal: study Si surface reconstruction",
             "material: Si(001)",
+            f"method: {workflow_type}",
             f"software: {software}",
+            *([f"toolchain: {toolchain}"] if toolchain else []),
             f"parameters: {parameters}",
             "pdfs: papers/surface.pdf",
             "bibtex: refs/references.bib",
@@ -164,6 +173,34 @@ def test_load_proposal_contract_rejects_unsupported_software():
             assert str(exc) == "Unsupported software for Milestone C: qe"
         else:
             raise AssertionError("Expected ValueError")
+
+
+def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = _prepare_proposal(
+            tmpdir,
+            software="gpumd",
+            workflow_type="mlp_md",
+            parameters='{"dataset_split": "90/10"}',
+            toolchain="cp2k, vasp, gpumd, nep, neptrainkit",
+        )
+        contract = load_proposal_contract(str(project_root / ".simflow"))
+        protocol = contract["protocol_contract"]
+        artifacts = list_artifacts(stage="proposal", project_root=tmpdir)
+        protocol_artifact = next(artifact for artifact in artifacts if artifact["name"] == "protocol_contract.json")
+
+        assert contract["workflow_type"] == "mlp_md"
+        assert contract["software"] == "custom"
+        assert contract["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
+        assert contract["software_support"]["builtin_helpers"] == ["cp2k", "vasp"]
+        assert contract["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
+        assert contract["software_support"]["primary_software_normalized_from"] == "gpumd"
+        assert protocol["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
+        assert protocol["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
+        assert protocol["inputs"][-1]["name"] == "toolchain"
+        assert protocol["inputs"][-1]["required"] is True
+        assert protocol_artifact["metadata"]["recipe"] == "mlp_md"
+        assert protocol_artifact["metadata"]["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
 
 
 def test_load_proposal_contract_accepts_lammps_direct_entry_metadata():

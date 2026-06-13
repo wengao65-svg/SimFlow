@@ -28,6 +28,15 @@ def _write_hpc_evidence(project_root: Path, *, include_credentials: bool = True)
         _write_json(artifacts / "security" / "credential_scan.json", {"findings": []})
 
 
+def _write_production_md_readiness_evidence(project_root: Path):
+    artifacts = project_root / ".simflow" / "artifacts"
+    _write_json(artifacts / "analysis" / "dataset_manifest.json", {"lineage_complete": True})
+    _write_json(artifacts / "compute" / "training_run_manifest.json", {"status": "completed"})
+    _write_json(artifacts / "analysis" / "model_validation_report.json", {"status": "pass"})
+    _write_json(artifacts / "compute" / "long_md_manifest.json", {"smoke_status": "pass"})
+    _write_json(artifacts / "analysis" / "anomaly_report.json", {"thresholds_defined": True})
+
+
 def test_list_gates():
     """All 9 gates should be listed."""
     gates = list_gates()
@@ -49,6 +58,14 @@ def test_load_gate():
     assert "submit_job" in gate["actions_on_approve"]
     assert gate["auto_approve"] is False
     print("  load_gate OK")
+
+
+def test_load_production_md_readiness_gate():
+    gate = load_gate("production_md_readiness")
+    assert gate["name"] == "production_md_readiness"
+    assert gate["conditions"][0]["id"] == "dataset_lineage_complete"
+    assert gate["conditions"][-1]["id"] == "approval_present"
+    assert "allow_production_mlp_md" in gate["actions_on_approve"]
 
 
 def test_load_gate_not_found():
@@ -166,6 +183,47 @@ def test_hpc_submit_missing_evidence_blocks():
     credential_detail = next(d for d in result["details"] if d["id"] == "credentials_clean")
     assert credential_detail["error"].startswith("missing_evidence")
     print("  hpc_submit_missing_evidence_blocks OK")
+
+
+def test_production_md_readiness_blocks_without_training_completion():
+    gate = load_gate("production_md_readiness")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _write_production_md_readiness_evidence(project_root)
+        _write_json(
+            project_root / ".simflow" / "artifacts" / "compute" / "training_run_manifest.json",
+            {"status": "running"},
+        )
+        record_gate_decision(
+            "production_md_readiness", "approved", {"reason": "operator approved validation evidence"},
+            project_root=tmpdir, agent="test_agent",
+        )
+        result = evaluate_conditions(gate, {"project_root": tmpdir})
+
+    assert result["all_met"] is False
+    assert "training_completed" in result["unmet"]
+
+
+def test_production_md_readiness_passes_with_evidence_and_approval():
+    gate = load_gate("production_md_readiness")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _write_production_md_readiness_evidence(project_root)
+        record_gate_decision(
+            "production_md_readiness", "approved", {"reason": "operator approved validation evidence"},
+            project_root=tmpdir, agent="test_agent",
+        )
+        result = evaluate_conditions(gate, {"project_root": tmpdir})
+
+    assert result["all_met"] is True
+    assert result["met"] == [
+        "dataset_lineage_complete",
+        "training_completed",
+        "validation_passed",
+        "long_md_smoke_passed",
+        "anomaly_thresholds_defined",
+        "approval_present",
+    ]
 
 
 def test_check_gate_pass():

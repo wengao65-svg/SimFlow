@@ -13,7 +13,7 @@ from runtime.simflow_core.workflow import (
 ROOT = Path(__file__).resolve().parents[2]
 RECIPES_DIR = ROOT / "workflow" / "recipes"
 
-EXPECTED_RECIPES = ["dft", "aimd", "classical_md", "phonon", "neb", "custom"]
+EXPECTED_RECIPES = ["dft", "aimd", "classical_md", "phonon", "neb", "custom", "mlp_md"]
 CANONICAL_STAGES = {"literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"}
 REQUIRED_RECIPE_FIELDS = ["name", "recipe_type", "intent", "stages", "evidence_outputs", "recommended_checks", "approval_triggers"]
 
@@ -75,6 +75,14 @@ def test_runtime_loads_json_recipe():
     assert recipe["name"] == "dft"
     assert recipe["recipe_type"] == "dft"
     assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
+
+
+def test_mlp_md_recipe_is_recipe_not_new_stage():
+    recipe = load_recipe("mlp_md")
+    assert recipe["stages"] == ["literature_review", "proposal", "modeling", "computation", "analysis_visualization", "writing"]
+    assert "training_run_manifest" in recipe["evidence_outputs"]
+    assert "active_learning_round_manifest" in recipe["artifact_metadata_conventions"]["evidence_roles"]
+    assert "production_md_readiness" in recipe["approval_triggers"]
 
 
 def test_md_alias_is_not_supported():
