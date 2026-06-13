@@ -21,9 +21,10 @@ or `unknown` metadata and requires user-provided scripts, official
 documentation, or custom artifacts for the scientific work.
 
 For tracked-only or unknown tools, SimFlow provides generic evidence intake
-rather than engine automation. Users or agents can register existing scripts,
-inputs, validation summaries, dry-run reports, resource estimates, outputs, and
-environment metadata so readiness and handoff remain traceable.
+rather than engine automation. Users or agents can register existing
+computation scripts, inputs, validation summaries, dry-run reports, resource
+estimates, outputs, environment metadata, analysis scripts, metrics, figures,
+and QA reports so readiness and handoff remain traceable.
 
 ## Unsupported Placeholders
 

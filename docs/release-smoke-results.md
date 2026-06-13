@@ -25,6 +25,20 @@ credentials, hostnames that should remain private, or proprietary file content.
 - [x] `npm run build:claude-marketplace`
 - [x] `SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin`: 0 errors
 
+## Post-0.8.12 Development Validation Snapshot
+
+This snapshot records source-tree validation after the generic MLP-MD evidence
+and recovery hardening work. It is not a manual marketplace install smoke and
+does not replace the unchecked host-level install items below.
+
+- Source commit: `b83bc1b Add MLP-MD readiness and recovery exercises`
+- Date: 2026-06-14
+- `git status --short --branch`: clean
+- `python -m pytest tests/ -q`: 577 passed, 7 skipped
+- `npm run validate:all`: 0 errors
+- `python scripts/audit_skill_scripts.py`: all helper contracts OK
+- `npm run validate:release -- --skip-wrapper-build`: 0 errors
+
 ## Codex Install Smoke
 
 - [ ] `codex plugin marketplace add wengao65-svg/SimFlow --ref codex-marketplace`
