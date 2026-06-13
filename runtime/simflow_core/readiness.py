@@ -39,6 +39,12 @@ def _evidence_key(entry: Any) -> str:
     return str(entry)
 
 
+def _evidence_required_when(entry: Any) -> str | None:
+    if isinstance(entry, dict) and entry.get("required_when"):
+        return str(entry["required_when"])
+    return None
+
+
 def _load_stage_contract(stage: str) -> dict[str, Any] | None:
     path = STAGES_DIR / f"{stage}.json"
     if not path.is_file():
@@ -79,11 +85,36 @@ def _artifact_evidence_keys(artifact: dict[str, Any]) -> set[str]:
     return {key for key in keys if key}
 
 
+def _has_real_submit_evidence(stage_artifacts: list[dict[str, Any]]) -> bool:
+    for artifact in stage_artifacts:
+        metadata = _as_dict(artifact.get("metadata"))
+        lineage_parameters = _as_dict(_as_dict(artifact.get("lineage")).get("parameters"))
+        keys = _artifact_evidence_keys(artifact)
+        if "job_record_if_submitted" in keys or "job_record" in keys:
+            return True
+        for payload in (metadata, lineage_parameters):
+            execution_truth = _as_dict(payload.get("execution_truth"))
+            if payload.get("real_submit") is True or execution_truth.get("real_submit") is True:
+                return True
+    return False
+
+
+def _evidence_is_required(entry: Any, artifacts: list[dict[str, Any]]) -> bool:
+    required_when = _evidence_required_when(entry)
+    if required_when is None:
+        return True
+    if required_when == "real_submit_recorded":
+        return _has_real_submit_evidence(artifacts)
+    return True
+
+
 def _match_evidence(contract: dict[str, Any], artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     checks = []
     for entry in _as_list(contract.get("evidence_outputs")):
         key = _evidence_key(entry)
         normalized = _normalize_key(key)
+        required_when = _evidence_required_when(entry)
+        required = _evidence_is_required(entry, artifacts)
         matches = [
             artifact
             for artifact in artifacts
@@ -91,6 +122,8 @@ def _match_evidence(contract: dict[str, Any], artifacts: list[dict[str, Any]]) -
         ]
         checks.append({
             "evidence_key": key,
+            "required": required,
+            "required_when": required_when,
             "present": bool(matches),
             "matching_artifact_ids": [artifact.get("artifact_id") for artifact in matches],
             "matching_artifact_names": [artifact.get("name") for artifact in matches],
@@ -132,20 +165,6 @@ def _stage_missing_lineage_parents(
         item for item in missing
         if item.get("child_artifact_id") in stage_artifact_ids
     ]
-
-
-def _has_real_submit_evidence(stage_artifacts: list[dict[str, Any]]) -> bool:
-    for artifact in stage_artifacts:
-        metadata = _as_dict(artifact.get("metadata"))
-        lineage_parameters = _as_dict(_as_dict(artifact.get("lineage")).get("parameters"))
-        keys = _artifact_evidence_keys(artifact)
-        if "job_record_if_submitted" in keys or "job_record" in keys:
-            return True
-        for payload in (metadata, lineage_parameters):
-            execution_truth = _as_dict(payload.get("execution_truth"))
-            if payload.get("real_submit") is True or execution_truth.get("real_submit") is True:
-                return True
-    return False
 
 
 def _approved_hpc_decision(gates: dict[str, Any]) -> dict[str, Any] | None:
@@ -245,7 +264,8 @@ def build_stage_readiness(project_root: str, stage: str | None = None) -> dict[s
     stage_state = _as_dict(state["stages"].get(selected_stage))
     stage_status = stage_state.get("status", "pending")
     evidence_checks = _match_evidence(contract, artifacts)
-    missing_evidence = [item for item in evidence_checks if not item["present"]]
+    required_evidence = [item for item in evidence_checks if item["required"]]
+    missing_evidence = [item for item in required_evidence if not item["present"]]
     missing_paths = _stage_missing_paths(root, artifacts)
     missing_parents = _stage_missing_lineage_parents(selected_stage, state["artifacts"], state["lineage"])
 
@@ -301,8 +321,8 @@ def build_stage_readiness(project_root: str, stage: str | None = None) -> dict[s
             "handoff_notes": _as_list(contract.get("handoff_notes")),
         },
         "evidence": {
-            "required_count": len(evidence_checks),
-            "present_count": len([item for item in evidence_checks if item["present"]]),
+            "required_count": len(required_evidence),
+            "present_count": len([item for item in required_evidence if item["present"]]),
             "missing_count": len(missing_evidence),
             "items": evidence_checks,
         },

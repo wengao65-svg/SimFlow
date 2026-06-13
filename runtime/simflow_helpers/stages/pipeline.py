@@ -68,16 +68,23 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
     results = []
     checkpoint = None
     failed = False
+    capability_warning = False
+    terminal_result = None
 
     for stage_name in stages_to_run:
         stage_result = execute_stage(str(project_root / ".simflow"), stage_name, params={}, dry_run=dry_run)
         results.append(stage_result)
         if stage_result.get("status") == "error":
             failed = True
+            terminal_result = terminal_result or stage_result
             if stop_on_failure:
                 break
+        if stage_result.get("status") == "capability_warning":
+            capability_warning = True
+            terminal_result = terminal_result or stage_result
+            break
 
-    if not dry_run and results and not failed:
+    if not dry_run and results and not failed and not capability_warning:
         final_stage = results[-1]["stage"]
         checkpoint = create_checkpoint(
             state.get("workflow_id", "unknown"),
@@ -92,8 +99,9 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
         write_state(state, project_root=str(project_root), state_file="workflow.json")
 
+    status = "error" if failed else ("capability_warning" if capability_warning else "success")
     return {
-        "status": "error" if failed else "success",
+        "status": status,
         "workflow_dir": workflow_dir,
         "current_stage": current_stage,
         "target_stage": target_stage or stages_to_run[-1],
@@ -101,7 +109,7 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         "dry_run": dry_run,
         "results": results,
         "checkpoint_id": checkpoint["checkpoint_id"] if checkpoint else None,
-        "message": results[-1].get("message") if failed and results else None,
+        "message": terminal_result.get("message") if terminal_result else None,
     }
 
 

@@ -20,6 +20,11 @@ artifact tracking. A shared toolchain contract records them as `tracked_only`
 or `unknown` metadata and requires user-provided scripts, official
 documentation, or custom artifacts for the scientific work.
 
+For tracked-only or unknown tools, SimFlow provides generic evidence intake
+rather than engine automation. Users or agents can register existing scripts,
+inputs, validation summaries, dry-run reports, resource estimates, outputs, and
+environment metadata so readiness and handoff remain traceable.
+
 ## Unsupported Placeholders
 
 QE and Gaussian skills are reserved placeholders. They are packaged so users

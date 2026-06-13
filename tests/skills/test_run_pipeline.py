@@ -109,6 +109,39 @@ def test_run_pipeline_execute_updates_stages_and_checkpoint_registry():
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
 
 
+def test_run_pipeline_stops_without_checkpoint_on_capability_warning():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build GPUMD NEP workflow",
+                "method: mlp_md",
+                "material: Si",
+                "software: gpumd",
+                "toolchain: gpumd, nep",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = run_pipeline(str(project_root / ".simflow"), target_stage="computation", dry_run=False)
+        workflow = read_state(tmpdir, "workflow.json")
+        stages_state = read_state(tmpdir, "stages.json")
+        checkpoints = read_state(tmpdir, "checkpoints.json")
+
+        assert result["status"] == "capability_warning"
+        assert result["checkpoint_id"] is None
+        assert [item["status"] for item in result["results"]] == ["completed", "capability_warning"]
+        assert result["results"][-1]["warning"]["software"] == "gpumd"
+        assert result["results"][-1]["warning"]["support_level"] == "tracked_only"
+        assert stages_state["computation"]["status"] == "waiting"
+        assert stages_state["computation"].get("checkpoint_id") is None
+        assert checkpoints == []
+        assert workflow["current_stage"] == "computation"
+        assert workflow["status"] == "in_progress"
+
+
 def test_run_pipeline_execute_starts_after_completed_current_stage():
     with tempfile.TemporaryDirectory() as tmpdir:
         init_workflow("dft", "literature", tmpdir)

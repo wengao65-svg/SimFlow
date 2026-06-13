@@ -58,3 +58,12 @@ When a user asks a built-in stage runner to automate a `tracked_only` or
 `unknown` tool, the stage returns a `capability_warning` and keeps the stage in
 `waiting` status. The workflow can still record user scripts, official-docs
 usage, outputs, checks, and approvals as artifacts.
+
+Use the same generic computation evidence intake for GPUMD, NEP, DeePMD, MACE,
+NequIP, Allegro, GROMACS, QE, custom Python, or any other tracked-only tool.
+The intake is not an executor; it records user-provided calculation manifests,
+input files, validation reports, dry-run reports, resource estimates, commands,
+versions, environment, and lineage. When readiness is satisfied, the waiting
+`computation` stage can be explicitly completed and checkpointed. A
+`job_record_if_submitted` artifact is required only after a real submit is
+recorded.

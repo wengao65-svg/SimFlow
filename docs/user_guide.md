@@ -59,6 +59,13 @@ scripts, commands, outputs, versions, environment, limitations, and lineage.
 Built-in stage runners return a `capability_warning` when automation is
 requested for a tool without helper support.
 
+After a `capability_warning`, record user-provided computation evidence through
+the generic computation evidence intake path. The intake records existing
+scripts, inputs, validation reports, dry-run reports, resource estimates,
+commands, versions, environments, and limitations as computation artifacts. If
+the required computation evidence is present, the computation stage can be
+explicitly completed and checkpointed without adding a software-specific helper.
+
 All recipes use the same toolchain contract. DFT, AIMD, classical MD, phonon,
 NEB, and MLP-MD workflows may record single-tool or multi-tool plans in
 `toolchain` or `toolchain_plan`, then record the concrete runtime fact in
@@ -90,6 +97,10 @@ Before real local, remote, or HPC execution, record:
 - credential scan
 - script/input hashes
 - gate decision id or approval token
+
+A job record is only required after a real local, remote, or HPC submit has
+occurred. Dry-run-only computation evidence does not need
+`job_record_if_submitted`.
 
 The computation helper writes the gate evidence to canonical project-local
 paths so later submit tools can verify the exact preparation state:

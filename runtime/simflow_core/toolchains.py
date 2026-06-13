@@ -218,7 +218,7 @@ def capability_warning(
         "toolchain_plan": contract.get("toolchain_plan", {}),
         "helper_support": contract.get("helper_support") or contract.get("software_support", {}),
         "next_actions": [
-            "Record the command, inputs, outputs, environment, and limitations as artifacts.",
+            "Use the generic computation evidence intake to record user-provided scripts, inputs, dry-run evidence, resources, environment, and limitations.",
             "Use dry-run and approval gates before any real local, remote, or HPC execution.",
         ],
     }

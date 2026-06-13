@@ -84,7 +84,7 @@ Stage definitions should guide agents with fields such as:
     "input_validation_report",
     "dry_run_report",
     "resource_estimate",
-    "job_record_if_submitted"
+    {"id": "job_record_if_submitted", "required_when": "real_submit_recorded"}
   ],
   "recommended_skills": [
     "simflow-computation",
