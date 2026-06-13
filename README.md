@@ -23,7 +23,7 @@ Host Agent (Claude Code, Codex, or compatible agent)
 ## Features
 
 - **Research Stage Semantics**: literature review, proposal, modeling, computation, analysis/visualization, and writing
-- **Recipes, Not Fixed DAGs**: DFT, AIMD, classical MD, phonon, NEB, defect, adsorption, and custom paths are reference recipes or tags
+- **Recipes, Not Fixed DAGs**: DFT, AIMD, classical MD, MLP-MD, phonon, NEB, defect, adsorption, and custom paths are reference recipes or tags
 - **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
 - **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
 - **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
@@ -57,6 +57,10 @@ stage directly when the needed inputs and evidence are present.
 These helpers suggest and validate. They do not limit what the host agent can
 do, and they should return uncertainty rather than silently mapping unknown
 tasks to a default calculation.
+
+Software and toolchain fields are planning/provenance metadata, not a mandatory
+registration gate. Tools without built-in helpers can still be tracked through
+artifacts and handoff records.
 
 ## Quick Start
 

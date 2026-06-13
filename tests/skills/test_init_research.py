@@ -227,6 +227,19 @@ def test_parse_research_input_collects_toolchain_metadata():
     assert parsed["toolchain"] == ["cp2k", "vasp", "gpumd", "nep", "neptrainkit"]
 
 
+def test_init_research_allows_unspecified_software_as_custom_preference():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = init_research(
+            input_text="goal: design workflow without choosing software yet\nmaterial: Si\n",
+            output_dir=tmpdir,
+        )
+        metadata = read_state(tmpdir, "metadata.json")
+
+        assert result["status"] == "success"
+        assert metadata["software"] == "custom"
+        assert metadata["software_specified"] is False
+
+
 def test_init_research_accepts_mlp_md_recipe_without_new_stages():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = init_research(

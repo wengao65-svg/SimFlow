@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
-from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.proposals import capability_warning, load_proposal_contract, support_level_for_tool
 from runtime.simflow_core.state import read_state
 from runtime.simflow_helpers.computation.readiness import build_computation_readiness, write_readiness_evidence
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
@@ -250,7 +250,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     elif software == "lammps":
         raw_plan = _build_lammps_task_plan(task, input_manifest)
     else:
-        return {"status": "error", "message": f"Unsupported software for compute stage: {software}"}
+        return capability_warning(contract, "computation", "compute_planning", software)
 
     scheduler = params.get("scheduler") or input_manifest.get("downstream_compute_hints", {}).get("recommended_scheduler") or "slurm"
     executable = _recommended_executable(software, input_manifest, raw_plan)
@@ -283,6 +283,13 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
+        "actual_tool_used": {
+            "name": software,
+            "support_level": support_level_for_tool(contract, software),
+            "command": None,
+            "version": None,
+            "environment": None,
+        },
         "dry_run": True,
         "real_submit": False,
         "approval_required_for_real_submit": True,
@@ -308,6 +315,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     )
     evidence_paths = write_readiness_evidence(project_root, readiness)
     compute_plan["submit_readiness"] = readiness["submit_readiness"]
+    compute_plan["actual_tool_used"]["command"] = _recommended_command(software, staged_script_path.name, raw_plan, executable)
     compute_plan["evidence_paths"] = evidence_paths
     compute_plan["readiness_status"] = readiness["status"]
     compute_plan["user_submit_readiness"] = _build_user_submit_readiness(readiness, evidence_paths)
@@ -350,7 +358,11 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         parent_artifacts=parent_artifact_ids,
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
-        metadata={"evidence_keys": ["calculation_manifest", "compute_plan"]},
+        metadata={
+            "evidence_keys": ["calculation_manifest", "compute_plan"],
+            "actual_tool_used": compute_plan.get("actual_tool_used"),
+            "execution_mode": "dry_run",
+        },
     )
     job_script_artifact = register_artifact(
         staged_script_path.name,
@@ -361,7 +373,11 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         parent_artifacts=[compute_plan_artifact["artifact_id"]],
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
-        metadata={"evidence_keys": ["job_script"]},
+        metadata={
+            "evidence_keys": ["job_script"],
+            "actual_tool_used": compute_plan.get("actual_tool_used"),
+            "execution_mode": "dry_run",
+        },
     )
     calculation_manifest_artifact = register_artifact(
         "calculation_manifest.json",
@@ -372,7 +388,11 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         parent_artifacts=[compute_plan_artifact["artifact_id"], job_script_artifact["artifact_id"]],
         parameters={"software": software, "task": task, "scheduler": scheduler},
         software=software,
-        metadata={"evidence_keys": ["calculation_manifest"]},
+        metadata={
+            "evidence_keys": ["calculation_manifest"],
+            "actual_tool_used": compute_plan.get("actual_tool_used"),
+            "execution_mode": "dry_run",
+        },
     )
     input_validation_artifact = register_artifact(
         "input_validation.json",

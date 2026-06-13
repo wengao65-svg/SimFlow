@@ -163,16 +163,16 @@ def test_load_proposal_contract_errors_when_research_questions_artifact_is_missi
             raise AssertionError("Expected FileNotFoundError")
 
 
-def test_load_proposal_contract_rejects_unsupported_software():
+def test_load_proposal_contract_tracks_unknown_software_without_blocking_workflow():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = _prepare_proposal(tmpdir, software="qe")
 
-        try:
-            load_proposal_contract(str(project_root / ".simflow"))
-        except ValueError as exc:
-            assert str(exc) == "Unsupported software for Milestone C: qe"
-        else:
-            raise AssertionError("Expected ValueError")
+        contract = load_proposal_contract(str(project_root / ".simflow"))
+
+        assert contract["software"] == "qe"
+        assert contract["helper_support"]["unknown"] == ["qe"]
+        assert contract["helper_support"]["support_levels"]["qe"] == "unknown"
+        assert contract["toolchain_plan"]["activities"]["primary"] == ["qe"]
 
 
 def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():
@@ -190,13 +190,16 @@ def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():
         protocol_artifact = next(artifact for artifact in artifacts if artifact["name"] == "protocol_contract.json")
 
         assert contract["workflow_type"] == "mlp_md"
-        assert contract["software"] == "custom"
+        assert contract["software"] == "gpumd"
         assert contract["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
         assert contract["software_support"]["builtin_helpers"] == ["cp2k", "vasp"]
         assert contract["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
-        assert contract["software_support"]["primary_software_normalized_from"] == "gpumd"
+        assert contract["helper_support"]["support_levels"]["gpumd"] == "tracked_only"
+        assert contract["toolchain_plan"]["activities"]["labeling"] == ["cp2k", "vasp"]
+        assert contract["toolchain_plan"]["activities"]["training"] == ["gpumd", "nep"]
         assert protocol["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
         assert protocol["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
+        assert protocol["toolchain_plan"]["activities"]["selection"] == ["neptrainkit"]
         assert protocol["inputs"][-1]["name"] == "toolchain"
         assert protocol["inputs"][-1]["required"] is True
         assert protocol_artifact["metadata"]["recipe"] == "mlp_md"

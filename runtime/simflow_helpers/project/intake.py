@@ -143,7 +143,8 @@ def parse_research_input(input_text: str) -> dict:
         "research_goal": "",
         "material": "",
         "method": "",
-        "software": "vasp",
+        "software": "",
+        "software_specified": False,
         "toolchain": [],
         "software_stack": [],
         "workflow_type": "dft",
@@ -170,6 +171,7 @@ def parse_research_input(input_text: str) -> dict:
                 result["method"] = value
             elif key in ("software", "code"):
                 result["software"] = value.lower()
+                result["software_specified"] = True
             elif key in ("toolchain", "software_stack"):
                 result[key] = parse_inline_values(value)
             elif key in ("entry_stage", "entry_point", "current_stage", "stage"):
@@ -207,7 +209,8 @@ def init_research(input_file: str = None, input_text: str = None,
         parsed = {
             "research_goal": "New research",
             "workflow_type": "dft",
-            "software": "vasp",
+            "software": "",
+            "software_specified": False,
             "material": "unknown",
             "parameters": {},
         }
@@ -244,7 +247,8 @@ def init_research(input_file: str = None, input_text: str = None,
         "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],
-        "software": parsed.get("software", "vasp"),
+        "software": parsed.get("software") or "custom",
+        "software_specified": bool(parsed.get("software_specified")),
         "toolchain": parsed.get("toolchain", []),
         "software_stack": parsed.get("software_stack", []),
         "parameters": parsed.get("parameters", {}),

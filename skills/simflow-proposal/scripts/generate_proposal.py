@@ -36,6 +36,7 @@ TRACKED_ONLY_SOFTWARE = {
     "allegro",
     "ase",
     "custom",
+    "python",
 }
 
 
@@ -115,9 +116,9 @@ def build_parameter_rows(metadata: dict) -> list[dict]:
         },
         {
             "parameter": "software",
-            "value": metadata.get("software", "vasp"),
+            "value": metadata.get("software", "custom"),
             "source": "metadata",
-            "notes": "Primary simulation software requested by the user.",
+            "notes": "Primary software preference when specified; custom means no helper software was declared at intake.",
         },
         {
             "parameter": "material",
@@ -232,19 +233,54 @@ def _extract_toolchain(metadata: dict, parameter_rows: list[dict]) -> list[str]:
 
 
 def _software_support(toolchain: list[str]) -> dict:
+    builtin = [tool for tool in toolchain if tool in SUPPORTED_HELPER_SOFTWARE]
+    tracked_only = [
+        tool
+        for tool in toolchain
+        if tool not in SUPPORTED_HELPER_SOFTWARE and tool in TRACKED_ONLY_SOFTWARE
+    ]
+    unknown = [
+        tool
+        for tool in toolchain
+        if tool not in SUPPORTED_HELPER_SOFTWARE and tool not in TRACKED_ONLY_SOFTWARE
+    ]
     return {
-        "builtin_helpers": [tool for tool in toolchain if tool in SUPPORTED_HELPER_SOFTWARE],
-        "tracked_only": [
-            tool
-            for tool in toolchain
-            if tool not in SUPPORTED_HELPER_SOFTWARE and tool in TRACKED_ONLY_SOFTWARE
-        ],
-        "unknown": [
-            tool
-            for tool in toolchain
-            if tool not in SUPPORTED_HELPER_SOFTWARE and tool not in TRACKED_ONLY_SOFTWARE
-        ],
+        "builtin_helpers": builtin,
+        "tracked_only": tracked_only,
+        "unknown": unknown,
+        "support_levels": {
+            **{tool: "helper_supported" for tool in builtin},
+            **{tool: "tracked_only" for tool in tracked_only},
+            **{tool: "unknown" for tool in unknown},
+        },
         "policy": "Builtin helper software may use SimFlow helpers; tracked-only tools are recorded for provenance, lineage, and handoff only.",
+    }
+
+
+def _toolchain_plan(workflow_type: str, software: str, toolchain: list[str]) -> dict:
+    if workflow_type == "mlp_md":
+        provided = toolchain or ([software] if software and software != "custom" else [])
+        return {
+            "plan_id": "toolchain_plan_001",
+            "source": "proposal_metadata",
+            "policy": "Recommended activity-level tool choices; this is not an executor DAG.",
+            "activities": {
+                "sampling": [tool for tool in provided if tool in {"cp2k", "lammps", "gpumd", "ase"}] or ["cp2k", "lammps", "custom"],
+                "selection": [tool for tool in provided if tool in {"neptrainkit", "python"}] or ["neptrainkit", "custom"],
+                "labeling": [tool for tool in provided if tool in {"vasp", "cp2k"}] or ["vasp", "cp2k"],
+                "dataset_build": [tool for tool in provided if tool in {"ase", "python"}] or ["custom", "ase"],
+                "training": [tool for tool in provided if tool in {"gpumd", "nep", "deepmd", "mace", "nequip", "allegro"}] or ["gpumd", "nep", "deepmd", "mace", "nequip", "custom"],
+                "validation_md": [tool for tool in provided if tool in {"gpumd", "lammps"}] or ["gpumd", "lammps", "custom"],
+                "analysis": [tool for tool in provided if tool in {"python", "neptrainkit"}] or ["python", "custom"],
+            },
+        }
+    return {
+        "plan_id": "toolchain_plan_001",
+        "source": "proposal_metadata",
+        "policy": "Primary tool preference for downstream helper routing and provenance.",
+        "activities": {
+            "primary": toolchain or ([software] if software else ["custom"]),
+        },
     }
 
 
@@ -252,7 +288,7 @@ def build_research_questions(metadata: dict, gap_analysis: str, parameter_rows: 
     """Build deterministic machine-readable research questions for Milestone C."""
     goal = metadata.get("research_goal", "the current research goal").strip() or "the current research goal"
     material = metadata.get("material", "the target system").strip() or "the target system"
-    software = metadata.get("software", "vasp").strip() or "vasp"
+    software = metadata.get("software", "custom").strip() or "custom"
     gap_bullets = extract_gap_bullets(gap_analysis)
     parameter_keys = [
         row["parameter"]
@@ -309,13 +345,17 @@ def build_proposal_contract(
 ) -> dict:
     """Build the machine-readable proposal contract consumed by later stages."""
     workflow_type = metadata.get("workflow_type", "dft")
-    software = metadata.get("software", "vasp")
+    software = metadata.get("software", "custom")
     material = metadata.get("material", "Not specified")
     goal = metadata.get("research_goal", "Not specified")
     gap_bullets = extract_gap_bullets(gap_analysis)
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
     toolchain = _extract_toolchain(metadata, parameter_rows)
+    if software and software != "custom" and software not in toolchain:
+        toolchain = [software, *toolchain]
     software_support = _software_support(toolchain)
+    software_support["requested_software"] = software
+    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
     literature_status = "provided" if source_artifact_ids else "not_provided"
     literature_summary = [
         line[2:].strip()
@@ -329,6 +369,8 @@ def build_proposal_contract(
         "software": software,
         "toolchain": toolchain,
         "software_support": software_support,
+        "helper_support": software_support,
+        "toolchain_plan": toolchain_plan,
         "material": material,
         "research_goal": goal,
         "source_artifact_ids": source_artifact_ids,
@@ -344,6 +386,8 @@ def build_proposal_contract(
             "software": software,
             "toolchain": toolchain,
             "software_support": software_support,
+            "helper_support": software_support,
+            "toolchain_plan": toolchain_plan,
             "material": material,
             "planned_next_stages": ["modeling", "computation", "analysis_visualization", "writing"],
             "dry_run_first": True,
@@ -415,7 +459,7 @@ def build_protocol_contract(
 ) -> dict:
     """Build a software-neutral protocol contract for downstream stage handoff."""
     workflow_type = metadata.get("workflow_type", "dft")
-    software = metadata.get("software", "vasp")
+    software = metadata.get("software", "custom")
     material = metadata.get("material", "Not specified")
     goal = metadata.get("research_goal", "Not specified")
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
@@ -427,7 +471,11 @@ def build_protocol_contract(
         ["large_resource_commitment", "licensed_or_proprietary_file_handling"],
     )
     toolchain = _extract_toolchain(metadata, parameter_rows)
+    if software and software != "custom" and software not in toolchain:
+        toolchain = [software, *toolchain]
     software_support = _software_support(toolchain)
+    software_support["requested_software"] = software
+    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
 
     inputs = [
         {
@@ -539,6 +587,8 @@ def build_protocol_contract(
             "software": software,
             "toolchain": toolchain,
             "software_support": software_support,
+            "helper_support": software_support,
+            "toolchain_plan": toolchain_plan,
         },
         "evidence_limits": {
             "literature_status": literature_status,
@@ -553,6 +603,8 @@ def build_protocol_contract(
         "inputs": inputs,
         "toolchain": toolchain,
         "software_support": software_support,
+        "helper_support": software_support,
+        "toolchain_plan": toolchain_plan,
         "variables": variables,
         "control_groups": control_groups,
         "ordered_steps": [
@@ -729,7 +781,7 @@ def build_proposal_markdown(
         f"- Goal: {metadata.get('research_goal', 'Not specified')}",
         f"- Material: {metadata.get('material', 'Not specified')}",
         f"- Workflow type: {metadata.get('workflow_type', 'dft')}",
-        f"- Software: {metadata.get('software', 'vasp')}",
+        f"- Software: {metadata.get('software', 'custom')}",
         *toolchain_lines,
         "",
         "## Review Inputs",
@@ -737,7 +789,7 @@ def build_proposal_markdown(
         "",
         "## Proposed Plan",
         f"- Start from the {metadata.get('workflow_type', 'dft')} workflow entry point defined in canonical metadata.",
-        f"- Use {metadata.get('software', 'vasp')} as the primary simulation engine unless review findings force a change.",
+        f"- Treat {metadata.get('software', 'custom')} as the primary software preference, not as a workflow admission requirement.",
         "- Record multi-tool workflows through toolchain metadata; only built-in helper software is treated as helper-supported.",
         f"- Focus the next modeling decisions on {metadata.get('material', 'the target system')} with the user goal kept explicit.",
         "",

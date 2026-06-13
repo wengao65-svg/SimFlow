@@ -150,11 +150,20 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         activity = runner_spec["activity"]
         stage_result, script_path = _execute_runner(runner_spec, project_root, params)
         success = stage_result.get("status") == "success"
+        capability_warning = stage_result.get("status") == "capability_warning"
         result["scripts"].append({
             "script": script_path,
             "activity": activity,
-            "status": "executed" if success else "failed",
+            "status": "executed" if success else ("warning" if capability_warning else "failed"),
         })
+        if capability_warning:
+            update_stage(stage_name, "waiting", project_root=str(project_root), error_message=stage_result.get("message"))
+            _update_workflow_progress(project_root, state, stage_name, stages, "in_progress")
+            result["status"] = "capability_warning"
+            result["message"] = stage_result.get("message")
+            result["warning"] = stage_result
+            result["completed_at"] = now_iso()
+            return result
         if not success:
             message = stage_result.get("message", f"Failed to execute activity: {activity}")
             update_stage(stage_name, "failed", project_root=str(project_root), error_message=message)

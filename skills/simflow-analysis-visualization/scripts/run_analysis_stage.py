@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import get_artifact, register_artifact
-from runtime.simflow_core.proposals import load_proposal_contract
+from runtime.simflow_core.proposals import capability_warning, load_proposal_contract
 from runtime.simflow_core.state import read_state
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
 from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
@@ -354,7 +354,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
         status, details = _analyze_lammps_files(project_root, direct_output_files)
         analysis_script = "runtime/simflow_helpers/engines/parsers/lammps_parser.py"
     else:
-        return {"status": "error", "message": f"Unsupported software for analysis stage: {software}"}
+        return capability_warning(contract, "analysis_visualization", "analysis", software)
 
     report.update(details)
     report["status"] = status

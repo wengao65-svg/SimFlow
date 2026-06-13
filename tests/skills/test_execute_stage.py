@@ -405,12 +405,14 @@ def test_execute_stage_allows_direct_lammps_computation_entry_with_existing_inpu
 
         assert result["status"] == "completed"
         assert input_manifest["software"] == "lammps"
+        assert input_manifest["actual_tool_used"]["support_level"] == "helper_supported"
         assert input_manifest["source"] == "user_provided_input_files"
         assert input_manifest["generated_files"] == [
             "inputs/lammps/in.lammps",
             "inputs/lammps/data.lammps",
         ]
         assert compute_manifest["software"] == "lammps"
+        assert compute_manifest["actual_tool_used"]["support_level"] == "helper_supported"
         assert compute_manifest["recommended_command"] == "lmp -in in.lammps"
         assert compute_manifest["dry_run"] is True
         assert compute_manifest["real_submit"] is False
@@ -437,11 +439,40 @@ def test_execute_stage_generates_lammps_inputs_from_modeling_artifact():
         assert modeling_result["status"] == "completed"
         assert result["status"] == "completed"
         assert input_manifest["software"] == "lammps"
+        assert input_manifest["actual_tool_used"]["support_level"] == "helper_supported"
         assert input_manifest["task"] == "minimize"
         assert input_manifest["force_field_provenance"]["redistributed_by_simflow"] is False
         assert ".simflow/artifacts/input_generation/in.lammps" in input_manifest["generated_files"]
         assert ".simflow/artifacts/input_generation/data.lammps" in input_manifest["generated_files"]
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "lammps_input_manifest.json").is_file()
+
+
+def test_execute_stage_returns_capability_warning_for_tracked_only_input_generation():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build GPUMD NEP workflow",
+                "method: mlp_md",
+                "material: Si",
+                "software: gpumd",
+                "toolchain: gpumd, nep",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        modeling = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        stages_state = read_state(tmpdir, "stages.json")
+
+        assert modeling["status"] == "completed"
+        assert result["status"] == "capability_warning"
+        assert result["warning"]["software"] == "gpumd"
+        assert result["warning"]["support_level"] == "tracked_only"
+        assert result["scripts"][0]["status"] == "warning"
+        assert stages_state["computation"]["status"] == "waiting"
 
 
 

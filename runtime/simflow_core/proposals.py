@@ -25,6 +25,7 @@ TRACKED_ONLY_SOFTWARE = {
     "allegro",
     "ase",
     "custom",
+    "python",
 }
 MLP_MD_WORKFLOW_TYPES = {"mlp_md"}
 CORE_PARAMETER_KEYS = {"workflow_type", "software", "material", "toolchain", "software_stack"}
@@ -183,7 +184,82 @@ def _software_support(toolchain: list[str]) -> dict[str, Any]:
         "builtin_helpers": builtin,
         "tracked_only": tracked_only,
         "unknown": unknown,
+        "support_levels": {
+            **{tool: "helper_supported" for tool in builtin},
+            **{tool: "tracked_only" for tool in tracked_only},
+            **{tool: "unknown" for tool in unknown},
+        },
         "policy": "Only builtin helper software has SimFlow helper support; tracked-only tools are recorded for provenance and handoff.",
+    }
+
+
+def _toolchain_plan(workflow_type: str, software: str, toolchain: list[str]) -> dict[str, Any]:
+    if workflow_type in MLP_MD_WORKFLOW_TYPES:
+        provided = toolchain or ([software] if software and software != "custom" else [])
+        return {
+            "plan_id": "toolchain_plan_001",
+            "source": "proposal_metadata",
+            "policy": "Recommended activity-level tool choices; this is not an executor DAG.",
+            "activities": {
+                "sampling": [tool for tool in provided if tool in {"cp2k", "lammps", "gpumd", "ase"}] or ["cp2k", "lammps", "custom"],
+                "selection": [tool for tool in provided if tool in {"neptrainkit", "python"}] or ["neptrainkit", "custom"],
+                "labeling": [tool for tool in provided if tool in {"vasp", "cp2k"}] or ["vasp", "cp2k"],
+                "dataset_build": [tool for tool in provided if tool in {"ase", "python"}] or ["custom", "ase"],
+                "training": [tool for tool in provided if tool in {"gpumd", "nep", "deepmd", "mace", "nequip", "allegro"}] or ["gpumd", "nep", "deepmd", "mace", "nequip", "custom"],
+                "validation_md": [tool for tool in provided if tool in {"gpumd", "lammps"}] or ["gpumd", "lammps", "custom"],
+                "analysis": [tool for tool in provided if tool in {"python", "neptrainkit"}] or ["python", "custom"],
+            },
+        }
+    return {
+        "plan_id": "toolchain_plan_001",
+        "source": "proposal_metadata",
+        "policy": "Primary tool preference for downstream helper routing and provenance.",
+        "activities": {
+            "primary": toolchain or ([software] if software else ["custom"]),
+        },
+    }
+
+
+def support_level_for_tool(contract: dict[str, Any], tool: str | None = None) -> str:
+    """Return helper support level for a tool in a loaded proposal contract."""
+    normalized = _normalize_tool_name(tool or contract.get("software") or "custom")
+    support = contract.get("helper_support") or contract.get("software_support") or {}
+    levels = support.get("support_levels", {})
+    if normalized in levels:
+        return levels[normalized]
+    if normalized in SUPPORTED_SOFTWARE:
+        return "helper_supported"
+    if normalized in TRACKED_ONLY_SOFTWARE:
+        return "tracked_only"
+    return "unknown"
+
+
+def capability_warning(
+    contract: dict[str, Any],
+    stage: str,
+    capability: str,
+    tool: str | None = None,
+) -> dict[str, Any]:
+    """Build a non-fatal warning when no helper supports a requested capability."""
+    selected = _normalize_tool_name(tool or contract.get("software") or "custom")
+    support_level = support_level_for_tool(contract, selected)
+    return {
+        "status": "capability_warning",
+        "stage": stage,
+        "capability": capability,
+        "software": selected,
+        "support_level": support_level,
+        "message": (
+            f"No built-in SimFlow helper is available for {selected} {capability}. "
+            "Use user-provided scripts, official documentation, or custom artifacts; "
+            "SimFlow will track provenance, evidence, and approval gates."
+        ),
+        "toolchain_plan": contract.get("toolchain_plan", {}),
+        "helper_support": contract.get("helper_support") or contract.get("software_support", {}),
+        "next_actions": [
+            "Record the command, inputs, outputs, environment, and limitations as artifacts.",
+            "Use dry-run and approval gates before any real local, remote, or HPC execution.",
+        ],
     }
 
 
@@ -192,17 +268,16 @@ def _resolve_primary_software(
     parameter_values: dict[str, Any],
 ) -> tuple[str, list[str], dict[str, Any]]:
     workflow_type = _normalize_tool_name(metadata.get("workflow_type") or parameter_values.get("workflow_type") or "dft")
-    requested = _normalize_tool_name(metadata.get("software") or parameter_values.get("software") or "vasp")
+    requested = _normalize_tool_name(metadata.get("software") or parameter_values.get("software") or "custom")
     toolchain = _extract_toolchain(metadata, parameter_values)
+    if requested and requested != "custom" and requested not in toolchain:
+        toolchain = [requested, *toolchain]
     support = _software_support(toolchain)
+    support["requested_software"] = requested
 
     if requested in SUPPORTED_SOFTWARE:
         return requested, toolchain, support
-    if workflow_type in MLP_MD_WORKFLOW_TYPES and requested in TRACKED_ONLY_SOFTWARE:
-        support["requested_software"] = requested
-        support["primary_software_normalized_from"] = requested
-        return "custom", toolchain or [requested], support
-    raise ValueError(f"Unsupported software for Milestone C: {requested or 'unknown'}")
+    return requested or "custom", toolchain or ([] if requested == "custom" else [requested]), support
 
 
 def _normalize_questions(payload: Any) -> list[dict[str, Any]]:
@@ -275,7 +350,7 @@ def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
         },
         {
             "parameter": "software",
-            "value": str(metadata.get("software", "vasp")),
+            "value": str(metadata.get("software", "custom")),
             "source": "metadata",
             "notes": "Direct entry metadata.",
         },
@@ -311,6 +386,7 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
     research_goal = metadata.get("research_goal") or ""
     parameter_values = metadata.get("parameters", {})
     software, toolchain, support = _resolve_primary_software(metadata, parameter_values)
+    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
     parameter_overrides = {key: value for key, value in parameter_values.items() if key not in CORE_PARAMETER_KEYS}
     task = _select_task(parameter_overrides)
     research_questions = [{
@@ -352,6 +428,8 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
         "parameter_rows": _metadata_parameter_rows(metadata),
         "toolchain": toolchain,
         "software_support": support,
+        "helper_support": support,
+        "toolchain_plan": toolchain_plan,
         "research_questions": research_questions,
         "decision_criteria": [],
         "risk_register": direct_contract["risk_register"],
@@ -405,6 +483,7 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
 
     workflow_type = str(metadata_state.get("workflow_type") or parameter_values.get("workflow_type") or "dft")
     software, toolchain, support = _resolve_primary_software(metadata_state, parameter_values)
+    toolchain_plan = _toolchain_plan(workflow_type, software, toolchain)
     material = metadata_state.get("material") or parameter_values.get("material") or "Not specified"
     task = _select_task(parameter_overrides)
 
@@ -420,6 +499,8 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
         "parameter_rows": parameter_rows,
         "toolchain": toolchain,
         "software_support": support,
+        "helper_support": support,
+        "toolchain_plan": toolchain_plan,
         "research_questions": research_questions,
         "decision_criteria": proposal_contract.get("decision_criteria", []),
         "risk_register": proposal_contract.get("risk_register", []),
