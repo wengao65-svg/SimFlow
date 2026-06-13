@@ -145,7 +145,36 @@ def test_handoff_summary_is_compact_and_read_only(tmp_path):
     assert summary["completed_stages"] == ["literature_review"]
     assert summary["latest_checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
     assert "artifact_summary" in summary
+    assert "readiness" in summary
     assert not (tmp_path / ".simflow" / "reports" / "handoff").exists()
+
+
+def test_project_status_surfaces_generic_evidence_intake_actions(tmp_path):
+    init_workflow("custom", "computation", project_root=str(tmp_path))
+    update_stage("computation", "waiting", project_root=str(tmp_path))
+    update_stage("analysis_visualization", "waiting", project_root=str(tmp_path))
+
+    status = build_project_status(str(tmp_path))
+    actions = status["readiness"]["generic_evidence_actions"]
+
+    assert status["readiness"]["readiness_status"] == "incomplete"
+    assert {
+        (action["action"], action.get("stage"))
+        for action in actions
+    } >= {
+        ("record_computation_evidence", "computation"),
+        ("record_analysis_evidence", "analysis_visualization"),
+    }
+
+    computation = next(stage for stage in status["readiness"]["stages"] if stage["stage"] == "computation")
+    analysis = next(stage for stage in status["readiness"]["stages"] if stage["stage"] == "analysis_visualization")
+    assert computation["stage_status"] == "waiting"
+    assert computation["missing_evidence"] > 0
+    assert analysis["stage_status"] == "waiting"
+    assert analysis["missing_evidence"] > 0
+
+    handoff = build_handoff_summary(str(tmp_path))
+    assert handoff["readiness"]["generic_evidence_actions"] == actions
 
 
 def test_project_status_without_workflow_state_reports_risk(tmp_path):

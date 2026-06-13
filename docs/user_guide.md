@@ -150,6 +150,15 @@ These states are explicit reminders that the text may describe plans,
 limitations, or pending evidence, but must not present those items as completed
 scientific results.
 
+### Status And Readiness
+
+`workflow_status`, `project_readiness`, `stage_readiness`, and handoff summaries
+are read-only views over existing SimFlow state. For tracked-only computation or
+analysis paths, status output includes generic evidence intake actions such as
+`record_computation_evidence` and `record_analysis_evidence` so users can see
+which missing evidence should be registered next without adding recipe-specific
+software logic.
+
 ## Environment Variables
 
 | Variable | Purpose |
