@@ -165,6 +165,32 @@ def _artifact_summary(artifacts: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _tracked_only_evidence_summary(artifacts: list[dict[str, Any]], project_root: Path) -> list[dict[str, Any]]:
+    records = []
+    for artifact in artifacts:
+        metadata = artifact.get("metadata") if isinstance(artifact.get("metadata"), dict) else {}
+        actual_tool_used = metadata.get("actual_tool_used") if isinstance(metadata.get("actual_tool_used"), dict) else {}
+        if actual_tool_used.get("support_level") != "tracked_only":
+            continue
+        lineage = artifact.get("lineage") if isinstance(artifact.get("lineage"), dict) else {}
+        parameters = lineage.get("parameters") if isinstance(lineage.get("parameters"), dict) else {}
+        records.append(_sanitize_value({
+            "artifact_id": artifact.get("artifact_id"),
+            "name": artifact.get("name"),
+            "type": artifact.get("type"),
+            "stage": artifact.get("stage"),
+            "path": artifact.get("path"),
+            "software": actual_tool_used.get("software") or lineage.get("software"),
+            "support_level": actual_tool_used.get("support_level"),
+            "task": actual_tool_used.get("task") or parameters.get("task"),
+            "command": actual_tool_used.get("command") or parameters.get("command"),
+            "source": metadata.get("source"),
+            "validation_scope": "provenance_only",
+            "engine_validated_by_simflow": False,
+        }, project_root))
+    return records
+
+
 def _planned_final_output_reference(project_root: Path, name: str, artifact_type: str) -> dict[str, Any]:
     path = project_root / ".simflow" / "reports" / "handoff" / name
     return {
@@ -242,6 +268,7 @@ def build_final_handoff_data(
     resolved_source_artifact_ids = _derive_source_artifact_ids(artifacts, source_artifact_ids)
     planned_final_markdown = _planned_final_output_reference(project_root, "final_handoff.md", "final_handoff")
     planned_final_json = _planned_final_output_reference(project_root, "final_handoff.json", "final_handoff_summary")
+    tracked_only_evidence = _tracked_only_evidence_summary(artifacts, project_root)
 
     risks = list(handoff.get("risks", []))
     unresolved_items: list[str] = []
@@ -261,6 +288,10 @@ def build_final_handoff_data(
     warning_summary = _summarize_warnings(reproducibility_manifest.get("warnings", []))
     if warning_summary:
         unresolved_items.append(f"Manifest warnings: {len(warning_summary)} item(s).")
+    if tracked_only_evidence:
+        unresolved_items.append(
+            "Tracked-only tool evidence is recorded for provenance and handoff; SimFlow did not engine-validate those results."
+        )
 
     next_steps = []
     if workflow_status == "completed":
@@ -314,6 +345,7 @@ def build_final_handoff_data(
             "real_submit": bool(compute_truth.get("real_submit", False)),
             "approval_required_for_real_submit": bool(compute_truth.get("approval_required_for_real_submit", True)),
         },
+        "tracked_only_evidence": tracked_only_evidence,
         "risks": list(dict.fromkeys(risks)),
         "unresolved_items": list(dict.fromkeys(unresolved_items)),
         "next_steps": list(dict.fromkeys(next_steps)),
@@ -386,6 +418,17 @@ def _build_final_handoff_markdown(final_handoff: dict[str, Any]) -> str:
             f"Dry-run: {compute_truth.get('dry_run', True)}",
             f"Real submit: {compute_truth.get('real_submit', False)}",
             f"Approval required for real submit: {compute_truth.get('approval_required_for_real_submit', True)}",
+        ]),
+        "",
+        "## Tracked-only evidence",
+        "",
+        bullet_list([
+            (
+                f"{item.get('artifact_id', 'unknown')} ({item.get('stage', 'unknown')}): "
+                f"{item.get('software', 'unknown')} / {item.get('name', 'unknown')} "
+                f"[{item.get('validation_scope', 'provenance_only')}]"
+            )
+            for item in final_handoff.get("tracked_only_evidence", [])
         ]),
         "",
         "## Risks and unresolved items",

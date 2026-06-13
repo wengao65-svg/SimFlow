@@ -413,6 +413,44 @@ def test_generate_final_handoff_generates_deliverables_without_leaking_absolute_
     with tempfile.TemporaryDirectory() as tmpdir:
         init_workflow("dft", "literature", tmpdir)
         _write_milestone_d_state(tmpdir)
+        tracked_compute_path = Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "gpumd_dry_run.json"
+        tracked_analysis_path = Path(tmpdir) / ".simflow" / "artifacts" / "analysis" / "nep_metrics.json"
+        tracked_compute_path.parent.mkdir(parents=True, exist_ok=True)
+        tracked_analysis_path.parent.mkdir(parents=True, exist_ok=True)
+        tracked_compute_path.write_text('{"status": "pass"}\n', encoding="utf-8")
+        tracked_analysis_path.write_text('{"rmse": 0.1}\n', encoding="utf-8")
+        artifacts = read_state(project_root=tmpdir, state_file="artifacts.json")
+        artifacts.extend([
+            {
+                "artifact_id": "art_gpumd_compute01",
+                "name": "gpumd_dry_run.json",
+                "type": "dry_run_report",
+                "version": "v1.0.0",
+                "stage": "computation",
+                "path": ".simflow/artifacts/compute/gpumd_dry_run.json",
+                "lineage": {"parent_artifacts": ["art_compute01"], "parameters": {"task": "nep_training"}, "software": "gpumd"},
+                "metadata": {
+                    "source": "user_provided",
+                    "actual_tool_used": {"software": "gpumd", "task": "nep_training", "support_level": "tracked_only"},
+                },
+                "created_at": "2026-01-08T00:16:00+00:00",
+            },
+            {
+                "artifact_id": "art_nep_analysis01",
+                "name": "nep_metrics.json",
+                "type": "analysis_outputs",
+                "version": "v1.0.0",
+                "stage": "analysis_visualization",
+                "path": ".simflow/artifacts/analysis/nep_metrics.json",
+                "lineage": {"parent_artifacts": ["art_gpumd_compute01"], "parameters": {"task": "model_validation"}, "software": "nep"},
+                "metadata": {
+                    "source": "user_provided_analysis_evidence",
+                    "actual_tool_used": {"software": "nep", "task": "model_validation", "support_level": "tracked_only"},
+                },
+                "created_at": "2026-01-08T00:17:00+00:00",
+            },
+        ])
+        write_state(artifacts, project_root=tmpdir, state_file="artifacts.json")
 
         result = generate_final_handoff(str(Path(tmpdir) / ".simflow"))
         final_handoff = result["final_handoff"]
@@ -431,13 +469,21 @@ def test_generate_final_handoff_generates_deliverables_without_leaking_absolute_
         assert final_handoff["compute_truth"]["dry_run"] is True
         assert final_handoff["compute_truth"]["real_submit"] is False
         assert final_handoff["compute_truth"]["approval_required_for_real_submit"] is True
+        assert {
+            item["artifact_id"] for item in final_handoff["tracked_only_evidence"]
+        } == {"art_gpumd_compute01", "art_nep_analysis01"}
+        assert all(item["validation_scope"] == "provenance_only" for item in final_handoff["tracked_only_evidence"])
+        assert all(item["engine_validated_by_simflow"] is False for item in final_handoff["tracked_only_evidence"])
         assert final_handoff["writing_outputs"]["methods"]["name"] == "methods.md"
         assert final_handoff["writing_outputs"]["results"]["name"] == "results.md"
         assert final_handoff["reproducibility_outputs"]["reproducibility_package"]["name"] == "reproducibility_package.md"
         assert "No real HPC submit was executed" in "\n".join(final_handoff["risks"])
+        assert "Tracked-only tool evidence is recorded for provenance" in "\n".join(final_handoff["unresolved_items"])
         assert "## Writing outputs" in final_md_text
         assert "## Reproducibility package" in final_md_text
         assert "## Compute truth / real submit status" in final_md_text
+        assert "## Tracked-only evidence" in final_md_text
+        assert "provenance_only" in final_md_text
         assert "ckpt_009_writing" in final_md_text
         assert tmpdir not in final_json_text
         assert tmpdir not in final_md_text
