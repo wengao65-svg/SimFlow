@@ -126,8 +126,10 @@ Expected result:
 
 - The output includes the target version, target commit, release gates, and
   commit summary.
-- Any manual install-smoke results or known limitations are added to the final
-  release notes before publishing.
+- Any manual install-smoke status or known limitations are summarized in the
+  final release notes before publishing.
+- Detailed install-smoke evidence remains local workflow state under
+  `.simflow/reports/` and `.simflow/checkpoints/`, not tracked release docs.
 
 ## 7. Manual Install Smoke Gate
 
@@ -145,6 +147,8 @@ Inside Codex:
 /mcp
 $simflow
 $simflow-vasp
+$simflow-gpumd
+$simflow-mlp
 ```
 
 Claude Code user path:
@@ -161,6 +165,8 @@ Inside Claude Code:
 /simflow:simflow
 /simflow:simflow-vasp
 /simflow:simflow-cp2k
+/simflow:simflow-gpumd
+/simflow:simflow-mlp
 /simflow:simflow-writing
 ```
 
@@ -173,8 +179,11 @@ Expected result:
 - Skill routing works through the host agent.
 - Real local, remote, or HPC submission remains blocked without dry-run
   evidence, matching hashes, credential scan, and explicit approval.
-- Results are recorded in `docs/release-smoke-results.md` before the release is
-  announced.
+- Results are recorded in `.simflow/reports/release_smoke_<version>.md` with a
+  matching checkpoint before the release is announced.
+- Public release notes only summarize the manual smoke status as pass, block,
+  or warning; do not publish host-local CLI paths, credentials, private
+  hostnames, cache paths, or other environment-specific evidence.
 
 ## 8. Release Ref Rules
 
