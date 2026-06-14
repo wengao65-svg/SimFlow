@@ -53,7 +53,12 @@ def _authorized_submit_params(project_root: str, script_path: str) -> dict:
     decision = record_gate_decision(
         "hpc_submit",
         "approved",
-        {"reason": "pytest MCP submit authorization"},
+        {
+            "reason": "pytest MCP submit authorization",
+            "dry_run_evidence": "compute/dry_run_report.json",
+            "script_hash": script_hash,
+            "input_artifact_hash": input_hash,
+        },
         project_root=project_root,
         agent="pytest",
     )

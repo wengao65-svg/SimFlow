@@ -50,7 +50,12 @@ def _authorized_submit_kwargs(script_path: str) -> dict:
     decision = record_gate_decision(
         "hpc_submit",
         "approved",
-        {"reason": "pytest submit authorization"},
+        {
+            "reason": "pytest submit authorization",
+            "dry_run_evidence": "compute/dry_run_report.json",
+            "script_hash": script_hash,
+            "input_artifact_hash": input_hash,
+        },
         project_root=str(project_root),
         agent="pytest",
     )

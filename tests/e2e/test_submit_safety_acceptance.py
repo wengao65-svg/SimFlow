@@ -50,7 +50,12 @@ def _write_submit_evidence(project_root: Path, script: Path, *, credential_scan:
     decision = record_gate_decision(
         "hpc_submit",
         "approved",
-        {"reason": "acceptance test approval"},
+        {
+            "reason": "acceptance test approval",
+            "dry_run_evidence": "compute/dry_run_report.json",
+            "script_hash": script_hash,
+            "input_artifact_hash": input_hash,
+        },
         project_root=str(project_root),
         agent="pytest",
     )
@@ -89,6 +94,54 @@ def test_missing_credential_scan_blocks_submit_even_with_approval(tmp_path):
     assert result["code"] == "hpc_submit_gate_blocked"
     assert result["approval_required"] is True
     assert "credentials_clean" in result["gate_result"]["conditions"]["unmet"]
+
+
+def test_gate_decision_must_bind_submit_evidence_and_hashes(tmp_path):
+    connector = LocalConnector()
+    script = _make_script(tmp_path)
+    kwargs = _write_submit_evidence(tmp_path, script)
+    decision = record_gate_decision(
+        "hpc_submit",
+        "approved",
+        {"reason": "legacy approval without submit bindings"},
+        project_root=str(tmp_path),
+        agent="pytest",
+    )
+    kwargs["gate_decision_id"] = decision["decision_id"]
+
+    result = connector.submit(str(script), **kwargs)
+
+    assert result["status"] == "error"
+    assert result["code"] == "gate_decision_missing_submit_binding"
+    assert result["missing_bindings"] == [
+        "dry_run_evidence",
+        "script_hash",
+        "input_artifact_hash",
+    ]
+
+
+def test_gate_decision_binding_blocks_stale_approval_reuse(tmp_path):
+    connector = LocalConnector()
+    script = _make_script(tmp_path)
+    kwargs = _write_submit_evidence(tmp_path, script)
+    dry_run_path = tmp_path / ".simflow" / "artifacts" / "compute" / "dry_run_report.json"
+    new_input_hash = "new-input-manifest-sha256"
+    _write_json(
+        dry_run_path,
+        {
+            "status": "pass",
+            "script_hash": kwargs["script_hash"],
+            "input_artifact_hash": new_input_hash,
+        },
+    )
+    kwargs["input_artifact_hash"] = new_input_hash
+
+    result = connector.submit(str(script), **kwargs)
+
+    assert result["status"] == "error"
+    assert result["code"] == "gate_decision_evidence_mismatch"
+    assert result["mismatches"]["input_artifact_hash"]["approved"] == "input-manifest-sha256"
+    assert result["mismatches"]["input_artifact_hash"]["submitted"] == new_input_hash
 
 
 def test_changed_job_script_hash_invalidates_prior_approval(tmp_path):
