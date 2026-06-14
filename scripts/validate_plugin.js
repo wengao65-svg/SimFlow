@@ -69,6 +69,8 @@ const PACKAGED_SKILLS = [
   'simflow-qe',
   'simflow-cp2k',
   'simflow-lammps',
+  'simflow-gpumd',
+  'simflow-mlp',
   'simflow-gaussian',
   'simflow-checkpoint',
   'simflow-handoff',
