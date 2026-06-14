@@ -14,6 +14,37 @@ from .workflow import load_recipe
 
 
 HELPER_SUPPORTED_SOFTWARE = {"vasp", "cp2k", "lammps"}
+CAPABILITY_SUPPORTED_TOOLS = {"gpumd", "nep"}
+HELPER_SUPPORTED_CAPABILITIES = {
+    "gpumd": {
+        "static_input_inspection",
+        "manifest_generation",
+        "selected_output_parsing",
+        "evidence_handoff",
+    },
+    "nep": {
+        "static_input_inspection",
+        "manifest_generation",
+        "selected_output_parsing",
+        "evidence_handoff",
+    },
+}
+BLOCKED_HELPER_CAPABILITIES = {
+    "gpumd": {
+        "input_generation",
+        "real_execution",
+        "local_submit",
+        "remote_execution",
+        "hpc_submit",
+    },
+    "nep": {
+        "input_generation",
+        "real_execution",
+        "local_submit",
+        "remote_execution",
+        "hpc_submit",
+    },
+}
 TOOL_ALIASES = {
     "qe": "quantum_espresso",
     "quantum-espresso": "quantum_espresso",
@@ -138,6 +169,35 @@ def support_level_for_tool(contract_or_support: dict[str, Any], tool: str | None
     return "unknown"
 
 
+def helper_capabilities_for_tool(tool: str) -> dict[str, Any]:
+    """Return capability-level helper support without changing tool-level support."""
+    normalized = normalize_tool_name(tool)
+    supported = sorted(HELPER_SUPPORTED_CAPABILITIES.get(normalized, set()))
+    blocked = sorted(BLOCKED_HELPER_CAPABILITIES.get(normalized, set()))
+    return {
+        "tool": normalized,
+        "tool_support_level": support_level_for_tool({}, normalized),
+        "supported_capabilities": supported,
+        "blocked_capabilities": blocked,
+        "policy": (
+            "Capability-level helper support does not change the shared tool-level "
+            "support classification. GPUMD/NEP remain tracked_only unless the "
+            "global tool support contract is explicitly changed."
+        ),
+    }
+
+
+def support_level_for_capability(tool: str, capability: str) -> str:
+    """Classify a specific helper capability for a tool."""
+    normalized = normalize_tool_name(tool)
+    capability_id = normalize_tool_name(capability)
+    if capability_id in HELPER_SUPPORTED_CAPABILITIES.get(normalized, set()):
+        return "helper_supported"
+    if capability_id in BLOCKED_HELPER_CAPABILITIES.get(normalized, set()):
+        return "not_helper_supported"
+    return support_level_for_tool({}, normalized)
+
+
 def _recipe_toolchain_activities(workflow_type: str) -> dict[str, list[str]]:
     try:
         recipe = load_recipe(normalize_tool_name(workflow_type) or "dft")
@@ -204,12 +264,14 @@ def capability_warning(
     """Build a non-fatal warning when no helper supports a requested capability."""
     selected = normalize_tool_name(tool or contract.get("software") or "custom")
     support_level = support_level_for_tool(contract, selected)
+    capability_support_level = support_level_for_capability(selected, capability)
     return {
         "status": "capability_warning",
         "stage": stage,
         "capability": capability,
         "software": selected,
         "support_level": support_level,
+        "capability_support_level": capability_support_level,
         "message": (
             f"No built-in SimFlow helper is available for {selected} {capability}. "
             "Use user-provided scripts, official documentation, or custom artifacts; "

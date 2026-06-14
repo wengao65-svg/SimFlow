@@ -24,6 +24,8 @@ ENGINE_DOMAIN_SKILLS = [
     "simflow-vasp",
     "simflow-cp2k",
     "simflow-lammps",
+    "simflow-gpumd",
+    "simflow-mlp",
 ]
 
 UNSUPPORTED_ENGINE_PLACEHOLDERS = [
@@ -177,6 +179,18 @@ def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
 
     assert "Do not default unknown VASP tasks to `static`" in vasp_text
     assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
+
+
+def test_gpumd_skill_keeps_tool_level_tracked_only_boundary():
+    text = _skill_text("simflow-gpumd")
+
+    assert "tool-level `tracked_only`" in text
+    assert "static_input_inspection" in text
+    assert "manifest_generation" in text
+    assert "selected_output_parsing" in text
+    assert "evidence_handoff" in text
+    assert "Do not expose GPUMD/NEP real execution" in text
+    assert "input generation" in text
 
 
 def test_support_skills_do_not_reintroduce_fixed_executor_contracts():

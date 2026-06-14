@@ -6,8 +6,11 @@ from pathlib import Path
 from runtime.simflow_core.toolchains import (
     build_actual_tool_used,
     build_toolchain_plan,
+    capability_warning,
     classify_tool_support,
+    helper_capabilities_for_tool,
     normalize_tool_name,
+    support_level_for_capability,
     support_level_for_tool,
 )
 from runtime.simflow_core.workflow import list_recipes, load_recipe
@@ -25,6 +28,34 @@ def test_tool_support_levels_are_shared_and_non_blocking():
     assert support["support_levels"]["vasp"] == "helper_supported"
     assert support["support_levels"]["gromacs"] == "tracked_only"
     assert support["support_levels"]["bespoke"] == "unknown"
+
+
+def test_gpumd_nep_remain_tracked_only_with_limited_helper_capabilities():
+    support = classify_tool_support(["gpumd", "nep"])
+
+    assert support["builtin_helpers"] == []
+    assert support["tracked_only"] == ["gpumd", "nep"]
+    assert support_level_for_tool({"software_support": support}, "gpumd") == "tracked_only"
+    assert helper_capabilities_for_tool("gpumd")["tool_support_level"] == "tracked_only"
+    assert support_level_for_capability("gpumd", "static_input_inspection") == "helper_supported"
+    assert support_level_for_capability("nep", "manifest_generation") == "helper_supported"
+    assert support_level_for_capability("gpumd", "selected_output_parsing") == "helper_supported"
+    assert support_level_for_capability("gpumd", "evidence_handoff") == "helper_supported"
+    assert support_level_for_capability("gpumd", "input_generation") == "not_helper_supported"
+    assert support_level_for_capability("nep", "hpc_submit") == "not_helper_supported"
+
+
+def test_gpumd_unsupported_execution_capabilities_emit_capability_warning():
+    warning = capability_warning(
+        {"software": "gpumd", "helper_support": classify_tool_support(["gpumd"])},
+        "computation",
+        "input_generation",
+        "gpumd",
+    )
+
+    assert warning["status"] == "capability_warning"
+    assert warning["support_level"] == "tracked_only"
+    assert warning["capability_support_level"] == "not_helper_supported"
 
 
 def test_known_aliases_normalize_before_support_classification():

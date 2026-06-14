@@ -49,10 +49,14 @@ Proposal contracts expose:
 - `actual_tool_used`: artifact/runtime metadata for the concrete tool, command,
   version, and environment when known.
 
-Only `vasp`, `cp2k`, and `lammps` currently have SimFlow helper support.
-MLP-MD tools such as `gpumd`, `nep`, `neptrainkit`, `deepmd`, `mace`,
-`nequip`, `allegro`, `ase`, and `python` are classified by the shared
-toolchain contract, not by this recipe file.
+Only `vasp`, `cp2k`, and `lammps` currently have tool-level SimFlow helper
+support. GPUMD and NEP remain `tracked_only` at the tool level, but
+`simflow-gpumd` exposes limited capability-level helpers for static input
+inspection, manifest generation, selected output parsing, and evidence handoff.
+It does not expose GPUMD/NEP input generation, real execution, or submit as
+helper-supported capabilities. Other MLP-MD tools such as `neptrainkit`,
+`deepmd`, `mace`, `nequip`, `allegro`, `ase`, and `python` are classified by
+the shared toolchain contract, not by this recipe file.
 
 When a user asks a built-in stage runner to automate a `tracked_only` or
 `unknown` tool, the stage returns a `capability_warning` and keeps the stage in
