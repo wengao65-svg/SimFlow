@@ -9,12 +9,17 @@ from typing import Any
 
 from .artifacts import list_artifacts
 from .state import read_state
+from .toolchains import (
+    build_toolchain_plan,
+    classify_tool_support,
+    extract_toolchain,
+    normalize_tool_name,
+)
 
 
 REQUIRED_PROPOSAL_ARTIFACTS = ("proposal.md", "parameter_table.csv", "research_questions.json")
-OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json",)
-SUPPORTED_SOFTWARE = {"vasp", "cp2k", "lammps"}
-CORE_PARAMETER_KEYS = {"workflow_type", "software", "material"}
+OPTIONAL_PROPOSAL_ARTIFACTS = ("proposal_contract.json", "protocol_contract.json")
+CORE_PARAMETER_KEYS = {"workflow_type", "software", "material", "toolchain", "software_stack"}
 CANONICAL_STAGE_SEQUENCE = [
     "literature_review",
     "proposal",
@@ -109,6 +114,20 @@ def _parameter_values(rows: list[dict[str, str]]) -> dict[str, Any]:
     }
 
 
+def _resolve_primary_software(
+    metadata: dict[str, Any],
+    parameter_values: dict[str, Any],
+) -> tuple[str, list[str], dict[str, Any]]:
+    requested = normalize_tool_name(metadata.get("software") or parameter_values.get("software") or "custom")
+    toolchain = extract_toolchain(metadata, parameter_values)
+    if requested and requested != "custom" and requested not in toolchain:
+        toolchain = [requested, *toolchain]
+    support = classify_tool_support(toolchain)
+    support["requested_software"] = requested
+
+    return requested or "custom", toolchain or ([] if requested == "custom" else [requested]), support
+
+
 def _normalize_questions(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, dict):
         raw_questions = payload.get("questions", [])
@@ -179,7 +198,7 @@ def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
         },
         {
             "parameter": "software",
-            "value": str(metadata.get("software", "vasp")),
+            "value": str(metadata.get("software", "custom")),
             "source": "metadata",
             "notes": "Direct entry metadata.",
         },
@@ -190,6 +209,15 @@ def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
             "notes": "Direct entry metadata.",
         },
     ]
+    for key in ("toolchain", "software_stack"):
+        if key in metadata and metadata.get(key) not in (None, "", [], {}):
+            value = metadata[key]
+            rows.append({
+                "parameter": key,
+                "value": json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value),
+                "source": "metadata",
+                "notes": "Direct entry software/toolchain metadata.",
+            })
     for key, value in metadata.get("parameters", {}).items():
         rows.append({
             "parameter": key,
@@ -201,14 +229,12 @@ def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
-    software = str(metadata.get("software") or "vasp").lower()
-    if software not in SUPPORTED_SOFTWARE:
-        raise ValueError(f"Unsupported software for Milestone C: {software or 'unknown'}")
-
     workflow_type = str(metadata.get("workflow_type") or "dft")
     material = metadata.get("material") or "Not specified"
     research_goal = metadata.get("research_goal") or ""
     parameter_values = metadata.get("parameters", {})
+    software, toolchain, support = _resolve_primary_software(metadata, parameter_values)
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
     parameter_overrides = {key: value for key, value in parameter_values.items() if key not in CORE_PARAMETER_KEYS}
     task = _select_task(parameter_overrides)
     research_questions = [{
@@ -248,6 +274,10 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
         "structure_hints": _extract_structure_hints(parameter_overrides, metadata),
         "parameter_overrides": parameter_overrides,
         "parameter_rows": _metadata_parameter_rows(metadata),
+        "toolchain": toolchain,
+        "software_support": support,
+        "helper_support": support,
+        "toolchain_plan": toolchain_plan,
         "research_questions": research_questions,
         "decision_criteria": [],
         "risk_register": direct_contract["risk_register"],
@@ -256,6 +286,7 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
         "literature_evidence_summary": direct_contract["literature_evidence_summary"],
         "calculation_plan": {},
         "proposal_contract": direct_contract,
+        "protocol_contract": {},
         "proposal_markdown": "",
         "proposal_artifacts": {},
         "direct_entry": True,
@@ -296,12 +327,11 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
     research_questions_payload = json.loads(research_questions_path.read_text(encoding="utf-8"))
     research_questions = _normalize_questions(research_questions_payload)
     proposal_contract = _load_optional_json(project_root, artifacts.get("proposal_contract.json"))
-
-    software = str(metadata_state.get("software") or parameter_values.get("software") or "").lower()
-    if software not in SUPPORTED_SOFTWARE:
-        raise ValueError(f"Unsupported software for Milestone C: {software or 'unknown'}")
+    protocol_contract = _load_optional_json(project_root, artifacts.get("protocol_contract.json"))
 
     workflow_type = str(metadata_state.get("workflow_type") or parameter_values.get("workflow_type") or "dft")
+    software, toolchain, support = _resolve_primary_software(metadata_state, parameter_values)
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
     material = metadata_state.get("material") or parameter_values.get("material") or "Not specified"
     task = _select_task(parameter_overrides)
 
@@ -315,6 +345,10 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
         "structure_hints": _extract_structure_hints(parameter_overrides, metadata_state),
         "parameter_overrides": parameter_overrides,
         "parameter_rows": parameter_rows,
+        "toolchain": toolchain,
+        "software_support": support,
+        "helper_support": support,
+        "toolchain_plan": toolchain_plan,
         "research_questions": research_questions,
         "decision_criteria": proposal_contract.get("decision_criteria", []),
         "risk_register": proposal_contract.get("risk_register", []),
@@ -323,6 +357,7 @@ def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = Fals
         "literature_evidence_summary": proposal_contract.get("literature_evidence_summary", {}),
         "calculation_plan": proposal_contract.get("calculation_plan", {}),
         "proposal_contract": proposal_contract,
+        "protocol_contract": protocol_contract,
         "proposal_markdown": proposal_markdown,
         "proposal_artifacts": {
             name: {

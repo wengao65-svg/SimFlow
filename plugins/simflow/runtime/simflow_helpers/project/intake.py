@@ -143,7 +143,10 @@ def parse_research_input(input_text: str) -> dict:
         "research_goal": "",
         "material": "",
         "method": "",
-        "software": "vasp",
+        "software": "",
+        "software_specified": False,
+        "toolchain": [],
+        "software_stack": [],
         "workflow_type": "dft",
         "entry_stage": None,
         "entry_stage_requested": None,
@@ -168,6 +171,9 @@ def parse_research_input(input_text: str) -> dict:
                 result["method"] = value
             elif key in ("software", "code"):
                 result["software"] = value.lower()
+                result["software_specified"] = True
+            elif key in ("toolchain", "software_stack"):
+                result[key] = parse_inline_values(value)
             elif key in ("entry_stage", "entry_point", "current_stage", "stage"):
                 result["entry_stage_requested"] = value
                 result["entry_stage"] = normalize_entry_stage(value)
@@ -203,7 +209,8 @@ def init_research(input_file: str = None, input_text: str = None,
         parsed = {
             "research_goal": "New research",
             "workflow_type": "dft",
-            "software": "vasp",
+            "software": "",
+            "software_specified": False,
             "material": "unknown",
             "parameters": {},
         }
@@ -240,7 +247,10 @@ def init_research(input_file: str = None, input_text: str = None,
         "current_stage": entry_point,
         "research_goal": parsed["research_goal"],
         "material": parsed["material"],
-        "software": parsed.get("software", "vasp"),
+        "software": parsed.get("software") or "custom",
+        "software_specified": bool(parsed.get("software_specified")),
+        "toolchain": parsed.get("toolchain", []),
+        "software_stack": parsed.get("software_stack", []),
         "parameters": parsed.get("parameters", {}),
         "research_sources": research_sources,
         "created_at": datetime.now().isoformat(),
@@ -263,7 +273,7 @@ def main():
     parser.add_argument("--input", dest="input_file", help="Input file with research requirements")
     parser.add_argument("--text", dest="input_text", help="Inline research description")
     parser.add_argument("--type", dest="workflow_type",
-                        choices=["dft", "aimd", "md"], help="Workflow type")
+                        choices=["dft", "aimd", "classical_md", "mlp_md", "custom"], help="Workflow type")
     parser.add_argument("--output-dir", default=".", help="Output directory")
     parser.add_argument("--entry-stage", help="Canonical stage to enter from")
     args = parser.parse_args()

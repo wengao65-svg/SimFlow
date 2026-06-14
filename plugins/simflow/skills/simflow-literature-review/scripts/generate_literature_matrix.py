@@ -231,7 +231,7 @@ def generate_literature_matrix(workflow_dir: str, output_dir: str = None, enrich
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "research_goal": metadata.get("research_goal", "Not specified"),
         "material": metadata.get("material", "Not specified"),
-        "software": metadata.get("software", "vasp"),
+        "software": metadata.get("software", "custom"),
         "source_counts": research_sources.get("counts", EMPTY_SOURCE_BUNDLE["counts"]),
         "row_count": len(rows),
         "enrichment": {

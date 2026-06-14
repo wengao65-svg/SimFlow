@@ -19,9 +19,17 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import get_artifact, register_artifact
-from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
-from runtime.simflow_core.proposals import STRUCTURE_HINT_KEYS, TASK_KEYS, load_proposal_contract
+from runtime.simflow_core.proposals import (
+    STRUCTURE_HINT_KEYS,
+    TASK_KEYS,
+    load_proposal_contract,
+)
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import (
+    build_actual_tool_used,
+    capability_warning,
+)
+from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
 
 VASP_TASK_ALIASES = {
     "static": "scf",
@@ -223,6 +231,7 @@ def _direct_input_manifest(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
+        "actual_tool_used": build_actual_tool_used(contract, software),
         "status": "planned" if dry_run else "completed",
         "source": "user_provided_input_files",
         "parent_artifact_ids": [],
@@ -288,7 +297,11 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             parent_artifacts=[],
             parameters={"software": direct_manifest["software"], "task": direct_manifest["task"]},
             software=direct_manifest["software"],
-            metadata={"source": "user_provided_input_files"},
+            metadata={
+                "source": "user_provided_input_files",
+                "actual_tool_used": direct_manifest.get("actual_tool_used"),
+                "execution_mode": "dry_run" if dry_run else "completed",
+            },
         )
         file_artifacts = [
             register_artifact(
@@ -300,7 +313,11 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
                 parent_artifacts=[manifest_artifact["artifact_id"]],
                 parameters={"software": direct_manifest["software"], "task": direct_manifest["task"]},
                 software=direct_manifest["software"],
-                metadata={"source": "user_provided"},
+                metadata={
+                    "source": "user_provided",
+                    "actual_tool_used": direct_manifest.get("actual_tool_used"),
+                    "execution_mode": "completed",
+                },
             )
             for rel_path in direct_manifest["generated_files"]
         ]
@@ -328,6 +345,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
         "task": task,
+        "actual_tool_used": build_actual_tool_used(contract, software),
         "status": "planned" if dry_run else "completed",
         "source_structure": structure_artifact["path"],
         "structure_artifact_id": structure_artifact["artifact_id"],
@@ -421,7 +439,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             "warnings": generation.get("warnings", []),
         })
     else:
-        return {"status": "error", "message": f"Unsupported software for input generation: {software}"}
+        return capability_warning(contract, "computation", "input_generation", software)
 
     manifest_path = reports_dir / "input_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -435,6 +453,10 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         parent_artifacts=parent_artifact_ids,
         parameters={"software": software, "task": task},
         software=software,
+        metadata={
+            "actual_tool_used": manifest.get("actual_tool_used"),
+            "execution_mode": "completed",
+        },
     )
     file_artifacts = []
     for rel_path in manifest["generated_files"]:
@@ -447,6 +469,10 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             parent_artifacts=[manifest_artifact["artifact_id"]],
             parameters={"software": software, "task": task},
             software=software,
+            metadata={
+                "actual_tool_used": manifest.get("actual_tool_used"),
+                "execution_mode": "completed",
+            },
         ))
 
     return {

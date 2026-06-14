@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the canonical visualization stage for Milestone C."""
+"""Run the built-in optional visualization stage runner for Milestone C."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.artifacts import get_artifact, list_artifacts, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import capability_warning
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
 
 
@@ -49,6 +50,30 @@ def _stage_output_artifacts(project_root: Path, stage_name: str) -> list[dict[st
 
 def _relative_path(project_root: Path, path: Path) -> str:
     return str(path.resolve().relative_to(project_root))
+
+
+def _aggregate_visual_qa_status(statuses: list[str]) -> str:
+    if not statuses:
+        return "skipped"
+    if any(status == "error" for status in statuses):
+        return "error"
+    if any(status == "warning" for status in statuses):
+        return "warning"
+    if all(status == "passed" for status in statuses):
+        return "passed"
+    if all(status == "skipped_optional_dependency" for status in statuses):
+        return "skipped_optional_dependency"
+    return "review_needed"
+
+
+def _visual_qa_skipped(reason: str, status: str = "skipped") -> dict[str, Any]:
+    return {
+        "status": status,
+        "checks": {},
+        "warnings": [],
+        "figures": [],
+        "skipped_reason": reason,
+    }
 
 
 def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = False) -> dict:
@@ -90,6 +115,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
             "figures": [],
         },
         "figures": [],
+        "visual_qa": _visual_qa_skipped("Visualization has not rendered figures yet.", status="planned"),
         "skipped_reasons": [],
     }
 
@@ -218,7 +244,83 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                         "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
                     })
         else:
-            return {"status": "error", "message": f"Unsupported software for visualization stage: {software}"}
+            return capability_warning(contract, "analysis_visualization", "visualization", software)
+
+    qa_artifacts = []
+    if manifest["figures"]:
+        try:
+            audit_figure = _load_function(
+                "skills/simflow-analysis-visualization/scripts/audit_figure.py",
+                "audit_figure",
+                "simflow_audit_figure",
+            )
+            qa_entries: list[dict[str, Any]] = []
+            qa_statuses: list[str] = []
+            qa_warnings: list[str] = []
+            for figure in manifest["figures"]:
+                figure_path = project_root / figure["path"]
+                audit_path = reports_dir / f"{Path(figure['name']).stem}_visual_qa.json"
+                audit = audit_figure(str(figure_path), str(audit_path))
+                qa_artifact = register_artifact(
+                    audit_path.name,
+                    "visual_qa_report",
+                    "analysis_visualization",
+                    project_root=str(project_root),
+                    path=_relative_path(project_root, audit_path),
+                    parent_artifacts=parent_artifact_ids,
+                    parameters={
+                        "software": software,
+                        "task": task,
+                        "figure": figure["path"],
+                        "status": audit.get("status"),
+                    },
+                    software=software,
+                    metadata={
+                        "evidence_key": "visual_qa",
+                        "figure": figure["path"],
+                        "helper": "audit_figure.py",
+                    },
+                )
+                summary = {
+                    "status": audit.get("status"),
+                    "checks": audit.get("checks", {}),
+                    "warnings": audit.get("warnings", []),
+                    "audit_report": _relative_path(project_root, audit_path),
+                    "audit_artifact_id": qa_artifact["artifact_id"],
+                }
+                figure["visual_qa"] = summary
+                qa_entries.append({"figure": figure["path"], **summary})
+                qa_statuses.append(str(audit.get("status")))
+                qa_warnings.extend(audit.get("warnings", []))
+                qa_artifacts.append(qa_artifact)
+
+            manifest["visual_qa"] = {
+                "status": _aggregate_visual_qa_status(qa_statuses),
+                "checks": {
+                    "figures_checked": len(qa_entries),
+                    "audit_reports": len(qa_entries),
+                },
+                "warnings": qa_warnings,
+                "figures": qa_entries,
+            }
+        except Exception as exc:
+            warning = f"Visual QA helper failed: {exc}"
+            manifest["visual_qa"] = {
+                "status": "error",
+                "checks": {},
+                "warnings": [warning],
+                "figures": [],
+            }
+            for figure in manifest["figures"]:
+                figure["visual_qa"] = {
+                    "status": "error",
+                    "checks": {},
+                    "warnings": [warning],
+                }
+    else:
+        reason = manifest["skipped_reasons"][-1] if manifest["skipped_reasons"] else "No rendered figures were generated."
+        qa_status = "skipped_optional_dependency" if manifest["status"] == "skipped_optional_dependency" else "skipped"
+        manifest["visual_qa"] = _visual_qa_skipped(reason, status=qa_status)
 
     manifest["figure_traceability"]["figures"] = [
         {
@@ -227,6 +329,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
             "source_data": figure.get("source_data"),
             "plotting_script": figure.get("plotting_script"),
             "analysis_report_artifact_id": figure.get("analysis_report_artifact_id"),
+            "visual_qa": figure.get("visual_qa"),
         }
         for figure in manifest["figures"]
     ]
@@ -239,7 +342,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         "analysis_visualization",
         project_root=str(project_root),
         path=_relative_path(project_root, manifest_path),
-        parent_artifacts=parent_artifact_ids,
+        parent_artifacts=[*parent_artifact_ids, *[artifact["artifact_id"] for artifact in qa_artifacts]],
         parameters={"software": software, "task": task, "status": manifest["status"]},
         software=software,
         metadata={"evidence_key": "figure_manifest"},
@@ -259,19 +362,20 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
                 "evidence_key": "figure",
                 "source_data": figure.get("source_data"),
                 "plotting_script": figure.get("plotting_script"),
+                "visual_qa_artifact_id": figure.get("visual_qa", {}).get("audit_artifact_id"),
             },
         ))
 
     return {
         "status": "success",
-        "artifacts": [manifest_artifact, *figure_artifacts],
+        "artifacts": [manifest_artifact, *qa_artifacts, *figure_artifacts],
         "manifest": manifest,
         "inputs": parent_artifact_ids,
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the canonical visualization stage")
+    parser = argparse.ArgumentParser(description="Run the built-in optional visualization stage runner")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--params", type=str, default="{}", help="JSON parameters for the stage")
     parser.add_argument("--dry-run", action="store_true", default=False)

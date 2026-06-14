@@ -57,7 +57,7 @@ def generate_plan(workflow_dir: str, output_file: str = None) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "research_goal": metadata.get("research_goal", "Not specified"),
         "material": metadata.get("material", "Not specified"),
-        "software": metadata.get("software", "vasp"),
+        "software": metadata.get("software", "custom"),
         "workflow_type": metadata.get("workflow_type", state.get("workflow_type", "dft")),
         "current_stage": state.get("current_stage", metadata.get("current_stage", "unknown")),
         "entry_point": metadata.get("entry_point", state.get("entry_point")),

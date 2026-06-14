@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Analyze DFT calculation results using runtime parsers.
 
-Supports VASP and QE output files. Extracts energy, forces, convergence
-status, and other key metrics.
+Supports VASP output files. Extracts energy, forces, convergence status, and
+other key metrics.
 """
 
 import argparse
@@ -15,14 +15,12 @@ from pathlib import Path
 _simflow_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_simflow_root))
 
-from runtime.simflow_helpers.engines.qe import QEParser
 from runtime.simflow_helpers.engines.vasp import VASPParser
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 
 PARSERS = {
     "vasp": VASPParser(),
-    "qe": QEParser(),
 }
 
 
@@ -74,7 +72,7 @@ def analyze_results(software: str, output_files: list) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze DFT calculation results")
-    parser.add_argument("--software", required=True, choices=["vasp", "qe"],
+    parser.add_argument("--software", required=True, choices=["vasp"],
                         help="Computational software")
     parser.add_argument("--files", nargs="+", required=True,
                         help="Output files to analyze")

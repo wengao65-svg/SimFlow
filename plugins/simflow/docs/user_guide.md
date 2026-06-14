@@ -46,6 +46,32 @@ are reference paths, not fixed executor DAGs.
 
 Current work should use canonical stages and recipes under `workflow/recipes/`.
 
+## Software And Toolchains
+
+Software names are proposal metadata, helper-routing hints, and artifact
+provenance. They are not a required registry entry before a project can move
+through SimFlow.
+
+If a proposal names a helper-supported tool such as VASP, CP2K, or LAMMPS,
+stage runners may use the corresponding helper path. If it names a
+tracked-only or unknown tool, SimFlow should still record the plan, user
+scripts, commands, outputs, versions, environment, limitations, and lineage.
+Built-in stage runners return a `capability_warning` when automation is
+requested for a tool without helper support.
+
+After a `capability_warning`, record user-provided computation evidence through
+the generic computation evidence intake path. The intake records existing
+scripts, inputs, validation reports, dry-run reports, resource estimates,
+commands, versions, environments, and limitations as computation artifacts. If
+the required computation evidence is present, the computation stage can be
+explicitly completed and checkpointed without adding a software-specific helper.
+
+All recipes use the same toolchain contract. DFT, AIMD, classical MD, phonon,
+NEB, and MLP-MD workflows may record single-tool or multi-tool plans in
+`toolchain` or `toolchain_plan`, then record the concrete runtime fact in
+artifact metadata as `actual_tool_used`. Recipe files can suggest activity
+roles, but they do not define software support levels.
+
 ## Common Work Patterns
 
 ### Literature Review From User PDFs
@@ -72,6 +98,13 @@ Before real local, remote, or HPC execution, record:
 - script/input hashes
 - gate decision id or approval token
 
+A job record is only required after a real local, remote, or HPC submit has
+occurred. Dry-run-only computation evidence does not need
+`job_record_if_submitted`. When a real `hpc.submit` succeeds through the MCP
+submit tool, SimFlow records a `job_record_if_submitted` computation artifact
+with the scheduler job id, gate decision, approved hashes, script path, and
+submit result.
+
 The computation helper writes the gate evidence to canonical project-local
 paths so later submit tools can verify the exact preparation state:
 
@@ -97,12 +130,34 @@ record scripts, commands, inputs, outputs, environment, and figure lineage.
 Incomplete outputs, failed convergence, missing frames, or speculative
 interpretations must be labeled.
 
+For tracked-only tools, custom notebooks, external post-processing suites, or
+manually prepared figures, record evidence through generic analysis evidence
+intake instead of adding a recipe-specific parser. The intake records analysis
+scripts, input data, derived outputs, environment notes, figure files, figure
+manifests, visual QA, and claim evidence maps as `analysis_visualization`
+artifacts.
+
 ### Writing
 
 Writing outputs can be a draft, proposal, internal report, figure captions,
 slides, or another user-requested format. Key claims should trace to literature,
 modeling, computation, analysis, or figure artifacts. Unfinished calculations
 must not be written as completed results.
+
+Writing claim maps include degraded evidence states such as `dry_run_only`,
+`waiting_for_outputs`, `missing_evidence`, and `skipped_optional_dependency`.
+These states are explicit reminders that the text may describe plans,
+limitations, or pending evidence, but must not present those items as completed
+scientific results.
+
+### Status And Readiness
+
+`workflow_status`, `project_readiness`, `stage_readiness`, and handoff summaries
+are read-only views over existing SimFlow state. For tracked-only computation or
+analysis paths, status output includes generic evidence intake actions such as
+`record_computation_evidence` and `record_analysis_evidence` so users can see
+which missing evidence should be registered next without adding recipe-specific
+software logic.
 
 ## Environment Variables
 
