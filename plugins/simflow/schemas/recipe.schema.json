@@ -11,7 +11,7 @@
     },
     "recipe_type": {
       "type": "string",
-      "description": "Open recipe type such as dft, aimd, classical_md, phonon, neb, or custom"
+      "description": "Open recipe type such as dft, aimd, classical_md, phonon, neb, mlp_md, or custom"
     },
     "intent": {
       "type": "string",

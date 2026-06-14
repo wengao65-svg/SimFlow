@@ -13,6 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state
+from runtime.simflow_core.toolchains import (
+    build_toolchain_plan,
+    classify_tool_support,
+    extract_toolchain,
+    normalize_tool_name,
+)
 
 
 REQUIRED_REVIEW_ARTIFACTS = ("review_summary.md", "gap_analysis.md")
@@ -24,8 +30,6 @@ CANONICAL_STAGE_SEQUENCE = [
     "analysis_visualization",
     "writing",
 ]
-
-
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
     """Resolve the project root from either a project root or .simflow path."""
     path = Path(workflow_dir).expanduser().resolve()
@@ -102,9 +106,9 @@ def build_parameter_rows(metadata: dict) -> list[dict]:
         },
         {
             "parameter": "software",
-            "value": metadata.get("software", "vasp"),
+            "value": metadata.get("software", "custom"),
             "source": "metadata",
-            "notes": "Primary simulation software requested by the user.",
+            "notes": "Primary software preference when specified; custom means no helper software was declared at intake.",
         },
         {
             "parameter": "material",
@@ -113,6 +117,15 @@ def build_parameter_rows(metadata: dict) -> list[dict]:
             "notes": "Target material or system under study.",
         },
     ]
+    for key in ("toolchain", "software_stack"):
+        if key in metadata and metadata.get(key) not in (None, "", [], {}):
+            value = metadata[key]
+            rows.append({
+                "parameter": key,
+                "value": json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value),
+                "source": "metadata",
+                "notes": "Software/toolchain provenance for multi-tool workflows.",
+            })
     for key, value in metadata.get("parameters", {}).items():
         rows.append({
             "parameter": key,
@@ -128,11 +141,51 @@ def extract_gap_bullets(gap_analysis: str) -> list[str]:
     return [line[2:].strip() for line in gap_analysis.splitlines() if line.startswith("- ")]
 
 
+def _as_list(value) -> list:
+    """Normalize optional metadata fields to a list."""
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _provided(value) -> bool:
+    """Return whether a metadata value is meaningful enough for protocol intake."""
+    return value not in (None, "", "Not specified")
+
+
+def _parse_parameter_value(value):
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return ""
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return stripped
+
+
+def _parameter_value_map(parameter_rows: list[dict]) -> dict:
+    return {
+        row["parameter"]: _parse_parameter_value(row.get("value", ""))
+        for row in parameter_rows
+        if row.get("parameter")
+    }
+
+
+def _extract_toolchain(metadata: dict, parameter_rows: list[dict]) -> list[str]:
+    return extract_toolchain(metadata, _parameter_value_map(parameter_rows))
+
+
 def build_research_questions(metadata: dict, gap_analysis: str, parameter_rows: list[dict]) -> dict:
     """Build deterministic machine-readable research questions for Milestone C."""
     goal = metadata.get("research_goal", "the current research goal").strip() or "the current research goal"
     material = metadata.get("material", "the target system").strip() or "the target system"
-    software = metadata.get("software", "vasp").strip() or "vasp"
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
     gap_bullets = extract_gap_bullets(gap_analysis)
     parameter_keys = [
         row["parameter"]
@@ -189,11 +242,17 @@ def build_proposal_contract(
 ) -> dict:
     """Build the machine-readable proposal contract consumed by later stages."""
     workflow_type = metadata.get("workflow_type", "dft")
-    software = metadata.get("software", "vasp")
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
     material = metadata.get("material", "Not specified")
     goal = metadata.get("research_goal", "Not specified")
     gap_bullets = extract_gap_bullets(gap_analysis)
     source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
+    toolchain = _extract_toolchain(metadata, parameter_rows)
+    if software and software != "custom" and software not in toolchain:
+        toolchain = [software, *toolchain]
+    software_support = classify_tool_support(toolchain)
+    software_support["requested_software"] = software
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
     literature_status = "provided" if source_artifact_ids else "not_provided"
     literature_summary = [
         line[2:].strip()
@@ -205,6 +264,10 @@ def build_proposal_contract(
         "generated_at": generated_at,
         "workflow_type": workflow_type,
         "software": software,
+        "toolchain": toolchain,
+        "software_support": software_support,
+        "helper_support": software_support,
+        "toolchain_plan": toolchain_plan,
         "material": material,
         "research_goal": goal,
         "source_artifact_ids": source_artifact_ids,
@@ -218,6 +281,10 @@ def build_proposal_contract(
             "stage": "proposal",
             "recipe_or_tag": workflow_type,
             "software": software,
+            "toolchain": toolchain,
+            "software_support": software_support,
+            "helper_support": software_support,
+            "toolchain_plan": toolchain_plan,
             "material": material,
             "planned_next_stages": ["modeling", "computation", "analysis_visualization", "writing"],
             "dry_run_first": True,
@@ -279,12 +346,302 @@ def build_proposal_contract(
     }
 
 
+def build_protocol_contract(
+    metadata: dict,
+    review_artifacts: list[dict],
+    gap_analysis: str,
+    parameter_rows: list[dict],
+    proposal_contract: dict,
+    generated_at: str,
+) -> dict:
+    """Build a software-neutral protocol contract for downstream stage handoff."""
+    workflow_type = metadata.get("workflow_type", "dft")
+    software = normalize_tool_name(metadata.get("software", "custom")) or "custom"
+    material = metadata.get("material", "Not specified")
+    goal = metadata.get("research_goal", "Not specified")
+    source_artifact_ids = [artifact["artifact_id"] for artifact in review_artifacts]
+    literature_status = "provided" if source_artifact_ids else "not_provided"
+    gap_bullets = extract_gap_bullets(gap_analysis)
+    resource_assumptions = proposal_contract.get("resource_assumptions", {})
+    approval_triggers = resource_assumptions.get(
+        "approval_triggers",
+        ["large_resource_commitment", "licensed_or_proprietary_file_handling"],
+    )
+    toolchain = _extract_toolchain(metadata, parameter_rows)
+    if software and software != "custom" and software not in toolchain:
+        toolchain = [software, *toolchain]
+    software_support = classify_tool_support(toolchain)
+    software_support["requested_software"] = software
+    toolchain_plan = build_toolchain_plan(workflow_type, software, toolchain)
+
+    inputs = [
+        {
+            "input_id": "input_001",
+            "name": "research_goal",
+            "source": "metadata.research_goal",
+            "required": True,
+            "status": "provided" if _provided(goal) else "missing",
+            "value": goal,
+        },
+        {
+            "input_id": "input_002",
+            "name": "material_or_system",
+            "source": "metadata.material",
+            "required": True,
+            "status": "provided" if _provided(material) else "missing",
+            "value": material,
+        },
+        {
+            "input_id": "input_003",
+            "name": "workflow_type",
+            "source": "metadata.workflow_type",
+            "required": True,
+            "status": "provided" if _provided(workflow_type) else "missing",
+            "value": workflow_type,
+        },
+        {
+            "input_id": "input_004",
+            "name": "software_preference",
+            "source": "metadata.software",
+            "required": False,
+            "status": "provided" if _provided(software) else "unspecified",
+            "value": software,
+        },
+        {
+            "input_id": "input_005",
+            "name": "literature_evidence",
+            "source": "literature_review.artifacts",
+            "required": False,
+            "required_for": "evidence_backed_claims",
+            "status": literature_status,
+            "artifact_ids": source_artifact_ids,
+        },
+        {
+            "input_id": "input_006",
+            "name": "proposal_parameters",
+            "source": "parameter_table.csv",
+            "required": False,
+            "status": "provided" if parameter_rows else "not_provided",
+            "parameter_count": len(parameter_rows),
+        },
+        {
+            "input_id": "input_007",
+            "name": "toolchain",
+            "source": "metadata.toolchain_or_parameter_table",
+            "required": workflow_type == "mlp_md",
+            "status": "provided" if toolchain else "missing",
+            "value": toolchain,
+        },
+    ]
+
+    variables = [
+        {
+            "variable_id": f"var_{index:03d}",
+            "name": row["parameter"],
+            "value": row["value"],
+            "source": row["source"],
+            "role": "core_context" if row["parameter"] in {"workflow_type", "software", "material"} else "protocol_variable",
+            "locked": row["parameter"] in {"workflow_type", "software", "material"},
+            "notes": row.get("notes", ""),
+        }
+        for index, row in enumerate(parameter_rows, start=1)
+    ]
+
+    control_groups = []
+    for index, item in enumerate(_as_list(metadata.get("control_groups") or metadata.get("controls")), start=1):
+        if isinstance(item, dict):
+            control_groups.append({
+                "group_id": item.get("group_id") or f"control_{index:03d}",
+                "name": item.get("name") or item.get("group") or f"control_{index:03d}",
+                "description": item.get("description") or item.get("notes") or "",
+                "source": item.get("source") or "metadata.control_groups",
+                "status": item.get("status") or "provided",
+            })
+        else:
+            control_groups.append({
+                "group_id": f"control_{index:03d}",
+                "name": str(item),
+                "description": "",
+                "source": "metadata.control_groups",
+                "status": "provided",
+            })
+    if not control_groups:
+        control_groups.append({
+            "group_id": "control_001",
+            "name": "baseline_or_reference",
+            "description": "Define the baseline, reference, or negative-control comparison before computation.",
+            "source": "proposal_protocol_default",
+            "status": "needs_definition",
+        })
+
+    return {
+        "schema_version": "protocol_contract.v1",
+        "generated_at": generated_at,
+        "objective": {
+            "research_goal": goal,
+            "material": material,
+            "workflow_type": workflow_type,
+            "software": software,
+            "toolchain": toolchain,
+            "software_support": software_support,
+            "helper_support": software_support,
+            "toolchain_plan": toolchain_plan,
+        },
+        "evidence_limits": {
+            "literature_status": literature_status,
+            "source_artifact_ids": source_artifact_ids,
+            "open_questions": gap_bullets,
+            "claims_policy": (
+                "Treat literature-dependent claims as unverified until review artifacts are registered."
+                if literature_status == "not_provided"
+                else "Limit claims to registered source artifacts and downstream artifacts."
+            ),
+        },
+        "inputs": inputs,
+        "toolchain": toolchain,
+        "software_support": software_support,
+        "helper_support": software_support,
+        "toolchain_plan": toolchain_plan,
+        "variables": variables,
+        "control_groups": control_groups,
+        "ordered_steps": [
+            {
+                "step_id": "step_001",
+                "stage": "proposal",
+                "action": "Verify that protocol inputs, evidence limits, and user assumptions are explicit.",
+                "acceptance_gate": "gate_001",
+                "produces": ["protocol_contract.json"],
+            },
+            {
+                "step_id": "step_002",
+                "stage": "modeling",
+                "action": "Translate objective, variables, and control groups into model or structure requirements.",
+                "acceptance_gate": "gate_002",
+                "produces": ["modeling_artifacts"],
+            },
+            {
+                "step_id": "step_003",
+                "stage": "computation",
+                "action": "Map reviewed variables to candidate input files and dry-run validation checks.",
+                "acceptance_gate": "gate_003",
+                "produces": ["dry_run_evidence"],
+            },
+            {
+                "step_id": "step_004",
+                "stage": "computation",
+                "action": "Request explicit approval before any real local, remote, or HPC execution.",
+                "acceptance_gate": "gate_004",
+                "produces": ["approval_record"],
+            },
+        ],
+        "acceptance_gates": [
+            {
+                "gate_id": "gate_001",
+                "name": "input_traceability",
+                "required": True,
+                "criteria": [
+                    "Required inputs are provided or recorded as missing.",
+                    "Literature evidence status is explicit.",
+                    "Assumptions and open questions are visible to downstream stages.",
+                ],
+                "on_failure": "failure_001",
+            },
+            {
+                "gate_id": "gate_002",
+                "name": "modeling_handoff_ready",
+                "required": True,
+                "criteria": [
+                    "Modeling inputs preserve the stated objective and material/system.",
+                    "Control or reference comparisons are defined or explicitly pending.",
+                ],
+                "on_failure": "failure_002",
+            },
+            {
+                "gate_id": "gate_003",
+                "name": "dry_run_ready",
+                "required": True,
+                "criteria": [
+                    "Candidate computation inputs are prepared for validation only.",
+                    "Dry-run evidence can be registered before any real execution.",
+                ],
+                "on_failure": "failure_003",
+            },
+            {
+                "gate_id": "gate_004",
+                "name": "real_execution_approval",
+                "required": True,
+                "criteria": [
+                    "Real compute remains blocked until dry-run evidence and approval are recorded.",
+                    "Approval triggers are reviewed for resource, license, and remote-system risks.",
+                ],
+                "on_failure": "failure_004",
+            },
+        ],
+        "dry_run_requirements": {
+            "dry_run_first": True,
+            "real_submit_requires_approval": True,
+            "required_before_real_compute": [
+                "registered_protocol_contract",
+                "reviewed_modeling_or_input_artifacts",
+                "dry_run_validation_evidence",
+                "approval_gate_record",
+            ],
+            "disallowed_without_approval": [
+                "real_local_compute",
+                "remote_compute",
+                "hpc_submit",
+                "licensed_or_proprietary_file_transfer",
+            ],
+        },
+        "failure_branches": [
+            {
+                "failure_id": "failure_001",
+                "condition": "required_inputs_or_literature_evidence_missing",
+                "response": "Record missing inputs and keep literature-dependent claims unverified.",
+                "next_stage": "proposal",
+            },
+            {
+                "failure_id": "failure_002",
+                "condition": "modeling_requirements_ambiguous",
+                "response": "Return to proposal/modeling clarification before generating compute inputs.",
+                "next_stage": "modeling",
+            },
+            {
+                "failure_id": "failure_003",
+                "condition": "dry_run_validation_fails",
+                "response": "Create a failure checkpoint and do not proceed to real execution.",
+                "next_stage": "computation",
+            },
+            {
+                "failure_id": "failure_004",
+                "condition": "approval_missing_for_real_execution",
+                "response": "Block real local, remote, or HPC execution until approval is recorded.",
+                "next_stage": "computation",
+            },
+        ],
+        "approval_triggers": approval_triggers,
+        "handoff_outputs": [
+            {
+                "target_stage": "modeling",
+                "required_artifacts": ["protocol_contract.json", "proposal_contract.json", "parameter_table.csv"],
+                "purpose": "Build or select model inputs consistent with the proposal objective and variables.",
+            },
+            {
+                "target_stage": "computation",
+                "required_artifacts": ["protocol_contract.json", "modeling_artifacts", "dry_run_evidence"],
+                "purpose": "Validate candidate inputs under dry-run rules before real execution approval.",
+            },
+        ],
+    }
+
+
 def build_proposal_markdown(
     metadata: dict,
     review_summary: str,
     gap_analysis: str,
     parameter_rows: list[dict],
     proposal_contract: dict,
+    protocol_contract: dict,
 ) -> str:
     """Render a deterministic proposal markdown document."""
     gap_bullets = extract_gap_bullets(gap_analysis) or ["No explicit gaps were listed in the review stage."]
@@ -304,6 +661,15 @@ def build_proposal_markdown(
         for key, value in proposal_contract["resource_assumptions"].items()
     ]
     source_lines = [f"- {artifact_id}" for artifact_id in proposal_contract["source_artifact_ids"]]
+    toolchain = protocol_contract.get("toolchain", [])
+    support = protocol_contract.get("software_support", {})
+    toolchain_lines = [f"- Toolchain: {json.dumps(toolchain, ensure_ascii=False)}"]
+    if support.get("tracked_only"):
+        toolchain_lines.append(f"- Tracked-only tools: {json.dumps(support['tracked_only'], ensure_ascii=False)}")
+    protocol_gate_lines = [
+        f"- {gate['gate_id']}: {gate['name']}"
+        for gate in protocol_contract.get("acceptance_gates", [])
+    ]
 
     return "\n".join([
         "# Proposal",
@@ -312,15 +678,24 @@ def build_proposal_markdown(
         f"- Goal: {metadata.get('research_goal', 'Not specified')}",
         f"- Material: {metadata.get('material', 'Not specified')}",
         f"- Workflow type: {metadata.get('workflow_type', 'dft')}",
-        f"- Software: {metadata.get('software', 'vasp')}",
+        f"- Software: {metadata.get('software', 'custom')}",
+        *toolchain_lines,
         "",
         "## Review Inputs",
         *summary_section,
         "",
         "## Proposed Plan",
         f"- Start from the {metadata.get('workflow_type', 'dft')} workflow entry point defined in canonical metadata.",
-        f"- Use {metadata.get('software', 'vasp')} as the primary simulation engine unless review findings force a change.",
+        f"- Treat {metadata.get('software', 'custom')} as the primary software preference, not as a workflow admission requirement.",
+        "- Record multi-tool workflows through toolchain metadata; only built-in helper software is treated as helper-supported.",
         f"- Focus the next modeling decisions on {metadata.get('material', 'the target system')} with the user goal kept explicit.",
+        "",
+        "## Protocol Outline",
+        "- Protocol contract: protocol_contract.json",
+        f"- Dry-run first: {protocol_contract.get('dry_run_requirements', {}).get('dry_run_first', True)}",
+        f"- Real execution requires approval: {protocol_contract.get('dry_run_requirements', {}).get('real_submit_requires_approval', True)}",
+        "- Detailed machine-readable protocol fields are recorded in protocol_contract.json.",
+        *protocol_gate_lines,
         "",
         "## Key Parameters",
         *parameter_lines,
@@ -376,17 +751,27 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         research_questions,
         generated_at,
     )
+    protocol_contract = build_protocol_contract(
+        metadata,
+        review_artifacts,
+        review_contents["gap_analysis.md"],
+        parameter_rows,
+        proposal_contract,
+        generated_at,
+    )
 
     proposal_path = proposal_dir / "proposal.md"
     parameter_table_path = proposal_dir / "parameter_table.csv"
     research_questions_path = proposal_dir / "research_questions.json"
     proposal_contract_path = proposal_dir / "proposal_contract.json"
+    protocol_contract_path = proposal_dir / "protocol_contract.json"
     proposal_content = build_proposal_markdown(
         metadata,
         review_contents["review_summary.md"],
         review_contents["gap_analysis.md"],
         parameter_rows,
         proposal_contract,
+        protocol_contract,
     )
     proposal_path.write_text(proposal_content, encoding="utf-8")
     with parameter_table_path.open("w", encoding="utf-8", newline="") as handle:
@@ -395,11 +780,13 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         writer.writerows(parameter_rows)
     research_questions_path.write_text(json.dumps(research_questions, indent=2, ensure_ascii=False), encoding="utf-8")
     proposal_contract_path.write_text(json.dumps(proposal_contract, indent=2, ensure_ascii=False), encoding="utf-8")
+    protocol_contract_path.write_text(json.dumps(protocol_contract, indent=2, ensure_ascii=False), encoding="utf-8")
 
     proposal_registry_path = str(proposal_path.resolve().relative_to(project_root)) if proposal_path.resolve().is_relative_to(project_root) else str(proposal_path.resolve())
     parameter_registry_path = str(parameter_table_path.resolve().relative_to(project_root)) if parameter_table_path.resolve().is_relative_to(project_root) else str(parameter_table_path.resolve())
     questions_registry_path = str(research_questions_path.resolve().relative_to(project_root)) if research_questions_path.resolve().is_relative_to(project_root) else str(research_questions_path.resolve())
     contract_registry_path = str(proposal_contract_path.resolve().relative_to(project_root)) if proposal_contract_path.resolve().is_relative_to(project_root) else str(proposal_contract_path.resolve())
+    protocol_registry_path = str(protocol_contract_path.resolve().relative_to(project_root)) if protocol_contract_path.resolve().is_relative_to(project_root) else str(protocol_contract_path.resolve())
     parent_artifacts = [artifact["artifact_id"] for artifact in review_artifacts]
 
     proposal_artifact = register_artifact(
@@ -411,7 +798,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=parent_artifacts,
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
-        metadata={"evidence_key": "proposal"},
+        metadata={
+            "evidence_key": "proposal",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     parameter_artifact = register_artifact(
         "parameter_table.csv",
@@ -422,7 +813,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"]],
         parameters={"parameter_count": len(parameter_rows)},
         software=metadata.get("software"),
-        metadata={"evidence_key": "parameter_rationale"},
+        metadata={
+            "evidence_key": "parameter_rationale",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     research_questions_artifact = register_artifact(
         "research_questions.json",
@@ -433,7 +828,11 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         parent_artifacts=[proposal_artifact["artifact_id"], parameter_artifact["artifact_id"]],
         parameters={"question_count": len(research_questions["questions"])},
         software=metadata.get("software"),
-        metadata={"evidence_key": "research_questions"},
+        metadata={
+            "evidence_key": "research_questions",
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
     proposal_contract_artifact = register_artifact(
         "proposal_contract.json",
@@ -448,7 +847,34 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
         ],
         parameters={"decision_criteria_count": len(proposal_contract["decision_criteria"])},
         software=metadata.get("software"),
-        metadata={"evidence_keys": ["calculation_plan", "resource_estimate", "risk_register"]},
+        metadata={
+            "evidence_keys": ["calculation_plan", "resource_estimate", "risk_register"],
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
+    )
+    protocol_contract_artifact = register_artifact(
+        "protocol_contract.json",
+        "protocol_contract",
+        "proposal",
+        project_root=str(project_root),
+        path=protocol_registry_path,
+        parent_artifacts=[
+            proposal_artifact["artifact_id"],
+            parameter_artifact["artifact_id"],
+            research_questions_artifact["artifact_id"],
+            proposal_contract_artifact["artifact_id"],
+        ],
+        parameters={
+            "step_count": len(protocol_contract["ordered_steps"]),
+            "gate_count": len(protocol_contract["acceptance_gates"]),
+        },
+        software=metadata.get("software"),
+        metadata={
+            "evidence_keys": ["ordered_steps", "acceptance_gates", "dry_run_requirements"],
+            **({"recipe": "mlp_md"} if metadata.get("workflow_type") == "mlp_md" else {}),
+            "toolchain": _extract_toolchain(metadata, parameter_rows),
+        },
     )
 
     return {
@@ -459,8 +885,15 @@ def generate_proposal(workflow_dir: str, output_dir: str = None) -> dict:
             "parameter_table": str(parameter_table_path),
             "research_questions": str(research_questions_path),
             "proposal_contract": str(proposal_contract_path),
+            "protocol_contract": str(protocol_contract_path),
         },
-        "artifacts": [proposal_artifact, parameter_artifact, research_questions_artifact, proposal_contract_artifact],
+        "artifacts": [
+            proposal_artifact,
+            parameter_artifact,
+            research_questions_artifact,
+            proposal_contract_artifact,
+            protocol_contract_artifact,
+        ],
     }
 
 

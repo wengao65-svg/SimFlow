@@ -1,0 +1,53 @@
+{
+  "name": "production_md_readiness",
+  "description": "生产级 MLP-MD 放行审批门：只有在数据集、训练、验证、异常检测和人工审批证据齐全时才允许进入生产级长时间 MLP-MD。",
+  "type": "approval",
+  "conditions": [
+    {
+      "id": "dataset_lineage_complete",
+      "evidence": "analysis/dataset_manifest.json",
+      "path": "$.lineage_complete",
+      "op": "eq",
+      "value": true
+    },
+    {
+      "id": "training_completed",
+      "evidence": "compute/training_run_manifest.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["completed", "pass"]
+    },
+    {
+      "id": "validation_passed",
+      "evidence": "analysis/model_validation_report.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "long_md_smoke_passed",
+      "evidence": "compute/long_md_manifest.json",
+      "path": "$.smoke_status",
+      "op": "in",
+      "value": ["pass", "warning"]
+    },
+    {
+      "id": "anomaly_thresholds_defined",
+      "evidence": "analysis/anomaly_report.json",
+      "path": "$.thresholds_defined",
+      "op": "eq",
+      "value": true
+    },
+    {
+      "id": "approval_present",
+      "evidence": "state/gates.json",
+      "path": "$.production_md_readiness.latest_decision",
+      "op": "eq",
+      "value": "approved"
+    }
+  ],
+  "actions_on_approve": ["allow_production_mlp_md", "record_production_md_decision"],
+  "actions_on_reject": ["block_production_md", "return_to_active_learning_or_validation"],
+  "auto_approve": false,
+  "timeout_minutes": 60
+}

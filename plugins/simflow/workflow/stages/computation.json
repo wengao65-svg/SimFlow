@@ -3,7 +3,14 @@
   "description": "Open computation stage contract for input preparation, validation, dry-run, optional execution, and job/output records.",
   "intent": "Prepare, validate, optionally run, and record computational simulation jobs with dry-run-first safety gates.",
   "acceptable_inputs": ["user-provided input files", "generated input files", "model artifacts", "calculation plan", "previous checkpoint"],
-  "evidence_outputs": ["calculation_manifest", "input_files", "input_validation_report", "dry_run_report", "resource_estimate", "job_record_if_submitted"],
+  "evidence_outputs": [
+    "calculation_manifest",
+    "input_files",
+    "input_validation_report",
+    "dry_run_report",
+    "resource_estimate",
+    {"id": "job_record_if_submitted", "required_when": "real_submit_recorded"}
+  ],
   "recommended_skills": ["simflow-computation", "optional engine-specific helper"],
   "suggested_checks": ["input completeness", "resource reasonableness", "software command documented", "environment documented", "output hashes recorded", "credential scan recorded"],
   "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "destructive_file_operation", "licensed_or_proprietary_file_handling"],

@@ -7,6 +7,7 @@ Default mode: dry-run only. Real submission requires approval gate.
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.parent.parent
@@ -19,6 +20,7 @@ from connectors.pbs import PBSConnector
 from connectors.local import LocalConnector
 from connectors.ssh import SSHConnector
 from mcp.shared.transport import dispatch_request, run_server
+from runtime.simflow_helpers.computation.job_records import record_submit_job
 
 
 _CONNECTORS = {
@@ -133,6 +135,31 @@ def handle_submit(params: dict) -> dict:
     if scheduler == "local":
         submit_kwargs["timeout"] = params.get("timeout", 3600)
     result = connector.submit(script_path, **submit_kwargs)
+    if result.get("status") == "success" or result.get("success") is True:
+        job_id = result.get("job_id")
+        effective_scheduler = result.get("scheduler") or scheduler
+        if not job_id:
+            script_hash = result.get("script_hash") or params.get("script_hash") or "unknown"
+            job_id = f"local_{script_hash[:12]}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+            result["job_id"] = job_id
+        record_status = "completed" if effective_scheduler == "local" and result.get("returncode") is not None else "submitted"
+        record = record_submit_job(
+            project_root=params["project_root"],
+            scheduler=effective_scheduler,
+            job_id=str(job_id),
+            status=record_status,
+            script_path=script_path,
+            gate_decision_id=result.get("gate_decision_id") or params.get("gate_decision_id"),
+            dry_run_evidence=params.get("dry_run_evidence"),
+            script_hash=result.get("script_hash") or params.get("script_hash"),
+            input_artifact_hash=params.get("input_artifact_hash"),
+            submit_result=result,
+        )
+        if record["status"] == "success":
+            result["job_record_artifact_id"] = record["artifact"]["artifact_id"]
+            result["job_record_path"] = record["path"]
+        else:
+            result["job_record_error"] = record
     return result
 
 

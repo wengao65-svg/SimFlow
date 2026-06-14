@@ -232,6 +232,41 @@ def _next_actions(stage_progress: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{"action": "workflow_complete", "stage": None, "reason": "no_pending_stages"}]
 
 
+def _readiness_summary(root: Path) -> dict[str, Any]:
+    from .readiness import build_project_readiness
+
+    readiness = build_project_readiness(str(root))
+    stages = []
+    for stage_result in _as_list(readiness.get("stages")):
+        if not isinstance(stage_result, dict):
+            continue
+        evidence = _as_dict(stage_result.get("evidence"))
+        stages.append({
+            "stage": stage_result.get("stage"),
+            "stage_status": stage_result.get("stage_status"),
+            "readiness_status": stage_result.get("readiness_status"),
+            "required_evidence": evidence.get("required_count", 0),
+            "present_evidence": evidence.get("present_count", 0),
+            "missing_evidence": evidence.get("missing_count", 0),
+            "actions": _as_list(stage_result.get("actions")),
+        })
+
+    actions = [
+        action for action in _as_list(readiness.get("actions"))
+        if isinstance(action, dict)
+    ]
+    generic_evidence_actions = [
+        action for action in actions
+        if action.get("action") in {"record_computation_evidence", "record_analysis_evidence"}
+    ]
+    return {
+        "readiness_status": readiness.get("readiness_status"),
+        "stages": stages,
+        "actions": actions,
+        "generic_evidence_actions": generic_evidence_actions,
+    }
+
+
 def build_evidence_graph(
     project_root: str,
     *,
@@ -300,6 +335,7 @@ def build_project_status(project_root: str) -> dict[str, Any]:
     stage_progress = _stage_progress(stages, state["stages"], state["artifacts"])
     artifact_summary = _artifact_summary(root, state["artifacts"])
     graph = build_evidence_graph(str(root))
+    readiness = _readiness_summary(root)
     risks = _risks(workflow, stage_progress, artifact_summary, state["checkpoints"], graph["missing_parents"])
 
     completed = [item for item in stage_progress if item.get("status") == "completed"]
@@ -331,6 +367,7 @@ def build_project_status(project_root: str) -> dict[str, Any]:
         },
         "gates": _gate_summary(state["gates"]),
         "verification": state["verification"],
+        "readiness": readiness,
         "risks": risks,
         "next_actions": _next_actions(stage_progress),
     }
@@ -349,6 +386,7 @@ def build_handoff_summary(project_root: str) -> dict[str, Any]:
         "completed_stages": progress["completed_stages"],
         "latest_checkpoint": project_status["checkpoints"]["latest"],
         "artifact_summary": project_status["artifacts"],
+        "readiness": project_status["readiness"],
         "risks": project_status["risks"],
         "next_actions": project_status["next_actions"],
         "gate_summary": project_status["gates"],
