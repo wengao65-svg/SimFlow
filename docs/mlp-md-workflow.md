@@ -11,13 +11,14 @@ The canonical stage mapping remains:
 | Literature review, method selection, reference-label standards | `literature_review` |
 | Experimental design, sampling plan, labeling standard, validation criteria | `proposal` |
 | System definition, initial structures, solvation, transformations | `modeling` |
-| Sampling, DFT labeling, MLP training, validation MD, long MD | `computation` |
+| Sampling, DFT labeling, MLP training, validation MD, smoke MD | `computation` |
 | Candidate selection, dataset audit, metrics, anomaly detection, active-learning decision | `analysis_visualization` |
 | Methods, results, evidence map, handoff | `writing` |
 
 Active learning is represented as a loop between `computation` and
 `analysis_visualization`, with `production_md_readiness` controlling entry to
-production-length MLP-MD.
+production-length MLP-MD. A readiness pass records permission to proceed; it is
+not itself a submit action and does not run local, remote, or HPC jobs.
 
 Recommended artifact metadata:
 

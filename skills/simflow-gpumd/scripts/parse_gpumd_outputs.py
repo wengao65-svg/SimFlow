@@ -14,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import support_level_for_capability
 
@@ -130,19 +131,34 @@ def main() -> None:
     parsed_files = [parse_table(Path(path).expanduser(), args.software) for path in args.files]
     blocked = all(item["parser_status"] in {"missing", "unparsed"} for item in parsed_files)
     degraded = any(item["parser_status"] != "parsed" or item.get("warnings") for item in parsed_files)
-    result = {
-        "status": "blocked" if blocked else ("warning" if degraded else "success"),
-        "capability": "selected_output_parsing",
-        "capability_support_level": support_level_for_capability(
-            "nep" if all(item["software"] == "nep" for item in parsed_files) else "gpumd",
-            "selected_output_parsing",
-        ),
-        "files": parsed_files,
-        "limitations": [
+    software = "nep" if all(item["software"] == "nep" for item in parsed_files) else "gpumd"
+    result = build_helper_evidence(
+        helper="parse_gpumd_outputs",
+        capability="selected_output_parsing",
+        status="blocked" if blocked else ("warning" if degraded else "success"),
+        stage="analysis_visualization",
+        activity="selected_output_parsing",
+        evidence_role="gpumd_nep_output_parse_summary",
+        source_files=[source_file_record(path) for path in args.files],
+        actual_tool_used={
+            "software": software,
+            "support_level": "tracked_only",
+        },
+        parser_status="missing" if blocked else ("partial" if degraded else "parsed"),
+        claim_limits=[
+            "No convergence, model-quality, or transport-property claim is made.",
+            "Parsed numeric summaries must be reviewed against the original GPUMD/NEP context.",
+        ],
+        limitations=[
             "Only simple numeric tables are parsed.",
             "No convergence, model-quality, or transport-property claim is made.",
         ],
-    }
+        files=parsed_files,
+        capability_support_level=support_level_for_capability(
+            software,
+            "selected_output_parsing",
+        ),
+    )
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -153,7 +169,7 @@ def main() -> None:
         result=result,
         script_path=Path(__file__).resolve(),
         helper_name="parse_gpumd_outputs",
-        software="nep" if all(item["software"] == "nep" for item in parsed_files) else "gpumd",
+        software=software,
         input_paths=args.files,
         output_paths=[args.output] if args.output else [],
         metadata={"capability": "selected_output_parsing", "helper_result_status": result.get("status")},

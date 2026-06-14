@@ -30,11 +30,15 @@ def _write_hpc_evidence(project_root: Path, *, include_credentials: bool = True)
 
 def _write_production_md_readiness_evidence(project_root: Path):
     artifacts = project_root / ".simflow" / "artifacts"
-    _write_json(artifacts / "analysis" / "dataset_manifest.json", {"lineage_complete": True})
-    _write_json(artifacts / "compute" / "training_run_manifest.json", {"status": "completed"})
-    _write_json(artifacts / "analysis" / "model_validation_report.json", {"status": "pass"})
-    _write_json(artifacts / "compute" / "long_md_manifest.json", {"smoke_status": "pass"})
-    _write_json(artifacts / "analysis" / "anomaly_report.json", {"thresholds_defined": True})
+    _write_json(artifacts / "analysis" / "dataset_manifest.json", {"lineage_complete": True, "evidence_role": "dataset_manifest"})
+    _write_json(artifacts / "analysis" / "labeling_manifest.json", {"status": "completed", "evidence_role": "labeling_manifest"})
+    _write_json(artifacts / "compute" / "training_run_manifest.json", {"status": "completed", "evidence_role": "training_run_manifest"})
+    _write_json(artifacts / "analysis" / "model_metrics_summary.json", {"status": "success", "evidence_role": "model_metrics_summary"})
+    _write_json(artifacts / "analysis" / "model_validation_report.json", {"status": "pass", "evidence_role": "model_validation_report"})
+    _write_json(artifacts / "compute" / "smoke_md_manifest.json", {"smoke_status": "pass", "evidence_role": "smoke_md_manifest"})
+    _write_json(artifacts / "analysis" / "anomaly_report.json", {"thresholds_defined": True, "evidence_role": "anomaly_report"})
+    _write_json(artifacts / "analysis" / "active_learning_round_manifest.json", {"status": "completed", "evidence_role": "active_learning_round_manifest"})
+    _write_json(artifacts / "analysis" / "production_md_readiness_report.json", {"scientific_readiness": "ready", "evidence_role": "production_md_readiness_report"})
 
 
 def test_list_gates():
@@ -218,10 +222,14 @@ def test_production_md_readiness_passes_with_evidence_and_approval():
     assert result["all_met"] is True
     assert result["met"] == [
         "dataset_lineage_complete",
+        "labeling_completed",
         "training_completed",
+        "metrics_summary_present",
         "validation_passed",
-        "long_md_smoke_passed",
+        "smoke_md_passed",
         "anomaly_thresholds_defined",
+        "active_learning_round_reviewed",
+        "readiness_report_ready",
         "approval_present",
     ]
 

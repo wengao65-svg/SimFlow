@@ -28,27 +28,48 @@ def _relative(root: Path, path: str) -> str:
     return str(Path(path).resolve().relative_to(root.resolve()))
 
 
-def _write_production_md_readiness_evidence(project_root: Path, *, anomaly_thresholds_defined: bool = True) -> None:
+def _write_production_md_readiness_evidence(
+    project_root: Path,
+    *,
+    anomaly_thresholds_defined: bool = True,
+    validation_status: str = "pass",
+) -> None:
     artifacts = project_root / ".simflow" / "artifacts"
     _write_json(
         artifacts / "analysis" / "dataset_manifest.json",
         {"recipe": "mlp_md", "lineage_complete": True, "round": "round_000"},
     )
     _write_json(
+        artifacts / "analysis" / "labeling_manifest.json",
+        {"recipe": "mlp_md", "status": "completed", "label_source": "synthetic_dft_fixture"},
+    )
+    _write_json(
         artifacts / "compute" / "training_run_manifest.json",
         {"recipe": "mlp_md", "status": "completed", "model_artifact": "nep.txt"},
     )
     _write_json(
-        artifacts / "analysis" / "model_validation_report.json",
-        {"recipe": "mlp_md", "status": "pass", "rmse_energy_mev_atom": 5.0},
+        artifacts / "analysis" / "model_metrics_summary.json",
+        {"recipe": "mlp_md", "status": "success", "force_rmse": 0.05},
     )
     _write_json(
-        artifacts / "compute" / "long_md_manifest.json",
+        artifacts / "analysis" / "model_validation_report.json",
+        {"recipe": "mlp_md", "status": validation_status, "rmse_energy_mev_atom": 5.0},
+    )
+    _write_json(
+        artifacts / "compute" / "smoke_md_manifest.json",
         {"recipe": "mlp_md", "smoke_status": "pass", "steps": 1000},
     )
     _write_json(
         artifacts / "analysis" / "anomaly_report.json",
         {"recipe": "mlp_md", "thresholds_defined": anomaly_thresholds_defined},
+    )
+    _write_json(
+        artifacts / "analysis" / "active_learning_round_manifest.json",
+        {"recipe": "mlp_md", "status": "completed", "round": "round_000"},
+    )
+    _write_json(
+        artifacts / "analysis" / "production_md_readiness_report.json",
+        {"recipe": "mlp_md", "scientific_readiness": "ready"},
     )
 
 
@@ -82,12 +103,22 @@ def test_mlp_md_production_readiness_gate_passes_and_blocks_from_fixture(tmp_pat
     assert approved["status"] == "pass"
     assert approved["conditions"]["met"] == [
         "dataset_lineage_complete",
+        "labeling_completed",
         "training_completed",
+        "metrics_summary_present",
         "validation_passed",
-        "long_md_smoke_passed",
+        "smoke_md_passed",
         "anomaly_thresholds_defined",
+        "active_learning_round_reviewed",
+        "readiness_report_ready",
         "approval_present",
     ]
+    assert read_state(project_root=str(tmp_path), state_file="jobs.json") == []
+
+    _write_production_md_readiness_evidence(tmp_path, validation_status="missing")
+    missing_validation = check_gate("production_md_readiness", {"project_root": str(tmp_path)})
+    assert missing_validation["status"] == "block"
+    assert "validation_passed" in missing_validation["conditions"]["unmet"]
 
     _write_production_md_readiness_evidence(tmp_path, anomaly_thresholds_defined=False)
     blocked = check_gate("production_md_readiness", {"project_root": str(tmp_path)})

@@ -14,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import build_actual_tool_used, classify_tool_support, support_level_for_capability
 
@@ -55,31 +56,42 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     toolchain = [tool.strip() for tool in args.toolchain.split(",") if tool.strip()] or [args.software]
     support = classify_tool_support(toolchain)
     environment, warnings = _parse_environment(args.environment)
-    manifest = {
-        "status": "success",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "capability": "manifest_generation",
-        "capability_support_level": support_level_for_capability(args.software, "manifest_generation"),
-        "recipe": args.recipe,
-        "iteration_id": args.iteration_id,
-        "evidence_role": args.evidence_role,
-        "actual_tool_used": build_actual_tool_used(
-            {"software": args.software, "helper_support": support},
-            args.software,
-            command=args.command,
-            version=args.version,
-            environment=environment,
-        ),
-        "toolchain": toolchain,
-        "tool_support": support,
-        "files": [_file_record(path) for path in args.files],
-        "parent_artifacts": args.parent_artifact,
-        "limitations": [
+    actual_tool_used = build_actual_tool_used(
+        {"software": args.software, "helper_support": support},
+        args.software,
+        command=args.command,
+        version=args.version,
+        environment=environment,
+    )
+    manifest = build_helper_evidence(
+        helper="build_gpumd_manifest",
+        capability="manifest_generation",
+        status="success",
+        stage="computation",
+        activity="manifest_generation",
+        evidence_role=args.evidence_role,
+        source_files=[source_file_record(path) for path in args.files],
+        actual_tool_used=actual_tool_used,
+        parser_status="not_applicable",
+        claim_limits=[
+            "No GPUMD/NEP executable was called.",
+            "No input generation, execution, submit, or scientific readiness claim is made.",
+        ],
+        warnings=warnings,
+        limitations=[
             "Manifest generation records user-provided evidence only.",
             "No GPUMD/NEP executable was called.",
             "Input generation and submit are not helper-supported capabilities.",
         ],
-    }
+        parent_artifacts=args.parent_artifact,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        recipe=args.recipe,
+        iteration_id=args.iteration_id,
+        capability_support_level=support_level_for_capability(args.software, "manifest_generation"),
+        toolchain=toolchain,
+        tool_support=support,
+        files=[_file_record(path) for path in args.files],
+    )
     missing = [item for item in manifest["files"] if not item["present"]]
     warnings.extend([
         {"code": "missing_manifest_file", "message": f"Manifest path does not exist: {item['path']}"}
@@ -90,6 +102,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         manifest["status"] = "blocked"
     elif warnings:
         manifest["status"] = "warning"
+    manifest["warnings"] = warnings
     return manifest
 
 

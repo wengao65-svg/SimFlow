@@ -53,6 +53,8 @@ def test_inspect_lammps_inputs_passes_synthetic_safe_example():
     result = mod.inspect_lammps_inputs(str(SAFE_EXAMPLE), force_field_source="synthetic LJ fixture")
 
     assert result["status"] == "pass"
+    assert result["helper_evidence"]["schema_version"] == "simflow.helper_evidence.v1"
+    assert result["helper_evidence"]["status"] == "success"
     assert result["required_checks"] == {
         "units": True,
         "atom_style": True,
@@ -63,6 +65,7 @@ def test_inspect_lammps_inputs_passes_synthetic_safe_example():
     }
     assert result["data_file"]["present"] is True
     assert result["force_field_provenance"]["redistributed_by_simflow"] is False
+    assert result["lammps_mlp_deployment_manifest"]["detected"] is False
     assert "dry_run_report_before_execution" in result["recommended_artifacts"]
 
 
@@ -136,6 +139,7 @@ def test_inspect_lammps_inputs_records_force_field_provenance_warning(tmp_path):
 
     assert result["status"] == "warning"
     assert result["force_field_provenance"]["potential_files"] == ["Si.tersoff"]
+    assert result["force_field_provenance"]["potential_file_records"][0]["present"] is False
     assert any(warning["code"] == "force_field_source_not_documented" for warning in result["warnings"])
 
 
@@ -159,3 +163,64 @@ def test_inspect_lammps_inputs_flags_modular_include_scripts(tmp_path):
     assert "elastic_modular" in motifs
     assert "include_files_not_expanded" in warning_codes
     assert "missing_required_input_items" in warning_codes
+
+
+def test_inspect_lammps_inputs_records_mlp_deployment_model_provenance(tmp_path):
+    mod = _load_module()
+    model = tmp_path / "graph.pb"
+    model.write_text("synthetic model bytes", encoding="utf-8")
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style deepmd graph.pb",
+            "pair_coeff * *",
+            "fix 1 all nve",
+            "dump traj all custom 100 dump.lammpstrj id type x y z",
+            "restart 1000 restart.*.bin",
+            "run 1000",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(str(script), force_field_source="synthetic MLP fixture")
+    deployment = result["lammps_mlp_deployment_manifest"]
+    dump_restart = result["dump_restart_manifest"]
+
+    assert result["status"] == "pass"
+    assert deployment["detected"] is True
+    assert deployment["pair_styles"] == ["deepmd"]
+    assert deployment["model_files"][0]["token"] == "graph.pb"
+    assert deployment["model_files"][0]["present"] is True
+    assert deployment["model_files"][0]["sha256"]
+    assert deployment["handoff_to"] == "simflow-mlp"
+    assert "training quality" in deployment["claim_limits"][1]
+    assert dump_restart["dumps"][0]["file"] == "dump.lammpstrj"
+    assert dump_restart["restarts"][0]["files"] == ["restart.*.bin"]
+
+
+def test_inspect_lammps_inputs_warns_on_missing_mlp_model_file(tmp_path):
+    mod = _load_module()
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style mace no_domain_decomposition",
+            "pair_coeff * * missing.model-lammps Si",
+            "minimize 1.0e-6 1.0e-8 100 1000",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(str(script))
+    warning_codes = {item["code"] for item in result["warnings"]}
+    deployment = result["lammps_mlp_deployment_manifest"]
+
+    assert result["status"] == "warning"
+    assert deployment["detected"] is True
+    assert deployment["pair_styles"] == ["mace"]
+    assert deployment["model_files"][0]["present"] is False
+    assert "missing_mlp_model_file" in warning_codes
+    assert "mlp_deployment_source_not_documented" in warning_codes

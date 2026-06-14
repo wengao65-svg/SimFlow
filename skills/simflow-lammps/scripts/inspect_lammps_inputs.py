@@ -13,6 +13,7 @@ from typing import Any
 _simflow_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_simflow_root))
 
+from runtime.simflow_core.helper_evidence import build_helper_evidence, sha256_file, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 
@@ -71,6 +72,31 @@ POTENTIAL_SUFFIXES = (
     ".kim",
     ".meam",
     ".library",
+)
+MLP_PAIR_STYLES = {
+    "deepmd",
+    "pace",
+    "mace",
+    "nequip",
+    "allegro",
+    "snap",
+    "quip",
+}
+MLP_MODEL_SUFFIXES = (
+    ".pb",
+    ".pth",
+    ".pt",
+    ".model",
+    ".model-lammps",
+    ".yace",
+    ".pace",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".xml",
+    ".quip",
+    ".snapcoeff",
+    ".snapparam",
 )
 
 TIMESTEP_REVIEW_LIMITS = {
@@ -156,6 +182,125 @@ def _potential_tokens(commands: list[dict[str, Any]]) -> list[str]:
             if lowered.endswith(POTENTIAL_SUFFIXES) or "/" in token or "\\" in token:
                 tokens.append(token)
     return list(dict.fromkeys(tokens))
+
+
+def _resolve_relative(input_script: Path, token: str) -> Path:
+    candidate = Path(token).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return input_script.parent / candidate
+
+
+def _looks_like_file_token(token: str) -> bool:
+    lowered = token.lower()
+    if token in {"*", "none", "null"}:
+        return False
+    if token.startswith(("$", "{")):
+        return False
+    return lowered.endswith(MLP_MODEL_SUFFIXES) or "/" in token or "\\" in token
+
+
+def _detected_mlp_pair_styles(commands: list[dict[str, Any]]) -> list[str]:
+    styles: list[str] = []
+    for command in _commands_named(commands, "pair_style"):
+        for arg in command["args"]:
+            style = arg.lower()
+            if style in MLP_PAIR_STYLES:
+                styles.append(style)
+    for command in _commands_named(commands, "pair_coeff"):
+        for arg in command["args"]:
+            style = arg.lower()
+            if style in MLP_PAIR_STYLES:
+                styles.append(style)
+    return list(dict.fromkeys(styles))
+
+
+def _model_tokens_for_mlp(commands: list[dict[str, Any]], styles: list[str]) -> list[str]:
+    if not styles:
+        return []
+    tokens: list[str] = []
+    for command in _commands_named(commands, "pair_style"):
+        seen_style = False
+        for token in command["args"]:
+            lowered = token.lower()
+            if lowered in styles:
+                seen_style = True
+                continue
+            if seen_style and _looks_like_file_token(token):
+                tokens.append(token)
+    for command in _commands_named(commands, "pair_coeff"):
+        args = command["args"]
+        for index, token in enumerate(args):
+            lowered = token.lower()
+            previous_is_style = index > 0 and args[index - 1].lower() in styles
+            if _looks_like_file_token(token) or previous_is_style:
+                if lowered not in MLP_PAIR_STYLES:
+                    tokens.append(token)
+    return list(dict.fromkeys(tokens))
+
+
+def _file_provenance(input_script: Path, token: str, role: str) -> dict[str, Any]:
+    path = _resolve_relative(input_script, token)
+    return {
+        "role": role,
+        "token": token,
+        "path": str(path),
+        "present": path.exists(),
+        "is_file": path.is_file(),
+        "bytes": path.stat().st_size if path.is_file() else None,
+        "sha256": sha256_file(path),
+    }
+
+
+def _lammps_mlp_deployment_manifest(input_script: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
+    styles = _detected_mlp_pair_styles(commands)
+    model_tokens = _model_tokens_for_mlp(commands, styles)
+    model_files = [_file_provenance(input_script, token, "mlp_model_file") for token in model_tokens]
+    return {
+        "detected": bool(styles),
+        "pair_styles": styles,
+        "model_files": model_files,
+        "handoff_to": "simflow-mlp" if styles else None,
+        "claim_limits": [
+            "Records LAMMPS MLP deployment provenance only.",
+            "Does not judge model training quality, validation coverage, extrapolation safety, or production readiness.",
+        ],
+    }
+
+
+def _dump_restart_manifest(input_script: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
+    dumps = []
+    for command in _commands_named(commands, "dump"):
+        args = command["args"]
+        output_token = args[4] if len(args) >= 5 else None
+        dumps.append({
+            "line": command["line"],
+            "id": args[0] if len(args) >= 1 else None,
+            "group": args[1] if len(args) >= 2 else None,
+            "style": args[2] if len(args) >= 3 else None,
+            "every": args[3] if len(args) >= 4 else None,
+            "file": output_token,
+            "path": str(_resolve_relative(input_script, output_token)) if output_token else None,
+            "attributes": args[5:] if len(args) > 5 else [],
+        })
+    restarts = []
+    for command in _commands_named(commands, "restart"):
+        args = command["args"]
+        restarts.append({
+            "line": command["line"],
+            "every": args[0] if args else None,
+            "files": args[1:],
+            "paths": [str(_resolve_relative(input_script, token)) for token in args[1:]],
+        })
+    for command in _commands_named(commands, "write_restart"):
+        args = command["args"]
+        restarts.append({
+            "line": command["line"],
+            "command": "write_restart",
+            "files": args[:1],
+            "paths": [str(_resolve_relative(input_script, token)) for token in args[:1]],
+        })
+    return {"dumps": dumps, "restarts": restarts}
 
 
 def _resolve_data_file(input_script: Path, commands: list[dict[str, Any]], data_file: str | None) -> Path | None:
@@ -415,8 +560,48 @@ def inspect_lammps_inputs(
         })
 
     potential_files = _potential_tokens(commands)
+    mlp_deployment_manifest = _lammps_mlp_deployment_manifest(script_path, commands)
+    dump_restart_manifest = _dump_restart_manifest(script_path, commands)
+    missing_mlp_models = [
+        item for item in mlp_deployment_manifest["model_files"]
+        if not item["present"]
+    ]
+    for item in missing_mlp_models:
+        warnings.append({
+            "code": "missing_mlp_model_file",
+            "message": f"LAMMPS MLP deployment references missing model file: {item['token']}",
+        })
+    if mlp_deployment_manifest["detected"] and not force_field_source:
+        warnings.append({
+            "code": "mlp_deployment_source_not_documented",
+            "message": "LAMMPS MLP pair style detected; record model training/provenance evidence before scientific claims.",
+        })
+
     result = {
         "status": "error" if missing_required_files else ("warning" if warnings or missing_required_items else "pass"),
+        "helper_evidence": build_helper_evidence(
+            helper="lammps_inspect_inputs",
+            capability="static_input_inspection",
+            status="blocked" if missing_required_files else ("warning" if warnings or missing_required_items else "success"),
+            stage="computation" if not log_file else "analysis_visualization",
+            activity="static_input_inspection",
+            evidence_role="lammps_input_inspection",
+            source_files=[source_file_record(script_path)] + (
+                [source_file_record(resolved_data_file, role="data_file")] if resolved_data_file else []
+            ),
+            actual_tool_used={"software": "lammps", "support_level": "helper_supported"},
+            parser_status="parsed",
+            claim_limits=[
+                "Static inspection does not imply LAMMPS execution readiness.",
+                "MLP deployment evidence records how a model is referenced by LAMMPS only.",
+                "No MLP training quality, validation adequacy, or production readiness claim is made.",
+            ],
+            warnings=warnings,
+            limitations=[
+                "Input includes and variables are not fully expanded.",
+                "No LAMMPS executable was called.",
+            ],
+        ),
         "software": "lammps",
         "stage_hint": "computation" if not log_file else "analysis_visualization",
         "input_script": str(script_path),
@@ -429,8 +614,18 @@ def inspect_lammps_inputs(
         "force_field_provenance": {
             "source": force_field_source,
             "potential_files": potential_files,
+            "potential_file_records": [
+                _file_provenance(script_path, token, "force_field_file")
+                for token in potential_files
+            ],
             "redistributed_by_simflow": False,
         },
+        "lammps_mlp_deployment_manifest": mlp_deployment_manifest,
+        "dump_restart_manifest": dump_restart_manifest,
+        "claim_limits": [
+            "LAMMPS inspection may support input/provenance claims only.",
+            "MLP pair-style detection does not validate the referenced MLP model.",
+        ],
         "intent_candidates": {
             "has_minimization": "minimize" in command_names,
             "has_md_run": "run" in command_names,

@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import init_workflow
-from run_writing_stage import run_writing_stage
+from run_writing_stage import _build_claim_map, _degraded_evidence_states, run_writing_stage
 from runtime.simflow_helpers.stages.pipeline import run_pipeline
 from runtime.simflow_helpers.project.intake import init_research
 
@@ -176,3 +176,43 @@ def test_run_writing_stage_allows_direct_writing_entry_with_missing_upstream_art
         assert any(claim["evidence_state"] == "missing_evidence" for claim in claim_map["claims"])
         assert any(claim["speculative"] is True for claim in claim_map["claims"])
         assert "Path: not_provided" in methods_path.read_text(encoding="utf-8")
+
+
+def test_writing_claim_audit_classifies_tracked_only_and_conditional_evidence():
+    compute_plan = {
+        "real_submit": False,
+        "actual_tool_used": {"software": "gpumd", "support_level": "tracked_only"},
+        "status": "capability_warning",
+    }
+    analysis_report = {
+        "status": "waiting",
+        "actual_tool_used": {"software": "custom", "support_level": "tracked_only"},
+        "missing_conditional_evidence": ["approval_record"],
+        "blocked_claims": ["production MLP-MD readiness"],
+    }
+    figures_manifest = {
+        "status": "skipped_optional_dependency",
+        "figures": [],
+        "skipped_reasons": ["matplotlib is not installed"],
+    }
+
+    states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    state_pairs = {(state["area"], state["state"]) for state in states}
+
+    assert ("computation", "dry_run_only") in state_pairs
+    assert ("computation", "tracked_only_provenance") in state_pairs
+    assert ("computation", "capability_warning_or_waiting") in state_pairs
+    assert ("analysis", "conditional_evidence_missing") in state_pairs
+    assert ("visualization", "skipped_optional_dependency") in state_pairs
+
+    claim_map = _build_claim_map(
+        contract={"research_goal": "test claim audit", "material": "Si"},
+        required_artifacts={},
+        structure_manifest={"source_mode": "not_provided"},
+        compute_plan=compute_plan,
+        analysis_report=analysis_report,
+        figures_manifest=figures_manifest,
+    )
+
+    assert claim_map["blocked_claims"] == ["production MLP-MD readiness"]
+    assert claim_map["unresolved_degraded_state_count"] >= 5

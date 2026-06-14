@@ -280,6 +280,7 @@ function validateReleaseNotesCommand() {
   const notesScript = path.join(ROOT, 'scripts', 'generate_release_notes.js');
   const version = readJson('package.json').version;
   const commit = run('git', ['rev-parse', '--short', 'HEAD'], { capture: true }).trim();
+  const notesScriptContent = fs.readFileSync(notesScript, 'utf-8');
   const output = [
     '# SimFlow Release Notes',
     '',
@@ -290,6 +291,64 @@ function validateReleaseNotesCommand() {
   ].join('\n');
   check('release notes command emits markdown with recent commits', output.includes('# SimFlow Release Notes') && output.includes('## Commits'), output);
   check('release notes generator script exists', fs.existsSync(notesScript));
+  check('release notes policy sends install-smoke detail to .simflow', notesScriptContent.includes('.simflow/'));
+}
+
+function validateWorkflowAutomation() {
+  console.log('\n--- Workflow Automation ---');
+  const tracked = run('git', ['ls-files'], { capture: true }).split(/\r?\n/).filter(Boolean);
+  check(
+    'release smoke result logs are not tracked source files',
+    !tracked.includes('docs/release-smoke-results.md'),
+    'docs/release-smoke-results.md should remain local .simflow release evidence, not tracked docs.',
+  );
+
+  const pluginValidator = fs.readFileSync(path.join(ROOT, 'scripts', 'validate_plugin.js'), 'utf-8');
+  const claudeValidator = fs.readFileSync(path.join(ROOT, 'scripts', 'validate_claude_plugin.js'), 'utf-8');
+  for (const skillName of ['simflow-gpumd', 'simflow-mlp']) {
+    check(`Codex wrapper validator requires ${skillName}`, pluginValidator.includes(`'${skillName}'`));
+    check(`Claude wrapper validator requires ${skillName}`, claudeValidator.includes(`'${skillName}'`));
+    check(`source skill exists for ${skillName}`, fs.existsSync(path.join(ROOT, 'skills', skillName, 'SKILL.md')));
+  }
+
+  const stateToolsSmoke = [
+    'import importlib.util, json, sys',
+    'from pathlib import Path',
+    `root = Path(${JSON.stringify(ROOT)})`,
+    'server_dir = root / "mcp" / "servers" / "simflow_state"',
+    'sys.path.insert(0, str(server_dir))',
+    'sys.path.insert(0, str(root))',
+    'from mcp.shared.stdio_server import _list_tools',
+    'spec = importlib.util.spec_from_file_location("simflow_state_release_smoke", server_dir / "server.py")',
+    'server = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(server)',
+    'tools = {item["name"]: item["inputSchema"] for item in _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)}',
+    'assert tools["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]',
+    'assert tools["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]',
+  ].join('; ');
+  runCheck('simflow_state tools/list exposes evidence intake tools', 'python', ['-c', stateToolsSmoke]);
+
+  const hpcSubmitSmoke = [
+    'import hashlib, importlib.util, json, sys, tempfile',
+    'from pathlib import Path',
+    `root = Path(${JSON.stringify(ROOT)})`,
+    'server_dir = root / "mcp" / "servers" / "hpc"',
+    'sys.path.insert(0, str(server_dir))',
+    'sys.path.insert(0, str(root))',
+    'spec = importlib.util.spec_from_file_location("hpc_release_smoke", server_dir / "server.py")',
+    'server = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(server)',
+    'tmp = tempfile.TemporaryDirectory()',
+    'project = Path(tmp.name)',
+    'script = project / "job.sh"',
+    'script.write_text("#!/bin/bash\\necho should-not-run\\n", encoding="utf-8")',
+    'digest = hashlib.sha256(script.read_bytes()).hexdigest()',
+    'result = server.handle_request({"tool": "submit", "params": {"project_root": str(project), "script_path": str(script), "scheduler": "local", "approval_token": "release-smoke-token", "dry_run_evidence": "compute/dry_run_report.json", "script_hash": digest, "input_artifact_hash": "input-hash"}})',
+    'tmp.cleanup()',
+    'assert result.get("status") == "error", result',
+    'assert result.get("code") == "missing_workflow_state", result',
+  ].join('; ');
+  runCheck('hpc.submit blocks before execution when workflow state is absent', 'python', ['-c', hpcSubmitSmoke]);
 }
 
 function validateMarketplaceWrappers() {
@@ -323,6 +382,7 @@ function main() {
   validateRestrictedArtifacts();
   validateSafeExamples();
   validateReleaseNotesCommand();
+  validateWorkflowAutomation();
   validateMarketplaceWrappers();
   console.log('\n=== Summary ===');
   if (errors > 0) {
