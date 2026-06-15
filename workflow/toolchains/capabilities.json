@@ -1,0 +1,74 @@
+{
+  "schema_version": "simflow.toolchain_capabilities.v1",
+  "policy": "Capability-level helper support does not define software admission, execution support, or workflow blocking. Tracked-only and unknown tools may still be planned and recorded for provenance. Real execution, submit, credentials, and unsupported scientific claims remain governed by safety gates and evidence checks.",
+  "helper_supported_software": [
+    "vasp",
+    "cp2k",
+    "lammps"
+  ],
+  "capability_supported_tools": [
+    "gpumd",
+    "nep"
+  ],
+  "tracked_only_software": [
+    "abinit",
+    "allegro",
+    "ase",
+    "custom",
+    "deepmd",
+    "dpgen",
+    "gpumd",
+    "gromacs",
+    "mace",
+    "nep",
+    "neptrainkit",
+    "nequip",
+    "openmm",
+    "phonopy",
+    "python",
+    "quantum_espresso"
+  ],
+  "aliases": {
+    "qe": "quantum_espresso",
+    "quantum-espresso": "quantum_espresso",
+    "quantumespresso": "quantum_espresso",
+    "open_mm": "openmm",
+    "deep_md": "deepmd",
+    "deepmd-kit": "deepmd",
+    "deepmd_kit": "deepmd",
+    "nep_train_kit": "neptrainkit",
+    "nep-train-kit": "neptrainkit"
+  },
+  "capability_support": {
+    "gpumd": {
+      "supported": [
+        "static_input_inspection",
+        "manifest_generation",
+        "selected_output_parsing",
+        "evidence_handoff"
+      ],
+      "not_helper_supported": [
+        "input_generation",
+        "real_execution",
+        "local_submit",
+        "remote_execution",
+        "hpc_submit"
+      ]
+    },
+    "nep": {
+      "supported": [
+        "static_input_inspection",
+        "manifest_generation",
+        "selected_output_parsing",
+        "evidence_handoff"
+      ],
+      "not_helper_supported": [
+        "input_generation",
+        "real_execution",
+        "local_submit",
+        "remote_execution",
+        "hpc_submit"
+      ]
+    }
+  }
+}

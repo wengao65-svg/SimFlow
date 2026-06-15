@@ -15,6 +15,7 @@ sys.path.insert(0, str(_simflow_root))
 
 from runtime.simflow_core.helper_evidence import build_helper_evidence, sha256_file, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 OFFICIAL_REFERENCES = {
@@ -601,6 +602,7 @@ def inspect_lammps_inputs(
                 "Input includes and variables are not fully expanded.",
                 "No LAMMPS executable was called.",
             ],
+            adapter_capabilities=adapter_capabilities("lammps"),
         ),
         "software": "lammps",
         "stage_hint": "computation" if not log_file else "analysis_visualization",

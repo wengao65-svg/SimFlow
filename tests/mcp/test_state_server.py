@@ -51,6 +51,10 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["update_stage"]["required"] == ["project_root", "stage_name", "status"]
     assert schemas["workflow_status"]["required"] == ["project_root"]
     assert schemas["evidence_graph"]["required"] == ["project_root"]
+    assert "evidence_role" in schemas["evidence_graph"]["properties"]
+    assert "tool" in schemas["evidence_graph"]["properties"]
+    assert "status" in schemas["evidence_graph"]["properties"]
+    assert "schema_version" in schemas["evidence_graph"]["properties"]
     assert schemas["handoff_summary"]["required"] == ["project_root"]
     assert schemas["stage_readiness"]["required"] == ["project_root"]
     assert schemas["project_readiness"]["required"] == ["project_root"]
@@ -216,6 +220,50 @@ def test_evidence_graph_tool_filters_artifact_lineage():
         node_ids = {node["artifact_id"] for node in result["data"]["nodes"]}
         assert node_ids == {review["artifact_id"], plan["artifact_id"]}
         assert result["data"]["links"][0]["parent_artifact_id"] == review["artifact_id"]
+
+
+def test_evidence_graph_tool_filters_helper_metadata():
+    """evidence_graph can query helper evidence metadata without mutating state."""
+    from runtime.simflow_core.artifacts import register_artifact
+    from runtime.simflow_core.state import init_workflow
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        init_workflow("custom", "analysis_visualization", project_root=tmpdir)
+        output = root / "analysis" / "metrics.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("{}\n", encoding="utf-8")
+        artifact = register_artifact(
+            "metrics.json",
+            "helper_output",
+            "analysis_visualization",
+            path="analysis/metrics.json",
+            software="nep",
+            metadata={
+                "schema_version": "simflow.helper_evidence.v1",
+                "helper": "summarize_mlp_metrics",
+                "evidence_role": "model_metrics_summary",
+                "status": "success",
+                "parser_status": "parsed",
+                "actual_tool_used": {"software": "nep", "support_level": "tracked_only"},
+            },
+            project_root=tmpdir,
+        )
+
+        result = server.handle_request({
+            "tool": "evidence_graph",
+            "params": {
+                "project_root": tmpdir,
+                "evidence_role": "model_metrics_summary",
+                "tool": "nep",
+                "status": "success",
+            },
+        })
+
+        assert result["status"] == "success"
+        assert [node["artifact_id"] for node in result["data"]["nodes"]] == [artifact["artifact_id"]]
+        assert result["data"]["nodes"][0]["evidence_role"] == "model_metrics_summary"
 
 
 def test_handoff_summary_tool_requires_project_root():

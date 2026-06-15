@@ -311,6 +311,19 @@ function validateWorkflowAutomation() {
     check(`source skill exists for ${skillName}`, fs.existsSync(path.join(ROOT, 'skills', skillName, 'SKILL.md')));
   }
 
+  const capabilities = readJson('workflow/toolchains/capabilities.json');
+  check('toolchain capability contract keeps GPUMD tracked_only', capabilities.tracked_only_software.includes('gpumd'));
+  check('toolchain capability contract keeps NEP tracked_only', capabilities.tracked_only_software.includes('nep'));
+  check(
+    'toolchain capability contract blocks GPUMD/NEP helper submit support',
+    capabilities.capability_support.gpumd.not_helper_supported.includes('hpc_submit')
+      && capabilities.capability_support.nep.not_helper_supported.includes('hpc_submit'),
+  );
+
+  const roadmap = readJson('workflow/toolchains/adapter_roadmap.json');
+  const activeRoadmapEntries = roadmap.candidates.filter(item => item.runtime_enabled);
+  check('ecosystem adapter roadmap fixtures are not active runtime adapters', activeRoadmapEntries.length === 0);
+
   const stateToolsSmoke = [
     'import importlib.util, json, sys',
     'from pathlib import Path',

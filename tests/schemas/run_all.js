@@ -118,5 +118,32 @@ test('recipe.schema.json defines open JSON recipe contract', () => {
   });
 });
 
+test('toolchain_capabilities.schema.json defines non-executor capability contract', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'toolchain_capabilities.schema.json'), 'utf-8'));
+  ['schema_version', 'policy', 'helper_supported_software', 'tracked_only_software', 'aliases', 'capability_support'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required toolchain capability field: ${field}`);
+    }
+  });
+  const contract = JSON.parse(fs.readFileSync(path.join(ROOT, 'workflow', 'toolchains', 'capabilities.json'), 'utf-8'));
+  if (contract.schema_version !== 'simflow.toolchain_capabilities.v1') {
+    throw new Error('Unexpected toolchain capability schema version');
+  }
+  if (!contract.policy.includes('not define software admission')) {
+    throw new Error('Capability contract policy must reject admission-registry semantics');
+  }
+  if (!contract.tracked_only_software.includes('gpumd') || !contract.tracked_only_software.includes('nep')) {
+    throw new Error('GPUMD/NEP must remain tracked_only');
+  }
+  ['input_generation', 'real_execution', 'local_submit', 'remote_execution', 'hpc_submit'].forEach(capability => {
+    if (!contract.capability_support.gpumd.not_helper_supported.includes(capability)) {
+      throw new Error(`GPUMD must block helper support for ${capability}`);
+    }
+    if (!contract.capability_support.nep.not_helper_supported.includes(capability)) {
+      throw new Error(`NEP must block helper support for ${capability}`);
+    }
+  });
+});
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);

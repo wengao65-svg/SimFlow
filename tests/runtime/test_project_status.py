@@ -129,6 +129,58 @@ def test_evidence_graph_filters_stage_and_artifact(tmp_path):
     ]
 
 
+def test_evidence_graph_filters_helper_evidence_metadata(tmp_path):
+    init_workflow("custom", "analysis_visualization", project_root=str(tmp_path))
+    _write(tmp_path, "analysis/gpumd_parse.json")
+    _write(tmp_path, "analysis/lammps_inspect.json")
+    gpumd = register_artifact(
+        "gpumd_parse.json",
+        "helper_output",
+        "analysis_visualization",
+        path="analysis/gpumd_parse.json",
+        software="gpumd",
+        metadata={
+            "schema_version": "simflow.helper_evidence.v1",
+            "helper": "parse_gpumd_outputs",
+            "evidence_role": "gpumd_nep_output_parse_summary",
+            "status": "warning",
+            "parser_status": "partial",
+            "actual_tool_used": {"name": "gpumd", "support_level": "tracked_only"},
+        },
+        project_root=str(tmp_path),
+    )
+    register_artifact(
+        "lammps_inspect.json",
+        "helper_output",
+        "analysis_visualization",
+        path="analysis/lammps_inspect.json",
+        software="lammps",
+        metadata={
+            "schema_version": "simflow.helper_evidence.v1",
+            "helper": "lammps_inspect_inputs",
+            "evidence_role": "lammps_input_inspection",
+            "status": "success",
+            "parser_status": "parsed",
+            "actual_tool_used": {"name": "lammps", "support_level": "helper_supported"},
+        },
+        project_root=str(tmp_path),
+    )
+
+    graph = build_evidence_graph(
+        str(tmp_path),
+        evidence_role="gpumd_nep_output_parse_summary",
+        tool="gpumd",
+        status="warning",
+        schema_version="simflow.helper_evidence.v1",
+    )
+
+    assert [node["artifact_id"] for node in graph["nodes"]] == [gpumd["artifact_id"]]
+    assert graph["nodes"][0]["helper"] == "parse_gpumd_outputs"
+    assert graph["nodes"][0]["helper_status"] == "warning"
+    assert graph["nodes"][0]["parser_status"] == "partial"
+    assert graph["nodes"][0]["actual_tool_used"]["support_level"] == "tracked_only"
+
+
 def test_handoff_summary_is_compact_and_read_only(tmp_path):
     workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
     update_stage("literature_review", "completed", project_root=str(tmp_path))

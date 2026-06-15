@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import build_actual_tool_used, classify_tool_support, support_level_for_capability
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 def _sha256(path: Path) -> str | None:
@@ -88,6 +89,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         recipe=args.recipe,
         iteration_id=args.iteration_id,
         capability_support_level=support_level_for_capability(args.software, "manifest_generation"),
+        adapter_capabilities=adapter_capabilities(args.software),
         toolchain=toolchain,
         tool_support=support,
         files=[_file_record(path) for path in args.files],

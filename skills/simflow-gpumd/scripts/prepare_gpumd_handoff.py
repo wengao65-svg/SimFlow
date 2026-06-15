@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import classify_tool_support, support_level_for_capability
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 def _load_json(path: str) -> dict:
@@ -62,6 +63,7 @@ def main() -> None:
         "summary": args.summary,
         "capability": "evidence_handoff",
         "capability_support_level": support_level_for_capability("gpumd", "evidence_handoff"),
+        "adapter_capabilities": adapter_capabilities("gpumd"),
         "tool_support": support,
         "manifests": manifests,
         "inspections": inspections,

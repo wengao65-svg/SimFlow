@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import helper_capabilities_for_tool, support_level_for_capability
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 COMMON_GPUMD_FILES = ["run.in", "model.xyz"]
@@ -122,6 +123,7 @@ def inspect_directory(directory: Path) -> dict[str, Any]:
             "No input generation or scientific readiness decision was performed.",
         ],
         capability_support_level=support_level_for_capability(software, "static_input_inspection"),
+        adapter_capabilities=adapter_capabilities(software),
         tool_capabilities={
             "gpumd": helper_capabilities_for_tool("gpumd"),
             "nep": helper_capabilities_for_tool("nep"),

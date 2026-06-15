@@ -9,6 +9,7 @@ from runtime.simflow_core.toolchains import (
     capability_warning,
     classify_tool_support,
     helper_capabilities_for_tool,
+    load_toolchain_capabilities,
     normalize_tool_name,
     support_level_for_capability,
     support_level_for_tool,
@@ -43,6 +44,17 @@ def test_gpumd_nep_remain_tracked_only_with_limited_helper_capabilities():
     assert support_level_for_capability("gpumd", "evidence_handoff") == "helper_supported"
     assert support_level_for_capability("gpumd", "input_generation") == "not_helper_supported"
     assert support_level_for_capability("nep", "hpc_submit") == "not_helper_supported"
+
+
+def test_toolchain_capability_contract_is_json_backed():
+    contract = load_toolchain_capabilities()
+
+    assert contract["schema_version"] == "simflow.toolchain_capabilities.v1"
+    assert set(contract["helper_supported_software"]) == {"vasp", "cp2k", "lammps"}
+    assert "gpumd" in contract["tracked_only_software"]
+    assert "nep" in contract["tracked_only_software"]
+    assert "admission" in contract["policy"]
+    assert "executor" not in contract
 
 
 def test_gpumd_unsupported_execution_capabilities_emit_capability_warning():

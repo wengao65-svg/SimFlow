@@ -1,0 +1,46 @@
+{
+  "schema_version": "simflow.adapter_roadmap.v1",
+  "policy": "These entries are ecosystem planning fixtures only. They are not active runtime adapters and do not create new skills, parsers, input generators, execution support, or admission rules.",
+  "candidates": [
+    {
+      "tool_id": "deepmd",
+      "runtime_enabled": false,
+      "recognized_files": ["input.json", "graph.pb", "frozen_model.pb", "lcurve.out"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact"],
+      "claim_limits": ["Records DeePMD provenance only until a real adapter is implemented."],
+      "handoff_targets": ["simflow-mlp"]
+    },
+    {
+      "tool_id": "mace",
+      "runtime_enabled": false,
+      "recognized_files": ["*.model", "*.model-lammps", "*.pt", "config.yaml"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact"],
+      "claim_limits": ["Records MACE provenance only until a real adapter is implemented."],
+      "handoff_targets": ["simflow-mlp", "simflow-lammps"]
+    },
+    {
+      "tool_id": "nequip",
+      "runtime_enabled": false,
+      "recognized_files": ["config.yaml", "*.pth", "*.nequip.pth"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact"],
+      "claim_limits": ["Records NequIP provenance only until a real adapter is implemented."],
+      "handoff_targets": ["simflow-mlp", "simflow-lammps"]
+    },
+    {
+      "tool_id": "gromacs",
+      "runtime_enabled": false,
+      "recognized_files": ["*.mdp", "*.top", "*.gro", "*.tpr", "*.xtc", "*.edr"],
+      "evidence_roles": ["input_manifest", "trajectory_manifest", "analysis_summary"],
+      "claim_limits": ["Tracked-only evidence fixture; no GROMACS execution support is implied."],
+      "handoff_targets": ["simflow-analysis-visualization"]
+    },
+    {
+      "tool_id": "quantum_espresso",
+      "runtime_enabled": false,
+      "recognized_files": ["*.in", "*.out", "*.xml", "*.save"],
+      "evidence_roles": ["input_manifest", "calculation_manifest", "output_parse_summary"],
+      "claim_limits": ["Tracked-only evidence fixture; QE helper support remains unsupported."],
+      "handoff_targets": ["simflow-computation", "simflow-analysis-visualization"]
+    }
+  ]
+}

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .state import read_state, resolve_project_root
+from .toolchains import normalize_tool_name
 from .workflow import CANONICAL_STAGES, load_recipe
 
 
@@ -58,6 +59,49 @@ def _artifact_path_status(root: Path, artifact: dict[str, Any]) -> dict[str, Any
         "path": path_value,
         "exists": full_path.exists(),
     }
+
+
+def _artifact_evidence_metadata(artifact: dict[str, Any]) -> dict[str, Any]:
+    metadata = _as_dict(artifact.get("metadata"))
+    helper_evidence = _as_dict(metadata.get("helper_evidence"))
+    source = helper_evidence or metadata
+    actual_tool_used = _as_dict(source.get("actual_tool_used") or metadata.get("actual_tool_used"))
+    lineage = _as_dict(artifact.get("lineage"))
+    tool = (
+        actual_tool_used.get("name")
+        or actual_tool_used.get("software")
+        or metadata.get("software")
+        or lineage.get("software")
+    )
+    return {
+        "schema_version": source.get("schema_version"),
+        "helper": source.get("helper") or metadata.get("helper_name"),
+        "evidence_role": source.get("evidence_role") or metadata.get("role"),
+        "helper_status": source.get("status") or metadata.get("helper_result_status"),
+        "parser_status": source.get("parser_status"),
+        "actual_tool_used": actual_tool_used,
+        "tool": tool,
+    }
+
+
+def _matches_evidence_filters(
+    artifact: dict[str, Any],
+    *,
+    evidence_role: str | None,
+    tool: str | None,
+    status: str | None,
+    schema_version: str | None,
+) -> bool:
+    evidence = _artifact_evidence_metadata(artifact)
+    if evidence_role and evidence.get("evidence_role") != evidence_role:
+        return False
+    if tool and normalize_tool_name(evidence.get("tool")) != normalize_tool_name(tool):
+        return False
+    if status and evidence.get("helper_status") != status:
+        return False
+    if schema_version and evidence.get("schema_version") != schema_version:
+        return False
+    return True
 
 
 def _artifact_summary(root: Path, artifacts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -272,6 +316,10 @@ def build_evidence_graph(
     *,
     stage: str | None = None,
     artifact_id: str | None = None,
+    evidence_role: str | None = None,
+    tool: str | None = None,
+    status: str | None = None,
+    schema_version: str | None = None,
 ) -> dict[str, Any]:
     """Build a read-only artifact lineage graph for a project."""
     root = resolve_project_root(project_root=project_root)
@@ -290,12 +338,26 @@ def build_evidence_graph(
             if link["parent_artifact_id"] == artifact_id:
                 related_ids.add(link["child_artifact_id"])
         selected_ids = related_ids if not stage else selected_ids.intersection(related_ids)
+    if evidence_role or tool or status or schema_version:
+        matching_ids = {
+            artifact.get("artifact_id")
+            for artifact in artifacts
+            if _matches_evidence_filters(
+                artifact,
+                evidence_role=evidence_role,
+                tool=tool,
+                status=status,
+                schema_version=schema_version,
+            )
+        }
+        selected_ids = selected_ids.intersection(matching_ids)
 
     nodes = []
     for artifact in artifacts:
         if artifact.get("artifact_id") not in selected_ids:
             continue
         path_status = _artifact_path_status(root, artifact)
+        evidence = _artifact_evidence_metadata(artifact)
         nodes.append({
             "artifact_id": artifact.get("artifact_id"),
             "name": artifact.get("name"),
@@ -305,6 +367,12 @@ def build_evidence_graph(
             "path": artifact.get("path"),
             "checksum": artifact.get("checksum"),
             "path_exists": None if path_status is None else path_status["exists"],
+            "schema_version": evidence.get("schema_version"),
+            "helper": evidence.get("helper"),
+            "evidence_role": evidence.get("evidence_role"),
+            "actual_tool_used": evidence.get("actual_tool_used"),
+            "helper_status": evidence.get("helper_status"),
+            "parser_status": evidence.get("parser_status"),
         })
 
     links = [
@@ -318,7 +386,14 @@ def build_evidence_graph(
     return {
         "status": "success",
         "project_root": str(root),
-        "filters": {"stage": stage, "artifact_id": artifact_id},
+        "filters": {
+            "stage": stage,
+            "artifact_id": artifact_id,
+            "evidence_role": evidence_role,
+            "tool": tool,
+            "status": status,
+            "schema_version": schema_version,
+        },
         "nodes": nodes,
         "links": links,
         "missing_parents": filtered_missing,

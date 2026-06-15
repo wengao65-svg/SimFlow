@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import support_level_for_capability
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 RECOGNIZED_ROLES = {
@@ -158,6 +159,7 @@ def main() -> None:
             software,
             "selected_output_parsing",
         ),
+        adapter_capabilities=adapter_capabilities(software),
     )
     if args.output:
         output = Path(args.output)
