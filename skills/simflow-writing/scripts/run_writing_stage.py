@@ -295,9 +295,20 @@ def _split_readiness_states(area: str, payload: Any) -> list[dict[str, Any]]:
                     "missing_evidence": scientific.get("missing_roles", []),
                     "blocked_claims": ["production MLP-MD readiness"],
                 })
+        legacy_real_submit_allowed = item.get("real_submit_allowed") is True
         execution_gate = item.get("execution_gate")
         if isinstance(execution_gate, dict):
             gate_status = execution_gate.get("status")
+            if execution_gate.get("real_submit_allowed") is True:
+                legacy_real_submit_allowed = True
+            if execution_gate.get("production_md_gate_approved") is True or item.get("production_md_gate_approved") is True:
+                states.append({
+                    "area": area,
+                    "state": "production_md_gate_approved",
+                    "severity": "info",
+                    "claim_policy": "Production MLP-MD readiness approval may be described, but real submit still requires hpc_submit evidence.",
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
             if gate_status == "approval_required":
                 states.append({
                     "area": area,
@@ -316,6 +327,14 @@ def _split_readiness_states(area: str, payload: Any) -> list[dict[str, Any]]:
                     "missing_evidence": execution_gate.get("missing_roles", []),
                     "blocked_claims": ["real production MLP-MD execution"],
                 })
+        if legacy_real_submit_allowed:
+            states.append({
+                "area": area,
+                "state": "legacy_real_submit_allowed_ignored",
+                "severity": "warning",
+                "claim_policy": "Ignore legacy MLP readiness real_submit_allowed=true unless independent hpc_submit/job-record evidence is present.",
+                "blocked_claims": ["real production MLP-MD execution"],
+            })
     return states
 
 

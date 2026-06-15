@@ -370,6 +370,18 @@ function validateWorkflowAutomation() {
     'production MD gate reads split scientific readiness status',
     readinessCondition && readinessCondition.path === '$.scientific_readiness.status',
   );
+  const productionApproveActions = productionGate.actions_on_approve.join(' ');
+  check(
+    'production MD gate approval actions are readiness records, not submit triggers',
+    !/(^|\b)(submit|execute|run|allow_production_mlp_md)(\b|$)/.test(productionApproveActions),
+    productionApproveActions,
+  );
+  const mlpEvidenceValidator = fs.readFileSync(path.join(ROOT, 'skills', 'simflow-mlp', 'scripts', 'validate_mlp_evidence.py'), 'utf-8');
+  check(
+    'MLP readiness helper keeps real_submit_allowed false',
+    mlpEvidenceValidator.includes('real_submit_allowed = False')
+      && !mlpEvidenceValidator.includes('real_submit_allowed = scientific_status == "ready"'),
+  );
 
   const stateToolsSmoke = [
     'import importlib.util, json, sys',

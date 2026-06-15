@@ -248,3 +248,65 @@ def test_writing_claim_audit_splits_scientific_ready_from_execution_gate():
     assert ("analysis", "scientific_readiness_blocked") not in state_pairs
     assert "real production MLP-MD execution" in blocked
     assert "production MLP-MD readiness" not in blocked
+
+
+def test_writing_claim_audit_allows_readiness_approval_but_blocks_real_submit_claim():
+    compute_plan = {
+        "real_submit": False,
+        "status": "completed",
+    }
+    analysis_report = {
+        "status": "completed",
+        "scientific_readiness": {"status": "ready"},
+        "production_md_gate_approved": True,
+        "execution_gate": {
+            "status": "approved",
+            "gate": "production_md_readiness",
+            "gate_scope": "production_md_readiness_only",
+            "production_md_gate_approved": True,
+            "real_submit_allowed": False,
+        },
+    }
+    figures_manifest = {"status": "completed", "figures": []}
+
+    states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    state_pairs = {(state["area"], state["state"]) for state in states}
+    blocked = {
+        claim
+        for state in states
+        for claim in state.get("blocked_claims", [])
+    }
+
+    assert ("analysis", "production_md_gate_approved") in state_pairs
+    assert ("analysis", "execution_gate_approval_required") not in state_pairs
+    assert "real production MLP-MD execution" in blocked
+    assert "production MLP-MD readiness" not in blocked
+
+
+def test_writing_claim_audit_ignores_legacy_mlp_real_submit_allowed():
+    compute_plan = {
+        "real_submit": False,
+        "status": "completed",
+    }
+    analysis_report = {
+        "status": "completed",
+        "scientific_readiness": {"status": "ready"},
+        "execution_gate": {
+            "status": "approved",
+            "gate": "production_md_readiness",
+            "real_submit_allowed": True,
+        },
+        "real_submit_allowed": True,
+    }
+    figures_manifest = {"status": "completed", "figures": []}
+
+    states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    state_pairs = {(state["area"], state["state"]) for state in states}
+    blocked = {
+        claim
+        for state in states
+        for claim in state.get("blocked_claims", [])
+    }
+
+    assert ("analysis", "legacy_real_submit_allowed_ignored") in state_pairs
+    assert "real production MLP-MD execution" in blocked

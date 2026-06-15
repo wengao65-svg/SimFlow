@@ -1,6 +1,6 @@
 {
   "name": "production_md_readiness",
-  "description": "生产级 MLP-MD 放行审批门：只有在数据集、训练、验证、异常检测和人工审批证据齐全时才允许进入生产级长时间 MLP-MD。",
+  "description": "生产级 MLP-MD readiness 审批门：只有在数据集、训练、验证、异常检测和人工审批证据齐全时才记录生产级长时间 MLP-MD readiness 决策；该门不执行、不提交 local/remote/HPC job。",
   "type": "approval",
   "conditions": [
     {
@@ -74,7 +74,7 @@
       "value": "approved"
     }
   ],
-  "actions_on_approve": ["allow_production_mlp_md", "record_production_md_decision"],
+  "actions_on_approve": ["record_production_md_readiness_approval", "record_production_md_decision"],
   "actions_on_reject": ["block_production_md", "return_to_active_learning_or_validation"],
   "auto_approve": false,
   "timeout_minutes": 60

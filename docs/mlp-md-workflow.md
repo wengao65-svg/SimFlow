@@ -18,7 +18,10 @@ The canonical stage mapping remains:
 Active learning is represented as a loop between `computation` and
 `analysis_visualization`, with `production_md_readiness` controlling entry to
 production-length MLP-MD. A readiness pass records permission to proceed; it is
-not itself a submit action and does not run local, remote, or HPC jobs.
+not itself a submit action and does not run local, remote, or HPC jobs. MLP
+readiness helper evidence uses `production_md_gate_approved` for this decision;
+`real_submit_allowed` must remain false until independent `hpc_submit` evidence
+and a job record exist.
 
 Recommended artifact metadata:
 

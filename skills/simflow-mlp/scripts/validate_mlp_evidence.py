@@ -62,7 +62,8 @@ def main() -> None:
         execution_gate_status = "approval_required" if scientific_status == "ready" else "blocked"
     else:
         execution_gate_status = "approved"
-    real_submit_allowed = scientific_status == "ready" and execution_gate_status == "approved"
+    production_md_gate_approved = scientific_status == "ready" and execution_gate_status == "approved"
+    real_submit_allowed = False
     if scientific_status != "ready":
         helper_status = "blocked"
     elif args.require_approval and execution_gate_status != "approved":
@@ -96,6 +97,7 @@ def main() -> None:
             "This validates evidence presence only.",
             "Scientific adequacy requires domain review of the referenced evidence.",
             "Approval evidence is conditional and required only when --require-approval is set.",
+            "Production MLP-MD readiness approval does not authorize real local, remote, or HPC submit.",
         ],
         warnings=warnings,
         limitations=[
@@ -113,10 +115,18 @@ def main() -> None:
         execution_gate={
             "status": execution_gate_status,
             "gate": "production_md_readiness" if args.production_readiness else "mlp_evidence_presence_review",
+            "gate_scope": "production_md_readiness_only" if args.production_readiness else "evidence_presence_only",
             "required_roles": execution_required,
             "missing_roles": missing_execution_roles,
             "missing_paths": missing_execution_paths,
+            "production_md_gate_approved": production_md_gate_approved,
             "real_submit_allowed": real_submit_allowed,
+        },
+        production_md_gate_approved=production_md_gate_approved,
+        real_submit_gate={
+            "gate": "hpc_submit",
+            "status": "required_for_real_submit",
+            "reason": "MLP production-readiness approval does not authorize real local, remote, or HPC submit.",
         },
         real_submit_allowed=real_submit_allowed,
         approval_required=args.require_approval,
@@ -131,7 +141,7 @@ def main() -> None:
             ["production MLP-MD readiness", "real production MLP-MD execution"]
             if args.production_readiness and scientific_status != "ready"
             else ["real production MLP-MD execution"]
-            if args.production_readiness and args.require_approval and execution_gate_status != "approved"
+            if args.production_readiness
             else []
         ),
     )
@@ -152,6 +162,8 @@ def main() -> None:
             "helper_result_status": result.get("status"),
             "scientific_readiness": result.get("scientific_readiness"),
             "execution_gate": result.get("execution_gate"),
+            "production_md_gate_approved": result.get("production_md_gate_approved"),
+            "real_submit_gate": result.get("real_submit_gate"),
             "production_readiness": args.production_readiness,
             "approval_required": args.require_approval,
         },

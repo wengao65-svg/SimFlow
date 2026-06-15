@@ -42,7 +42,18 @@ def _write_production_md_readiness_evidence(project_root: Path):
         artifacts / "analysis" / "production_md_readiness_report.json",
         {
             "scientific_readiness": {"status": "ready"},
-            "execution_gate": {"status": "approval_required", "gate": "production_md_readiness"},
+            "production_md_gate_approved": False,
+            "execution_gate": {
+                "status": "approval_required",
+                "gate": "production_md_readiness",
+                "gate_scope": "production_md_readiness_only",
+                "production_md_gate_approved": False,
+                "real_submit_allowed": False,
+            },
+            "real_submit_gate": {
+                "gate": "hpc_submit",
+                "status": "required_for_real_submit",
+            },
             "real_submit_allowed": False,
             "evidence_role": "production_md_readiness_report",
         },
@@ -77,7 +88,9 @@ def test_load_production_md_readiness_gate():
     assert gate["name"] == "production_md_readiness"
     assert gate["conditions"][0]["id"] == "dataset_lineage_complete"
     assert gate["conditions"][-1]["id"] == "approval_present"
-    assert "allow_production_mlp_md" in gate["actions_on_approve"]
+    assert "record_production_md_readiness_approval" in gate["actions_on_approve"]
+    assert "allow_production_mlp_md" not in gate["actions_on_approve"]
+    assert "submit" not in " ".join(gate["actions_on_approve"])
 
 
 def test_load_gate_not_found():

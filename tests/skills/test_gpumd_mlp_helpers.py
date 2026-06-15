@@ -257,20 +257,42 @@ def test_validate_mlp_evidence_requires_approval_only_when_requested(tmp_path):
 
     ready = _run(*args)
     with_approval = _run(*args, "--require-approval")
+    approval_record = tmp_path / "approval_record.json"
+    approval_record.write_text("{}", encoding="utf-8")
+    approved = _run(
+        *args,
+        "--require-approval",
+        "--evidence",
+        f"approval_record={approval_record}",
+    )
 
     assert ready["status"] == "success"
     assert ready["scientific_readiness"]["status"] == "ready"
     assert ready["approval_required"] is False
     assert ready["execution_gate"]["status"] == "not_requested"
+    assert ready["production_md_gate_approved"] is False
+    assert ready["real_submit_gate"]["gate"] == "hpc_submit"
     assert ready["real_submit_allowed"] is False
     assert with_approval["status"] == "warning"
     assert with_approval["scientific_readiness"]["status"] == "ready"
     assert with_approval["approval_required"] is True
     assert with_approval["execution_gate"]["status"] == "approval_required"
+    assert with_approval["execution_gate"]["gate_scope"] == "production_md_readiness_only"
+    assert with_approval["execution_gate"]["production_md_gate_approved"] is False
     assert with_approval["real_submit_allowed"] is False
     assert "approval_record" in with_approval["missing_execution_roles"]
     assert "approval_record" in with_approval["missing_roles"]
     assert with_approval["blocked_claims"] == ["real production MLP-MD execution"]
+    assert approved["status"] == "success"
+    assert approved["scientific_readiness"]["status"] == "ready"
+    assert approved["approval_required"] is True
+    assert approved["execution_gate"]["status"] == "approved"
+    assert approved["execution_gate"]["production_md_gate_approved"] is True
+    assert approved["production_md_gate_approved"] is True
+    assert approved["execution_gate"]["real_submit_allowed"] is False
+    assert approved["real_submit_allowed"] is False
+    assert approved["real_submit_gate"]["status"] == "required_for_real_submit"
+    assert approved["blocked_claims"] == ["real production MLP-MD execution"]
 
 
 def test_build_mlp_dataset_manifest_counts_extxyz_frames(tmp_path):

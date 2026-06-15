@@ -50,3 +50,14 @@ simflow.helper_evidence.v1` when a helper is updated or newly added.
 ## Production readiness
 
 Scientific production-readiness evidence should include dataset lineage, training evidence, validation evidence, smoke-MD evidence, and anomaly criteria. Approval/gate evidence is a separate policy requirement and should only be required by helper scripts when the caller explicitly asks for approval readiness.
+
+For MLP readiness helper output:
+
+- `scientific_readiness.status` records whether the scientific evidence is
+  ready or blocked.
+- `production_md_gate_approved` records whether the optional
+  `production_md_readiness` approval evidence was supplied and accepted.
+- `real_submit_gate` should point to `hpc_submit` and state that a separate
+  submit gate is required before real local, remote, or HPC execution.
+- `real_submit_allowed` is a compatibility field in MLP readiness evidence and
+  must remain `false`; production-readiness approval does not authorize submit.

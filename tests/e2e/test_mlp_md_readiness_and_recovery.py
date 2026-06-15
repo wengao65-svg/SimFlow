@@ -75,7 +75,18 @@ def _write_production_md_readiness_evidence(
         {
             "recipe": "mlp_md",
             "scientific_readiness": {"status": "ready"},
-            "execution_gate": {"status": "approval_required", "gate": "production_md_readiness"},
+            "production_md_gate_approved": False,
+            "execution_gate": {
+                "status": "approval_required",
+                "gate": "production_md_readiness",
+                "gate_scope": "production_md_readiness_only",
+                "production_md_gate_approved": False,
+                "real_submit_allowed": False,
+            },
+            "real_submit_gate": {
+                "gate": "hpc_submit",
+                "status": "required_for_real_submit",
+            },
             "real_submit_allowed": False,
         },
     )
@@ -205,11 +216,18 @@ def _register_synthetic_mlp_evidence_graph(project_root: Path) -> dict[str, dict
         payload={
             "recipe": "mlp_md",
             "scientific_readiness": {"status": "ready"},
+            "production_md_gate_approved": False,
             "execution_gate": {
                 "status": "approval_required",
                 "gate": "production_md_readiness",
+                "gate_scope": "production_md_readiness_only",
                 "missing_roles": ["approval_record"],
+                "production_md_gate_approved": False,
                 "real_submit_allowed": False,
+            },
+            "real_submit_gate": {
+                "gate": "hpc_submit",
+                "status": "required_for_real_submit",
             },
             "real_submit_allowed": False,
         },
