@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimFlowHelperAdapters",
+  "description": "Metadata-only helper adapter registry. This is not an execution registry.",
+  "type": "object",
+  "required": ["schema_version", "policy", "adapters"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "simflow.helper_adapters.v1"
+    },
+    "policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "adapter_id",
+          "tool_id",
+          "aliases",
+          "runtime_enabled",
+          "recognized_files",
+          "supported_capabilities",
+          "unsupported_capabilities",
+          "evidence_roles_produced",
+          "claim_limits",
+          "handoff_targets"
+        ],
+        "properties": {
+          "adapter_id": {"type": "string"},
+          "tool_id": {"type": "string"},
+          "aliases": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "runtime_enabled": {"type": "boolean"},
+          "recognized_files": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "supported_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "unsupported_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "evidence_roles_produced": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "claim_limits": {"type": "array", "items": {"type": "string"}},
+          "handoff_targets": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

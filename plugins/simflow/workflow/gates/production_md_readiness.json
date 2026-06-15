@@ -1,6 +1,6 @@
 {
   "name": "production_md_readiness",
-  "description": "生产级 MLP-MD 放行审批门：只有在数据集、训练、验证、异常检测和人工审批证据齐全时才允许进入生产级长时间 MLP-MD。",
+  "description": "生产级 MLP-MD readiness 审批门：只有在数据集、训练、验证、异常检测和人工审批证据齐全时才记录生产级长时间 MLP-MD readiness 决策；该门不执行、不提交 local/remote/HPC job。",
   "type": "approval",
   "conditions": [
     {
@@ -11,11 +11,25 @@
       "value": true
     },
     {
+      "id": "labeling_completed",
+      "evidence": "analysis/labeling_manifest.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["completed", "pass", "warning"]
+    },
+    {
       "id": "training_completed",
       "evidence": "compute/training_run_manifest.json",
       "path": "$.status",
       "op": "in",
       "value": ["completed", "pass"]
+    },
+    {
+      "id": "metrics_summary_present",
+      "evidence": "analysis/model_metrics_summary.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["success", "pass", "warning"]
     },
     {
       "id": "validation_passed",
@@ -25,8 +39,8 @@
       "value": ["pass", "warning"]
     },
     {
-      "id": "long_md_smoke_passed",
-      "evidence": "compute/long_md_manifest.json",
+      "id": "smoke_md_passed",
+      "evidence": "compute/smoke_md_manifest.json",
       "path": "$.smoke_status",
       "op": "in",
       "value": ["pass", "warning"]
@@ -39,6 +53,20 @@
       "value": true
     },
     {
+      "id": "active_learning_round_reviewed",
+      "evidence": "analysis/active_learning_round_manifest.json",
+      "path": "$.status",
+      "op": "in",
+      "value": ["completed", "pass", "warning"]
+    },
+    {
+      "id": "readiness_report_ready",
+      "evidence": "analysis/production_md_readiness_report.json",
+      "path": "$.scientific_readiness.status",
+      "op": "eq",
+      "value": "ready"
+    },
+    {
       "id": "approval_present",
       "evidence": "state/gates.json",
       "path": "$.production_md_readiness.latest_decision",
@@ -46,7 +74,7 @@
       "value": "approved"
     }
   ],
-  "actions_on_approve": ["allow_production_mlp_md", "record_production_md_decision"],
+  "actions_on_approve": ["record_production_md_readiness_approval", "record_production_md_decision"],
   "actions_on_reject": ["block_production_md", "return_to_active_learning_or_validation"],
   "auto_approve": false,
   "timeout_minutes": 60

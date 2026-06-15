@@ -27,7 +27,7 @@ Host Agent (Claude Code, Codex, or compatible agent)
 - **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
 - **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
 - **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
-- **Domain Helpers**: supported VASP, CP2K, and LAMMPS helpers, plus generic parser, plotting, and structure helpers
+- **Domain Helpers**: supported VASP, CP2K, and LAMMPS helpers, limited GPUMD/NEP evidence helpers, and generic MLP evidence handoff
 - **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
 - **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
 
@@ -52,11 +52,18 @@ stage directly when the needed inputs and evidence are present.
 | VASP | DFT, AIMD, phonon, NEB, defects, surfaces, output inspection |
 | CP2K | Quickstep DFT, AIMD, common CP2K task checks |
 | LAMMPS | Classical MD setup and trajectory analysis guidance |
+| GPUMD/NEP | Static input inspection, evidence manifests, selected output parsing, and MLP handoff only |
+| MLP | Cross-tool dataset, training, validation, active-learning, readiness, and handoff evidence guidance |
 | QE / Gaussian | Unsupported placeholders; user-provided files can still be recorded as generic artifacts |
 
 These helpers suggest and validate. They do not limit what the host agent can
 do, and they should return uncertainty rather than silently mapping unknown
 tasks to a default calculation.
+
+GPUMD and NEP remain tool-level `tracked_only` in this release. The
+`simflow-gpumd` helper does not provide GPUMD/NEP input generation, real
+execution, local submit, remote execution, or HPC submit. `simflow-mlp` is a
+general MLP evidence helper, not a concrete MLP engine executor.
 
 Software and toolchain fields are planning/provenance metadata, not a mandatory
 registration gate. Tools without built-in helpers can still be tracked through

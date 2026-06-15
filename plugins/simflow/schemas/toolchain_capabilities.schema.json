@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimFlowToolchainCapabilities",
+  "description": "Shared helper-support and capability contract. This is not an execution or admission registry.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy",
+    "helper_supported_software",
+    "tracked_only_software",
+    "aliases",
+    "capability_support"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "simflow.toolchain_capabilities.v1"
+    },
+    "policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "helper_supported_software": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "capability_supported_tools": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "tracked_only_software": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "aliases": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "capability_support": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["supported", "not_helper_supported"],
+        "properties": {
+          "supported": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "not_helper_supported": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

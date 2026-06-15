@@ -226,6 +226,118 @@ def _artifact_ids_for(required_artifacts: dict[str, dict[str, Any]], *keys: str)
     ]
 
 
+def _walk_json_values(payload: Any):
+    if isinstance(payload, dict):
+        yield payload
+        for value in payload.values():
+            yield from _walk_json_values(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            yield from _walk_json_values(item)
+
+
+def _has_status(payload: Any, statuses: set[str]) -> bool:
+    for item in _walk_json_values(payload):
+        status = item.get("status")
+        if isinstance(status, str) and status in statuses:
+            return True
+    return False
+
+
+def _has_tracked_only_tool(payload: Any) -> bool:
+    for item in _walk_json_values(payload):
+        actual_tool = item.get("actual_tool_used")
+        if isinstance(actual_tool, dict) and actual_tool.get("support_level") == "tracked_only":
+            return True
+        if item.get("support_level") == "tracked_only":
+            return True
+        if item.get("tool_support_level") == "tracked_only":
+            return True
+    return False
+
+
+def _conditional_evidence_missing(payload: Any) -> list[str]:
+    missing: list[str] = []
+    for item in _walk_json_values(payload):
+        for key in ("missing_conditional_evidence", "missing_roles"):
+            values = item.get(key)
+            if isinstance(values, list):
+                missing.extend(str(value) for value in values)
+        for requirement in item.get("evidence_requirements", []) if isinstance(item.get("evidence_requirements"), list) else []:
+            if not isinstance(requirement, dict):
+                continue
+            if requirement.get("required") is True and requirement.get("present") is False:
+                missing.append(str(requirement.get("evidence_key") or requirement.get("role") or "conditional_evidence"))
+    return list(dict.fromkeys(missing))
+
+
+def _blocked_claims_from(payload: Any) -> list[str]:
+    blocked: list[str] = []
+    for item in _walk_json_values(payload):
+        values = item.get("blocked_claims")
+        if isinstance(values, list):
+            blocked.extend(str(value) for value in values)
+    return list(dict.fromkeys(blocked))
+
+
+def _split_readiness_states(area: str, payload: Any) -> list[dict[str, Any]]:
+    states: list[dict[str, Any]] = []
+    for item in _walk_json_values(payload):
+        scientific = item.get("scientific_readiness")
+        if isinstance(scientific, dict):
+            scientific_status = scientific.get("status")
+            if scientific_status in {"blocked", "incomplete"}:
+                states.append({
+                    "area": area,
+                    "state": f"scientific_readiness_{scientific_status}",
+                    "severity": "warning",
+                    "claim_policy": "Block scientific readiness claims until required validation evidence is present.",
+                    "missing_evidence": scientific.get("missing_roles", []),
+                    "blocked_claims": ["production MLP-MD readiness"],
+                })
+        legacy_real_submit_allowed = item.get("real_submit_allowed") is True
+        execution_gate = item.get("execution_gate")
+        if isinstance(execution_gate, dict):
+            gate_status = execution_gate.get("status")
+            if execution_gate.get("real_submit_allowed") is True:
+                legacy_real_submit_allowed = True
+            if execution_gate.get("production_md_gate_approved") is True or item.get("production_md_gate_approved") is True:
+                states.append({
+                    "area": area,
+                    "state": "production_md_gate_approved",
+                    "severity": "info",
+                    "claim_policy": "Production MLP-MD readiness approval may be described, but real submit still requires hpc_submit evidence.",
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
+            if gate_status == "approval_required":
+                states.append({
+                    "area": area,
+                    "state": "execution_gate_approval_required",
+                    "severity": "warning",
+                    "claim_policy": "Scientific readiness may be described if supported, but real production execution or submit remains blocked.",
+                    "missing_evidence": execution_gate.get("missing_roles", []),
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
+            elif gate_status == "blocked":
+                states.append({
+                    "area": area,
+                    "state": "execution_gate_blocked",
+                    "severity": "warning",
+                    "claim_policy": "Do not claim production execution or submit readiness while the execution gate is blocked.",
+                    "missing_evidence": execution_gate.get("missing_roles", []),
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
+        if legacy_real_submit_allowed:
+            states.append({
+                "area": area,
+                "state": "legacy_real_submit_allowed_ignored",
+                "severity": "warning",
+                "claim_policy": "Ignore legacy MLP readiness real_submit_allowed=true unless independent hpc_submit/job-record evidence is present.",
+                "blocked_claims": ["real production MLP-MD execution"],
+            })
+    return states
+
+
 def _degraded_evidence_states(
     compute_plan: dict[str, Any],
     analysis_report: dict[str, Any],
@@ -239,6 +351,44 @@ def _degraded_evidence_states(
             "severity": "info",
             "claim_policy": "Do not describe the calculation as submitted or completed.",
         })
+
+    for area, payload in (
+        ("computation", compute_plan),
+        ("analysis", analysis_report),
+        ("visualization", figures_manifest),
+    ):
+        if _has_tracked_only_tool(payload):
+            states.append({
+                "area": area,
+                "state": "tracked_only_provenance",
+                "severity": "info",
+                "claim_policy": "Write toolchain provenance only; do not claim helper-validated execution or scientific conclusions.",
+            })
+        if _has_status(payload, {"capability_warning", "waiting"}):
+            states.append({
+                "area": area,
+                "state": "capability_warning_or_waiting",
+                "severity": "warning",
+                "claim_policy": "Write as pending evidence; do not claim the activity passed or completed.",
+            })
+        if _has_status(payload, {"skipped_optional_dependency"}):
+            states.append({
+                "area": area,
+                "state": "skipped_optional_dependency",
+                "severity": "info",
+                "claim_policy": "Record the skipped optional dependency in limitations.",
+            })
+        missing_conditional = _conditional_evidence_missing(payload)
+        if missing_conditional:
+            states.append({
+                "area": area,
+                "state": "conditional_evidence_missing",
+                "severity": "warning",
+                "claim_policy": "Block or flag claims that require the missing conditional evidence.",
+                "missing_evidence": missing_conditional,
+                "blocked_claims": _blocked_claims_from(payload),
+            })
+        states.extend(_split_readiness_states(area, payload))
 
     analysis_status = analysis_report.get("status", "unknown")
     if analysis_status != "completed":
@@ -292,6 +442,11 @@ def _build_claim_map(
     analysis_completed = analysis_report.get("status") == "completed"
     figures_completed = figures_manifest.get("status") == "completed"
     degraded_states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    blocked_claims = list(dict.fromkeys(
+        claim
+        for state in degraded_states
+        for claim in state.get("blocked_claims", [])
+    ))
     compute_state = "dry_run_only" if not compute_plan.get("real_submit") else "submitted_with_record"
     analysis_state = "supported_by_analysis" if analysis_completed else analysis_report.get("status", "waiting_for_outputs")
     figure_state = "supported_by_figures" if figures_completed else figures_manifest.get("status", "no_final_figure_claim")
@@ -355,6 +510,7 @@ def _build_claim_map(
         "visualization_status": figures_manifest.get("status"),
         "degraded_evidence_states": degraded_states,
         "unresolved_degraded_state_count": len(degraded_states),
+        "blocked_claims": blocked_claims,
         "claims": claims,
     }
 
