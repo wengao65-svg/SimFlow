@@ -334,6 +334,36 @@ function validateWorkflowAutomation() {
     activeAdapters.every(tool => !roadmapTools.has(tool)),
   );
 
+  const enablementReviews = readJson('workflow/toolchains/adapter_enablement_reviews.json');
+  const reviewsByTool = new Map(enablementReviews.reviews.map(item => [item.tool_id, item]));
+  const missingRoadmapReviews = roadmap.candidates
+    .map(item => item.tool_id)
+    .filter(tool => !reviewsByTool.has(tool));
+  check('roadmap candidates have adapter enablement reviews', missingRoadmapReviews.length === 0, missingRoadmapReviews.join('\n'));
+  check(
+    'adapter enablement reviews are non-executing',
+    enablementReviews.policy.includes('does not execute tools'),
+  );
+  const requestedEnablement = enablementReviews.reviews.filter(item => item.requested_runtime_enabled);
+  check('Stage3 adapter reviews do not request runtime enablement', requestedEnablement.length === 0);
+  const activeReviewedRoadmapTools = activeAdapters.filter(tool => roadmapTools.has(tool));
+  check(
+    'no roadmap candidate is active without approved metadata adapter review',
+    activeReviewedRoadmapTools.every(tool => {
+      const review = reviewsByTool.get(tool);
+      return review && review.status === 'approved_for_metadata_adapter' && review.requested_runtime_enabled === true;
+    }),
+  );
+  const unexpectedCandidateSkills = enablementReviews.reviews
+    .filter(item => item.status !== 'approved_for_skill_design')
+    .map(item => item.tool_id)
+    .filter(tool => fs.existsSync(path.join(ROOT, 'skills', `simflow-${tool}`, 'SKILL.md')));
+  check(
+    'candidate adapter reviews do not create dedicated skills',
+    unexpectedCandidateSkills.length === 0,
+    unexpectedCandidateSkills.join('\n'),
+  );
+
   const productionGate = readJson('workflow/gates/production_md_readiness.json');
   const readinessCondition = productionGate.conditions.find(item => item.id === 'readiness_report_ready');
   check(

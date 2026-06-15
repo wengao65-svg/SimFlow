@@ -1,0 +1,78 @@
+{
+  "schema_version": "simflow.adapter_enablement_reviews.v1",
+  "policy": "Adapter enablement reviews are evidence-first planning records. A review may approve metadata adapter design, but it does not execute tools, generate inputs, submit jobs, change tool-level support, or create a dedicated skill without a separate implementation PR.",
+  "reviews": [
+    {
+      "tool_id": "deepmd",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "training_execution", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact"],
+      "claim_limits": ["Candidate-only provenance fixture; no DeePMD helper support is enabled."],
+      "safety_boundary": "Use generic evidence intake for user-provided DeePMD artifacts until an explicit adapter PR is approved.",
+      "skill_decision": "no dedicated simflow-deepmd skill in Stage3",
+      "status": "candidate_only"
+    },
+    {
+      "tool_id": "mace",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "training_execution", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact", "lammps_mlp_deployment_manifest"],
+      "claim_limits": ["Candidate-only provenance fixture; no MACE helper support is enabled."],
+      "safety_boundary": "Use generic MLP evidence and LAMMPS deployment provenance only; do not judge MACE model quality.",
+      "skill_decision": "no dedicated simflow-mace skill in Stage3",
+      "status": "candidate_only"
+    },
+    {
+      "tool_id": "nequip",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "training_execution", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact", "lammps_mlp_deployment_manifest"],
+      "claim_limits": ["Candidate-only provenance fixture; no NequIP helper support is enabled."],
+      "safety_boundary": "Use generic MLP evidence and LAMMPS deployment provenance only; do not judge NequIP model quality.",
+      "skill_decision": "no dedicated simflow-nequip skill in Stage3",
+      "status": "candidate_only"
+    },
+    {
+      "tool_id": "allegro",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "training_execution", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact", "lammps_mlp_deployment_manifest"],
+      "claim_limits": ["Candidate-only provenance fixture; no Allegro helper support is enabled."],
+      "safety_boundary": "Use generic MLP evidence and LAMMPS deployment provenance only; do not judge Allegro model quality.",
+      "skill_decision": "no dedicated simflow-allegro skill in Stage3",
+      "status": "candidate_only"
+    },
+    {
+      "tool_id": "gromacs",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["input_manifest", "trajectory_manifest", "analysis_summary"],
+      "claim_limits": ["Candidate-only provenance fixture; no GROMACS helper support is enabled."],
+      "safety_boundary": "Use generic evidence intake for user-provided GROMACS artifacts until an explicit adapter PR is approved.",
+      "skill_decision": "no dedicated simflow-gromacs skill in Stage3",
+      "status": "candidate_only"
+    },
+    {
+      "tool_id": "quantum_espresso",
+      "requested_runtime_enabled": false,
+      "support_level_change": "none; remains tracked_only or unsupported placeholder depending on user entrypoint",
+      "supported_capabilities": [],
+      "unsupported_capabilities": ["input_generation", "real_execution", "local_submit", "remote_execution", "hpc_submit"],
+      "evidence_roles": ["input_manifest", "calculation_manifest", "output_parse_summary"],
+      "claim_limits": ["Candidate-only provenance fixture; QE helper support remains unavailable."],
+      "safety_boundary": "Use generic artifact recording only; do not expose QE-specific helper support from this review.",
+      "skill_decision": "existing simflow-qe placeholder remains unsupported; no active QE helper skill in Stage3",
+      "status": "candidate_only"
+    }
+  ]
+}

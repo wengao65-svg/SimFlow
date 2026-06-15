@@ -165,5 +165,52 @@ test('helper_adapter.schema.json defines metadata-only active adapter contract',
   }
 });
 
+test('adapter_enablement_review.schema.json defines candidate-only expansion gate', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'adapter_enablement_review.schema.json'), 'utf-8'));
+  ['schema_version', 'policy', 'reviews'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required adapter enablement review field: ${field}`);
+    }
+  });
+  const contract = JSON.parse(fs.readFileSync(path.join(ROOT, 'workflow', 'toolchains', 'adapter_enablement_reviews.json'), 'utf-8'));
+  if (contract.schema_version !== 'simflow.adapter_enablement_reviews.v1') {
+    throw new Error('Unexpected adapter enablement review schema version');
+  }
+  if (!contract.policy.includes('does not execute tools')) {
+    throw new Error('Adapter enablement policy must reject execution semantics');
+  }
+  const reviewTools = contract.reviews.map(review => review.tool_id);
+  ['deepmd', 'mace', 'nequip', 'allegro', 'gromacs', 'quantum_espresso'].forEach(tool => {
+    if (!reviewTools.includes(tool)) {
+      throw new Error(`Missing candidate review for ${tool}`);
+    }
+  });
+  const activeRequests = contract.reviews.filter(review => review.requested_runtime_enabled);
+  if (activeRequests.length !== 0) {
+    throw new Error('Stage3 candidate reviews must not request runtime enablement');
+  }
+});
+
+test('helper_evidence.schema.json defines common soft evidence envelope', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'helper_evidence.schema.json'), 'utf-8'));
+  ['schema_version', 'helper', 'capability', 'status', 'stage', 'activity', 'evidence_role'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required helper evidence field: ${field}`);
+    }
+  });
+  const statuses = schema.properties.status.enum || [];
+  ['success', 'warning', 'blocked', 'incomplete', 'skipped_optional_dependency', 'capability_warning'].forEach(status => {
+    if (!statuses.includes(status)) {
+      throw new Error(`Missing helper evidence status: ${status}`);
+    }
+  });
+  const parserStatuses = schema.properties.parser_status.enum || [];
+  ['parsed', 'partial', 'unrecognized', 'missing', 'malformed', 'not_applicable'].forEach(status => {
+    if (!parserStatuses.includes(status)) {
+      throw new Error(`Missing parser status: ${status}`);
+    }
+  });
+});
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);

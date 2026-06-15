@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -198,6 +201,92 @@ def test_inspect_lammps_inputs_records_mlp_deployment_model_provenance(tmp_path)
     assert "training quality" in deployment["claim_limits"][1]
     assert dump_restart["dumps"][0]["file"] == "dump.lammpstrj"
     assert dump_restart["restarts"][0]["files"] == ["restart.*.bin"]
+
+
+def test_inspect_lammps_inputs_writes_mlp_deployment_handoff_json(tmp_path):
+    model = tmp_path / "graph.pb"
+    model.write_text("synthetic model bytes", encoding="utf-8")
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style deepmd graph.pb",
+            "pair_coeff * *",
+            "fix 1 all nve",
+            "run 1000",
+        ]),
+    )
+    output = tmp_path / "lammps_mlp_deployment.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-script",
+            str(script),
+            "--force-field-source",
+            "synthetic MLP fixture",
+            "--mlp-deployment-output",
+            str(output),
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    result = json.loads(completed.stdout)
+    deployment = json.loads(output.read_text(encoding="utf-8"))
+
+    assert result["mlp_deployment_output"] == str(output)
+    assert deployment["schema_version"] == "simflow.helper_evidence.v1"
+    assert deployment["status"] == "success"
+    assert deployment["evidence_role"] == "lammps_mlp_deployment_manifest"
+    assert deployment["capability"] == "mlp_deployment_manifest"
+    assert deployment["actual_tool_used"]["software"] == "lammps"
+    assert deployment["model_files"][0]["sha256"]
+    assert deployment["handoff_to"] == "simflow-mlp"
+    assert "training quality" in deployment["claim_limits"][1]
+
+
+def test_inspect_lammps_inputs_writes_warning_when_mlp_deployment_not_detected(tmp_path):
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units lj",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style lj/cut 2.5",
+            "pair_coeff 1 1 1.0 1.0 2.5",
+            "fix 1 all nve",
+            "run 1000",
+        ]),
+    )
+    output = tmp_path / "lammps_mlp_deployment.json"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-script",
+            str(script),
+            "--force-field-source",
+            "synthetic LJ fixture",
+            "--mlp-deployment-output",
+            str(output),
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    deployment = json.loads(output.read_text(encoding="utf-8"))
+
+    assert deployment["status"] == "warning"
+    assert deployment["parser_status"] == "not_applicable"
+    assert deployment["detected"] is False
+    assert any(warning["code"] == "mlp_deployment_not_detected" for warning in deployment["warnings"])
 
 
 def test_inspect_lammps_inputs_warns_on_missing_mlp_model_file(tmp_path):

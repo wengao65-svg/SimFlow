@@ -154,6 +154,65 @@ def test_parse_gpumd_outputs_supports_software_override(tmp_path):
     assert result["files"][0]["parser_status"] == "partial"
 
 
+def test_parse_gpumd_outputs_recognizes_nep_train_test_tables(tmp_path):
+    energy = tmp_path / "energy_train.out"
+    force = tmp_path / "force_test.out"
+    energy.write_text("0 0.1\n1 0.05\n", encoding="utf-8")
+    force.write_text("0 0.2 0.3\n1 0.1 0.15\n", encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/parse_gpumd_outputs.py",
+        "--files",
+        str(energy),
+        str(force),
+    )
+
+    roles = {item["role"] for item in result["files"]}
+    assert result["status"] == "success"
+    assert result["parser_status"] == "parsed"
+    assert result["actual_tool_used"]["software"] == "nep"
+    assert roles == {"nep_energy_train_table", "nep_force_test_table"}
+    assert "model-quality" in result["claim_limits"][0]
+
+
+def test_parse_gpumd_outputs_marks_malformed_existing_table_blocked(tmp_path):
+    malformed = tmp_path / "stress_test.out"
+    malformed.write_text("not numeric\nstill not numeric\n", encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/parse_gpumd_outputs.py",
+        "--files",
+        str(malformed),
+    )
+
+    parsed = result["files"][0]
+    assert result["status"] == "blocked"
+    assert result["parser_status"] == "malformed"
+    assert parsed["role"] == "nep_stress_test_table"
+    assert parsed["parser_status"] == "malformed"
+    assert any(warning["code"] == "no_numeric_rows" for warning in parsed["warnings"])
+
+
+def test_parse_gpumd_outputs_warns_on_mixed_gpumd_nep_files(tmp_path):
+    thermo = tmp_path / "thermo.out"
+    loss = tmp_path / "loss.out"
+    thermo.write_text("0 300 1.0\n", encoding="utf-8")
+    loss.write_text("step loss\n0 0.5\n", encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/parse_gpumd_outputs.py",
+        "--files",
+        str(thermo),
+        str(loss),
+    )
+
+    statuses = {item["parser_status"] for item in result["files"]}
+    assert result["status"] == "warning"
+    assert result["parser_status"] == "partial"
+    assert result["actual_tool_used"]["software"] == "gpumd"
+    assert statuses == {"parsed", "partial"}
+
+
 def test_validate_mlp_evidence_blocks_missing_production_roles(tmp_path):
     dataset = tmp_path / "dataset.json"
     dataset.write_text("{}", encoding="utf-8")

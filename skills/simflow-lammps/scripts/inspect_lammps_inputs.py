@@ -269,6 +269,51 @@ def _lammps_mlp_deployment_manifest(input_script: Path, commands: list[dict[str,
     }
 
 
+def _lammps_mlp_deployment_evidence(
+    input_script: Path,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    warnings = []
+    missing_models = [item for item in manifest.get("model_files", []) if not item.get("present")]
+    if not manifest.get("detected"):
+        warnings.append({
+            "code": "mlp_deployment_not_detected",
+            "message": "No supported LAMMPS MLP pair style was detected in the input script.",
+        })
+    for item in missing_models:
+        warnings.append({
+            "code": "missing_mlp_model_file",
+            "message": f"LAMMPS MLP deployment references missing model file: {item.get('token')}",
+        })
+    return build_helper_evidence(
+        helper="lammps_inspect_inputs",
+        capability="mlp_deployment_manifest",
+        status="warning" if warnings else "success",
+        stage="computation",
+        activity="mlp_deployment_manifest",
+        evidence_role="lammps_mlp_deployment_manifest",
+        source_files=[source_file_record(input_script)] + [
+            source_file_record(item["path"], role=item.get("role") or "mlp_model_file")
+            for item in manifest.get("model_files", [])
+            if item.get("path")
+        ],
+        actual_tool_used={"software": "lammps", "support_level": "helper_supported"},
+        parser_status="parsed" if manifest.get("detected") else "not_applicable",
+        claim_limits=manifest.get("claim_limits", []),
+        warnings=warnings,
+        limitations=[
+            "Records LAMMPS MLP deployment provenance only.",
+            "Does not judge model training quality, validation coverage, extrapolation safety, or production readiness.",
+            "No LAMMPS executable was called.",
+        ],
+        detected=manifest.get("detected", False),
+        pair_styles=manifest.get("pair_styles", []),
+        model_files=manifest.get("model_files", []),
+        handoff_to=manifest.get("handoff_to"),
+        adapter_capabilities=adapter_capabilities("lammps"),
+    )
+
+
 def _dump_restart_manifest(input_script: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
     dumps = []
     for command in _commands_named(commands, "dump"):
@@ -659,6 +704,7 @@ def main() -> None:
     parser.add_argument("--log-file", default=None, help="Optional LAMMPS log file for post-run diagnostics")
     parser.add_argument("--force-field-source", default=None, help="Human-readable force-field provenance note")
     parser.add_argument("--output", default=None, help="Optional JSON report path")
+    parser.add_argument("--mlp-deployment-output", default=None, help="Optional LAMMPS MLP deployment handoff JSON path")
     add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
@@ -674,6 +720,19 @@ def main() -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
         output_paths.append(str(output_path))
+        result["output_files"] = output_paths
+    if args.mlp_deployment_output:
+        deployment_path = Path(args.mlp_deployment_output)
+        deployment_path.parent.mkdir(parents=True, exist_ok=True)
+        deployment_evidence = _lammps_mlp_deployment_evidence(
+            Path(args.input_script).expanduser(),
+            result.get("lammps_mlp_deployment_manifest", {}),
+        )
+        deployment_path.write_text(json.dumps(deployment_evidence, indent=2, ensure_ascii=False), encoding="utf-8")
+        output_paths.append(str(deployment_path))
+        result["mlp_deployment_output"] = str(deployment_path)
+        result["mlp_deployment_evidence"] = deployment_evidence
+    if output_paths:
         result["output_files"] = output_paths
 
     input_paths = [args.input_script]

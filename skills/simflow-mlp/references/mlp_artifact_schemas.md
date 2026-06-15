@@ -1,7 +1,8 @@
 # Helper Evidence Schemas
 
 Use these lightweight contracts for helper-produced JSON. They are guidance for
-consistent evidence, not a global hard schema gate.
+consistent evidence, not a global hard schema gate. The machine-readable soft
+schema lives at `schemas/helper_evidence.schema.json`.
 
 ## Common helper evidence v1
 

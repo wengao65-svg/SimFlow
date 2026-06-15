@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimFlowAdapterEnablementReviews",
+  "description": "Evidence-first review records for future adapter enablement. These records do not enable execution support by themselves.",
+  "type": "object",
+  "required": ["schema_version", "policy", "reviews"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "simflow.adapter_enablement_reviews.v1"
+    },
+    "policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "tool_id",
+          "requested_runtime_enabled",
+          "support_level_change",
+          "supported_capabilities",
+          "unsupported_capabilities",
+          "evidence_roles",
+          "claim_limits",
+          "safety_boundary",
+          "skill_decision",
+          "status"
+        ],
+        "properties": {
+          "tool_id": {"type": "string", "minLength": 1},
+          "requested_runtime_enabled": {"type": "boolean"},
+          "support_level_change": {"type": "string", "minLength": 1},
+          "supported_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "unsupported_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "evidence_roles": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "claim_limits": {"type": "array", "items": {"type": "string"}},
+          "safety_boundary": {"type": "string", "minLength": 1},
+          "skill_decision": {"type": "string", "minLength": 1},
+          "status": {
+            "type": "string",
+            "enum": [
+              "candidate_only",
+              "blocked",
+              "approved_for_metadata_adapter",
+              "approved_for_skill_design"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

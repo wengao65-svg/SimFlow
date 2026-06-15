@@ -23,6 +23,15 @@ from runtime.simflow_helpers.adapters import adapter_capabilities
 RECOGNIZED_ROLES = {
     "thermo.out": "thermo_table",
     "loss.out": "nep_loss_table",
+    "energy_train.out": "nep_energy_train_table",
+    "energy_test.out": "nep_energy_test_table",
+    "force_train.out": "nep_force_train_table",
+    "force_test.out": "nep_force_test_table",
+    "stress_train.out": "nep_stress_train_table",
+    "stress_test.out": "nep_stress_test_table",
+    "virial_train.out": "nep_virial_train_table",
+    "virial_test.out": "nep_virial_test_table",
+    "descriptor.out": "nep_descriptor_table",
     "msd.out": "msd_table",
     "rdf.out": "rdf_table",
     "hac.out": "heat_current_autocorrelation_table",
@@ -97,7 +106,14 @@ def parse_table(path: Path, software: str) -> dict[str, Any]:
         warnings.append({"code": "inconsistent_column_count", "message": f"Parsed rows have inconsistent widths: {widths}"})
     column_count = widths[0] if len(widths) == 1 else None
     parsed = bool(rows) and column_count is not None
-    parser_status = "parsed" if parsed and not skipped else "partial" if parsed else "unparsed"
+    if parsed and not skipped:
+        parser_status = "parsed"
+    elif parsed:
+        parser_status = "partial"
+    elif skipped:
+        parser_status = "malformed"
+    else:
+        parser_status = "unrecognized"
     ranges = []
     if column_count is not None:
         for index in range(column_count):
@@ -121,6 +137,17 @@ def parse_table(path: Path, software: str) -> dict[str, Any]:
     }
 
 
+def _overall_parser_status(parsed_files: list[dict[str, Any]]) -> str:
+    statuses = [item["parser_status"] for item in parsed_files]
+    if all(status == "missing" for status in statuses):
+        return "missing"
+    if any(status in {"parsed", "partial"} for status in statuses):
+        return "partial" if any(status != "parsed" for status in statuses) else "parsed"
+    if any(status == "malformed" for status in statuses):
+        return "malformed"
+    return "unrecognized"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Parse selected GPUMD/NEP output tables")
     parser.add_argument("--files", nargs="+", required=True, help="Output files to parse")
@@ -130,7 +157,8 @@ def main() -> None:
     args = parser.parse_args()
 
     parsed_files = [parse_table(Path(path).expanduser(), args.software) for path in args.files]
-    blocked = all(item["parser_status"] in {"missing", "unparsed"} for item in parsed_files)
+    overall_parser_status = _overall_parser_status(parsed_files)
+    blocked = all(item["parser_status"] in {"missing", "unrecognized", "malformed"} for item in parsed_files)
     degraded = any(item["parser_status"] != "parsed" or item.get("warnings") for item in parsed_files)
     software = "nep" if all(item["software"] == "nep" for item in parsed_files) else "gpumd"
     result = build_helper_evidence(
@@ -145,7 +173,7 @@ def main() -> None:
             "software": software,
             "support_level": "tracked_only",
         },
-        parser_status="missing" if blocked else ("partial" if degraded else "parsed"),
+        parser_status=overall_parser_status,
         claim_limits=[
             "No convergence, model-quality, or transport-property claim is made.",
             "Parsed numeric summaries must be reviewed against the original GPUMD/NEP context.",

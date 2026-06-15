@@ -27,6 +27,14 @@
       "handoff_targets": ["simflow-mlp", "simflow-lammps"]
     },
     {
+      "tool_id": "allegro",
+      "runtime_enabled": false,
+      "recognized_files": ["config.yaml", "*.pth", "*.nequip.pth", "*.allegro.pth"],
+      "evidence_roles": ["training_run_manifest", "model_metrics_summary", "mlp_model_artifact"],
+      "claim_limits": ["Records Allegro provenance only until a real adapter is implemented."],
+      "handoff_targets": ["simflow-mlp", "simflow-lammps"]
+    },
+    {
       "tool_id": "gromacs",
       "runtime_enabled": false,
       "recognized_files": ["*.mdp", "*.top", "*.gro", "*.tpr", "*.xtc", "*.edr"],

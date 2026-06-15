@@ -75,11 +75,18 @@ def test_active_adapter_registry_is_json_backed():
 
 def test_ecosystem_roadmap_fixtures_are_not_active_adapters_or_skills():
     roadmap = json.loads((ROOT / "workflow" / "toolchains" / "adapter_roadmap.json").read_text(encoding="utf-8"))
+    reviews = json.loads((ROOT / "workflow" / "toolchains" / "adapter_enablement_reviews.json").read_text(encoding="utf-8"))
+    reviews_by_tool = {item["tool_id"]: item for item in reviews["reviews"]}
 
     assert roadmap["schema_version"] == "simflow.adapter_roadmap.v1"
+    assert reviews["schema_version"] == "simflow.adapter_enablement_reviews.v1"
     assert all(candidate["runtime_enabled"] is False for candidate in roadmap["candidates"])
     assert "not active runtime adapters" in roadmap["policy"]
+    assert "does not execute tools" in reviews["policy"]
     for candidate in roadmap["candidates"]:
+        review = reviews_by_tool[candidate["tool_id"]]
+        assert review["status"] == "candidate_only"
+        assert review["requested_runtime_enabled"] is False
         assert get_adapter(candidate["tool_id"]) is None
-    assert not (ROOT / "skills" / "simflow-deepmd").exists()
-    assert not (ROOT / "skills" / "simflow-mace").exists()
+        if candidate["tool_id"] != "quantum_espresso":
+            assert not (ROOT / "skills" / f"simflow-{candidate['tool_id']}").exists()
