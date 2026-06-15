@@ -69,7 +69,12 @@ def _write_production_md_readiness_evidence(
     )
     _write_json(
         artifacts / "analysis" / "production_md_readiness_report.json",
-        {"recipe": "mlp_md", "scientific_readiness": "ready"},
+        {
+            "recipe": "mlp_md",
+            "scientific_readiness": {"status": "ready"},
+            "execution_gate": {"status": "approval_required", "gate": "production_md_readiness"},
+            "real_submit_allowed": False,
+        },
     )
 
 
@@ -90,6 +95,7 @@ def test_mlp_md_production_readiness_gate_passes_and_blocks_from_fixture(tmp_pat
 
     before_approval = check_gate("production_md_readiness", {"project_root": str(tmp_path)})
     assert before_approval["status"] == "block"
+    assert "readiness_report_ready" in before_approval["conditions"]["met"]
     assert "approval_present" in before_approval["conditions"]["unmet"]
 
     record_gate_decision(

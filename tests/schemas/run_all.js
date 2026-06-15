@@ -145,5 +145,25 @@ test('toolchain_capabilities.schema.json defines non-executor capability contrac
   });
 });
 
+test('helper_adapter.schema.json defines metadata-only active adapter contract', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(SCHEMAS_DIR, 'helper_adapter.schema.json'), 'utf-8'));
+  ['schema_version', 'policy', 'adapters'].forEach(field => {
+    if (!schema.required || !schema.required.includes(field)) {
+      throw new Error(`Missing required helper adapter field: ${field}`);
+    }
+  });
+  const contract = JSON.parse(fs.readFileSync(path.join(ROOT, 'workflow', 'toolchains', 'adapters.json'), 'utf-8'));
+  if (contract.schema_version !== 'simflow.helper_adapters.v1') {
+    throw new Error('Unexpected helper adapter schema version');
+  }
+  if (!contract.policy.includes('do not execute tools')) {
+    throw new Error('Adapter policy must reject execution semantics');
+  }
+  const active = contract.adapters.filter(adapter => adapter.runtime_enabled).map(adapter => adapter.tool_id);
+  if (active.join(',') !== 'lammps,gpumd,nep') {
+    throw new Error(`Unexpected active adapters: ${active.join(',')}`);
+  }
+});
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);

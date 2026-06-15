@@ -324,6 +324,23 @@ function validateWorkflowAutomation() {
   const activeRoadmapEntries = roadmap.candidates.filter(item => item.runtime_enabled);
   check('ecosystem adapter roadmap fixtures are not active runtime adapters', activeRoadmapEntries.length === 0);
 
+  const adapters = readJson('workflow/toolchains/adapters.json');
+  const activeAdapters = adapters.adapters.filter(item => item.runtime_enabled).map(item => item.tool_id);
+  const roadmapTools = new Set(roadmap.candidates.map(item => item.tool_id));
+  check('helper adapter contract is metadata-only', adapters.policy.includes('do not execute tools'));
+  check('runtime active adapters are limited to lammps/gpumd/nep', activeAdapters.join(',') === 'lammps,gpumd,nep');
+  check(
+    'runtime active adapters are not enabled from roadmap candidates',
+    activeAdapters.every(tool => !roadmapTools.has(tool)),
+  );
+
+  const productionGate = readJson('workflow/gates/production_md_readiness.json');
+  const readinessCondition = productionGate.conditions.find(item => item.id === 'readiness_report_ready');
+  check(
+    'production MD gate reads split scientific readiness status',
+    readinessCondition && readinessCondition.path === '$.scientific_readiness.status',
+  );
+
   const stateToolsSmoke = [
     'import importlib.util, json, sys',
     'from pathlib import Path',
@@ -338,6 +355,10 @@ function validateWorkflowAutomation() {
     'tools = {item["name"]: item["inputSchema"] for item in _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)}',
     'assert tools["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]',
     'assert tools["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]',
+    'evidence_graph = tools["evidence_graph"]["properties"]',
+    'assert evidence_graph["direction"]["enum"] == ["upstream", "downstream", "both"]',
+    'assert evidence_graph["depth"]["maximum"] == 5',
+    'assert "recipe" in evidence_graph and "claim_id" in evidence_graph',
   ].join('; ');
   runCheck('simflow_state tools/list exposes evidence intake tools', 'python', ['-c', stateToolsSmoke]);
 

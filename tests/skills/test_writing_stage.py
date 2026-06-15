@@ -216,3 +216,35 @@ def test_writing_claim_audit_classifies_tracked_only_and_conditional_evidence():
 
     assert claim_map["blocked_claims"] == ["production MLP-MD readiness"]
     assert claim_map["unresolved_degraded_state_count"] >= 5
+
+
+def test_writing_claim_audit_splits_scientific_ready_from_execution_gate():
+    compute_plan = {
+        "real_submit": False,
+        "status": "completed",
+    }
+    analysis_report = {
+        "status": "completed",
+        "scientific_readiness": {"status": "ready"},
+        "execution_gate": {
+            "status": "approval_required",
+            "gate": "production_md_readiness",
+            "missing_roles": ["approval_record"],
+            "real_submit_allowed": False,
+        },
+        "blocked_claims": ["real production MLP-MD execution"],
+    }
+    figures_manifest = {"status": "completed", "figures": []}
+
+    states = _degraded_evidence_states(compute_plan, analysis_report, figures_manifest)
+    state_pairs = {(state["area"], state["state"]) for state in states}
+    blocked = {
+        claim
+        for state in states
+        for claim in state.get("blocked_claims", [])
+    }
+
+    assert ("analysis", "execution_gate_approval_required") in state_pairs
+    assert ("analysis", "scientific_readiness_blocked") not in state_pairs
+    assert "real production MLP-MD execution" in blocked
+    assert "production MLP-MD readiness" not in blocked

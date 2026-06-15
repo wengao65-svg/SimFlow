@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
+from .helper_evidence import extract_helper_evidence_metadata
 from .state import read_state, resolve_project_root
 from .toolchains import normalize_tool_name
 from .workflow import CANONICAL_STAGES, load_recipe
@@ -61,27 +63,16 @@ def _artifact_path_status(root: Path, artifact: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _artifact_full_path(root: Path, artifact: dict[str, Any]) -> Path | None:
+    path_value = artifact.get("path")
+    if not path_value:
+        return None
+    path = Path(path_value)
+    return path if path.is_absolute() else root / path
+
+
 def _artifact_evidence_metadata(artifact: dict[str, Any]) -> dict[str, Any]:
-    metadata = _as_dict(artifact.get("metadata"))
-    helper_evidence = _as_dict(metadata.get("helper_evidence"))
-    source = helper_evidence or metadata
-    actual_tool_used = _as_dict(source.get("actual_tool_used") or metadata.get("actual_tool_used"))
-    lineage = _as_dict(artifact.get("lineage"))
-    tool = (
-        actual_tool_used.get("name")
-        or actual_tool_used.get("software")
-        or metadata.get("software")
-        or lineage.get("software")
-    )
-    return {
-        "schema_version": source.get("schema_version"),
-        "helper": source.get("helper") or metadata.get("helper_name"),
-        "evidence_role": source.get("evidence_role") or metadata.get("role"),
-        "helper_status": source.get("status") or metadata.get("helper_result_status"),
-        "parser_status": source.get("parser_status"),
-        "actual_tool_used": actual_tool_used,
-        "tool": tool,
-    }
+    return extract_helper_evidence_metadata(artifact)
 
 
 def _matches_evidence_filters(
@@ -91,6 +82,7 @@ def _matches_evidence_filters(
     tool: str | None,
     status: str | None,
     schema_version: str | None,
+    recipe: str | None,
 ) -> bool:
     evidence = _artifact_evidence_metadata(artifact)
     if evidence_role and evidence.get("evidence_role") != evidence_role:
@@ -101,7 +93,88 @@ def _matches_evidence_filters(
         return False
     if schema_version and evidence.get("schema_version") != schema_version:
         return False
+    if recipe and evidence.get("recipe") != recipe:
+        return False
     return True
+
+
+def _coerce_graph_depth(value: Any) -> int:
+    try:
+        depth = int(value)
+    except (TypeError, ValueError):
+        depth = 1
+    return max(0, min(depth, 5))
+
+
+def _coerce_graph_direction(value: Any) -> str:
+    direction = str(value or "both").strip().lower()
+    return direction if direction in {"upstream", "downstream", "both"} else "both"
+
+
+def _claim_related_ids(root: Path, artifacts: list[dict[str, Any]], claim_id: str | None) -> set[str]:
+    if not claim_id:
+        return set()
+    related: set[str] = set()
+    for artifact in artifacts:
+        artifact_id = artifact.get("artifact_id")
+        if not artifact_id:
+            continue
+        evidence = _artifact_evidence_metadata(artifact)
+        if claim_id in evidence.get("claim_ids", []):
+            related.add(artifact_id)
+        full_path = _artifact_full_path(root, artifact)
+        if not full_path or not full_path.is_file():
+            continue
+        try:
+            payload = json.loads(full_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        for claim in _as_list(_as_dict(payload).get("claims")):
+            if not isinstance(claim, dict):
+                continue
+            if str(claim.get("claim_id") or claim.get("id") or "") != claim_id:
+                continue
+            related.add(artifact_id)
+            for key in ("source_artifact_ids", "evidence_artifacts", "artifact_ids"):
+                related.update(str(item) for item in _as_list(claim.get(key)) if item)
+    return related
+
+
+def _expand_related_ids(
+    root_ids: set[str],
+    links: list[dict[str, Any]],
+    *,
+    direction: str,
+    depth: int,
+) -> set[str]:
+    if not root_ids:
+        return set()
+    parents_by_child: dict[str, set[str]] = {}
+    children_by_parent: dict[str, set[str]] = {}
+    for link in links:
+        child = link.get("child_artifact_id")
+        parent = link.get("parent_artifact_id")
+        if not child or not parent:
+            continue
+        parents_by_child.setdefault(child, set()).add(parent)
+        children_by_parent.setdefault(parent, set()).add(child)
+
+    selected = set(root_ids)
+    frontier = set(root_ids)
+    for _ in range(depth):
+        next_ids: set[str] = set()
+        if direction in {"upstream", "both"}:
+            for artifact_id in frontier:
+                next_ids.update(parents_by_child.get(artifact_id, set()))
+        if direction in {"downstream", "both"}:
+            for artifact_id in frontier:
+                next_ids.update(children_by_parent.get(artifact_id, set()))
+        next_ids -= selected
+        if not next_ids:
+            break
+        selected.update(next_ids)
+        frontier = next_ids
+    return selected
 
 
 def _artifact_summary(root: Path, artifacts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -320,25 +393,35 @@ def build_evidence_graph(
     tool: str | None = None,
     status: str | None = None,
     schema_version: str | None = None,
+    recipe: str | None = None,
+    claim_id: str | None = None,
+    direction: str | None = None,
+    depth: int | None = None,
 ) -> dict[str, Any]:
     """Build a read-only artifact lineage graph for a project."""
     root = resolve_project_root(project_root=project_root)
     state = _read_project_state(root)
     artifacts = [artifact for artifact in state["artifacts"] if isinstance(artifact, dict)]
     all_links, missing_parents = _lineage_links(artifacts, state["lineage"])
+    graph_direction = _coerce_graph_direction(direction)
+    graph_depth = _coerce_graph_depth(depth)
 
     selected_ids = {artifact.get("artifact_id") for artifact in artifacts}
     if stage:
         selected_ids = {artifact.get("artifact_id") for artifact in artifacts if artifact.get("stage") == stage}
+    root_ids = set()
     if artifact_id:
-        related_ids = {artifact_id}
-        for link in all_links:
-            if link["child_artifact_id"] == artifact_id:
-                related_ids.add(link["parent_artifact_id"])
-            if link["parent_artifact_id"] == artifact_id:
-                related_ids.add(link["child_artifact_id"])
-        selected_ids = related_ids if not stage else selected_ids.intersection(related_ids)
-    if evidence_role or tool or status or schema_version:
+        root_ids.add(artifact_id)
+    root_ids.update(_claim_related_ids(root, artifacts, claim_id))
+    if root_ids:
+        related_ids = _expand_related_ids(
+            root_ids,
+            all_links,
+            direction=graph_direction,
+            depth=graph_depth,
+        )
+        selected_ids = selected_ids.intersection(related_ids)
+    if evidence_role or tool or status or schema_version or recipe:
         matching_ids = {
             artifact.get("artifact_id")
             for artifact in artifacts
@@ -348,6 +431,7 @@ def build_evidence_graph(
                 tool=tool,
                 status=status,
                 schema_version=schema_version,
+                recipe=recipe,
             )
         }
         selected_ids = selected_ids.intersection(matching_ids)
@@ -373,6 +457,8 @@ def build_evidence_graph(
             "actual_tool_used": evidence.get("actual_tool_used"),
             "helper_status": evidence.get("helper_status"),
             "parser_status": evidence.get("parser_status"),
+            "recipe": evidence.get("recipe"),
+            "claim_ids": evidence.get("claim_ids", []),
         })
 
     links = [
@@ -393,6 +479,16 @@ def build_evidence_graph(
             "tool": tool,
             "status": status,
             "schema_version": schema_version,
+            "recipe": recipe,
+            "claim_id": claim_id,
+            "direction": graph_direction,
+            "depth": graph_depth,
+        },
+        "query_limits": {
+            "max_depth": 5,
+            "direction_values": ["upstream", "downstream", "both"],
+            "claim_id_policy": "Matches only explicit claim_id/id fields and listed source_artifact_ids/evidence_artifacts; no claim inference is performed.",
+            "read_only": True,
         },
         "nodes": nodes,
         "links": links,

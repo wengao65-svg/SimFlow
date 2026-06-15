@@ -37,19 +37,44 @@ def main() -> None:
             continue
         role, path = item.split("=", 1)
         evidence[role.strip()] = path.strip()
-    required = PRODUCTION_REQUIRED if args.production_readiness else BASE_REQUIRED
-    if args.require_approval:
-        required = required + APPROVAL_REQUIRED
-    missing_roles = [role for role in required if role not in evidence]
+    scientific_required = PRODUCTION_REQUIRED if args.production_readiness else BASE_REQUIRED
+    execution_required = APPROVAL_REQUIRED if args.require_approval else []
+    required = scientific_required + execution_required
+    missing_scientific_roles = [role for role in scientific_required if role not in evidence]
+    missing_execution_roles = [role for role in execution_required if role not in evidence]
     missing_paths = [
         {"role": role, "path": path}
         for role, path in evidence.items()
         if path and not Path(path).expanduser().exists()
     ]
-    scientific_readiness = "ready" if not missing_roles and not missing_paths and not malformed else "blocked"
+    missing_scientific_paths = [
+        item for item in missing_paths
+        if item["role"] in scientific_required
+    ]
+    missing_execution_paths = [
+        item for item in missing_paths
+        if item["role"] in execution_required
+    ]
+    scientific_status = "ready" if not missing_scientific_roles and not missing_scientific_paths and not malformed else "blocked"
+    if not args.require_approval:
+        execution_gate_status = "not_requested"
+    elif missing_execution_roles or missing_execution_paths:
+        execution_gate_status = "approval_required" if scientific_status == "ready" else "blocked"
+    else:
+        execution_gate_status = "approved"
+    real_submit_allowed = scientific_status == "ready" and execution_gate_status == "approved"
+    if scientific_status != "ready":
+        helper_status = "blocked"
+    elif args.require_approval and execution_gate_status != "approved":
+        helper_status = "warning"
+    else:
+        helper_status = "success"
     warnings = [
         {"code": "missing_evidence_role", "message": f"Missing MLP evidence role: {role}"}
-        for role in missing_roles
+        for role in missing_scientific_roles
+    ] + [
+        {"code": "missing_execution_gate_evidence", "message": f"Missing execution gate evidence role: {role}"}
+        for role in missing_execution_roles
     ] + [
         {"code": "missing_evidence_path", "message": f"Evidence path for {item['role']} does not exist: {item['path']}"}
         for item in missing_paths
@@ -60,7 +85,7 @@ def main() -> None:
     result = build_helper_evidence(
         helper="validate_mlp_evidence",
         capability="production_mlp_md_readiness_review" if args.production_readiness else "mlp_evidence_presence_review",
-        status="success" if scientific_readiness == "ready" else "blocked",
+        status=helper_status,
         stage="analysis_visualization",
         activity="production_mlp_md_readiness_review" if args.production_readiness else "mlp_evidence_presence_review",
         evidence_role="production_md_readiness_report" if args.production_readiness else "mlp_evidence_presence_report",
@@ -78,15 +103,36 @@ def main() -> None:
             "Scientific adequacy requires domain review of the referenced evidence.",
         ],
         production_readiness_requested=args.production_readiness,
-        scientific_readiness=scientific_readiness,
+        scientific_readiness={
+            "status": scientific_status,
+            "required_roles": scientific_required,
+            "missing_roles": missing_scientific_roles,
+            "missing_paths": missing_scientific_paths,
+        },
+        scientific_readiness_status=scientific_status,
+        execution_gate={
+            "status": execution_gate_status,
+            "gate": "production_md_readiness" if args.production_readiness else "mlp_evidence_presence_review",
+            "required_roles": execution_required,
+            "missing_roles": missing_execution_roles,
+            "missing_paths": missing_execution_paths,
+            "real_submit_allowed": real_submit_allowed,
+        },
+        real_submit_allowed=real_submit_allowed,
         approval_required=args.require_approval,
         required_roles=required,
         provided_roles=sorted(evidence),
-        missing_roles=missing_roles,
+        missing_roles=missing_scientific_roles + missing_execution_roles,
+        missing_scientific_roles=missing_scientific_roles,
+        missing_execution_roles=missing_execution_roles,
         missing_paths=missing_paths,
         malformed_entries=malformed,
         blocked_claims=(
-            ["production MLP-MD readiness"] if args.production_readiness and scientific_readiness != "ready" else []
+            ["production MLP-MD readiness", "real production MLP-MD execution"]
+            if args.production_readiness and scientific_status != "ready"
+            else ["real production MLP-MD execution"]
+            if args.production_readiness and args.require_approval and execution_gate_status != "approved"
+            else []
         ),
     )
     if args.output:
@@ -105,6 +151,7 @@ def main() -> None:
         metadata={
             "helper_result_status": result.get("status"),
             "scientific_readiness": result.get("scientific_readiness"),
+            "execution_gate": result.get("execution_gate"),
             "production_readiness": args.production_readiness,
             "approval_required": args.require_approval,
         },

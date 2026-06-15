@@ -22,6 +22,10 @@ def execute(params: dict) -> dict:
             tool=params.get("tool"),
             status=params.get("status"),
             schema_version=params.get("schema_version"),
+            recipe=params.get("recipe"),
+            claim_id=params.get("claim_id"),
+            direction=params.get("direction"),
+            depth=params.get("depth"),
         )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}

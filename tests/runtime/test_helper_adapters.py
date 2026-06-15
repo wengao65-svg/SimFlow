@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from runtime.simflow_helpers.adapters import adapter_capabilities, get_adapter, list_adapters
+from runtime.simflow_helpers.adapters.registry import load_adapter_contract
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,6 +51,26 @@ def test_list_adapters_is_metadata_only_and_runtime_limited():
         assert adapter["runtime_enabled"] is True
         assert "recognized_files" in adapter
         assert "claim_limits" in adapter
+
+
+def test_active_adapter_registry_is_json_backed():
+    contract = load_adapter_contract()
+    active = {
+        item["tool_id"]: item
+        for item in contract["adapters"]
+        if item["runtime_enabled"] is True
+    }
+
+    assert contract["schema_version"] == "simflow.helper_adapters.v1"
+    assert "do not execute tools" in contract["policy"]
+    assert set(active) == {"gpumd", "lammps", "nep"}
+    assert active["gpumd"]["unsupported_capabilities"] == [
+        "input_generation",
+        "real_execution",
+        "local_submit",
+        "remote_execution",
+        "hpc_submit",
+    ]
 
 
 def test_ecosystem_roadmap_fixtures_are_not_active_adapters_or_skills():

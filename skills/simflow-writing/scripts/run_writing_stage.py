@@ -280,6 +280,45 @@ def _blocked_claims_from(payload: Any) -> list[str]:
     return list(dict.fromkeys(blocked))
 
 
+def _split_readiness_states(area: str, payload: Any) -> list[dict[str, Any]]:
+    states: list[dict[str, Any]] = []
+    for item in _walk_json_values(payload):
+        scientific = item.get("scientific_readiness")
+        if isinstance(scientific, dict):
+            scientific_status = scientific.get("status")
+            if scientific_status in {"blocked", "incomplete"}:
+                states.append({
+                    "area": area,
+                    "state": f"scientific_readiness_{scientific_status}",
+                    "severity": "warning",
+                    "claim_policy": "Block scientific readiness claims until required validation evidence is present.",
+                    "missing_evidence": scientific.get("missing_roles", []),
+                    "blocked_claims": ["production MLP-MD readiness"],
+                })
+        execution_gate = item.get("execution_gate")
+        if isinstance(execution_gate, dict):
+            gate_status = execution_gate.get("status")
+            if gate_status == "approval_required":
+                states.append({
+                    "area": area,
+                    "state": "execution_gate_approval_required",
+                    "severity": "warning",
+                    "claim_policy": "Scientific readiness may be described if supported, but real production execution or submit remains blocked.",
+                    "missing_evidence": execution_gate.get("missing_roles", []),
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
+            elif gate_status == "blocked":
+                states.append({
+                    "area": area,
+                    "state": "execution_gate_blocked",
+                    "severity": "warning",
+                    "claim_policy": "Do not claim production execution or submit readiness while the execution gate is blocked.",
+                    "missing_evidence": execution_gate.get("missing_roles", []),
+                    "blocked_claims": ["real production MLP-MD execution"],
+                })
+    return states
+
+
 def _degraded_evidence_states(
     compute_plan: dict[str, Any],
     analysis_report: dict[str, Any],
@@ -330,6 +369,7 @@ def _degraded_evidence_states(
                 "missing_evidence": missing_conditional,
                 "blocked_claims": _blocked_claims_from(payload),
             })
+        states.extend(_split_readiness_states(area, payload))
 
     analysis_status = analysis_report.get("status", "unknown")
     if analysis_status != "completed":

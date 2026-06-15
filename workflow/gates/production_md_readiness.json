@@ -62,7 +62,7 @@
     {
       "id": "readiness_report_ready",
       "evidence": "analysis/production_md_readiness_report.json",
-      "path": "$.scientific_readiness",
+      "path": "$.scientific_readiness.status",
       "op": "eq",
       "value": "ready"
     },

@@ -181,6 +181,74 @@ def test_evidence_graph_filters_helper_evidence_metadata(tmp_path):
     assert graph["nodes"][0]["actual_tool_used"]["support_level"] == "tracked_only"
 
 
+def test_evidence_graph_v2_filters_recipe_claim_and_depth(tmp_path):
+    init_workflow("mlp_md", "analysis_visualization", project_root=str(tmp_path))
+    _write(tmp_path, "analysis/dataset.json")
+    _write(tmp_path, "compute/training.json")
+    _write(tmp_path, "analysis/metrics.json")
+    _write(
+        tmp_path,
+        "writing/claim_map.json",
+        '{"claims": [{"claim_id": "claim_metrics", "source_artifact_ids": []}]}\n',
+    )
+    dataset = register_artifact(
+        "dataset.json",
+        "helper_output",
+        "analysis_visualization",
+        path="analysis/dataset.json",
+        metadata={"recipe": "mlp_md", "evidence_role": "dataset_manifest"},
+        project_root=str(tmp_path),
+    )
+    training = register_artifact(
+        "training.json",
+        "helper_output",
+        "computation",
+        path="compute/training.json",
+        parent_artifacts=[dataset["artifact_id"]],
+        metadata={"recipe": "mlp_md", "evidence_role": "training_run_manifest"},
+        project_root=str(tmp_path),
+    )
+    metrics = register_artifact(
+        "metrics.json",
+        "helper_output",
+        "analysis_visualization",
+        path="analysis/metrics.json",
+        parent_artifacts=[training["artifact_id"]],
+        metadata={"recipe": "mlp_md", "evidence_role": "model_metrics_summary"},
+        project_root=str(tmp_path),
+    )
+    claim_path = tmp_path / "writing" / "claim_map.json"
+    claim_path.write_text(
+        '{"claims": [{"claim_id": "claim_metrics", "source_artifact_ids": ["'
+        + metrics["artifact_id"]
+        + '"]}]}\n',
+        encoding="utf-8",
+    )
+    claim_map = register_artifact(
+        "claim_map.json",
+        "claim_map",
+        "writing",
+        path="writing/claim_map.json",
+        parent_artifacts=[metrics["artifact_id"]],
+        metadata={"recipe": "mlp_md", "claim_ids": ["claim_metrics"]},
+        project_root=str(tmp_path),
+    )
+
+    graph = build_evidence_graph(
+        str(tmp_path),
+        recipe="mlp_md",
+        claim_id="claim_metrics",
+        direction="upstream",
+        depth=2,
+    )
+    node_ids = {node["artifact_id"] for node in graph["nodes"]}
+
+    assert {dataset["artifact_id"], training["artifact_id"], metrics["artifact_id"], claim_map["artifact_id"]}.issubset(node_ids)
+    assert graph["filters"]["direction"] == "upstream"
+    assert graph["filters"]["depth"] == 2
+    assert graph["query_limits"]["max_depth"] == 5
+
+
 def test_handoff_summary_is_compact_and_read_only(tmp_path):
     workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
     update_stage("literature_review", "completed", project_root=str(tmp_path))

@@ -38,7 +38,15 @@ def _write_production_md_readiness_evidence(project_root: Path):
     _write_json(artifacts / "compute" / "smoke_md_manifest.json", {"smoke_status": "pass", "evidence_role": "smoke_md_manifest"})
     _write_json(artifacts / "analysis" / "anomaly_report.json", {"thresholds_defined": True, "evidence_role": "anomaly_report"})
     _write_json(artifacts / "analysis" / "active_learning_round_manifest.json", {"status": "completed", "evidence_role": "active_learning_round_manifest"})
-    _write_json(artifacts / "analysis" / "production_md_readiness_report.json", {"scientific_readiness": "ready", "evidence_role": "production_md_readiness_report"})
+    _write_json(
+        artifacts / "analysis" / "production_md_readiness_report.json",
+        {
+            "scientific_readiness": {"status": "ready"},
+            "execution_gate": {"status": "approval_required", "gate": "production_md_readiness"},
+            "real_submit_allowed": False,
+            "evidence_role": "production_md_readiness_report",
+        },
+    )
 
 
 def test_list_gates():

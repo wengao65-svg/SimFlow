@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from runtime.simflow_core.toolchains import (
@@ -12,136 +15,30 @@ from runtime.simflow_core.toolchains import (
 )
 
 
-_ADAPTERS: dict[str, dict[str, Any]] = {
-    "lammps": {
-        "adapter_id": "lammps",
-        "tool_id": "lammps",
-        "aliases": ["lmp", "lammps"],
-        "runtime_enabled": True,
-        "recognized_files": [
-            "in.lammps",
-            "data.lammps",
-            "log.lammps",
-            "dump.lammpstrj",
-            "restart.*",
-        ],
-        "supported_capabilities": [
-            "static_input_inspection",
-            "force_field_provenance_manifest",
-            "dump_restart_manifest",
-            "mlp_deployment_manifest",
-            "trajectory_analysis_guidance",
-            "evidence_handoff",
-        ],
-        "unsupported_capabilities": [
-            "real_execution",
-            "local_submit",
-            "remote_execution",
-            "hpc_submit",
-        ],
-        "evidence_roles_produced": [
-            "lammps_input_inspection",
-            "force_field_provenance_manifest",
-            "dump_restart_manifest",
-            "lammps_mlp_deployment_manifest",
-        ],
-        "claim_limits": [
-            "LAMMPS adapter metadata does not imply execution readiness.",
-            "MLP deployment evidence records how a model is referenced by LAMMPS only.",
-            "No MLP training quality, validation adequacy, or production readiness claim is made.",
-        ],
-        "handoff_targets": ["simflow-mlp"],
-    },
-    "gpumd": {
-        "adapter_id": "gpumd",
-        "tool_id": "gpumd",
-        "aliases": ["gpumd"],
-        "runtime_enabled": True,
-        "recognized_files": [
-            "run.in",
-            "model.xyz",
-            "nep.txt",
-            "thermo.out",
-            "msd.out",
-            "rdf.out",
-            "hac.out",
-            "kappa.out",
-            "dos.out",
-        ],
-        "supported_capabilities": [
-            "static_input_inspection",
-            "manifest_generation",
-            "selected_output_parsing",
-            "evidence_handoff",
-        ],
-        "unsupported_capabilities": [
-            "input_generation",
-            "real_execution",
-            "local_submit",
-            "remote_execution",
-            "hpc_submit",
-        ],
-        "evidence_roles_produced": [
-            "gpumd_nep_input_inspection",
-            "gpumd_nep_manifest",
-            "gpumd_nep_output_parse_summary",
-        ],
-        "claim_limits": [
-            "GPUMD remains tracked_only at tool level.",
-            "No input generation, execution, submit, convergence, or production readiness claim is made.",
-        ],
-        "handoff_targets": ["simflow-mlp"],
-    },
-    "nep": {
-        "adapter_id": "nep",
-        "tool_id": "nep",
-        "aliases": ["nep"],
-        "runtime_enabled": True,
-        "recognized_files": [
-            "nep.in",
-            "train.xyz",
-            "test.xyz",
-            "nep.txt",
-            "loss.out",
-            "energy_train.out",
-            "energy_test.out",
-            "force_train.out",
-            "force_test.out",
-            "stress_train.out",
-            "stress_test.out",
-            "descriptor.out",
-        ],
-        "supported_capabilities": [
-            "static_input_inspection",
-            "manifest_generation",
-            "selected_output_parsing",
-            "evidence_handoff",
-        ],
-        "unsupported_capabilities": [
-            "input_generation",
-            "real_execution",
-            "local_submit",
-            "remote_execution",
-            "hpc_submit",
-        ],
-        "evidence_roles_produced": [
-            "gpumd_nep_input_inspection",
-            "gpumd_nep_manifest",
-            "gpumd_nep_output_parse_summary",
-            "model_metrics_summary",
-        ],
-        "claim_limits": [
-            "NEP remains tracked_only at tool level.",
-            "No training execution, model quality, transferability, or production readiness claim is made.",
-        ],
-        "handoff_targets": ["simflow-mlp"],
-    },
-}
+ROOT = Path(__file__).resolve().parents[3]
+ADAPTERS_CONTRACT_PATH = ROOT / "workflow" / "toolchains" / "adapters.json"
+
+
+@lru_cache(maxsize=1)
+def load_adapter_contract() -> dict[str, Any]:
+    """Load the metadata-only active adapter contract."""
+    with ADAPTERS_CONTRACT_PATH.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+@lru_cache(maxsize=1)
+def _active_adapters() -> dict[str, dict[str, Any]]:
+    contract = load_adapter_contract()
+    adapters: dict[str, dict[str, Any]] = {}
+    for adapter in contract.get("adapters", []):
+        if isinstance(adapter, dict) and adapter.get("runtime_enabled") is True:
+            adapters[normalize_tool_name(adapter.get("tool_id"))] = adapter
+    return adapters
 
 
 def _alias_index() -> dict[str, str]:
     index: dict[str, str] = {}
-    for tool_id, adapter in _ADAPTERS.items():
+    for tool_id, adapter in _active_adapters().items():
         index[normalize_tool_name(tool_id)] = tool_id
         for alias in adapter.get("aliases", []):
             index[normalize_tool_name(alias)] = tool_id
@@ -153,7 +50,7 @@ def get_adapter(tool: str) -> dict[str, Any] | None:
     tool_id = _alias_index().get(normalize_tool_name(tool))
     if not tool_id:
         return None
-    adapter = deepcopy(_ADAPTERS[tool_id])
+    adapter = deepcopy(_active_adapters()[tool_id])
     adapter["tool_support_level"] = support_level_for_tool({}, adapter["tool_id"])
     adapter["capability_contract"] = helper_capabilities_for_tool(adapter["tool_id"])
     return adapter
@@ -161,7 +58,7 @@ def get_adapter(tool: str) -> dict[str, Any] | None:
 
 def list_adapters() -> list[dict[str, Any]]:
     """Return all runtime-enabled adapter metadata records."""
-    return [adapter for key in sorted(_ADAPTERS) if (adapter := get_adapter(key))]
+    return [adapter for key in sorted(_active_adapters()) if (adapter := get_adapter(key))]
 
 
 def adapter_capabilities(tool: str) -> dict[str, Any]:

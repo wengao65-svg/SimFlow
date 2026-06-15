@@ -55,6 +55,10 @@ def test_tools_list_exposes_real_input_schema():
     assert "tool" in schemas["evidence_graph"]["properties"]
     assert "status" in schemas["evidence_graph"]["properties"]
     assert "schema_version" in schemas["evidence_graph"]["properties"]
+    assert "recipe" in schemas["evidence_graph"]["properties"]
+    assert "claim_id" in schemas["evidence_graph"]["properties"]
+    assert schemas["evidence_graph"]["properties"]["direction"]["enum"] == ["upstream", "downstream", "both"]
+    assert schemas["evidence_graph"]["properties"]["depth"]["maximum"] == 5
     assert schemas["handoff_summary"]["required"] == ["project_root"]
     assert schemas["stage_readiness"]["required"] == ["project_root"]
     assert schemas["project_readiness"]["required"] == ["project_root"]

@@ -168,10 +168,11 @@ def test_validate_mlp_evidence_blocks_missing_production_roles(tmp_path):
     assert result["status"] == "blocked"
     assert result["schema_version"] == HELPER_SCHEMA_VERSION
     assert result["helper"] == "validate_mlp_evidence"
-    assert result["scientific_readiness"] == "blocked"
+    assert result["scientific_readiness"]["status"] == "blocked"
     assert "approval_record" not in result["missing_roles"]
     assert "anomaly_report" in result["missing_roles"]
-    assert result["blocked_claims"] == ["production MLP-MD readiness"]
+    assert result["execution_gate"]["status"] == "not_requested"
+    assert result["blocked_claims"] == ["production MLP-MD readiness", "real production MLP-MD execution"]
 
 
 def test_validate_mlp_evidence_requires_approval_only_when_requested(tmp_path):
@@ -199,12 +200,18 @@ def test_validate_mlp_evidence_requires_approval_only_when_requested(tmp_path):
     with_approval = _run(*args, "--require-approval")
 
     assert ready["status"] == "success"
-    assert ready["scientific_readiness"] == "ready"
+    assert ready["scientific_readiness"]["status"] == "ready"
     assert ready["approval_required"] is False
-    assert with_approval["status"] == "blocked"
-    assert with_approval["scientific_readiness"] == "blocked"
+    assert ready["execution_gate"]["status"] == "not_requested"
+    assert ready["real_submit_allowed"] is False
+    assert with_approval["status"] == "warning"
+    assert with_approval["scientific_readiness"]["status"] == "ready"
     assert with_approval["approval_required"] is True
+    assert with_approval["execution_gate"]["status"] == "approval_required"
+    assert with_approval["real_submit_allowed"] is False
+    assert "approval_record" in with_approval["missing_execution_roles"]
     assert "approval_record" in with_approval["missing_roles"]
+    assert with_approval["blocked_claims"] == ["real production MLP-MD execution"]
 
 
 def test_build_mlp_dataset_manifest_counts_extxyz_frames(tmp_path):

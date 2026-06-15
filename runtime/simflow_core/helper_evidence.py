@@ -42,6 +42,20 @@ _PARSER_STATUS_ALIASES = {
 }
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value in (None, "", False):
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
 def normalize_helper_status(status: Any) -> str:
     """Normalize helper status strings into the common evidence vocabulary."""
     normalized = str(status or "incomplete").strip().lower()
@@ -119,3 +133,68 @@ def build_helper_evidence(
     }
     evidence.update(extra)
     return evidence
+
+
+def extract_helper_evidence_metadata(artifact: dict[str, Any]) -> dict[str, Any]:
+    """Extract common helper-evidence metadata from a registered artifact."""
+    metadata = _as_dict(artifact.get("metadata"))
+    helper_evidence = _as_dict(metadata.get("helper_evidence"))
+    source = helper_evidence or metadata
+    actual_tool_used = _as_dict(source.get("actual_tool_used") or metadata.get("actual_tool_used"))
+    lineage = _as_dict(artifact.get("lineage"))
+    parameters = _as_dict(lineage.get("parameters"))
+    tool = (
+        actual_tool_used.get("name")
+        or actual_tool_used.get("software")
+        or metadata.get("software")
+        or parameters.get("software")
+        or parameters.get("tool")
+        or lineage.get("software")
+    )
+    claim_ids: list[str] = []
+    for value in (
+        source.get("claim_id"),
+        metadata.get("claim_id"),
+        parameters.get("claim_id"),
+    ):
+        claim_ids.extend(str(item) for item in _as_list(value) if item)
+    for key in ("claim_ids", "claims"):
+        for value in _as_list(source.get(key)) + _as_list(metadata.get(key)) + _as_list(parameters.get(key)):
+            if isinstance(value, dict):
+                claim_id = value.get("claim_id") or value.get("id")
+                if claim_id:
+                    claim_ids.append(str(claim_id))
+            elif value:
+                claim_ids.append(str(value))
+    return {
+        "schema_version": source.get("schema_version"),
+        "helper": source.get("helper") or metadata.get("helper_name"),
+        "capability": source.get("capability"),
+        "activity": source.get("activity"),
+        "stage": source.get("stage") or artifact.get("stage"),
+        "evidence_role": source.get("evidence_role") or metadata.get("evidence_role") or metadata.get("role"),
+        "helper_status": source.get("status") or metadata.get("helper_result_status"),
+        "parser_status": source.get("parser_status"),
+        "actual_tool_used": actual_tool_used,
+        "tool": tool,
+        "recipe": source.get("recipe") or metadata.get("recipe") or parameters.get("recipe"),
+        "claim_limits": source.get("claim_limits") or metadata.get("claim_limits") or [],
+        "warnings": source.get("warnings") or metadata.get("warnings") or [],
+        "limitations": source.get("limitations") or metadata.get("limitations") or [],
+        "claim_ids": list(dict.fromkeys(claim_ids)),
+    }
+
+
+def helper_evidence_summary(artifact: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact helper-evidence summary suitable for graph nodes."""
+    evidence = extract_helper_evidence_metadata(artifact)
+    return {
+        "schema_version": evidence.get("schema_version"),
+        "helper": evidence.get("helper"),
+        "evidence_role": evidence.get("evidence_role"),
+        "actual_tool_used": evidence.get("actual_tool_used"),
+        "helper_status": evidence.get("helper_status"),
+        "parser_status": evidence.get("parser_status"),
+        "recipe": evidence.get("recipe"),
+        "claim_ids": evidence.get("claim_ids", []),
+    }
