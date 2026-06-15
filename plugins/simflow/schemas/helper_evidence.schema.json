@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimFlowHelperEvidence",
+  "description": "Lightweight soft schema for helper-produced evidence. This is not a global hard gate for arbitrary user artifacts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "helper",
+    "capability",
+    "status",
+    "stage",
+    "activity",
+    "evidence_role",
+    "source_files",
+    "actual_tool_used",
+    "parser_status",
+    "claim_limits",
+    "warnings",
+    "limitations",
+    "parent_artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "simflow.helper_evidence.v1"
+    },
+    "helper": {"type": "string", "minLength": 1},
+    "capability": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "warning",
+        "blocked",
+        "incomplete",
+        "skipped_optional_dependency",
+        "capability_warning"
+      ]
+    },
+    "stage": {"type": "string", "minLength": 1},
+    "activity": {"type": "string", "minLength": 1},
+    "evidence_role": {"type": "string", "minLength": 1},
+    "source_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string"},
+          "role": {"type": "string"},
+          "present": {"type": "boolean"},
+          "is_file": {"type": "boolean"},
+          "bytes": {"type": ["integer", "null"], "minimum": 0},
+          "sha256": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "actual_tool_used": {"type": "object", "additionalProperties": true},
+    "parser_status": {
+      "type": "string",
+      "enum": [
+        "parsed",
+        "partial",
+        "unrecognized",
+        "missing",
+        "malformed",
+        "not_applicable"
+      ]
+    },
+    "claim_limits": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "parent_artifacts": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

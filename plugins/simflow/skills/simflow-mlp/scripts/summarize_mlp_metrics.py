@@ -13,6 +13,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 
@@ -68,16 +69,32 @@ def main() -> None:
                     "within_threshold": value <= threshold_data[metric],
                 })
     missing_or_empty = [summary for summary in summaries if not summary.get("present") or not summary.get("metrics")]
-    result = {
-        "status": "blocked" if len(missing_or_empty) == len(summaries) else ("warning" if missing_or_empty else "success"),
-        "evidence_role": "model_metrics_summary",
-        "metric_files": summaries,
-        "threshold_comparisons": comparisons,
-        "limitations": [
+    result = build_helper_evidence(
+        helper="summarize_mlp_metrics",
+        capability="model_metrics_summary",
+        status="blocked" if len(missing_or_empty) == len(summaries) else ("warning" if missing_or_empty else "success"),
+        stage="analysis_visualization",
+        activity="model_metrics_summary",
+        evidence_role="model_metrics_summary",
+        source_files=[source_file_record(path) for path in args.metrics],
+        actual_tool_used={"software": "custom", "support_level": "tracked_only"},
+        parser_status="missing" if len(missing_or_empty) == len(summaries) else ("partial" if missing_or_empty else "parsed"),
+        claim_limits=[
+            "Metric summaries do not certify production readiness.",
+            "Metric units, splits, and validation domain must be reviewed from source context.",
+        ],
+        warnings=[
+            warning
+            for summary in summaries
+            for warning in summary.get("warnings", [])
+        ],
+        limitations=[
             "Threshold comparisons are mechanical and do not certify production readiness.",
             "Metric units and split semantics must be reviewed from source context.",
         ],
-    }
+        metric_files=summaries,
+        threshold_comparisons=comparisons,
+    )
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)

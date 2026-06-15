@@ -257,6 +257,63 @@ class BaseHPCConnector(ABC):
                 gate_decision_id=gate_decision_id,
             )
 
+        decision_conditions = matching_decision.get("conditions", {})
+        if not isinstance(decision_conditions, dict):
+            decision_conditions = {}
+        decision_bindings = {
+            "dry_run_evidence": self._first_present(decision_conditions, [
+                "dry_run_evidence",
+                "submit_readiness.dry_run_evidence",
+                "evidence.dry_run_evidence",
+            ]),
+            "script_hash": self._first_present(decision_conditions, [
+                "script_hash",
+                "job_script_hash",
+                "submit_readiness.script_hash",
+                "evidence.script_hash",
+            ]),
+            "input_artifact_hash": self._first_present(decision_conditions, [
+                "input_artifact_hash",
+                "input_manifest_hash",
+                "submit_readiness.input_artifact_hash",
+                "submit_readiness.input_manifest_hash",
+                "evidence.input_artifact_hash",
+                "evidence.input_manifest_hash",
+            ]),
+        }
+        missing_bindings = [
+            name for name, value in decision_bindings.items()
+            if value in (None, "")
+        ]
+        if missing_bindings:
+            return self._approval_error(
+                "Approved hpc_submit gate decision does not bind the submitted evidence and hashes.",
+                code="gate_decision_missing_submit_binding",
+                gate_decision_id=matching_decision.get("decision_id"),
+                missing_bindings=missing_bindings,
+            )
+
+        expected_bindings = {
+            "dry_run_evidence": dry_run_evidence,
+            "script_hash": script_hash,
+            "input_artifact_hash": input_artifact_hash,
+        }
+        mismatched_bindings = {
+            name: {
+                "approved": decision_bindings[name],
+                "submitted": expected_bindings[name],
+            }
+            for name in expected_bindings
+            if decision_bindings[name] != expected_bindings[name]
+        }
+        if mismatched_bindings:
+            return self._approval_error(
+                "Submitted evidence or hashes do not match the approved hpc_submit gate decision.",
+                code="gate_decision_evidence_mismatch",
+                gate_decision_id=matching_decision.get("decision_id"),
+                mismatches=mismatched_bindings,
+            )
+
         gate_result = check_gate("hpc_submit", {"project_root": str(root)})
         if gate_result["status"] != "pass":
             return self._approval_error(

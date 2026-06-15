@@ -13,8 +13,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import helper_capabilities_for_tool, support_level_for_capability
+from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
 COMMON_GPUMD_FILES = ["run.in", "model.xyz"]
@@ -99,26 +101,39 @@ def inspect_directory(directory: Path) -> dict[str, Any]:
         command_summary[input_path.name] = {"command_count": len(commands), "commands": names}
 
     status = "blocked" if mode == "unknown" else ("warning" if warnings else "success")
-    return {
-        "status": status,
-        "capability": "static_input_inspection",
-        "capability_support_level": support_level_for_capability("gpumd" if mode != "nep" else "nep", "static_input_inspection"),
-        "tool_capabilities": {
-            "gpumd": helper_capabilities_for_tool("gpumd"),
-            "nep": helper_capabilities_for_tool("nep"),
-        },
-        "directory": str(directory),
-        "mode": mode,
-        "files": files,
-        "referenced_files": referenced,
-        "command_summary": command_summary,
-        "warnings": warnings,
-        "limitations": [
+    software = "gpumd" if mode != "nep" else "nep"
+    return build_helper_evidence(
+        helper="inspect_gpumd_inputs",
+        capability="static_input_inspection",
+        status=status,
+        stage="computation",
+        activity="static_input_inspection",
+        evidence_role="gpumd_nep_input_inspection",
+        source_files=[source_file_record(path) for path in input_paths],
+        actual_tool_used={"software": software, "support_level": "tracked_only"},
+        parser_status="not_applicable",
+        claim_limits=[
+            "Static input inspection does not validate GPUMD/NEP execution readiness.",
+            "No input generation, execution, submit, or scientific readiness claim is made.",
+        ],
+        warnings=warnings,
+        limitations=[
             "This is static inspection only.",
             "No GPUMD/NEP executable was called.",
             "No input generation or scientific readiness decision was performed.",
         ],
-    }
+        capability_support_level=support_level_for_capability(software, "static_input_inspection"),
+        adapter_capabilities=adapter_capabilities(software),
+        tool_capabilities={
+            "gpumd": helper_capabilities_for_tool("gpumd"),
+            "nep": helper_capabilities_for_tool("nep"),
+        },
+        directory=str(directory),
+        mode=mode,
+        files=files,
+        referenced_files=referenced,
+        command_summary=command_summary,
+    )
 
 
 def main() -> None:

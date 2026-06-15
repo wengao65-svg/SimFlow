@@ -14,10 +14,12 @@
     "labeling_manifest",
     "dataset_manifest",
     "training_run_manifest",
+    "model_metrics_summary",
     "model_validation_report",
-    "long_md_manifest",
+    "smoke_md_manifest",
     "anomaly_report",
-    "active_learning_round_manifest"
+    "active_learning_round_manifest",
+    "production_md_readiness_report"
   ],
   "artifact_metadata_conventions": {
     "recipe": "mlp_md",
@@ -31,10 +33,12 @@
       "labeling_manifest",
       "dataset_manifest",
       "training_run_manifest",
+      "model_metrics_summary",
       "model_validation_report",
-      "long_md_manifest",
+      "smoke_md_manifest",
       "anomaly_report",
-      "active_learning_round_manifest"
+      "active_learning_round_manifest",
+      "production_md_readiness_report"
     ],
     "toolchain_policy": "Only vasp, cp2k, and lammps have tool-level helper support. GPUMD and NEP remain tracked_only at tool level, while simflow-gpumd provides limited capability-level helpers for static inspection, manifest generation, selected output parsing, and evidence handoff."
   },
@@ -44,7 +48,7 @@
     "DFT label convergence and failed-label exclusions recorded",
     "dataset split and source lineage preserved",
     "training status and model artifact hashes recorded",
-    "validation metrics and long-MD smoke evidence recorded before production MD",
+    "validation metrics and smoke-MD evidence recorded before production MD",
     "uncertainty or anomaly criteria documented for active-learning backfill"
   ],
   "approval_triggers": ["real_hpc_submit", "remote_execution", "local_job_submit", "licensed_or_proprietary_file_handling", "production_md_readiness"],

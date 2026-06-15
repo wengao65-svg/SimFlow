@@ -8,71 +8,37 @@ or their own support-level logic.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from .workflow import load_recipe
 
 
-HELPER_SUPPORTED_SOFTWARE = {"vasp", "cp2k", "lammps"}
-CAPABILITY_SUPPORTED_TOOLS = {"gpumd", "nep"}
+ROOT = Path(__file__).resolve().parents[2]
+CAPABILITIES_CONTRACT_PATH = ROOT / "workflow" / "toolchains" / "capabilities.json"
+
+
+@lru_cache(maxsize=1)
+def load_toolchain_capabilities() -> dict[str, Any]:
+    """Load the shared toolchain capability contract."""
+    with CAPABILITIES_CONTRACT_PATH.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+_CAPABILITY_CONTRACT = load_toolchain_capabilities()
+HELPER_SUPPORTED_SOFTWARE = set(_CAPABILITY_CONTRACT.get("helper_supported_software", []))
+CAPABILITY_SUPPORTED_TOOLS = set(_CAPABILITY_CONTRACT.get("capability_supported_tools", []))
 HELPER_SUPPORTED_CAPABILITIES = {
-    "gpumd": {
-        "static_input_inspection",
-        "manifest_generation",
-        "selected_output_parsing",
-        "evidence_handoff",
-    },
-    "nep": {
-        "static_input_inspection",
-        "manifest_generation",
-        "selected_output_parsing",
-        "evidence_handoff",
-    },
+    tool: set(value.get("supported", []))
+    for tool, value in _CAPABILITY_CONTRACT.get("capability_support", {}).items()
 }
 BLOCKED_HELPER_CAPABILITIES = {
-    "gpumd": {
-        "input_generation",
-        "real_execution",
-        "local_submit",
-        "remote_execution",
-        "hpc_submit",
-    },
-    "nep": {
-        "input_generation",
-        "real_execution",
-        "local_submit",
-        "remote_execution",
-        "hpc_submit",
-    },
+    tool: set(value.get("not_helper_supported", []))
+    for tool, value in _CAPABILITY_CONTRACT.get("capability_support", {}).items()
 }
-TOOL_ALIASES = {
-    "qe": "quantum_espresso",
-    "quantum-espresso": "quantum_espresso",
-    "quantumespresso": "quantum_espresso",
-    "open_mm": "openmm",
-    "deep_md": "deepmd",
-    "deepmd-kit": "deepmd",
-    "nep_train_kit": "neptrainkit",
-    "nep-train-kit": "neptrainkit",
-}
-TRACKED_ONLY_SOFTWARE = {
-    "abinit",
-    "allegro",
-    "ase",
-    "custom",
-    "deepmd",
-    "dpgen",
-    "gpumd",
-    "gromacs",
-    "mace",
-    "nep",
-    "neptrainkit",
-    "nequip",
-    "openmm",
-    "phonopy",
-    "python",
-    "quantum_espresso",
-}
+TOOL_ALIASES = dict(_CAPABILITY_CONTRACT.get("aliases", {}))
+TRACKED_ONLY_SOFTWARE = set(_CAPABILITY_CONTRACT.get("tracked_only_software", []))
 
 
 def normalize_tool_name(value: Any) -> str:

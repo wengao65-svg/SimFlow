@@ -18,6 +18,14 @@ def execute(params: dict) -> dict:
             project_root,
             stage=params.get("stage"),
             artifact_id=params.get("artifact_id"),
+            evidence_role=params.get("evidence_role"),
+            tool=params.get("tool"),
+            status=params.get("status"),
+            schema_version=params.get("schema_version"),
+            recipe=params.get("recipe"),
+            claim_id=params.get("claim_id"),
+            direction=params.get("direction"),
+            depth=params.get("depth"),
         )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}
