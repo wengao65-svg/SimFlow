@@ -305,6 +305,9 @@ def test_mlp_md_production_readiness_gate_passes_and_blocks_from_fixture(tmp_pat
         "approval_present",
     ]
     assert read_state(project_root=str(tmp_path), state_file="jobs.json") == []
+    submit_gate = check_gate("hpc_submit", {"project_root": str(tmp_path)})
+    assert submit_gate["status"] == "block"
+    assert "dry_run_passed" in submit_gate["conditions"]["unmet"]
 
     _write_production_md_readiness_evidence(tmp_path, validation_status="missing")
     missing_validation = check_gate("production_md_readiness", {"project_root": str(tmp_path)})

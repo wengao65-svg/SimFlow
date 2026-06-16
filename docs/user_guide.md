@@ -159,6 +159,12 @@ analysis paths, status output includes generic evidence intake actions such as
 which missing evidence should be registered next without adding recipe-specific
 software logic.
 
+Production or scientific readiness decisions are not submit decisions. For
+example, `production_md_readiness` may approve that MLP-MD evidence is ready for
+the next scientific step, but real local, remote, or HPC execution still
+requires separate `hpc_submit` evidence, hashes, credential scan, approval, and
+job-record handling.
+
 ## Environment Variables
 
 | Variable | Purpose |

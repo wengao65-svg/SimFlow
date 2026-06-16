@@ -242,6 +242,10 @@ function validateSafeExamples() {
       check('safe dry-run example writes workflow state', fs.existsSync(path.join(exampleRoot, '.simflow', 'state', 'workflow.json')));
       check('safe dry-run example writes dry-run evidence', fs.existsSync(path.join(exampleRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
       check('safe dry-run example writes handoff report', fs.existsSync(path.join(exampleRoot, '.simflow', 'reports', 'handoff', 'final_handoff.md')));
+      check('safe dry-run example keeps submit gate blocked', summary.hpc_submit_gate_status === 'block', result.stdout);
+      const jobsPath = path.join(exampleRoot, '.simflow', 'state', 'jobs.json');
+      const jobs = fs.existsSync(jobsPath) ? JSON.parse(fs.readFileSync(jobsPath, 'utf-8')) : [];
+      check('safe dry-run example does not write job records', Array.isArray(jobs) && jobs.length === 0, JSON.stringify(jobs, null, 2));
     }
   } finally {
     fs.rmSync(exampleRoot, { recursive: true, force: true });
@@ -269,6 +273,9 @@ function validateSafeExamples() {
       check('LAMMPS safe dry-run example records dry-run evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
       check('LAMMPS safe dry-run example records credential scan evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'security', 'credential_scan.json')));
       check('LAMMPS safe dry-run example keeps submit gate blocked', summary.hpc_submit_gate_status === 'block', result.stdout);
+      const jobsPath = path.join(lammpsRoot, '.simflow', 'state', 'jobs.json');
+      const jobs = fs.existsSync(jobsPath) ? JSON.parse(fs.readFileSync(jobsPath, 'utf-8')) : [];
+      check('LAMMPS safe dry-run example does not write job records', Array.isArray(jobs) && jobs.length === 0, JSON.stringify(jobs, null, 2));
     }
   } finally {
     fs.rmSync(lammpsRoot, { recursive: true, force: true });
@@ -376,11 +383,40 @@ function validateWorkflowAutomation() {
     !/(^|\b)(submit|execute|run|allow_production_mlp_md)(\b|$)/.test(productionApproveActions),
     productionApproveActions,
   );
+  check(
+    'production MD gate approval actions only record readiness decisions',
+    productionGate.actions_on_approve.every(action => /^record_/.test(action) && !/submit|execute|run|allow/i.test(action)),
+    productionGate.actions_on_approve.join('\n'),
+  );
+  const gateDir = path.join(ROOT, 'workflow', 'gates');
+  const submitActionGates = fs.readdirSync(gateDir)
+    .filter(file => file.endsWith('.json'))
+    .map(file => [file, JSON.parse(fs.readFileSync(path.join(gateDir, file), 'utf-8'))])
+    .filter(([, gate]) => (gate.actions_on_approve || []).includes('submit_job'))
+    .map(([file, gate]) => gate.name || gate.gate_name || file);
+  check(
+    'hpc_submit is the only gate allowed to expose submit_job action',
+    submitActionGates.join(',') === 'hpc_submit',
+    submitActionGates.join('\n'),
+  );
   const mlpEvidenceValidator = fs.readFileSync(path.join(ROOT, 'skills', 'simflow-mlp', 'scripts', 'validate_mlp_evidence.py'), 'utf-8');
   check(
     'MLP readiness helper keeps real_submit_allowed false',
     mlpEvidenceValidator.includes('real_submit_allowed = False')
       && !mlpEvidenceValidator.includes('real_submit_allowed = scientific_status == "ready"'),
+  );
+  const mlpWorkflowDoc = fs.readFileSync(path.join(ROOT, 'docs', 'mlp-md-workflow.md'), 'utf-8');
+  const userGuideDoc = fs.readFileSync(path.join(ROOT, 'docs', 'user_guide.md'), 'utf-8');
+  check(
+    'MLP workflow docs describe readiness as a scientific decision, not submit permission',
+    /scientific\s+readiness\s+decision/i.test(mlpWorkflowDoc)
+      && !/readiness pass records permission to proceed/i.test(mlpWorkflowDoc)
+      && mlpWorkflowDoc.includes('`real_submit_allowed`'),
+  );
+  check(
+    'user guide splits scientific readiness from submit readiness',
+    userGuideDoc.includes('Production or scientific readiness decisions are not submit decisions')
+      && userGuideDoc.includes('requires separate `hpc_submit` evidence'),
   );
 
   const stateToolsSmoke = [

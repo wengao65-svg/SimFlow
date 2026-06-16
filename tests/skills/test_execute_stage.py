@@ -501,6 +501,36 @@ def test_execute_stage_returns_capability_warning_for_tracked_only_classical_md_
         assert stages_state["computation"]["status"] == "waiting"
 
 
+def test_execute_stage_returns_capability_warning_for_unknown_tool_without_admission_block():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build custom MD workflow",
+                "method: custom",
+                "material: Si",
+                "software: bespoke_md",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        modeling = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        stages_state = read_state(tmpdir, "stages.json")
+        checkpoints = read_state(tmpdir, "checkpoints.json")
+
+        assert modeling["status"] == "completed"
+        assert result["status"] == "capability_warning"
+        assert result["warning"]["software"] == "bespoke_md"
+        assert result["warning"]["support_level"] == "unknown"
+        assert result["warning"]["message"].startswith("No built-in SimFlow helper is available")
+        assert stages_state["computation"]["status"] == "waiting"
+        assert stages_state["computation"].get("checkpoint_id") is None
+        assert checkpoints == []
+
+
 
 def test_execute_stage_execute_runs_analysis_and_visualization_without_outputs():
     with tempfile.TemporaryDirectory() as tmpdir:

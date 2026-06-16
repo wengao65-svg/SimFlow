@@ -35,6 +35,10 @@ def test_safe_dry_run_example_produces_state_artifacts_checkpoints_and_handoff(t
     assert summary["dry_run_status"] in {"pass", "warning"}
     assert summary["hpc_submit_gate_status"] == "block"
 
+    jobs_path = tmp_path / ".simflow" / "state" / "jobs.json"
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
+    assert jobs == []
+
     assert (tmp_path / ".simflow" / "state" / "workflow.json").is_file()
     assert (tmp_path / ".simflow" / "state" / "artifacts.json").is_file()
     assert (tmp_path / ".simflow" / "state" / "checkpoints.json").is_file()
@@ -65,6 +69,10 @@ def test_lammps_safe_dry_run_example_records_computation_evidence(tmp_path):
     assert summary["real_submit"] is False
     assert summary["artifact_count"] >= 7
     assert summary["hpc_submit_gate_status"] == "block"
+
+    jobs_path = tmp_path / ".simflow" / "state" / "jobs.json"
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
+    assert jobs == []
 
     assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "in.lammps").is_file()
     assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "data.lammps").is_file()
