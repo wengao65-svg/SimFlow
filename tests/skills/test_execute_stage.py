@@ -284,6 +284,7 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
         workflow = read_state(tmpdir, "workflow.json")
         stages_state = read_state(tmpdir, "stages.json")
+        checkpoints = read_state(tmpdir, "checkpoints.json")
         input_generation_artifacts = list_artifacts(stage="computation", project_root=tmpdir)
         compute_artifacts = list_artifacts(stage="computation", project_root=tmpdir)
 
@@ -292,6 +293,12 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert result["manifest"]["software"] == "vasp"
         assert result["manifest"]["dry_run"] is True
         assert result["manifest"]["real_submit"] is False
+        assert result["checkpoint_id"].startswith("ckpt_")
+        assert result["checkpoint_id"] == stages_state["computation"]["checkpoint_id"]
+        assert checkpoints[-1]["checkpoint_id"] == result["checkpoint_id"]
+        assert result["manifest"]["submit_request_template"]["gate_decision_id"] is None
+        assert result["manifest"]["submit_request_template"]["dry_run_evidence"] == "compute/dry_run_report.json"
+        assert result["manifest"]["submit_request_template"]["script_hash"] == result["manifest"]["submit_readiness"]["script_hash"]
         assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
         assert stages_state["computation"]["status"] == "completed"
@@ -344,6 +351,9 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         assert compute_manifest["real_submit"] is False
         assert compute_manifest["approval_required_for_real_submit"] is True
         assert compute_manifest["readiness_status"] == "pass"
+        assert compute_manifest["submit_request_template"]["project_root"] == str(project_root)
+        assert compute_manifest["submit_request_template"]["scheduler"] == "slurm"
+        assert compute_manifest["submit_request_template"]["gate_decision_id"] is None
         assert {"input_manifest.json", "compute_plan.json", "dry_run_report.json"}.issubset(
             {artifact["name"] for artifact in artifacts}
         )

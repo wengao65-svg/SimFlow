@@ -12,6 +12,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from runtime.simflow_core.checkpoints import create_checkpoint
 from runtime.simflow_core.state import read_state, update_stage, write_state
 from runtime.simflow_core.utils import now_iso
 from runtime.simflow_helpers.stages.progress import (
@@ -106,6 +107,23 @@ def _execute_runner(
     return runner(str(project_root / ".simflow")), script_path
 
 
+def _checkpoint_completed_computation_stage(project_root: Path, state: dict[str, Any], stage_name: str) -> dict[str, Any] | None:
+    if stage_name != "computation":
+        return None
+    stage_state = read_state(project_root=str(project_root), state_file="stages.json").get(stage_name, {})
+    if stage_state.get("checkpoint_id"):
+        return {"checkpoint_id": stage_state["checkpoint_id"]}
+    checkpoint = create_checkpoint(
+        state.get("workflow_id", "unknown"),
+        stage_name,
+        "Computation dry-run/readiness evidence complete",
+        project_root=str(project_root),
+        job_id="computation_dry_run_readiness",
+    )
+    update_stage(stage_name, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
+    return checkpoint
+
+
 def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None, dry_run: bool = True) -> dict:
     """Execute a canonical workflow stage."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
@@ -193,9 +211,12 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         outputs=aggregate_outputs,
         inputs=sorted(aggregate_inputs),
     )
+    checkpoint = _checkpoint_completed_computation_stage(project_root, state, stage_name)
     _update_workflow_progress(project_root, state, stage_name, stages, "completed")
     result["status"] = "completed"
     result["artifacts"] = aggregate_artifacts
+    if checkpoint:
+        result["checkpoint_id"] = checkpoint["checkpoint_id"]
     if manifests:
         result["manifests"] = manifests
     result["message"] = f"Executed {len(runner_specs)} helpers for stage: {stage_name}"

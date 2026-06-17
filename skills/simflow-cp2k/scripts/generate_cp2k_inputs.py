@@ -14,7 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_helpers.engines.cp2k_input import extract_last_frame, generate_input, normalize_calc_type, read_cif_to_xyz, read_xyz_structure, write_xyz
+from runtime.simflow_helpers.engines.cp2k_input import generate_cp2k_input_package, normalize_calc_type
 
 
 def generate_cp2k_inputs(
@@ -37,57 +37,11 @@ def generate_cp2k_inputs(
     if not structure.is_file():
         raise FileNotFoundError(f"Structure file not found: {structure_path}")
 
-    coord_name = params.get("coord_file")
-    structure_report = {
-        "source_structure": str(structure),
-        "task": task_norm,
-        "calc_dir": str(work_dir),
-    }
-
-    generation_params = dict(params)
-    if structure.suffix.lower() == ".cif":
-        cell_abc, xyz_lines, element_counts = read_cif_to_xyz(structure)
-        coord_name = coord_name or "structure.xyz"
-        coord_path = work_dir / coord_name
-        coord_path.write_text(write_xyz(len(xyz_lines), f"Generated from {structure.name}", xyz_lines), encoding="utf-8")
-        parts = cell_abc.split()
-        generation_params.update({
-            "cell_a": parts[0],
-            "cell_b": parts[1],
-            "cell_c": parts[2],
-            "coord_file": coord_name,
-            "coord_format": "XYZ",
-            "elements": sorted(element_counts),
-            "coord_path": str(coord_path),
-        })
-        structure_report["element_counts"] = element_counts
-        structure_report["cell_abc"] = cell_abc
-    elif structure.suffix.lower() == ".xyz":
-        content = structure.read_text(encoding="utf-8")
-        if task_norm == "energy":
-            normalized_xyz = extract_last_frame(content)
-            coord_name = coord_name or "last_frame.xyz"
-        else:
-            atom_lines, _, comment = read_xyz_structure(structure)
-            normalized_xyz = write_xyz(len(atom_lines), comment or f"Generated from {structure.name}", atom_lines)
-            coord_name = coord_name or "structure.xyz"
-        coord_path = work_dir / coord_name
-        coord_path.write_text(normalized_xyz, encoding="utf-8")
-        _, element_counts, _ = read_xyz_structure(coord_path)
-        generation_params.update({
-            "coord_file": coord_name,
-            "coord_format": "XYZ",
-            "elements": sorted(element_counts),
-            "coord_path": str(coord_path),
-        })
-        structure_report["element_counts"] = element_counts
-    else:
-        raise ValueError(f"Unsupported structure format: {structure.suffix}")
-
-    input_text = generate_input(generation_params, task_norm)
-    input_name = f"{task_norm}.inp"
-    input_path = work_dir / input_name
-    input_path.write_text(input_text, encoding="utf-8")
+    generated = generate_cp2k_input_package(structure, task_norm, work_dir, params=params)
+    input_path = Path(generated["input_file"])
+    coord_path = Path(generated["coordinate_file"])
+    coord_name = generated["parameters"]["coord_file"]
+    structure_report = generated["structure"]
 
     report = {
         "status": "success",
@@ -96,8 +50,8 @@ def generate_cp2k_inputs(
         "coordinate_file": str(coord_path),
         "parameters": {
             "coord_file": coord_name,
-            "elements": generation_params.get("elements", []),
-            "project_name": generation_params.get("project_name"),
+            "elements": sorted(generated["parameters"].get("elements", {})),
+            "project_name": params.get("project_name"),
         },
         "structure": structure_report,
     }

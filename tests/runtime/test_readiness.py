@@ -177,6 +177,7 @@ def test_computation_real_submit_evidence_requires_approved_gate(tmp_path):
         "input_validation_report",
         "dry_run_report",
         "resource_estimate",
+        "credential_scan",
     ]:
         _register_evidence(tmp_path, "computation", evidence_key)
     _write(tmp_path, "computation/job_record.json")
@@ -213,6 +214,7 @@ def test_computation_job_record_is_conditional_for_dry_run_only_evidence(tmp_pat
         "input_validation_report",
         "dry_run_report",
         "resource_estimate",
+        "credential_scan",
     ]:
         _register_evidence(tmp_path, "computation", evidence_key)
 
@@ -223,7 +225,7 @@ def test_computation_job_record_is_conditional_for_dry_run_only_evidence(tmp_pat
     )
 
     assert readiness["readiness_status"] == "ready"
-    assert readiness["evidence"]["required_count"] == 5
+    assert readiness["evidence"]["required_count"] == 6
     assert readiness["evidence"]["missing_count"] == 0
     assert job_record["required"] is False
     assert job_record["required_when"] == "real_submit_recorded"
@@ -237,6 +239,7 @@ def test_computation_real_submit_marker_requires_job_record_evidence(tmp_path):
         "input_validation_report",
         "dry_run_report",
         "resource_estimate",
+        "credential_scan",
     ]:
         _register_evidence(tmp_path, "computation", evidence_key)
     _write(tmp_path, "computation/submit_marker.json")
@@ -256,10 +259,33 @@ def test_computation_real_submit_marker_requires_job_record_evidence(tmp_path):
     )
 
     assert readiness["readiness_status"] == "blocked"
-    assert readiness["evidence"]["required_count"] == 6
+    assert readiness["evidence"]["required_count"] == 7
     assert job_record["required"] is True
     assert job_record["present"] is False
     assert "missing_hpc_submit_approval" in {blocker["code"] for blocker in readiness["blockers"]}
+
+
+def test_computation_credential_scan_is_required_evidence(tmp_path):
+    init_workflow("custom", "computation", project_root=str(tmp_path))
+    for evidence_key in [
+        "calculation_manifest",
+        "input_files",
+        "input_validation_report",
+        "dry_run_report",
+        "resource_estimate",
+    ]:
+        _register_evidence(tmp_path, "computation", evidence_key)
+
+    readiness = build_stage_readiness(str(tmp_path), stage="computation")
+    missing = {
+        item["evidence_key"]
+        for item in readiness["evidence"]["items"]
+        if item["required"] and not item["present"]
+    }
+
+    assert readiness["readiness_status"] == "incomplete"
+    assert missing == {"credential_scan"}
+    assert {action["action"] for action in readiness["actions"]} == {"record_computation_evidence"}
 
 
 def test_project_readiness_aggregates_stage_actions(tmp_path):

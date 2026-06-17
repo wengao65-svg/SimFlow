@@ -101,6 +101,21 @@ def test_computation_requires_approval_without_fixed_software():
     assert "dry-run" in text
     assert "credential" in text
     assert "do not require one specific simulation engine" in text
+    for section in [
+        "## Purpose",
+        "## Computation Sub-Activities",
+        "## Support-Level Behavior",
+        "## Domain Skill Delegation",
+        "## State Machine",
+        "## Required Evidence",
+        "## Submit-Readiness Contract",
+        "## Safety Gate Handoff",
+        "## Failure / Waiting Semantics",
+    ]:
+        assert section.lower() in text
+    assert "submit_request_template" in text
+    assert "tracked_only" in text
+    assert "unknown" in text
 
 
 def test_analysis_visualization_allows_agent_written_analysis():

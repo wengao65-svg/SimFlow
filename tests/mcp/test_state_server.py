@@ -340,6 +340,7 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
             "input_validation.json",
             "dry_run_report.json",
             "resource_estimate.json",
+            "credential_scan.json",
         ]:
             (evidence_dir / name).write_text("{}\n", encoding="utf-8")
 
@@ -358,6 +359,7 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
                         "input_validation_report": "user_compute/input_validation.json",
                         "dry_run_report": "user_compute/dry_run_report.json",
                         "resource_estimate": "user_compute/resource_estimate.json",
+                        "credential_scan": "user_compute/credential_scan.json",
                     },
                 },
             },

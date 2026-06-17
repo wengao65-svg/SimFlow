@@ -100,6 +100,7 @@ def _tracked_only_evidence(project_root: Path) -> dict:
         "input_validation_report": _relative(project_root, _write_text(base / "input_validation.json")),
         "dry_run_report": _relative(project_root, _write_text(base / "dry_run_report.json")),
         "resource_estimate": _relative(project_root, _write_text(base / "resource_estimate.json")),
+        "credential_scan": _relative(project_root, _write_text(base / "credential_scan.json")),
     }
 
 

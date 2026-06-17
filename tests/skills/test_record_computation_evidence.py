@@ -43,6 +43,7 @@ def _evidence_paths(tmp_path: Path) -> dict:
         "input_validation_report": _write(tmp_path, "user_compute/input_validation.json"),
         "dry_run_report": _write(tmp_path, "user_compute/dry_run_report.json"),
         "resource_estimate": _write(tmp_path, "user_compute/resource_estimate.json"),
+        "credential_scan": _write(tmp_path, "user_compute/credential_scan.json"),
     }
 
 

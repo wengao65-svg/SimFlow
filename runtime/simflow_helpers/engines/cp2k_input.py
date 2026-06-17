@@ -326,6 +326,100 @@ def generate_input(params: dict, calc_type: str) -> str:
     return builders[task](merged)
 
 
+def generate_cp2k_input_package(
+    structure_path: str | Path,
+    task: str,
+    output_dir: str | Path,
+    params: dict | None = None,
+) -> dict:
+    """Generate a CP2K input deck and normalized XYZ coordinate file.
+
+    This is a pure file-generation helper shared by computation orchestration
+    and the CP2K domain skill. It does not write SimFlow state.
+    """
+    task_norm = normalize_calc_type(task)
+    params = dict(params or {})
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    structure = Path(structure_path).expanduser().resolve()
+    if not structure.is_file():
+        raise FileNotFoundError(f"Structure file not found: {structure_path}")
+
+    generation_params = dict(params)
+    structure_report = {
+        "source_structure": str(structure),
+        "task": task_norm,
+        "calc_dir": str(out.resolve()),
+    }
+    coord_name = params.get("coord_file")
+
+    if structure.suffix.lower() == ".cif":
+        cell_abc, xyz_lines, element_counts = read_cif_to_xyz(structure)
+        coord_name = coord_name or "structure.xyz"
+        coord_path = out / coord_name
+        coord_path.write_text(
+            write_xyz(len(xyz_lines), f"Generated from {structure.name}", xyz_lines),
+            encoding="utf-8",
+        )
+        parts = cell_abc.split()
+        generation_params.update({
+            "cell_a": parts[0],
+            "cell_b": parts[1],
+            "cell_c": parts[2],
+            "coord_file": coord_name,
+            "coord_format": "XYZ",
+            "elements": sorted(element_counts),
+            "coord_path": str(coord_path),
+        })
+        structure_report["element_counts"] = element_counts
+        structure_report["cell_abc"] = cell_abc
+    elif structure.suffix.lower() == ".xyz":
+        content = structure.read_text(encoding="utf-8")
+        if task_norm == "energy":
+            normalized_xyz = extract_last_frame(content)
+            coord_name = coord_name or "last_frame.xyz"
+        else:
+            atom_lines, _, comment = read_xyz_structure(structure)
+            normalized_xyz = write_xyz(
+                len(atom_lines),
+                comment or f"Generated from {structure.name}",
+                atom_lines,
+            )
+            coord_name = coord_name or "structure.xyz"
+        coord_path = out / coord_name
+        coord_path.write_text(normalized_xyz, encoding="utf-8")
+        _, element_counts, _ = read_xyz_structure(coord_path)
+        generation_params.update({
+            "coord_file": coord_name,
+            "coord_format": "XYZ",
+            "elements": sorted(element_counts),
+            "coord_path": str(coord_path),
+        })
+        structure_report["element_counts"] = element_counts
+    else:
+        raise ValueError(f"Unsupported structure format: {structure.suffix}")
+
+    input_text = generate_input(generation_params, task_norm)
+    input_path = out / f"{task_norm}.inp"
+    input_path.write_text(input_text, encoding="utf-8")
+
+    return {
+        "status": "success",
+        "task": task_norm,
+        "input_file": str(input_path),
+        "coordinate_file": str(coord_path),
+        "files_generated": [str(input_path), str(coord_path)],
+        "parameters": {
+            "job_type": task_norm,
+            "natoms": sum(element_counts.values()),
+            "elements": element_counts,
+            "cell_abc": structure_report.get("cell_abc"),
+            "coord_file": coord_name,
+        },
+        "structure": structure_report,
+    }
+
+
 def _iter_xyz_frames(content: str) -> Iterable[tuple[int, str, list[str]]]:
     lines = content.splitlines()
     i = 0

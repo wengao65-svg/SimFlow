@@ -91,13 +91,18 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
 
     if not dry_run and results and not failed and not capability_warning and not needs_inputs:
         final_stage = results[-1]["stage"]
-        checkpoint = create_checkpoint(
-            state.get("workflow_id", "unknown"),
-            final_stage,
-            f"Pipeline advanced through {final_stage}",
-            project_root=str(project_root),
-        )
-        update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
+        stage_registry = read_state(project_root=str(project_root), state_file="stages.json")
+        existing_checkpoint_id = stage_registry.get(final_stage, {}).get("checkpoint_id")
+        if existing_checkpoint_id:
+            checkpoint = {"checkpoint_id": existing_checkpoint_id}
+        else:
+            checkpoint = create_checkpoint(
+                state.get("workflow_id", "unknown"),
+                final_stage,
+                f"Pipeline advanced through {final_stage}",
+                project_root=str(project_root),
+            )
+            update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
         state = read_state(project_root=str(project_root), state_file="workflow.json")
         state["current_stage"] = final_stage
         state["status"] = "completed" if final_stage == stages[-1] else "in_progress"
