@@ -22,25 +22,16 @@ executor and does not replace domain skills or scheduler safety gates.
 - A planned or existing calculation needs evidence, approval, checkpointing, or
   handoff before it can be treated as ready for the next workflow stage.
 
-## Input Conditions
-
-- Accept user-provided input files, generated input files, model artifacts,
-  calculation manifests, previous checkpoints, or explicit calculation plans.
-- Accept optional software, scheduler, resource, environment, license, account,
-  queue, walltime, module, and command information.
-- Require explicit approval evidence before any real local, remote, or HPC
-  execution.
-
-## Computation Sub-Activities
+## Computation Activities
 
 - Input generation: create or register calculation input files without claiming
   real execution.
-- Input validation: check required files, empty files, hashes, and lightweight
-  consistency evidence.
-- Dry-run planning: generate calculation manifests, job scripts, resource
-  estimates, credential scans, and submit-readiness evidence.
-- Generic evidence intake: register user-provided computation artifacts for
-  tracked-only or unknown tools.
+- Input validation: record file presence, non-empty checks, hashes, and
+  lightweight consistency evidence.
+- Dry-run planning: generate or register calculation manifests, job scripts,
+  resource estimates, credential scans, and submit-readiness evidence.
+- Generic evidence intake: record user-provided computation artifacts for
+  tracked_only or unknown tools without forcing a helper route.
 - Submit handoff: pass reviewed evidence and hashes to the safety gate and MCP
   connector path; do not submit directly from the skill contract.
 
@@ -63,22 +54,7 @@ executor and does not replace domain skills or scheduler safety gates.
   user-provided script, notebook, or external workflow is valid when evidence
   and limitations are recorded.
 
-## State Machine
-
-- `planned`: calculation intent or input plan exists.
-- `dry_run_complete`: submit-readiness evidence exists; real submit remains
-  disallowed.
-- `waiting`: required user inputs, potentials, existing files, or evidence are
-  missing.
-- `blocked`: validation, credential scan, hashes, approval, or gate conditions
-  failed.
-- `submitted`: only valid after a recorded gate-approved real submit.
-- `completed`: stage evidence is complete; do not imply scientific result
-  completion unless output/job evidence supports it.
-- `failed`: helper, validation, approval, submission, or evidence registration
-  failed and must produce failure evidence or a failure checkpoint.
-
-## Required Evidence
+## Evidence Contract
 
 - Calculation manifest with software, task, command, inputs, resources,
   environment, and intended outputs.
@@ -89,24 +65,31 @@ executor and does not replace domain skills or scheduler safety gates.
 - Credential scan report.
 - Job record only when a real job is approved and submitted.
 
-## Submit-Readiness Contract
+## Submit-Readiness Handoff
 
-- Preserve a `submit_readiness` payload containing project root, scheduler,
-  job script path, dry-run evidence path, script hash, and input artifact hash.
-- Preserve a `submit_request_template` payload that maps directly to MCP submit fields:
+- Preserve a `submit_readiness` payload containing project root, scheduler, job
+  script path, dry-run evidence path, script hash, and input artifact hash.
+- Preserve a `submit_request_template` payload for MCP submit fields:
   `project_root`, `script_path`, `scheduler`, `dry_run_evidence`,
   `script_hash`, `input_artifact_hash`, and `gate_decision_id`.
 - Set `real_submit_allowed` to `false` until an explicit `hpc_submit` gate
   decision id is recorded against matching evidence and hashes.
-
-## Safety Gate Handoff
-
-- Real local, remote, or HPC execution must pass the same approval discipline.
-- The gate must evaluate recorded evidence, not agent-provided booleans.
 - If the job script or input hash changes after approval, require a new dry-run
   and approval.
-- Submit results must be recorded as job artifacts and `jobs.json` state only
-  after a real approved submission.
+
+## Status Semantics
+
+- `planned`, `waiting`, `blocked`, `dry_run_complete`, `submitted`,
+  `completed`, and `failed` are status labels for communicating evidence state;
+  they are not a standalone runtime state machine defined by this skill.
+- `waiting` means user-supplied inputs, potentials, existing files, or evidence
+  are missing.
+- `blocked` means validation, credential scan, hashes, approval, or gate
+  conditions failed.
+- `submitted` is valid only after a recorded gate-approved real submit.
+- `completed` means stage evidence is complete; it must not imply scientific
+  result completion unless output/job evidence supports it.
+- `failed` work must produce failure evidence or a failure checkpoint.
 
 ## Status Write Rules
 
@@ -117,25 +100,19 @@ executor and does not replace domain skills or scheduler safety gates.
   with metadata and lineage.
 - Keep waiting, planned, dry-run-only, and tracked-only evidence labels visible
   in status, readiness, handoff, and writing inputs.
-
-## Artifact / Checkpoint Rules
-
 - Write canonical submit-readiness evidence under `.simflow/artifacts/compute/`
   and `.simflow/artifacts/security/`.
-- Create a checkpoint after computation dry-run/readiness evidence is completed.
-- Create or preserve failure evidence when validation, credential scan,
+- Create a checkpoint after computation dry-run/readiness evidence is completed,
+  and create or preserve failure evidence when validation, credential scan,
   approval, submission, or evidence registration fails.
+
+## Safety Gate Handoff
+
+- Real local, remote, or HPC execution must pass the same approval discipline.
+- The gate must evaluate recorded evidence, not agent-provided booleans.
+- Submit results must be recorded as job artifacts and `jobs.json` state only
+  after a real approved submission.
 - Do not record unfinished calculations as completed results.
-
-## Failure / Waiting Semantics
-
-- Return `waiting` when missing information can be supplied by the user, such
-  as force-field provenance, potential files, calculation inputs, or tracked-only
-  evidence.
-- Return `blocked` when recorded evidence fails a gate, validation, hash, or
-  credential condition.
-- Return explicit capability warnings for unsupported helper routes without
-  treating unknown software as forbidden.
 
 ## Prohibited Actions
 
@@ -155,13 +132,3 @@ executor and does not replace domain skills or scheduler safety gates.
 - Resource requests, wall time, queue, account, environment, or software
   version are uncertain.
 - The job script or input hash differs from the evidence used for approval.
-
-## Examples
-
-- Preparing VASP inputs through the VASP domain skill and recording computation
-  dry-run evidence remains dry-run-only until `hpc_submit` is approved.
-- Recording existing LAMMPS inputs through direct computation entry is valid
-  when input files, hashes, resource estimates, credential scan, and limitations
-  are preserved.
-- Unknown software can proceed through generic computation evidence intake, but
-  SimFlow must label it as tracked-only or unknown rather than helper-supported.

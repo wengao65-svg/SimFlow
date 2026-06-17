@@ -169,20 +169,20 @@ def test_ambiguous_intent_does_not_default_unknown_tasks_to_known_paths():
     ]
 
 
-def test_gpumd_nep_contract_reflects_current_toolchain_capabilities():
+def test_router_defers_toolchain_capabilities_to_shared_contract():
     text = _skill_text()
-    contract = _contract()["gpumd_nep_support_contract"]
+    lowered = text.lower()
+    contract = _contract()
+    reference = contract["toolchain_contract_reference"]
     capabilities = _capabilities()
 
     assert {"gpumd", "nep"} <= set(capabilities["helper_supported_software"])
-    assert contract["support_level"] == "helper_supported"
-    assert contract["real_submit_allowed"] is False
-    for tool in ["gpumd", "nep"]:
-        tool_caps = capabilities["capability_support"][tool]
-        assert set(contract["supported_capabilities"]) == set(tool_caps["supported"])
-        assert set(contract["not_helper_supported"]) == set(tool_caps["not_helper_supported"])
-    assert "GPUMD/NEP are helper-supported" in text
-    assert "real execution" in text
+    assert "gpumd_nep_support_contract" not in contract
+    assert reference["source"] == "workflow/toolchains/capabilities.json"
+    assert "Single source of truth" in reference["purpose"]
+    assert "shared toolchain contract" in text
+    assert "GPUMD/NEP" in text
+    assert "real execution" in lowered
     assert "HPC submit" in text
 
 

@@ -201,25 +201,10 @@
       "training"
     ]
   },
-  "gpumd_nep_support_contract": {
-    "support_level": "helper_supported",
-    "supported_capabilities": [
-      "static_input_inspection",
-      "input_generation",
-      "input_validation",
-      "compute_planning",
-      "orchestration",
-      "manifest_generation",
-      "selected_output_parsing",
-      "evidence_handoff"
-    ],
-    "not_helper_supported": [
-      "real_execution",
-      "local_submit",
-      "remote_execution",
-      "hpc_submit"
-    ],
-    "real_submit_allowed": false
+  "toolchain_contract_reference": {
+    "source": "workflow/toolchains/capabilities.json",
+    "purpose": "Single source of truth for helper support levels and capability support.",
+    "router_behavior": "Use software names for routing only; do not duplicate capability support in the router contract."
   },
   "prohibited_actions": [
     "centralized_executor_behavior",

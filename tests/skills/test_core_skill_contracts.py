@@ -103,19 +103,21 @@ def test_computation_requires_approval_without_fixed_software():
     assert "do not require one specific simulation engine" in text
     for section in [
         "## Purpose",
-        "## Computation Sub-Activities",
+        "## Computation Activities",
         "## Support-Level Behavior",
         "## Domain Skill Delegation",
-        "## State Machine",
-        "## Required Evidence",
-        "## Submit-Readiness Contract",
+        "## Evidence Contract",
+        "## Submit-Readiness Handoff",
+        "## Status Semantics",
         "## Safety Gate Handoff",
-        "## Failure / Waiting Semantics",
     ]:
         assert section.lower() in text
     assert "submit_request_template" in text
     assert "tracked_only" in text
     assert "unknown" in text
+    assert "not a standalone runtime state machine" in text
+    assert "generic evidence intake" in text
+    assert "real_submit_allowed" in text
 
 
 def test_analysis_visualization_allows_agent_written_analysis():
