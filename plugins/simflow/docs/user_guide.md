@@ -52,7 +52,7 @@ Software names are proposal metadata, helper-routing hints, and artifact
 provenance. They are not a required registry entry before a project can move
 through SimFlow.
 
-If a proposal names a helper-supported tool such as VASP, CP2K, or LAMMPS,
+If a proposal names a helper-supported tool such as VASP, CP2K, LAMMPS, GPUMD, or NEP,
 stage runners may use the corresponding helper path. If it names a
 tracked-only or unknown tool, SimFlow should still record the plan, user
 scripts, commands, outputs, versions, environment, limitations, and lineage.

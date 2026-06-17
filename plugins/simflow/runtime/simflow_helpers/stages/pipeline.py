@@ -69,6 +69,7 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
     checkpoint = None
     failed = False
     capability_warning = False
+    needs_inputs = False
     terminal_result = None
 
     for stage_name in stages_to_run:
@@ -83,23 +84,32 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
             capability_warning = True
             terminal_result = terminal_result or stage_result
             break
+        if stage_result.get("status") == "needs_inputs":
+            needs_inputs = True
+            terminal_result = terminal_result or stage_result
+            break
 
-    if not dry_run and results and not failed and not capability_warning:
+    if not dry_run and results and not failed and not capability_warning and not needs_inputs:
         final_stage = results[-1]["stage"]
-        checkpoint = create_checkpoint(
-            state.get("workflow_id", "unknown"),
-            final_stage,
-            f"Pipeline advanced through {final_stage}",
-            project_root=str(project_root),
-        )
-        update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
+        stage_registry = read_state(project_root=str(project_root), state_file="stages.json")
+        existing_checkpoint_id = stage_registry.get(final_stage, {}).get("checkpoint_id")
+        if existing_checkpoint_id:
+            checkpoint = {"checkpoint_id": existing_checkpoint_id}
+        else:
+            checkpoint = create_checkpoint(
+                state.get("workflow_id", "unknown"),
+                final_stage,
+                f"Pipeline advanced through {final_stage}",
+                project_root=str(project_root),
+            )
+            update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
         state = read_state(project_root=str(project_root), state_file="workflow.json")
         state["current_stage"] = final_stage
         state["status"] = "completed" if final_stage == stages[-1] else "in_progress"
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
         write_state(state, project_root=str(project_root), state_file="workflow.json")
 
-    status = "error" if failed else ("capability_warning" if capability_warning else "success")
+    status = "error" if failed else ("capability_warning" if capability_warning else ("needs_inputs" if needs_inputs else "success"))
     return {
         "status": status,
         "workflow_dir": workflow_dir,

@@ -9,6 +9,7 @@
     "input_validation_report",
     "dry_run_report",
     "resource_estimate",
+    "credential_scan",
     {"id": "job_record_if_submitted", "required_when": "real_submit_recorded"}
   ],
   "recommended_skills": ["simflow-computation", "optional engine-specific helper"],

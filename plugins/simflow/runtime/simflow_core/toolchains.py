@@ -112,7 +112,7 @@ def classify_tool_support(toolchain: list[str]) -> dict[str, Any]:
             **{tool: "tracked_only" for tool in tracked_only},
             **{tool: "unknown" for tool in unknown},
         },
-        "policy": "Only builtin helper software has SimFlow helper support; tracked-only and unknown tools are recorded for provenance and handoff.",
+        "policy": "Built-in helper software has SimFlow helper support; tracked-only and unknown tools are recorded for provenance and handoff.",
     }
 
 
@@ -146,9 +146,8 @@ def helper_capabilities_for_tool(tool: str) -> dict[str, Any]:
         "supported_capabilities": supported,
         "blocked_capabilities": blocked,
         "policy": (
-            "Capability-level helper support does not change the shared tool-level "
-            "support classification. GPUMD/NEP remain tracked_only unless the "
-            "global tool support contract is explicitly changed."
+            "Capability support is governed by the shared toolchain contract. "
+            "Real execution and submit still require safety-gate evidence."
         ),
     }
 

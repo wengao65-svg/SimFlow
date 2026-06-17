@@ -10,8 +10,8 @@
 ## Manifest generation
 
 - Include files, hashes, user command string, tool/version facts, environment notes, evidence role, and lineage.
-- Mark `actual_tool_used.support_level` as `tracked_only`.
-- Mark helper capability as static inspection, manifest generation, selected output parsing, or evidence handoff.
+- Mark `actual_tool_used.support_level` from the shared toolchain contract.
+- Mark helper capability as input generation, input validation, compute planning, static inspection, manifest generation, selected output parsing, orchestration, or evidence handoff.
 
 ## Selected output parsing
 
