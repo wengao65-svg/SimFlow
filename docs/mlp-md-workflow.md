@@ -54,12 +54,11 @@ Proposal contracts expose:
 - `actual_tool_used`: artifact/runtime metadata for the concrete tool, command,
   version, and environment when known.
 
-Only `vasp`, `cp2k`, and `lammps` currently have tool-level SimFlow helper
-support. GPUMD and NEP remain `tracked_only` at the tool level, but
-`simflow-gpumd` exposes limited capability-level helpers for static input
-inspection, manifest generation, selected output parsing, and evidence handoff.
-It does not expose GPUMD/NEP input generation, real execution, or submit as
-helper-supported capabilities. Other MLP-MD tools such as `neptrainkit`,
+`vasp`, `cp2k`, `lammps`, `gpumd`, and `nep` currently have tool-level SimFlow
+helper support. `simflow-gpumd` supports bounded input preparation, static
+validation, dry-run planning, selected output parsing, manifest generation, and
+evidence handoff. It does not expose GPUMD/NEP real execution or submit as
+helper-supported actions. Other MLP-MD tools such as `neptrainkit`,
 `deepmd`, `mace`, `nequip`, `allegro`, `ase`, and `python` are classified by
 the shared toolchain contract, not by this recipe file.
 
@@ -68,8 +67,8 @@ When a user asks a built-in stage runner to automate a `tracked_only` or
 `waiting` status. The workflow can still record user scripts, official-docs
 usage, outputs, checks, and approvals as artifacts.
 
-Use the same generic computation evidence intake for GPUMD, NEP, DeePMD, MACE,
-NequIP, Allegro, GROMACS, QE, custom Python, or any other tracked-only tool.
+Use the same generic computation evidence intake for DeePMD, MACE, NequIP,
+Allegro, GROMACS, QE, custom Python, or any other tracked-only tool.
 The intake is not an executor; it records user-provided calculation manifests,
 input files, validation reports, dry-run reports, resource estimates, commands,
 versions, environment, and lineage. When readiness is satisfied, the waiting

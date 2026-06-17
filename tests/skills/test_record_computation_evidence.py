@@ -46,10 +46,10 @@ def _evidence_paths(tmp_path: Path) -> dict:
     }
 
 
-def test_record_computation_evidence_completes_tracked_only_waiting_stage(tmp_path):
+def test_record_computation_evidence_completes_gpumd_needs_inputs_waiting_stage(tmp_path):
     _init_gpumd_project(tmp_path)
     warning = run_pipeline(str(tmp_path / ".simflow"), target_stage="computation", dry_run=False)
-    assert warning["status"] == "capability_warning"
+    assert warning["status"] == "needs_inputs"
 
     result = record_computation_evidence(
         str(tmp_path / ".simflow"),
@@ -75,7 +75,7 @@ def test_record_computation_evidence_completes_tracked_only_waiting_stage(tmp_pa
     assert result["readiness"]["readiness_status"] == "ready"
     assert stages["computation"]["status"] == "completed"
     assert stages["computation"]["checkpoint_id"] == result["checkpoint_id"]
-    assert manifest["actual_tool_used"]["support_level"] == "tracked_only"
+    assert manifest["actual_tool_used"]["support_level"] == "helper_supported"
     assert manifest["actual_tool_used"]["name"] == "gpumd"
     assert rerun["status"] == "success"
     assert rerun["stages_executed"] == 0

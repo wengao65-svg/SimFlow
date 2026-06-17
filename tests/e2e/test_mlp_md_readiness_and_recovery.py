@@ -320,7 +320,7 @@ def test_mlp_md_production_readiness_gate_passes_and_blocks_from_fixture(tmp_pat
     assert "anomaly_thresholds_defined" in blocked["conditions"]["unmet"]
 
 
-def test_tracked_only_checkpoint_recovery_resumes_after_evidence_intake(tmp_path):
+def test_gpumd_needs_inputs_checkpoint_recovery_resumes_after_evidence_intake(tmp_path):
     init_research(
         input_text="\n".join([
             "entry_stage: modeling",
@@ -335,7 +335,7 @@ def test_tracked_only_checkpoint_recovery_resumes_after_evidence_intake(tmp_path
     )
 
     warning = run_pipeline(str(tmp_path / ".simflow"), target_stage="computation", dry_run=False)
-    assert warning["status"] == "capability_warning"
+    assert warning["status"] == "needs_inputs"
     assert read_state(project_root=str(tmp_path), state_file="stages.json")["computation"]["status"] == "waiting"
 
     intake = record_computation_evidence(

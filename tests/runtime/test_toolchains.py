@@ -23,26 +23,28 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_tool_support_levels_are_shared_and_non_blocking():
     support = classify_tool_support(["vasp", "cp2k", "lammps", "gromacs", "gpumd", "bespoke"])
 
-    assert support["builtin_helpers"] == ["vasp", "cp2k", "lammps"]
-    assert support["tracked_only"] == ["gromacs", "gpumd"]
+    assert support["builtin_helpers"] == ["vasp", "cp2k", "lammps", "gpumd"]
+    assert support["tracked_only"] == ["gromacs"]
     assert support["unknown"] == ["bespoke"]
     assert support["support_levels"]["vasp"] == "helper_supported"
     assert support["support_levels"]["gromacs"] == "tracked_only"
     assert support["support_levels"]["bespoke"] == "unknown"
 
 
-def test_gpumd_nep_remain_tracked_only_with_limited_helper_capabilities():
+def test_gpumd_nep_are_helper_supported_with_gated_execution_capabilities():
     support = classify_tool_support(["gpumd", "nep"])
 
-    assert support["builtin_helpers"] == []
-    assert support["tracked_only"] == ["gpumd", "nep"]
-    assert support_level_for_tool({"software_support": support}, "gpumd") == "tracked_only"
-    assert helper_capabilities_for_tool("gpumd")["tool_support_level"] == "tracked_only"
+    assert support["builtin_helpers"] == ["gpumd", "nep"]
+    assert support["tracked_only"] == []
+    assert support_level_for_tool({"software_support": support}, "gpumd") == "helper_supported"
+    assert helper_capabilities_for_tool("gpumd")["tool_support_level"] == "helper_supported"
     assert support_level_for_capability("gpumd", "static_input_inspection") == "helper_supported"
+    assert support_level_for_capability("gpumd", "input_generation") == "helper_supported"
+    assert support_level_for_capability("nep", "input_validation") == "helper_supported"
+    assert support_level_for_capability("gpumd", "compute_planning") == "helper_supported"
     assert support_level_for_capability("nep", "manifest_generation") == "helper_supported"
     assert support_level_for_capability("gpumd", "selected_output_parsing") == "helper_supported"
     assert support_level_for_capability("gpumd", "evidence_handoff") == "helper_supported"
-    assert support_level_for_capability("gpumd", "input_generation") == "not_helper_supported"
     assert support_level_for_capability("nep", "hpc_submit") == "not_helper_supported"
 
 
@@ -50,23 +52,23 @@ def test_toolchain_capability_contract_is_json_backed():
     contract = load_toolchain_capabilities()
 
     assert contract["schema_version"] == "simflow.toolchain_capabilities.v1"
-    assert set(contract["helper_supported_software"]) == {"vasp", "cp2k", "lammps"}
-    assert "gpumd" in contract["tracked_only_software"]
-    assert "nep" in contract["tracked_only_software"]
+    assert set(contract["helper_supported_software"]) == {"vasp", "cp2k", "lammps", "gpumd", "nep"}
+    assert "gpumd" not in contract["tracked_only_software"]
+    assert "nep" not in contract["tracked_only_software"]
     assert "admission" in contract["policy"]
     assert "executor" not in contract
 
 
-def test_gpumd_unsupported_execution_capabilities_emit_capability_warning():
+def test_gpumd_real_execution_capability_warning_keeps_submit_gated():
     warning = capability_warning(
         {"software": "gpumd", "helper_support": classify_tool_support(["gpumd"])},
         "computation",
-        "input_generation",
+        "hpc_submit",
         "gpumd",
     )
 
     assert warning["status"] == "capability_warning"
-    assert warning["support_level"] == "tracked_only"
+    assert warning["support_level"] == "helper_supported"
     assert warning["capability_support_level"] == "not_helper_supported"
 
 

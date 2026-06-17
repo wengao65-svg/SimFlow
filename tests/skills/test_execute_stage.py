@@ -447,7 +447,7 @@ def test_execute_stage_generates_lammps_inputs_from_modeling_artifact():
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "lammps_input_manifest.json").is_file()
 
 
-def test_execute_stage_returns_capability_warning_for_tracked_only_input_generation():
+def test_execute_stage_waits_for_gpumd_required_potential_input():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         init_research(
@@ -468,11 +468,44 @@ def test_execute_stage_returns_capability_warning_for_tracked_only_input_generat
         stages_state = read_state(tmpdir, "stages.json")
 
         assert modeling["status"] == "completed"
-        assert result["status"] == "capability_warning"
-        assert result["warning"]["software"] == "gpumd"
-        assert result["warning"]["support_level"] == "tracked_only"
+        assert result["status"] == "needs_inputs"
+        assert result["needs_inputs"]["missing_inputs"] == ["potential_file"]
         assert result["scripts"][0]["status"] == "warning"
         assert stages_state["computation"]["status"] == "waiting"
+
+
+def test_execute_stage_runs_gpumd_helper_supported_computation_when_potential_present():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        (project_root / "nep.txt").write_text("dummy potential fixture\n", encoding="utf-8")
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: build GPUMD NEP workflow",
+                "method: mlp_md",
+                "material: Si",
+                "software: gpumd",
+                "toolchain: gpumd, nep",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"], \"potential_file\": \"nep.txt\", \"steps\": 10}",
+            ]),
+            output_dir=tmpdir,
+        )
+
+        modeling = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        input_manifest = result["manifests"]["input_generation"]
+        compute_manifest = result["manifests"]["compute"]
+
+        assert modeling["status"] == "completed"
+        assert result["status"] == "completed"
+        assert input_manifest["software"] == "gpumd"
+        assert input_manifest["actual_tool_used"]["support_level"] == "helper_supported"
+        assert input_manifest["task"] == "gpumd_md_nvt"
+        assert ".simflow/artifacts/input_generation/run.in" in input_manifest["generated_files"]
+        assert ".simflow/artifacts/input_generation/model.xyz" in input_manifest["generated_files"]
+        assert compute_manifest["dry_run"] is True
+        assert compute_manifest["real_submit"] is False
+        assert compute_manifest["actual_tool_used"]["command"] == "gpumd < run.in"
 
 
 def test_execute_stage_returns_capability_warning_for_tracked_only_classical_md_tool():

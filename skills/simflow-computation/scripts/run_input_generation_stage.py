@@ -30,6 +30,7 @@ from runtime.simflow_core.toolchains import (
     capability_warning,
 )
 from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
+from runtime.simflow_helpers.engines.gpumd import normalize_gpumd_task
 
 VASP_TASK_ALIASES = {
     "static": "scf",
@@ -75,6 +76,11 @@ GENERATE_LAMMPS_INPUTS = _load_function(
     "generate_lammps_inputs",
     "simflow_lammps_inputs",
 )
+GENERATE_GPUMD_INPUTS = _load_function(
+    "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+    "generate_gpumd_inputs",
+    "simflow_gpumd_inputs",
+)
 
 
 def _stage_output_artifacts(project_root: Path, stage_name: str) -> list[dict[str, Any]]:
@@ -114,6 +120,8 @@ def _normalize_task(software: str, task: str | None) -> str:
         }
         normalized = (task or "minimize").strip().lower().replace("-", "_")
         return aliases.get(normalized, normalized)
+    if software in {"gpumd", "nep"}:
+        return normalize_gpumd_task(task, software=software)
     return _normalize_vasp_task(task)
 
 
@@ -177,7 +185,15 @@ def _as_path_values(value: Any) -> list[str]:
 def _direct_input_file_values(contract: dict[str, Any], params: dict[str, Any]) -> list[str]:
     merged = {**contract.get("parameter_overrides", {}), **(params or {})}
     values: list[str] = []
-    for key in ("input_files", "existing_input_files", "calculation_inputs", "vasp_input_files", "cp2k_input_files"):
+    for key in (
+        "input_files",
+        "existing_input_files",
+        "calculation_inputs",
+        "vasp_input_files",
+        "cp2k_input_files",
+        "gpumd_input_files",
+        "nep_input_files",
+    ):
         values.extend(_as_path_values(merged.get(key)))
     input_dir = merged.get("input_dir") or merged.get("calculation_dir")
     if input_dir:
@@ -436,6 +452,27 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             "elements": generation["structure"]["elements"],
             "lammps_manifest": generation["manifest"],
             "force_field_provenance": generation["manifest"]["force_field_provenance"],
+            "warnings": generation.get("warnings", []),
+        })
+    elif software in {"gpumd", "nep"}:
+        generation = GENERATE_GPUMD_INPUTS(
+            str(structure_path) if software == "gpumd" else None,
+            task,
+            str(project_root),
+            calc_dir=str(artifacts_dir.relative_to(project_root)),
+            params=stage_params,
+            software=software,
+        )
+        if generation.get("status") != "success":
+            return generation
+        generated_files = [
+            _relative_path(project_root, Path(path)) for path in generation["files_generated"]
+        ]
+        manifest.update({
+            "generated_files": generated_files,
+            "num_atoms": generation.get("parameters", {}).get("num_atoms"),
+            "elements": generation.get("parameters", {}).get("elements", []),
+            "gpumd_nep_parameters": generation.get("parameters", {}),
             "warnings": generation.get("warnings", []),
         })
     else:

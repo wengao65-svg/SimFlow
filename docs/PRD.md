@@ -25,8 +25,8 @@ modeling choices, simulation software, analysis code, and writing format.
    analysis, figure, and writing artifacts with metadata and checksums.
 3. **Evidence-based gates**: dry-run, validation, credential scan, approval, and
    hash checks before real local, remote, or HPC submit.
-4. **Optional helpers**: supported domain assistants for VASP, CP2K, and
-   LAMMPS, plus generic parsers, templates, and analysis utilities. QE and
+4. **Optional helpers**: supported domain assistants for VASP, CP2K, LAMMPS,
+   GPUMD, and NEP, plus generic parsers, templates, and analysis utilities. QE and
    Gaussian are reserved placeholders in the current product build.
 5. **Skill and MCP integration**: canonical skills and MCP recording tools
    expose the workflow layer to host agents without a central executor.
@@ -42,7 +42,7 @@ modeling choices, simulation software, analysis code, and writing format.
 | Analysis/visualization | Built-in or self-written helpers, all recorded with lineage |
 | Writing | Claim-to-evidence traceability; no fixed document structure |
 | DFT/AIMD/MD | Reference recipes/tags |
-| Supported engine helpers | VASP, CP2K, and LAMMPS domain assistants, not workflow executors |
+| Supported engine helpers | VASP, CP2K, LAMMPS, GPUMD, and NEP domain assistants, not workflow executors |
 | Unsupported placeholders | QE and Gaussian; user-provided files may be tracked as generic artifacts |
 
 ## Success Criteria

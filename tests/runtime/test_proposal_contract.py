@@ -197,7 +197,7 @@ def test_non_mlp_recipes_share_optional_toolchain_support_contract():
             assert contract["toolchain_plan"]["activities"]["primary"] == [software]
 
 
-def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():
+def test_mlp_md_contract_tracks_gpumd_nep_as_helper_supported_toolchain():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = _prepare_proposal(
             tmpdir,
@@ -214,13 +214,13 @@ def test_mlp_md_contract_tracks_non_helper_toolchain_without_helper_support():
         assert contract["workflow_type"] == "mlp_md"
         assert contract["software"] == "gpumd"
         assert contract["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
-        assert contract["software_support"]["builtin_helpers"] == ["cp2k", "vasp"]
-        assert contract["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
-        assert contract["helper_support"]["support_levels"]["gpumd"] == "tracked_only"
+        assert contract["software_support"]["builtin_helpers"] == ["gpumd", "cp2k", "vasp", "nep"]
+        assert contract["software_support"]["tracked_only"] == ["neptrainkit"]
+        assert contract["helper_support"]["support_levels"]["gpumd"] == "helper_supported"
         assert contract["toolchain_plan"]["activities"]["labeling"] == ["cp2k", "vasp"]
         assert contract["toolchain_plan"]["activities"]["training"] == ["gpumd", "nep"]
         assert protocol["toolchain"] == ["gpumd", "cp2k", "vasp", "nep", "neptrainkit"]
-        assert protocol["software_support"]["tracked_only"] == ["gpumd", "nep", "neptrainkit"]
+        assert protocol["software_support"]["tracked_only"] == ["neptrainkit"]
         assert protocol["toolchain_plan"]["activities"]["selection"] == ["neptrainkit"]
         assert protocol["inputs"][-1]["name"] == "toolchain"
         assert protocol["inputs"][-1]["required"] is True

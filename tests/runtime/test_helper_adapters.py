@@ -10,16 +10,18 @@ from runtime.simflow_helpers.adapters.registry import load_adapter_contract
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_adapter_registry_keeps_gpumd_nep_tracked_only():
+def test_adapter_registry_marks_gpumd_nep_helper_supported_with_gated_execution():
     gpumd = get_adapter("gpumd")
     nep = get_adapter("nep")
 
     assert gpumd is not None
     assert nep is not None
-    assert gpumd["tool_support_level"] == "tracked_only"
-    assert nep["tool_support_level"] == "tracked_only"
+    assert gpumd["tool_support_level"] == "helper_supported"
+    assert nep["tool_support_level"] == "helper_supported"
     assert "static_input_inspection" in gpumd["supported_capabilities"]
-    assert "input_generation" in gpumd["unsupported_capabilities"]
+    assert "input_generation" in gpumd["supported_capabilities"]
+    assert "input_validation" in nep["supported_capabilities"]
+    assert "real_execution" in gpumd["unsupported_capabilities"]
     assert "hpc_submit" in nep["unsupported_capabilities"]
 
 
@@ -62,15 +64,9 @@ def test_active_adapter_registry_is_json_backed():
     }
 
     assert contract["schema_version"] == "simflow.helper_adapters.v1"
-    assert "do not execute tools" in contract["policy"]
+    assert "never execute tools" in contract["policy"]
     assert set(active) == {"gpumd", "lammps", "nep"}
-    assert active["gpumd"]["unsupported_capabilities"] == [
-        "input_generation",
-        "real_execution",
-        "local_submit",
-        "remote_execution",
-        "hpc_submit",
-    ]
+    assert active["gpumd"]["unsupported_capabilities"] == ["real_execution", "local_submit", "remote_execution", "hpc_submit"]
 
 
 def test_ecosystem_roadmap_fixtures_are_not_active_adapters_or_skills():

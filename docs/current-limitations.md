@@ -10,18 +10,18 @@ The current product build supports optional domain helpers for:
 - VASP
 - CP2K
 - LAMMPS
-- GPUMD/NEP static evidence capabilities only
+- GPUMD/NEP bounded input preparation, validation, dry-run planning, selected parsing, and evidence handoff
 - General MLP evidence review and handoff
 
 These helpers provide guidance, validation, templates, parsing, analysis, or
 artifact-recording assistance. They remain optional helpers and do not make
 SimFlow a workflow executor.
 
-GPUMD and NEP remain `tracked_only` at the shared tool-support level. The
-`simflow-gpumd` skill exposes only limited helper-supported capabilities:
-static input inspection, manifest generation, selected output parsing, and
-evidence handoff. GPUMD/NEP real execution, input generation, local submit,
-remote execution, and HPC submit are not helper-supported capabilities.
+GPUMD and NEP are helper-supported at the shared tool-support level for
+bounded input preparation, static validation, dry-run planning, selected output
+parsing, manifest generation, and evidence handoff. GPUMD/NEP real execution,
+local submit, remote execution, and HPC submit are not helper-supported
+actions.
 
 Software names outside this helper set do not block workflow planning or
 artifact tracking. A shared toolchain contract records them as `tracked_only`
@@ -47,8 +47,8 @@ engines until product support and release tests are added.
 
 The same boundary applies across DFT, AIMD, classical MD, phonon, NEB, and
 MLP-MD recipes. Tools without dedicated execution helpers in this release,
-including Quantum ESPRESSO, ABINIT, GROMACS, OpenMM, Phonopy, GPUMD, NEP,
-NEPTrainKit, DeePMD, MACE, NequIP, and Allegro, may appear in proposal
+including Quantum ESPRESSO, ABINIT, GROMACS, OpenMM, Phonopy, NEPTrainKit,
+DeePMD, MACE, NequIP, and Allegro, may appear in proposal
 toolchains and artifact provenance, but SimFlow does not provide
 engine-specific execution automation for them yet.
 

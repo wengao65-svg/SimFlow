@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.toolchains import helper_capabilities_for_tool, support_level_for_capability
+from runtime.simflow_core.toolchains import helper_capabilities_for_tool, support_level_for_capability, support_level_for_tool
 from runtime.simflow_helpers.adapters import adapter_capabilities
 
 
@@ -110,7 +110,7 @@ def inspect_directory(directory: Path) -> dict[str, Any]:
         activity="static_input_inspection",
         evidence_role="gpumd_nep_input_inspection",
         source_files=[source_file_record(path) for path in input_paths],
-        actual_tool_used={"software": software, "support_level": "tracked_only"},
+        actual_tool_used={"software": software, "support_level": support_level_for_tool({}, software)},
         parser_status="not_applicable",
         claim_limits=[
             "Static input inspection does not validate GPUMD/NEP execution readiness.",

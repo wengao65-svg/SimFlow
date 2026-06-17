@@ -21,6 +21,7 @@ from runtime.simflow_core.state import read_state
 from runtime.simflow_core.toolchains import build_actual_tool_used, capability_warning
 from runtime.simflow_helpers.computation.readiness import build_computation_readiness, write_readiness_evidence
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
+from runtime.simflow_helpers.engines.gpumd import build_gpumd_task_plan
 from runtime.simflow_helpers.engines.vasp import build_vasp_task_plan
 
 
@@ -79,6 +80,10 @@ def _recommended_executable(software: str, input_manifest: dict[str, Any], raw_p
         if executables:
             return executables[0]["executable"]
         return "cp2k.psmp"
+    if software == "gpumd":
+        return "gpumd < run.in"
+    if software == "nep":
+        return "nep"
     if software == "lammps":
         input_name = next(
             (Path(path).name for path in input_manifest.get("generated_files", []) if Path(path).name.startswith("in.")),
@@ -93,6 +98,8 @@ def _recommended_command(software: str, script_name: str, raw_plan: dict[str, An
     if software == "cp2k":
         return raw_plan["compute_plan"].get("recommended_command", f"{executable} -i <input.inp> -o cp2k.log")
     if software == "lammps":
+        return raw_plan["compute_plan"].get("recommended_command", executable)
+    if software in {"gpumd", "nep"}:
         return raw_plan["compute_plan"].get("recommended_command", executable)
     return f"{executable} > vasp.out"
 
@@ -250,6 +257,18 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         )
     elif software == "lammps":
         raw_plan = _build_lammps_task_plan(task, input_manifest)
+    elif software in {"gpumd", "nep"}:
+        raw_plan = build_gpumd_task_plan(
+            task,
+            str(project_root),
+            {
+                "calc_dir": input_manifest["artifact_dir"],
+                "task": task,
+                "software": software,
+                "steps": params.get("steps") or input_manifest.get("gpumd_nep_parameters", {}).get("steps", 1000),
+                "generation": params.get("generation") or input_manifest.get("gpumd_nep_parameters", {}).get("generation", 100000),
+            },
+        )
     else:
         return capability_warning(contract, "computation", "compute_planning", software)
 

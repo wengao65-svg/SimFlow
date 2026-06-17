@@ -23,6 +23,33 @@ def _run(*args: str) -> dict:
     return json.loads(completed.stdout)
 
 
+def _has_nested_key_value(value: object, key: str, expected: object) -> bool:
+    if isinstance(value, dict):
+        return any(
+            (item_key == key and item_value == expected)
+            or _has_nested_key_value(item_value, key, expected)
+            for item_key, item_value in value.items()
+        )
+    if isinstance(value, list):
+        return any(_has_nested_key_value(item, key, expected) for item in value)
+    return False
+
+
+def _has_scientific_readiness_pass(value: object) -> bool:
+    if isinstance(value, dict):
+        for item_key, item_value in value.items():
+            if item_key == "scientific_readiness":
+                if item_value == "pass":
+                    return True
+                if isinstance(item_value, dict) and item_value.get("status") == "pass":
+                    return True
+            if _has_scientific_readiness_pass(item_value):
+                return True
+    if isinstance(value, list):
+        return any(_has_scientific_readiness_pass(item) for item in value)
+    return False
+
+
 def test_inspect_gpumd_inputs_is_static_and_reports_missing_expected_files(tmp_path):
     (tmp_path / "run.in").write_text("potential nep.txt\ncompute thermo\n", encoding="utf-8")
 
@@ -39,12 +66,12 @@ def test_inspect_gpumd_inputs_is_static_and_reports_missing_expected_files(tmp_p
     assert result["claim_limits"]
     assert result["mode"] == "gpumd"
     assert result["capability_support_level"] == "helper_supported"
-    assert result["tool_capabilities"]["gpumd"]["tool_support_level"] == "tracked_only"
+    assert result["tool_capabilities"]["gpumd"]["tool_support_level"] == "helper_supported"
     assert any(warning["code"] == "missing_expected_file" for warning in result["warnings"])
     assert any(warning["code"] == "missing_referenced_file" for warning in result["warnings"])
 
 
-def test_build_gpumd_manifest_records_tracked_only_tool_support(tmp_path):
+def test_build_gpumd_manifest_records_helper_supported_tool_support(tmp_path):
     run_in = tmp_path / "run.in"
     output = tmp_path / "manifest.json"
     run_in.write_text("potential nep.txt\n", encoding="utf-8")
@@ -67,8 +94,8 @@ def test_build_gpumd_manifest_records_tracked_only_tool_support(tmp_path):
     assert result["parser_status"] == "not_applicable"
     assert result["source_files"][0]["sha256"]
     assert result["capability_support_level"] == "helper_supported"
-    assert result["actual_tool_used"]["support_level"] == "tracked_only"
-    assert result["tool_support"]["tracked_only"] == ["gpumd", "nep"]
+    assert result["actual_tool_used"]["support_level"] == "helper_supported"
+    assert result["tool_support"]["builtin_helpers"] == ["gpumd", "nep"]
     assert output.is_file()
 
 
@@ -95,6 +122,168 @@ def test_build_gpumd_manifest_invalid_environment_json_warns_without_crashing(tm
     assert result["actual_tool_used"]["environment"] is None
 
 
+def test_generate_and_validate_gpumd_inputs_from_structure_and_existing_potential(tmp_path):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+    potential = tmp_path / "nep.txt"
+    potential.write_text("dummy potential fixture\n", encoding="utf-8")
+
+    generated = _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--structure",
+        str(structure),
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+        "--params",
+        '{"potential_file": "nep.txt", "steps": 10}',
+    )
+    validated = _run(
+        "skills/simflow-gpumd/scripts/validate_gpumd_inputs.py",
+        "--task",
+        "nvt",
+        "--calc-dir",
+        str(tmp_path / "calc"),
+    )
+
+    assert generated["status"] == "success"
+    assert generated["actual_tool_used"]["support_level"] == "helper_supported"
+    assert (tmp_path / "calc" / "run.in").is_file()
+    assert (tmp_path / "calc" / "model.xyz").is_file()
+    assert validated["status"] == "pass"
+    assert not _has_scientific_readiness_pass(validated)
+    assert {check["check"] for check in validated["checks"]} >= {"run_in_exists", "model_xyz_exists", "potential_command"}
+
+
+def test_generate_gpumd_inputs_needs_existing_potential(tmp_path):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--structure",
+        str(structure),
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+    )
+
+    assert result["status"] == "needs_inputs"
+    assert result["missing_inputs"] == ["potential_file"]
+
+
+def test_generate_nep_inputs_from_existing_dataset(tmp_path):
+    train = tmp_path / "train.xyz"
+    train.write_text(
+        '1\nlattice="5 0 0 0 5 0 0 0 5" energy=-1 properties=species:S:1:pos:R:3:force:R:3\nSi 0 0 0 0 0 0\n',
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--task",
+        "nep_training",
+        "--software",
+        "nep",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "nep_calc",
+        "--params",
+        '{"train_xyz": "train.xyz", "generation": 100}',
+    )
+
+    assert result["status"] == "success"
+    assert result["software"] == "nep"
+    assert result["actual_tool_used"]["support_level"] == "helper_supported"
+    assert (tmp_path / "nep_calc" / "nep.in").is_file()
+    assert (tmp_path / "nep_calc" / "train.xyz").is_file()
+
+
+def test_generate_nep_inputs_needs_existing_train_xyz(tmp_path):
+    result = _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--task",
+        "nep_training",
+        "--software",
+        "nep",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "nep_calc",
+    )
+
+    assert result["status"] == "needs_inputs"
+    assert result["task"] == "nep_training"
+    assert result["missing_inputs"] == ["train_xyz"]
+
+
+def test_orchestrate_gpumd_task_writes_reports_and_checkpoint(tmp_path):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+    potential = tmp_path / "nep.txt"
+    potential.write_text("dummy potential fixture\n", encoding="utf-8")
+    _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--structure",
+        str(structure),
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+        "--params",
+        '{"potential_file": "nep.txt", "steps": 10}',
+    )
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+    )
+
+    assert result["status"] == "success"
+    assert (tmp_path / "reports" / "gpumd" / "input_manifest.json").is_file()
+    assert (tmp_path / "reports" / "gpumd" / "validation_report.json").is_file()
+    compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
+    assert compute_plan["task"] == "gpumd_md_nvt"
+    assert compute_plan["real_submit_allowed"] is False
+    assert result["checkpoint"]["checkpoint_id"].startswith("ckpt_")
+
+
+def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp_path):
+    result = _run(
+        "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+        "--task",
+        "made_up_task",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+    )
+
+    manifest = json.loads((tmp_path / "reports" / "gpumd" / "input_manifest.json").read_text(encoding="utf-8"))
+    validation = json.loads((tmp_path / "reports" / "gpumd" / "validation_report.json").read_text(encoding="utf-8"))
+    compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "success"
+    assert result["task"] == "unknown"
+    assert manifest["task"] == "unknown"
+    assert manifest["classification_status"] == "needs_clarification"
+    assert validation["status"] == "skip"
+    assert compute_plan["task"] == "unknown"
+    assert compute_plan["real_submit_allowed"] is False
+    assert compute_plan["task"] not in {"gpumd_md_nvt", "nep_training"}
+
+
 def test_parse_gpumd_outputs_summarizes_numeric_table_without_readiness_claim(tmp_path):
     thermo = tmp_path / "thermo.out"
     thermo.write_text("0 300 1.0\n1 305 1.1\n", encoding="utf-8")
@@ -114,6 +303,7 @@ def test_parse_gpumd_outputs_summarizes_numeric_table_without_readiness_claim(tm
     assert parsed["role"] == "thermo_table"
     assert parsed["rows"] == 2
     assert parsed["columns"] == 3
+    assert not _has_nested_key_value(result, "production_ready", True)
     assert "No convergence" in result["limitations"][1]
 
 

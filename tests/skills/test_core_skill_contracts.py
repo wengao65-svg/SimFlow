@@ -181,10 +181,11 @@ def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
     assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
 
 
-def test_gpumd_skill_keeps_tool_level_tracked_only_boundary():
+def test_gpumd_skill_keeps_execution_and_submit_safety_boundary():
     text = _skill_text("simflow-gpumd")
 
-    assert "tool-level `tracked_only`" in text
+    assert "helper-supported engines" in text
+    assert "real execution" in text
     assert "static_input_inspection" in text
     assert "manifest_generation" in text
     assert "selected_output_parsing" in text

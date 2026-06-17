@@ -132,10 +132,10 @@ test('toolchain_capabilities.schema.json defines non-executor capability contrac
   if (!contract.policy.includes('not define software admission')) {
     throw new Error('Capability contract policy must reject admission-registry semantics');
   }
-  if (!contract.tracked_only_software.includes('gpumd') || !contract.tracked_only_software.includes('nep')) {
-    throw new Error('GPUMD/NEP must remain tracked_only');
+  if (!contract.helper_supported_software.includes('gpumd') || !contract.helper_supported_software.includes('nep')) {
+    throw new Error('GPUMD/NEP must be helper_supported');
   }
-  ['input_generation', 'real_execution', 'local_submit', 'remote_execution', 'hpc_submit'].forEach(capability => {
+  ['real_execution', 'local_submit', 'remote_execution', 'hpc_submit'].forEach(capability => {
     if (!contract.capability_support.gpumd.not_helper_supported.includes(capability)) {
       throw new Error(`GPUMD must block helper support for ${capability}`);
     }
@@ -156,7 +156,7 @@ test('helper_adapter.schema.json defines metadata-only active adapter contract',
   if (contract.schema_version !== 'simflow.helper_adapters.v1') {
     throw new Error('Unexpected helper adapter schema version');
   }
-  if (!contract.policy.includes('do not execute tools')) {
+  if (!contract.policy.includes('never execute tools')) {
     throw new Error('Adapter policy must reject execution semantics');
   }
   const active = contract.adapters.filter(adapter => adapter.runtime_enabled).map(adapter => adapter.tool_id);

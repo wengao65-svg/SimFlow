@@ -109,7 +109,7 @@ def test_run_pipeline_execute_updates_stages_and_checkpoint_registry():
         assert not (Path(tmpdir) / ".simflow" / "metadata.json").exists()
 
 
-def test_run_pipeline_stops_without_checkpoint_on_capability_warning():
+def test_run_pipeline_stops_without_checkpoint_when_gpumd_needs_inputs():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         init_research(
@@ -130,11 +130,10 @@ def test_run_pipeline_stops_without_checkpoint_on_capability_warning():
         stages_state = read_state(tmpdir, "stages.json")
         checkpoints = read_state(tmpdir, "checkpoints.json")
 
-        assert result["status"] == "capability_warning"
+        assert result["status"] == "needs_inputs"
         assert result["checkpoint_id"] is None
-        assert [item["status"] for item in result["results"]] == ["completed", "capability_warning"]
-        assert result["results"][-1]["warning"]["software"] == "gpumd"
-        assert result["results"][-1]["warning"]["support_level"] == "tracked_only"
+        assert [item["status"] for item in result["results"]] == ["completed", "needs_inputs"]
+        assert result["results"][-1]["needs_inputs"]["missing_inputs"] == ["potential_file"]
         assert stages_state["computation"]["status"] == "waiting"
         assert stages_state["computation"].get("checkpoint_id") is None
         assert checkpoints == []

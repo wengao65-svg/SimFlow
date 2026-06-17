@@ -151,17 +151,19 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         stage_result, script_path = _execute_runner(runner_spec, project_root, params)
         success = stage_result.get("status") == "success"
         capability_warning = stage_result.get("status") == "capability_warning"
+        needs_inputs = stage_result.get("status") == "needs_inputs"
         result["scripts"].append({
             "script": script_path,
             "activity": activity,
-            "status": "executed" if success else ("warning" if capability_warning else "failed"),
+            "status": "executed" if success else ("warning" if capability_warning or needs_inputs else "failed"),
         })
-        if capability_warning:
+        if capability_warning or needs_inputs:
             update_stage(stage_name, "waiting", project_root=str(project_root), error_message=stage_result.get("message"))
             _update_workflow_progress(project_root, state, stage_name, stages, "in_progress")
-            result["status"] = "capability_warning"
+            result["status"] = stage_result.get("status")
             result["message"] = stage_result.get("message")
-            result["warning"] = stage_result
+            result["warning"] = stage_result if capability_warning else None
+            result["needs_inputs"] = stage_result if needs_inputs else None
             result["completed_at"] = now_iso()
             return result
         if not success:

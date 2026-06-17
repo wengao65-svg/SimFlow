@@ -25,14 +25,12 @@ has migrated into `runtime/simflow_helpers`, so new tests and integrations
 should import those helpers directly rather than adding wrapper scripts back
 under legacy skill directories.
 
-Engine skills such as `simflow-vasp`, `simflow-cp2k`, and `simflow-lammps` are
-the supported optional domain assistants in the current product build. Limited
-evidence helpers such as `simflow-gpumd` and cross-tool domain helpers such as
-`simflow-mlp` can inspect existing evidence, build manifests, parse narrow
-output subsets, and prepare handoff records, but they do not change tool-level
-support unless the shared toolchain contract says so. GPUMD and NEP remain
-tracked-only tools even though selected static evidence capabilities have
-helpers. `simflow-qe` and `simflow-gaussian` are reserved unsupported
+Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, and
+`simflow-gpumd` are the supported optional domain assistants in the current
+product build. Cross-tool domain helpers such as `simflow-mlp` can inspect
+existing evidence, build manifests, parse narrow output subsets, and prepare
+handoff records, but they do not run training or MD. `simflow-qe` and
+`simflow-gaussian` are reserved unsupported
 placeholders; they should only record user-provided files as generic artifacts
 when traceability is requested.
 

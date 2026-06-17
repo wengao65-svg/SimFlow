@@ -173,7 +173,7 @@ function validateSupportMatrix() {
   const prd = fs.readFileSync(path.join(ROOT, 'docs', 'PRD.md'), 'utf-8');
   const softwareSkills = fs.readFileSync(path.join(ROOT, 'docs', 'software-skills.md'), 'utf-8');
   check('README states QE/Gaussian unsupported placeholder status', /QE \/ Gaussian \| Unsupported placeholders/.test(readme));
-  check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, and LAMMPS/.test(prd));
+  check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
   check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
 }
 
@@ -319,12 +319,14 @@ function validateWorkflowAutomation() {
   }
 
   const capabilities = readJson('workflow/toolchains/capabilities.json');
-  check('toolchain capability contract keeps GPUMD tracked_only', capabilities.tracked_only_software.includes('gpumd'));
-  check('toolchain capability contract keeps NEP tracked_only', capabilities.tracked_only_software.includes('nep'));
+  check('toolchain capability contract marks GPUMD helper-supported', capabilities.helper_supported_software.includes('gpumd'));
+  check('toolchain capability contract marks NEP helper-supported', capabilities.helper_supported_software.includes('nep'));
   check(
-    'toolchain capability contract blocks GPUMD/NEP helper submit support',
+    'toolchain capability contract blocks GPUMD/NEP real execution and submit support',
     capabilities.capability_support.gpumd.not_helper_supported.includes('hpc_submit')
-      && capabilities.capability_support.nep.not_helper_supported.includes('hpc_submit'),
+      && capabilities.capability_support.nep.not_helper_supported.includes('hpc_submit')
+      && capabilities.capability_support.gpumd.not_helper_supported.includes('real_execution')
+      && capabilities.capability_support.nep.not_helper_supported.includes('real_execution'),
   );
 
   const roadmap = readJson('workflow/toolchains/adapter_roadmap.json');
@@ -334,7 +336,7 @@ function validateWorkflowAutomation() {
   const adapters = readJson('workflow/toolchains/adapters.json');
   const activeAdapters = adapters.adapters.filter(item => item.runtime_enabled).map(item => item.tool_id);
   const roadmapTools = new Set(roadmap.candidates.map(item => item.tool_id));
-  check('helper adapter contract is metadata-only', adapters.policy.includes('do not execute tools'));
+  check('helper adapter contract blocks execution', adapters.policy.includes('never execute tools'));
   check('runtime active adapters are limited to lammps/gpumd/nep', activeAdapters.join(',') === 'lammps,gpumd,nep');
   check(
     'runtime active adapters are not enabled from roadmap candidates',
