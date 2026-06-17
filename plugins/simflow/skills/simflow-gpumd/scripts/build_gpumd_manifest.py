@@ -82,7 +82,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         limitations=[
             "Manifest generation records user-provided evidence only.",
             "No GPUMD/NEP executable was called.",
-            "Input generation and submit are not helper-supported capabilities.",
+            "Real execution and submit are not helper-supported capabilities.",
         ],
         parent_artifacts=args.parent_artifact,
         created_at=datetime.now(timezone.utc).isoformat(),

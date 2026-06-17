@@ -20,12 +20,7 @@ sys.path.insert(0, str(SIMFLOW_ROOT))
 sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
 
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_helpers.engines.cp2k_input import (
-    cp2k_defaults,
-    generate_input,
-    read_cif_to_xyz,
-    write_xyz,
-)
+from runtime.simflow_helpers.engines.cp2k_input import generate_cp2k_input_package
 
 
 def generate_cp2k_inputs(
@@ -45,54 +40,9 @@ def generate_cp2k_inputs(
     Returns:
         Result dict with status, files_generated, parameters
     """
-    params = params or {}
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-
-    # Read CIF → XYZ + cell
-    cell_abc, xyz_lines, element_counts = read_cif_to_xyz(cif_path)
-    natoms = len(xyz_lines)
-
-    # Parse cell_abc into a, b, c
-    parts = cell_abc.split()
-    cell_a, cell_b, cell_c = parts[0], parts[1], parts[2]
-
-    # Write structure XYZ
-    xyz_content = write_xyz(natoms, f"Generated from {Path(cif_path).name}", xyz_lines)
-    xyz_path = out / "structure.xyz"
-    xyz_path.write_text(xyz_content)
-
-    # Build parameters
-    calc_params = {
-        "cell_a": cell_a,
-        "cell_b": cell_b,
-        "cell_c": cell_c,
-    }
-    if job_type == "aimd_nvt":
-        calc_params["coord_file"] = "structure.xyz"
-    elif job_type == "energy":
-        calc_params["coord_file"] = params.get("coord_file", "last_frame.xyz")
-
-    calc_params.update(params)
-
-    # Generate input
-    inp_content = generate_input(calc_params, job_type)
-    inp_filename = f"{job_type}.inp"
-    inp_path = out / inp_filename
-    inp_path.write_text(inp_content)
-
-    files_generated = [str(inp_path), str(xyz_path)]
-
-    return {
-        "status": "success",
-        "files_generated": files_generated,
-        "parameters": {
-            "job_type": job_type,
-            "natoms": natoms,
-            "elements": element_counts,
-            "cell_abc": cell_abc,
-        },
-    }
+    result = generate_cp2k_input_package(cif_path, job_type, output_dir, params=params)
+    result["compatibility_route"] = "simflow-computation/generate_cp2k_inputs.py"
+    return result
 
 
 def main():

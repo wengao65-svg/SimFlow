@@ -1,53 +1,175 @@
 ---
 name: simflow
-description: Route computational simulation research requests into SimFlow's workflow layer.
+description: Route computational simulation research requests into SimFlow's workflow layer; use for top-level stage selection, cross-skill delegation, state/artifact/checkpoint/handoff coordination, safety escalation, and workflow boundary decisions across literature review, proposal, modeling, computation, analysis/visualization, writing, verification, and handoff.
 ---
 
-# SimFlow
+# SimFlow Top-Level Router
 
-## 触发条件
+`simflow` is the top-level router skill for SimFlow. It maps user intent to
+canonical stages, recipe/tag metadata, downstream skills, evidence needs, state
+write decisions, and safety gates. It is not a centralized workflow executor,
+domain parser, input generator, scientific judge, writing authority, submitter,
+or approval gate.
 
-- 用户提出计算模拟、材料计算、分子模拟、第一性原理、DFT、AIMD、MD、文献综述、建模、计算、分析或科研写作任务。
-- 用户希望让 Codex/Claude Code 在开放科研任务中保留状态、证据、artifact、checkpoint、lineage、gate 或 handoff。
-- 用户询问 SimFlow 的能力、项目初始化、阶段状态或安全边界。
+Use `router_contract.json` only as a lightweight machine-readable companion for
+stable routing categories. It is a contract summary, not a runtime schema and
+not a source of software capability support; use the shared toolchain contract
+for current helper support levels.
 
-## 输入条件
+## Purpose
 
-- 用户的研究目标、当前阶段、已有文件、约束条件或期望交付物。
-- 可选：文献、结构文件、计算输入/输出、分析脚本、图表、写作草稿、软件偏好或计算资源信息。
-- 如果需要写入状态，先解析当前工作目录作为 `project_root`，不得使用 plugin root 或 MCP server cwd。
+- Choose the appropriate SimFlow stage, recipe/tag, and downstream skill set
+  from a computational simulation research request.
+- Coordinate evidence, artifact, checkpoint, verification, handoff, and safety
+  boundaries without replacing the host agent's scientific reasoning or tools.
+- Keep dry-run-first and evidence-first behavior visible whenever real local,
+  remote, or HPC execution may be requested.
 
-## 输出 Artifact
+## Trigger Conditions
 
-- 入口摘要、阶段建议、recipe/tag 建议、风险说明或 handoff notes。
-- `.simflow/` 状态记录、artifact metadata、checkpoint、lineage link 或 gate decision。
-- 用户请求的任意科研交付物，只要其证据来源和生成过程可追溯。
-- 可选：使用 `scripts/run_research_workflow.py` 从结构化研究意图运行
-  `literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing`
-  的 dry-run-first 端到端业务流程，并输出 `.simflow/reports/research_workflow_summary.json`。
+- The user asks about computational simulation, materials modeling, DFT, AIMD,
+  classical MD, MLP-MD, literature review, modeling, computation, analysis,
+  visualization, writing, project status, checkpointing, verification, or
+  handoff.
+- The user wants SimFlow to track state, artifacts, lineage, gates, or recovery
+  checkpoints for an open research task.
+- Multiple SimFlow skills could apply and a top-level routing decision is
+  needed.
 
-## 状态写入规则
+## Stage And Skill Routing
 
-- `.simflow/` 是唯一 SimFlow workflow 状态根，所有写操作必须显式传 `project_root`。
-- SimFlow 只记录阶段、证据、artifact、checkpoint、lineage、handoff 和 gate；科学判断、检索、建模、编码、分析和写作由 agent 负责。
-- DFT、AIMD、MD、phonon、NEB、defect 等是 recipe/tag，不是顶层硬编码 workflow 限制。
-- 用户显式指令优先于默认阶段建议，但不得绕过安全和可追溯性硬边界。
+- `literature_review`: route source discovery, screening, notes, and citation
+  evidence to `simflow-literature-review`.
+- `proposal`: route research plans, assumptions, alternatives, recipes, risks,
+  and evidence contracts to `simflow-proposal`.
+- `modeling`: route structure/model sources, transformations, supercells,
+  constraints, provenance, and validation to `simflow-modeling`.
+- `computation`: route input preparation, validation, dry-run plans,
+  submit-readiness evidence, approved job records, and user-provided
+  computation evidence to `simflow-computation`.
+- `analysis_visualization`: route output inspection, data extraction, scripts,
+  statistics, figures, visual QA, and source-data lineage to
+  `simflow-analysis-visualization`.
+- `writing`: route claim maps, drafts, captions, reproducibility packages, and
+  evidence-calibrated narratives to `simflow-writing`.
 
-## Checkpoint 规则
+Any stage can be entered directly when the needed evidence exists. Treat DFT,
+AIMD, classical MD, MLP-MD, phonon, NEB, defect, adsorption, transport, active
+learning, and custom workflows as recipe/tag metadata, not top-level workflow
+stages.
 
-- 重要阶段边界、证据边界、审查边界或失败边界需要 checkpoint。
-- checkpoint 应说明当前阶段、关键 artifact、lineage、未解决风险和下一步。
-- 不把未完成、未验证或未批准的工作 checkpoint 成已完成状态。
+## Delegation Rules
 
-## 禁止事项
+- `simflow` owns top-level routing, stage/tag selection, state-write decisions,
+  safety escalation detection, and cross-skill boundary resolution.
+- Domain skills own software-specific file semantics, task uncertainty,
+  documentation pointers, static checks, parser limits, and domain warnings.
+  Route VASP, CP2K, LAMMPS, GPUMD/NEP, and MLP-specific questions to
+  `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, `simflow-gpumd`, or
+  `simflow-mlp` as appropriate.
+- `simflow-computation` owns input-generation stage integration, dry-run plans,
+  resource estimates, submit-readiness evidence, computation artifacts, and job
+  records after approved real submits.
+- `simflow-safety-gates` owns high-risk approval decisions and gate records.
+- `simflow-verify` owns evidence sufficiency, readiness checks, and
+  verification reports.
+- `simflow-handoff` owns transfer summaries, artifact inventories, risks,
+  approval needs, and next-step packages.
+- `simflow-checkpoint` owns checkpoint creation, inspection, restore integrity,
+  and overwrite/rollback confirmation.
+- `simflow-writing` owns claim wording, speculation labeling, and
+  claim-evidence consistency.
+- `simflow` must not become the only executor, parser, validator, plotter,
+  report generator, or scientific judge.
 
-- 不要把 SimFlow 当作中心化 executor，替 agent 决定唯一文献源、软件、parser、builder、plotter 或报告结构。
-- 不要编造文献、计算结果、数据、图表、citation、收敛状态或作业状态。
-- 不要保存 credentials，不要泄露 licensed/proprietary 文件。
-- 不要在未通过 approval gate 时提交真实 local、remote 或 HPC job。
+## State Write Decision
 
-## 需要人工确认的场景
+Write `.simflow/` state only when the user asks to initialize, track,
+checkpoint, verify, handoff, or record work; when artifacts, inputs, outputs,
+scripts, figures, claims, gates, reports, or decisions need metadata and
+lineage; or when a stage, failure, approval, or handoff boundary is reached.
 
-- 研究目标、阶段入口、交付格式或证据标准不明确。
-- 涉及真实执行、远程系统、HPC、licensed/proprietary 文件、credentials、破坏性操作或高成本资源。
-- 结论依赖缺失、不完整、未验证或相互矛盾的证据。
+Do not write `.simflow/` state for casual conceptual explanation, preliminary
+brainstorming without a record request, purely educational discussion, or
+route-only answers that do not create artifacts or decisions.
+
+Always use the explicit user project root/current `project_root`. Never write
+project state into the plugin root, skill directory, MCP server cwd, tool installation directory, or `.omx/`.
+
+## Router Output
+
+When routing a request, produce or instruct the host agent to produce this
+conceptual shape:
+
+```json
+{
+  "interpreted_intent": "...",
+  "recommended_stage": "...",
+  "recommended_recipe_tags": [],
+  "recommended_skills": [],
+  "required_evidence": [],
+  "safety_gates": [],
+  "state_write_needed": false,
+  "state_write_reason": null,
+  "next_actions": [],
+  "risks_or_uncertainties": []
+}
+```
+
+This is a router output contract, not a mandatory runtime schema.
+
+## Safety Escalation
+
+Escalate to `simflow-safety-gates` whenever the request involves real local execution,
+remote execution, HPC submit, scheduler interaction, job launch,
+`sbatch`, `qsub`, `srun`, `mpirun`, `mpiexec`, SSH, cluster access,
+credentials, tokens, private keys, license files, proprietary files, VASP
+POTCAR/licensed content, expensive compute, destructive operations, or attempts
+to bypass dry-run, hash checks, verification, or approval.
+
+`simflow` may summarize missing evidence and next steps. It must not approve,
+execute, submit, access remote systems, handle credentials, or claim gate
+passage itself. Real execution and HPC submit remain downstream safety-gated
+actions, never router actions.
+
+## Ambiguous Intent Handling
+
+- Return candidate stages, candidate skills, missing information, safe default
+  evidence actions, and risks.
+- Ask only for information that blocks safe progress or materially changes the
+  evidence contract.
+- If progress is safe without clarification, proceed with dry-run,
+  static-inspection, route-only, or evidence-only planning.
+- Do not default unknown software to a supported helper path.
+- Do not default unknown computation tasks to static, ENERGY, NVT, training,
+  or any other known task.
+- Preserve unsupported or unknown tools as provenance and route them to generic
+  computation or analysis evidence intake when appropriate.
+
+## Prohibited Actions
+
+- Do not perform software-specific input generation, parser-specific output
+  interpretation, real simulation execution, local submit, remote execution, HPC
+  submit, scheduler interaction, or credential handling from `simflow`.
+- Do not make scientific convergence, production-readiness, transferability,
+  mechanism, transport-property, or publication claims without evidence.
+- Do not fabricate literature, computation results, datasets, figures,
+  citations, convergence states, validation status, approval states, completed
+  calculations, or job states.
+- Do not store credentials or licensed/proprietary file contents in state,
+  reports, logs, checkpoints, or handoff packages.
+- Do not force fixed parsers, builders, plotting libraries, report names, or
+  engine choices as the only valid path.
+
+## Manual Confirmation Scenarios
+
+- Research goal, stage entry, deliverable format, evidence threshold, or
+  approval scope is unclear and affects the plan.
+- Real local/remote/HPC execution, scheduler use, licensed/proprietary files,
+  credentials, high-cost resources, destructive operations, or state restore is
+  involved.
+- Evidence is missing, incomplete, stale, contradictory, private, or would be
+  interpreted beyond its support.
+- Claim strength, production-readiness threshold, active-learning stop criteria,
+  analysis method, or figure interpretation materially affects a scientific
+  conclusion.

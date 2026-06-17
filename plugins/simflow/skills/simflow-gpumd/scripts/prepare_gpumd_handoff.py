@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument("--inspection", action="append", default=[], help="Inspection JSON path")
     parser.add_argument("--parsed-output", action="append", default=[], help="Parsed output JSON path")
     parser.add_argument("--output", required=True, help="Handoff JSON output")
-    parser.add_argument("--summary", default="GPUMD/NEP tracked-only evidence handoff")
+    parser.add_argument("--summary", default="GPUMD/NEP helper evidence handoff")
     parser.add_argument("--next-action", action="append", default=[])
     add_helper_recording_args(parser, default_stage="writing")
     args = parser.parse_args()
@@ -76,7 +76,7 @@ def main() -> None:
             "production MLP-MD readiness",
         ],
         "limitations": [
-            "GPUMD/NEP remain tracked_only tools.",
+            "GPUMD/NEP helper support does not include real execution or submit.",
             "This handoff does not certify execution, convergence, or production readiness.",
         ],
     }

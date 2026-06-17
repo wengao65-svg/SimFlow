@@ -1,0 +1,221 @@
+{
+  "schema_version": "simflow.router_contract.v1",
+  "purpose": "Top-level routing contract for SimFlow skill delegation, stage selection, state-write decisions, safety escalation, verification, checkpointing, and handoff coordination.",
+  "not_runtime_schema": true,
+  "canonical_stages": [
+    "literature_review",
+    "proposal",
+    "modeling",
+    "computation",
+    "analysis_visualization",
+    "writing"
+  ],
+  "standard_router_output_fields": [
+    "interpreted_intent",
+    "recommended_stage",
+    "recommended_recipe_tags",
+    "recommended_skills",
+    "required_evidence",
+    "safety_gates",
+    "state_write_needed",
+    "state_write_reason",
+    "next_actions",
+    "risks_or_uncertainties"
+  ],
+  "routing_categories": [
+    {
+      "category": "literature_review",
+      "primary_skill": "simflow-literature-review",
+      "secondary_skills": [
+        "simflow-writing",
+        "simflow-handoff"
+      ],
+      "stage": "literature_review"
+    },
+    {
+      "category": "proposal",
+      "primary_skill": "simflow-proposal",
+      "secondary_skills": [
+        "simflow-verify"
+      ],
+      "stage": "proposal"
+    },
+    {
+      "category": "modeling",
+      "primary_skill": "simflow-modeling",
+      "secondary_skills": [
+        "domain_skills",
+        "simflow-verify"
+      ],
+      "stage": "modeling"
+    },
+    {
+      "category": "vasp_domain",
+      "primary_skill": "simflow-vasp",
+      "secondary_skills": [
+        "simflow-computation",
+        "simflow-analysis-visualization",
+        "simflow-safety-gates"
+      ],
+      "stage": "computation"
+    },
+    {
+      "category": "cp2k_domain",
+      "primary_skill": "simflow-cp2k",
+      "secondary_skills": [
+        "simflow-computation",
+        "simflow-analysis-visualization",
+        "simflow-safety-gates"
+      ],
+      "stage": "computation"
+    },
+    {
+      "category": "lammps_domain",
+      "primary_skill": "simflow-lammps",
+      "secondary_skills": [
+        "simflow-computation",
+        "simflow-analysis-visualization",
+        "simflow-safety-gates"
+      ],
+      "stage": "computation"
+    },
+    {
+      "category": "gpumd_nep_domain",
+      "primary_skill": "simflow-gpumd",
+      "secondary_skills": [
+        "simflow-computation",
+        "simflow-mlp",
+        "simflow-safety-gates"
+      ],
+      "stage": "computation"
+    },
+    {
+      "category": "mlp_evidence",
+      "primary_skill": "simflow-mlp",
+      "secondary_skills": [
+        "simflow-verify",
+        "simflow-writing",
+        "simflow-safety-gates"
+      ],
+      "stage": "analysis_visualization"
+    },
+    {
+      "category": "real_execution_or_submit",
+      "primary_skill": "simflow-computation",
+      "secondary_skills": [
+        "simflow-safety-gates",
+        "simflow-verify",
+        "simflow-checkpoint"
+      ],
+      "stage": "computation",
+      "required_gates": [
+        "hpc_submit"
+      ]
+    },
+    {
+      "category": "analysis_visualization",
+      "primary_skill": "simflow-analysis-visualization",
+      "secondary_skills": [
+        "domain_skills",
+        "simflow-writing",
+        "simflow-verify"
+      ],
+      "stage": "analysis_visualization"
+    },
+    {
+      "category": "writing",
+      "primary_skill": "simflow-writing",
+      "secondary_skills": [
+        "simflow-verify",
+        "simflow-handoff"
+      ],
+      "stage": "writing"
+    },
+    {
+      "category": "status_checkpoint_handoff_verify",
+      "primary_skill": "simflow-verify",
+      "secondary_skills": [
+        "simflow-checkpoint",
+        "simflow-handoff"
+      ],
+      "stage": "current"
+    },
+    {
+      "category": "unknown_or_unsupported_tool_evidence",
+      "primary_skill": "simflow-computation",
+      "secondary_skills": [
+        "simflow-analysis-visualization",
+        "simflow-verify",
+        "simflow-handoff"
+      ],
+      "stage": "computation"
+    }
+  ],
+  "state_write_triggers": [
+    "initialize_or_track_project",
+    "record_artifact_input_output_script_figure_claim_gate_or_report",
+    "stage_boundary",
+    "failure_boundary",
+    "real_execution_planned_or_approved",
+    "verification_report_needed",
+    "checkpoint_needed",
+    "handoff_needed",
+    "safety_decision_needed"
+  ],
+  "state_write_non_triggers": [
+    "casual_conceptual_explanation",
+    "preliminary_brainstorming_without_record_request",
+    "purely_educational_discussion",
+    "route_only_answer_without_artifact_or_decision"
+  ],
+  "safety_escalation_triggers": [
+    "real_local_execution",
+    "remote_execution",
+    "hpc_submit",
+    "scheduler_command",
+    "sbatch",
+    "qsub",
+    "srun",
+    "mpirun",
+    "mpiexec",
+    "ssh_or_cluster_access",
+    "credentials_or_tokens_or_private_keys",
+    "license_files",
+    "proprietary_files",
+    "vasp_potcar_or_licensed_content",
+    "expensive_compute",
+    "destructive_operation",
+    "bypass_dry_run_hash_verification_or_approval"
+  ],
+  "ambiguous_intent_policy": {
+    "return_candidate_stages": true,
+    "return_candidate_skills": true,
+    "list_missing_information": true,
+    "ask_only_for_safe_progress_blockers": true,
+    "allow_dry_run_or_evidence_only_planning": true,
+    "do_not_default_unknown_software_to_supported_helper": true,
+    "do_not_default_unknown_computation_tasks_to_known_tasks": [
+      "static",
+      "ENERGY",
+      "NVT",
+      "training"
+    ]
+  },
+  "toolchain_contract_reference": {
+    "source": "workflow/toolchains/capabilities.json",
+    "purpose": "Single source of truth for helper support levels and capability support.",
+    "router_behavior": "Use software names for routing only; do not duplicate capability support in the router contract."
+  },
+  "prohibited_actions": [
+    "centralized_executor_behavior",
+    "domain_parser_behavior_from_top_level_router",
+    "software_specific_input_generation_from_top_level_router",
+    "real_local_submit",
+    "remote_execution",
+    "hpc_submit",
+    "credential_handling",
+    "scientific_convergence_judgment_without_evidence",
+    "production_readiness_approval_without_evidence",
+    "fabricated_literature_results_data_figures_citations_convergence_or_job_states"
+  ]
+}

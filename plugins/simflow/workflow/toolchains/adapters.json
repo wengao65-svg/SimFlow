@@ -1,6 +1,6 @@
 {
   "schema_version": "simflow.helper_adapters.v1",
-  "policy": "Active helper adapters are metadata-only contracts. They describe recognized files, evidence roles, claim limits, handoff targets, and unsupported capabilities. They do not execute tools, generate production inputs, submit jobs, or change tool-level support.",
+  "policy": "Active helper adapters describe recognized files, evidence roles, claim limits, handoff targets, and supported helper capabilities. They never execute tools, submit jobs, bypass approval gates, or certify unsupported scientific claims.",
   "adapters": [
     {
       "adapter_id": "lammps",
@@ -48,12 +48,15 @@
       ],
       "supported_capabilities": [
         "static_input_inspection",
+        "input_generation",
+        "input_validation",
+        "compute_planning",
+        "orchestration",
         "manifest_generation",
         "selected_output_parsing",
         "evidence_handoff"
       ],
       "unsupported_capabilities": [
-        "input_generation",
         "real_execution",
         "local_submit",
         "remote_execution",
@@ -62,11 +65,14 @@
       "evidence_roles_produced": [
         "gpumd_nep_input_inspection",
         "gpumd_nep_manifest",
-        "gpumd_nep_output_parse_summary"
+        "gpumd_nep_output_parse_summary",
+        "gpumd_input_manifest",
+        "gpumd_validation_report",
+        "gpumd_compute_plan"
       ],
       "claim_limits": [
-        "GPUMD remains tracked_only at tool level.",
-        "No input generation, execution, submit, convergence, or production readiness claim is made."
+        "GPUMD helper support covers input preparation, static validation, dry-run planning, selected parsing, and evidence handoff only.",
+        "No real execution, submit, convergence, transport-property, or production readiness claim is made."
       ],
       "handoff_targets": ["simflow-mlp"]
     },
@@ -91,12 +97,15 @@
       ],
       "supported_capabilities": [
         "static_input_inspection",
+        "input_generation",
+        "input_validation",
+        "compute_planning",
+        "orchestration",
         "manifest_generation",
         "selected_output_parsing",
         "evidence_handoff"
       ],
       "unsupported_capabilities": [
-        "input_generation",
         "real_execution",
         "local_submit",
         "remote_execution",
@@ -106,10 +115,13 @@
         "gpumd_nep_input_inspection",
         "gpumd_nep_manifest",
         "gpumd_nep_output_parse_summary",
-        "model_metrics_summary"
+        "model_metrics_summary",
+        "nep_input_manifest",
+        "nep_validation_report",
+        "nep_compute_plan"
       ],
       "claim_limits": [
-        "NEP remains tracked_only at tool level.",
+        "NEP helper support covers input preparation, static validation, dry-run planning, selected parsing, and evidence handoff only.",
         "No training execution, model quality, transferability, or production readiness claim is made."
       ],
       "handoff_targets": ["simflow-mlp"]

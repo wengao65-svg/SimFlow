@@ -1,15 +1,14 @@
 {
   "schema_version": "simflow.toolchain_capabilities.v1",
-  "policy": "Capability-level helper support does not define software admission, execution support, or workflow blocking. Tracked-only and unknown tools may still be planned and recorded for provenance. Real execution, submit, credentials, and unsupported scientific claims remain governed by safety gates and evidence checks.",
+  "policy": "Helper support does not define software admission, real execution support, or workflow blocking. Tracked-only and unknown tools may still be planned and recorded for provenance. Real execution, submit, credentials, and unsupported scientific claims remain governed by safety gates and evidence checks.",
   "helper_supported_software": [
     "vasp",
     "cp2k",
-    "lammps"
-  ],
-  "capability_supported_tools": [
+    "lammps",
     "gpumd",
     "nep"
   ],
+  "capability_supported_tools": [],
   "tracked_only_software": [
     "abinit",
     "allegro",
@@ -17,10 +16,8 @@
     "custom",
     "deepmd",
     "dpgen",
-    "gpumd",
     "gromacs",
     "mace",
-    "nep",
     "neptrainkit",
     "nequip",
     "openmm",
@@ -43,12 +40,15 @@
     "gpumd": {
       "supported": [
         "static_input_inspection",
+        "input_generation",
+        "input_validation",
+        "compute_planning",
+        "orchestration",
         "manifest_generation",
         "selected_output_parsing",
         "evidence_handoff"
       ],
       "not_helper_supported": [
-        "input_generation",
         "real_execution",
         "local_submit",
         "remote_execution",
@@ -58,12 +58,15 @@
     "nep": {
       "supported": [
         "static_input_inspection",
+        "input_generation",
+        "input_validation",
+        "compute_planning",
+        "orchestration",
         "manifest_generation",
         "selected_output_parsing",
         "evidence_handoff"
       ],
       "not_helper_supported": [
-        "input_generation",
         "real_execution",
         "local_submit",
         "remote_execution",
