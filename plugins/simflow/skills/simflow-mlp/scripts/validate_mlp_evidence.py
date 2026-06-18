@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate presence of MLP evidence roles without judging scientific quality."""
+"""Validate MLP evidence roles without judging scientific quality."""
 
 from __future__ import annotations
 
@@ -16,8 +16,140 @@ from runtime.simflow_core.script_contracts import add_helper_recording_args, may
 
 
 BASE_REQUIRED = ["dataset_manifest", "labeling_manifest", "training_run_manifest", "model_validation_report"]
-PRODUCTION_REQUIRED = BASE_REQUIRED + ["smoke_md_manifest", "anomaly_report"]
+PRODUCTION_REQUIRED = BASE_REQUIRED + [
+    "model_metrics_summary",
+    "smoke_md_manifest",
+    "anomaly_report",
+    "active_learning_round_manifest",
+]
 APPROVAL_REQUIRED = ["approval_record"]
+BLOCKING_STATUSES = {"blocked", "block", "failed", "fail", "error", "missing", "incomplete", "capability_warning", "skipped_optional_dependency"}
+PRODUCTION_PASS_STATUSES = {"completed", "pass", "passed", "success", "ready"}
+BLOCKING_PARSER_STATUSES = {"missing", "malformed", "unrecognized"}
+
+
+def _read_json_payload(role: str, path_value: str) -> tuple[dict | None, list[dict]]:
+    path = Path(path_value).expanduser()
+    if path.exists() and not path.is_file():
+        return None, [{"role": role, "path": str(path), "code": "non_file_evidence_path", "message": "Evidence path must be a regular JSON file."}]
+    if not path.is_file():
+        return None, []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, [{"role": role, "path": str(path), "code": "invalid_evidence_json", "message": str(exc)}]
+    if not isinstance(payload, dict):
+        return None, [{"role": role, "path": str(path), "code": "non_object_evidence", "message": "Evidence JSON must be an object."}]
+    if not payload:
+        return payload, [{"role": role, "path": str(path), "code": "empty_evidence_json", "message": "Evidence JSON is empty."}]
+    return payload, []
+
+
+def _evidence_path_issue(role: str, path_value: str) -> dict | None:
+    path = Path(path_value).expanduser()
+    if not path.exists():
+        return {"role": role, "path": path_value, "code": "missing_evidence_path", "message": f"Evidence path for {role} does not exist: {path_value}"}
+    if not path.is_file():
+        return {"role": role, "path": path_value, "code": "non_file_evidence_path", "message": f"Evidence path for {role} must be a regular JSON file: {path_value}"}
+    return None
+
+
+def _status_issue(role: str, payload: dict, *, status_key: str = "status") -> dict | None:
+    status = str(payload.get(status_key, "")).strip().lower()
+    if not status:
+        return {"role": role, "code": f"missing_{status_key}", "message": f"Missing required field: {status_key}."}
+    if status in BLOCKING_STATUSES or status == "warning":
+        return {"role": role, "code": "non_passing_status", "message": f"{role} has non-passing {status_key}: {status}."}
+    if status not in PRODUCTION_PASS_STATUSES:
+        return {"role": role, "code": "unknown_status", "message": f"{role} has unrecognized {status_key}: {status}."}
+    return None
+
+
+def _parser_issue(role: str, payload: dict) -> dict | None:
+    parser_status = str(payload.get("parser_status", "")).strip().lower()
+    if parser_status in BLOCKING_PARSER_STATUSES:
+        return {"role": role, "code": "blocking_parser_status", "message": f"{role} has parser_status={parser_status}."}
+    return None
+
+
+def _has_any(payload: dict, keys: tuple[str, ...]) -> bool:
+    return any(payload.get(key) not in (None, "", [], {}) for key in keys)
+
+
+def _semantic_issues(role: str, payload: dict) -> list[dict]:
+    issues = []
+    parser_issue = _parser_issue(role, payload)
+    if parser_issue:
+        issues.append(parser_issue)
+
+    if role == "dataset_manifest":
+        if payload.get("lineage_complete") is not True:
+            issues.append({"role": role, "code": "dataset_lineage_incomplete", "message": "dataset_manifest.lineage_complete must be true."})
+        if not payload.get("datasets"):
+            issues.append({"role": role, "code": "missing_dataset_records", "message": "dataset_manifest.datasets must list source dataset files."})
+        return issues
+
+    if role == "labeling_manifest":
+        status_issue = _status_issue(role, payload)
+        if status_issue:
+            issues.append(status_issue)
+        if not _has_any(payload, ("label_source", "reference_label_source", "dft_settings", "label_provenance")):
+            issues.append({"role": role, "code": "missing_label_provenance", "message": "Label source or DFT label provenance is required."})
+        return issues
+
+    if role == "training_run_manifest":
+        status_issue = _status_issue(role, payload)
+        if status_issue:
+            issues.append(status_issue)
+        if not _has_any(payload, ("model_artifact", "model_artifacts", "model_file", "model_files")):
+            issues.append({"role": role, "code": "missing_model_artifact", "message": "Training evidence must identify model artifact(s)."})
+        return issues
+
+    if role == "model_metrics_summary":
+        status_issue = _status_issue(role, payload)
+        if status_issue:
+            issues.append(status_issue)
+        has_metrics = _has_any(payload, ("metric_files", "metrics", "threshold_comparisons")) or any(
+            isinstance(value, (int, float)) for value in payload.values()
+        )
+        if not has_metrics:
+            issues.append({"role": role, "code": "missing_metrics", "message": "Metrics evidence must contain metric values or metric file summaries."})
+        return issues
+
+    if role == "model_validation_report":
+        status_issue = _status_issue(role, payload)
+        if status_issue:
+            issues.append(status_issue)
+        if not _has_any(payload, ("validation_domain", "metrics", "rmse_energy_mev_atom", "property_validation")):
+            issues.append({"role": role, "code": "missing_validation_context", "message": "Validation evidence must identify the validation domain or metrics."})
+        return issues
+
+    if role == "smoke_md_manifest":
+        status_issue = _status_issue(role, payload, status_key="smoke_status")
+        if status_issue:
+            issues.append(status_issue)
+        if not _has_any(payload, ("steps", "duration", "trajectory", "run_manifest")):
+            issues.append({"role": role, "code": "missing_smoke_md_scope", "message": "Smoke MD evidence must record steps, duration, trajectory, or run manifest."})
+        return issues
+
+    if role == "anomaly_report":
+        if payload.get("thresholds_defined") is not True:
+            issues.append({"role": role, "code": "missing_anomaly_thresholds", "message": "anomaly_report.thresholds_defined must be true."})
+        return issues
+
+    if role == "active_learning_round_manifest":
+        status_issue = _status_issue(role, payload)
+        if status_issue:
+            issues.append(status_issue)
+        if not _has_any(payload, ("iteration_id", "round", "candidate_pool", "selection_report", "dataset_update", "validation_changes")):
+            issues.append({
+                "role": role,
+                "code": "missing_active_learning_context",
+                "message": "Active-learning evidence must record an iteration, candidate/selection evidence, dataset update, or validation changes.",
+            })
+        return issues
+
+    return issues
 
 
 def main() -> None:
@@ -43,9 +175,11 @@ def main() -> None:
     missing_scientific_roles = [role for role in scientific_required if role not in evidence]
     missing_execution_roles = [role for role in execution_required if role not in evidence]
     missing_paths = [
-        {"role": role, "path": path}
+        issue
         for role, path in evidence.items()
-        if path and not Path(path).expanduser().exists()
+        if path
+        for issue in [_evidence_path_issue(role, path)]
+        if issue is not None
     ]
     missing_scientific_paths = [
         item for item in missing_paths
@@ -55,7 +189,22 @@ def main() -> None:
         item for item in missing_paths
         if item["role"] in execution_required
     ]
-    scientific_status = "ready" if not missing_scientific_roles and not missing_scientific_paths and not malformed else "blocked"
+    evidence_payloads = {}
+    semantic_issues = []
+    if args.production_readiness:
+        for role, path in evidence.items():
+            if role not in scientific_required or any(item["role"] == role for item in missing_paths):
+                continue
+            payload, load_issues = _read_json_payload(role, path)
+            semantic_issues.extend(load_issues)
+            if payload is not None:
+                evidence_payloads[role] = payload
+                semantic_issues.extend(_semantic_issues(role, payload))
+    scientific_status = (
+        "ready"
+        if not missing_scientific_roles and not missing_scientific_paths and not malformed and not semantic_issues
+        else "blocked"
+    )
     if not args.require_approval:
         execution_gate_status = "not_requested"
     elif missing_execution_roles or missing_execution_paths:
@@ -77,11 +226,14 @@ def main() -> None:
         {"code": "missing_execution_gate_evidence", "message": f"Missing execution gate evidence role: {role}"}
         for role in missing_execution_roles
     ] + [
-        {"code": "missing_evidence_path", "message": f"Evidence path for {item['role']} does not exist: {item['path']}"}
+        {"code": item.get("code", "missing_evidence_path"), "message": item.get("message", f"Evidence path for {item['role']} is unavailable: {item['path']}")}
         for item in missing_paths
     ] + [
         {"code": "malformed_evidence_entry", "message": f"Evidence entry must use role=path form: {item}"}
         for item in malformed
+    ] + [
+        {"code": issue["code"], "message": f"{issue['role']}: {issue['message']}"}
+        for issue in semantic_issues
     ]
     result = build_helper_evidence(
         helper="validate_mlp_evidence",
@@ -94,15 +246,15 @@ def main() -> None:
         actual_tool_used={"software": "custom", "support_level": "tracked_only"},
         parser_status="parsed" if not missing_paths and not malformed else "partial",
         claim_limits=[
-            "This validates evidence presence only.",
-            "Scientific adequacy requires domain review of the referenced evidence.",
+            "This validates evidence presence and minimum production-readiness fields only.",
+            "Scientific adequacy still requires domain review of the referenced evidence.",
             "Approval evidence is conditional and required only when --require-approval is set.",
             "Production MLP-MD readiness approval does not authorize real local, remote, or HPC submit.",
         ],
         warnings=warnings,
         limitations=[
-            "This validates evidence presence only.",
-            "Scientific adequacy requires domain review of the referenced evidence.",
+            "This validates evidence presence and minimum production-readiness fields only.",
+            "Scientific adequacy still requires domain review of the referenced evidence.",
         ],
         production_readiness_requested=args.production_readiness,
         scientific_readiness={
@@ -110,6 +262,7 @@ def main() -> None:
             "required_roles": scientific_required,
             "missing_roles": missing_scientific_roles,
             "missing_paths": missing_scientific_paths,
+            "semantic_issues": semantic_issues,
         },
         scientific_readiness_status=scientific_status,
         execution_gate={
@@ -136,6 +289,9 @@ def main() -> None:
         missing_scientific_roles=missing_scientific_roles,
         missing_execution_roles=missing_execution_roles,
         missing_paths=missing_paths,
+        semantic_issues=semantic_issues,
+        semantic_blocked_roles=sorted({issue["role"] for issue in semantic_issues}),
+        evidence_payload_roles=sorted(evidence_payloads),
         malformed_entries=malformed,
         blocked_claims=(
             ["production MLP-MD readiness", "real production MLP-MD execution"]

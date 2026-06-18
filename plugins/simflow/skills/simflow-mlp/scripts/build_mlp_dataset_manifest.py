@@ -88,15 +88,27 @@ def main() -> None:
     splits = args.split + [None] * max(0, len(args.dataset) - len(args.split))
     records = [_dataset_record(path, splits[index]) for index, path in enumerate(args.dataset)]
     missing = [record for record in records if not record["present"]]
-    degraded = missing + [record for record in records if record.get("warnings")]
+    missing_splits = [record for record in records if not record.get("split")]
+    label_source_missing = not bool(args.label_source)
+    lineage_complete = bool(records) and not missing and not missing_splits and bool(args.label_source)
+    degraded = missing + missing_splits + [record for record in records if record.get("warnings")]
+    if label_source_missing:
+        degraded.append({"label_source": None})
     warnings = [
-            {"code": "missing_dataset", "message": f"Dataset path does not exist: {record['path']}"}
-            for record in missing
-        ] + [
-            warning
-            for record in records
-            for warning in record.get("warnings", [])
-        ]
+        {"code": "missing_dataset", "message": f"Dataset path does not exist: {record['path']}"}
+        for record in missing
+    ] + [
+        {"code": "missing_split", "message": f"Dataset split is not recorded for: {record['path']}"}
+        for record in missing_splits
+    ] + (
+        [{"code": "missing_label_source", "message": "Reference label source is not recorded."}]
+        if label_source_missing
+        else []
+    ) + [
+        warning
+        for record in records
+        for warning in record.get("warnings", [])
+    ]
     manifest = build_helper_evidence(
         helper="build_mlp_dataset_manifest",
         capability="manifest_generation",
@@ -106,7 +118,7 @@ def main() -> None:
         evidence_role="dataset_manifest",
         source_files=[source_file_record(path) for path in args.dataset],
         actual_tool_used={"software": "custom", "support_level": "tracked_only"},
-        parser_status="partial" if degraded and not missing else ("missing" if len(missing) == len(records) else "parsed"),
+        parser_status="missing" if len(missing) == len(records) else ("partial" if degraded else "parsed"),
         claim_limits=[
             "Dataset manifests record provenance and counts only.",
             "Label convergence, model quality, and production readiness are not inferred.",
@@ -123,6 +135,9 @@ def main() -> None:
         iteration_id=args.iteration_id,
         toolchain=[item.strip() for item in args.toolchain.split(",")] if args.toolchain else [],
         label_source=args.label_source,
+        label_provenance_recorded=bool(args.label_source),
+        split_complete=not missing_splits,
+        lineage_complete=lineage_complete,
         datasets=records,
     )
     output = Path(args.output)
