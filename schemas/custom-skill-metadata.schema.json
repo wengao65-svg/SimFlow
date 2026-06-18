@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustomSkillMetadata",
+  "description": "Project-local custom skill metadata schema (.simflow/extensions/skills/*/metadata.json)",
+  "type": "object",
+  "required": ["name", "version", "description", "stage_binding"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Project-local custom skill package name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Custom skill version"
+    },
+    "description": {
+      "type": "string",
+      "description": "Custom skill purpose"
+    },
+    "author": {
+      "type": "string",
+      "description": "Optional author or owner"
+    },
+    "stage_binding": {
+      "oneOf": [
+        {"type": "string"},
+        {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      ],
+      "description": "Canonical stage, custom activity label, domain tag, or list of labels. Custom labels do not redefine SimFlow top-level stages."
+    },
+    "entrypoint": {
+      "type": "string",
+      "description": "Optional callable or script entry point"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Optional capability labels"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional project-local metadata"
+    }
+  },
+  "additionalProperties": true
+}

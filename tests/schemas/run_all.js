@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const Ajv = require('ajv');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SCHEMAS_DIR = path.join(ROOT, 'schemas');
@@ -12,6 +13,15 @@ const FIXTURES_DIR = path.join(ROOT, 'tests/fixtures');
 
 let passed = 0;
 let failed = 0;
+
+function readJson(relativePath) {
+  return JSON.parse(fs.readFileSync(path.join(ROOT, relativePath), 'utf-8'));
+}
+
+function compileSchema(name) {
+  const ajv = new Ajv({ strict: false, validateFormats: false });
+  return ajv.compile(readJson(path.join('schemas', name)));
+}
 
 function test(name, fn) {
   try {
@@ -210,6 +220,63 @@ test('helper_evidence.schema.json defines common soft evidence envelope', () => 
       throw new Error(`Missing parser status: ${status}`);
     }
   });
+});
+
+test('skill-contract.schema.json supports built-in and custom skill frontmatter', () => {
+  const validate = compileSchema('skill-contract.schema.json');
+  const builtin = {
+    skill_name: 'simflow-computation',
+    description: 'Prepare, validate, dry-run, or submit simulation jobs.',
+    stage_binding: ['computation'],
+  };
+  const custom = {
+    skill_name: 'my-custom-analysis:run_analysis',
+    description: 'Project-local RDF analysis helper.',
+    stage_binding: 'analysis',
+  };
+  if (!validate(builtin)) {
+    throw new Error(`Built-in skill contract rejected: ${JSON.stringify(validate.errors)}`);
+  }
+  if (!validate(custom)) {
+    throw new Error(`Custom skill contract rejected: ${JSON.stringify(validate.errors)}`);
+  }
+});
+
+test('custom-skill-metadata.schema.json permits project-local activity labels', () => {
+  const validate = compileSchema('custom-skill-metadata.schema.json');
+  const metadata = {
+    name: 'my-custom-analysis',
+    version: '1.0.0',
+    description: 'Custom RDF analysis with publication-quality plots',
+    author: 'researcher@university.edu',
+    stage_binding: 'analysis',
+  };
+  if (!validate(metadata)) {
+    throw new Error(`Custom metadata rejected: ${JSON.stringify(validate.errors)}`);
+  }
+});
+
+test('custom-skill-binding.schema.json remains scoped to built-in SimFlow skill overrides', () => {
+  const validate = compileSchema('custom-skill-binding.schema.json');
+  const binding = {
+    skill_name: 'simflow-computation',
+    binding_type: 'extend',
+    extends: {
+      additional_scripts: ['scripts/custom_submit_readiness.py'],
+    },
+  };
+  const metadataShape = {
+    name: 'my-custom-analysis',
+    version: '1.0.0',
+    description: 'Custom RDF analysis',
+    stage_binding: 'analysis',
+  };
+  if (!validate(binding)) {
+    throw new Error(`Built-in binding rejected: ${JSON.stringify(validate.errors)}`);
+  }
+  if (validate(metadataShape)) {
+    throw new Error('Custom skill metadata must not validate as an override binding');
+  }
 });
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);

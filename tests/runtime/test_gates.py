@@ -251,6 +251,7 @@ def test_production_md_readiness_passes_with_evidence_and_approval():
         "anomaly_thresholds_defined",
         "active_learning_round_reviewed",
         "readiness_report_ready",
+        "readiness_does_not_authorize_submit",
         "approval_present",
     ]
 

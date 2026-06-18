@@ -175,6 +175,57 @@ function validateSupportMatrix() {
   check('README states QE/Gaussian unsupported placeholder status', /QE \/ Gaussian \| Unsupported placeholders/.test(readme));
   check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
   check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
+
+  const parserServer = fs.readFileSync(path.join(ROOT, 'mcp', 'servers', 'parsers', 'server.py'), 'utf-8');
+  check(
+    'parser MCP does not import unsupported QE/Gaussian parser helpers',
+    !/QEParser|GaussianParser|qe_parser|gaussian_parser/.test(parserServer),
+  );
+  check(
+    'parser MCP exposes unsupported placeholders as blocked provenance states',
+    parserServer.includes('UNSUPPORTED_PLACEHOLDERS') && parserServer.includes('unsupported_placeholder'),
+  );
+  const unsupportedSourceFiles = [
+    'runtime/simflow_helpers/engines/qe.py',
+    'runtime/simflow_helpers/engines/parsers/qe_parser.py',
+    'runtime/simflow_helpers/engines/parsers/gaussian_parser.py',
+    'templates/qe/pw.in.template',
+    'templates/qe/submit.slurm.template',
+    'templates/gaussian/job.com.template',
+    'templates/gaussian/submit.slurm.template',
+  ].filter(relativePath => fs.existsSync(path.join(ROOT, relativePath)));
+  check(
+    'unsupported QE/Gaussian parser and template source files are absent',
+    unsupportedSourceFiles.length === 0,
+    unsupportedSourceFiles.join('\n'),
+  );
+
+  const verificationRunner = fs.readFileSync(path.join(ROOT, 'skills', 'simflow-verify', 'scripts', 'run_verification.py'), 'utf-8');
+  check(
+    'verification helper rejects unsupported QE/Gaussian placeholders',
+    verificationRunner.includes('UNSUPPORTED_PLACEHOLDER_SOFTWARE') && verificationRunner.includes('unsupported_placeholder'),
+  );
+
+  const targetStructure = fs.readFileSync(path.join(ROOT, 'docs', 'target-repo-structure.md'), 'utf-8');
+  check('target repo structure documents mlp_md recipe', /mlp_md\.json/.test(targetStructure));
+
+  const customSkillDoc = fs.readFileSync(path.join(ROOT, 'docs', 'custom-skills.md'), 'utf-8');
+  const skillContractSchema = readJson('schemas/skill-contract.schema.json');
+  check(
+    'custom skill docs distinguish metadata from built-in override bindings',
+    customSkillDoc.includes('custom-skill-metadata.schema.json')
+      && customSkillDoc.includes('custom-skill-binding.schema.json')
+      && customSkillDoc.includes('project-local activity/domain labels'),
+  );
+  check(
+    'custom skill metadata schema exists',
+    fs.existsSync(path.join(ROOT, 'schemas', 'custom-skill-metadata.schema.json')),
+  );
+  check(
+    'skill contract schema allows custom entrypoint names and string bindings',
+    skillContractSchema.properties.skill_name.pattern.includes(':')
+      && !!skillContractSchema.properties.stage_binding.oneOf,
+  );
 }
 
 function validateRestrictedArtifacts() {

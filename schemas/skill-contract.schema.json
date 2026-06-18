@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SkillContract",
-  "description": "SimFlow skill contract schema (SKILL.md frontmatter)",
+  "description": "SimFlow skill contract schema (SKILL.md frontmatter for built-in and project custom skills)",
   "type": "object",
   "required": ["skill_name", "description", "stage_binding"],
   "properties": {
     "skill_name": {
       "type": "string",
-      "pattern": "^simflow-[a-z0-9-]+$",
-      "description": "Unique skill identifier"
+      "pattern": "^(simflow-[a-z0-9-]+|[a-z0-9][a-z0-9-]*(?::[A-Za-z_][A-Za-z0-9_]*)?)$",
+      "description": "Unique built-in SimFlow skill identifier or project custom skill entry point"
     },
     "description": {
       "type": "string",
@@ -19,9 +19,14 @@
       "default": "0.1.0"
     },
     "stage_binding": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Workflow stages this skill can execute"
+      "oneOf": [
+        {"type": "string"},
+        {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      ],
+      "description": "Canonical workflow stage, custom activity label, domain tag, or list of such bindings. Custom labels are not automatically promoted to top-level stages."
     },
     "agent_binding": {
       "type": "string",

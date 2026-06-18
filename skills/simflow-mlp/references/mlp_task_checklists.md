@@ -14,5 +14,8 @@
 
 ## Readiness review
 
-- Require validation, smoke MD, anomaly thresholds, and approval evidence before production MLP-MD.
+- Require complete dataset lineage, labeling provenance, training/model artifact identity, metrics, validation, smoke MD, anomaly thresholds, and approval evidence before production MLP-MD.
 - Record missing evidence as blocked or degraded, not passed.
+- Treat empty JSON, warning status, blocked/incomplete/capability-warning status, or missing/malformed/unrecognized parser status as readiness blockers.
+- Treat directories or other non-file paths as missing evidence; `role=path`
+  entries must point to regular JSON evidence files.

@@ -5,7 +5,6 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from runtime.simflow_helpers.engines.parsers.qe_parser import QEParser
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.checkpoints import create_checkpoint, get_latest_checkpoint
 from runtime.simflow_core.state import init_workflow, read_state, update_stage
@@ -28,17 +27,20 @@ def test_aimd_workflow_e2e():
 
         update_stage("computation", "in_progress", tmpdir)
         register_artifact("input_manifest.json", "input_manifest", "computation", tmpdir)
-        parsed = QEParser().parse(str(FIXTURES_DIR / "qe_output_Si.xml"))
-        assert parsed.software == "quantum_espresso"
         register_artifact(
             "qe_output_Si.xml",
-            "parsed_output",
+            "user_provided_output",
             "computation",
             tmpdir,
-            metadata={"software": parsed.software, "job_type": parsed.job_type, "converged": parsed.converged},
+            metadata={
+                "software": "quantum_espresso",
+                "support_level": "tracked_only",
+                "parser_status": "not_applicable",
+                "limitation": "QE parser/validation helper support is unavailable in this SimFlow product build.",
+            },
         )
         update_stage("computation", "completed", tmpdir)
-        create_checkpoint(workflow_id, "computation", "AIMD computation evidence parsed", tmpdir)
+        create_checkpoint(workflow_id, "computation", "AIMD computation evidence recorded", tmpdir)
 
         update_stage("analysis_visualization", "in_progress", tmpdir)
         register_artifact("trajectory_analysis.json", "analysis_data", "analysis_visualization", tmpdir)

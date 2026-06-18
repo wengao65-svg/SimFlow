@@ -100,28 +100,23 @@ def test_vasp_poscar_template():
 
 
 def test_qe_pw_in_template():
-    """Test rendering QE pw.in template."""
-    result = render_software_template("qe", "pw.in.template", {
-        "calculation": "scf",
-        "ecutwfc": 60.0,
-        "nat": 2,
-        "element": "Si",
-    })
-    assert "calculation  = 'scf'" in result
-    assert "ecutwfc   = 60.0" in result
-    assert "nat       = 2" in result
-    print("  QE pw.in template OK")
+    """QE input templates are unsupported placeholders."""
+    try:
+        render_software_template("qe", "pw.in.template", {"calculation": "scf"})
+    except ValueError as exc:
+        assert "unsupported placeholders" in str(exc)
+    else:
+        raise AssertionError("QE templates must not render in the current product build")
 
 
-def test_qe_relax_template():
-    """Test QE template with relax calculation (conditional ions block)."""
-    result = render_software_template("qe", "pw.in.template", {
-        "calculation": "relax",
-        "ion_dynamics": "bfgs",
-    })
-    assert "&IONS" in result
-    assert "ion_dynamics = 'bfgs'" in result
-    print("  QE relax template OK")
+def test_gaussian_job_template():
+    """Gaussian input templates are unsupported placeholders."""
+    try:
+        render_software_template("gaussian", "job.com.template", {"method": "B3LYP"})
+    except ValueError as exc:
+        assert "unsupported placeholders" in str(exc)
+    else:
+        raise AssertionError("Gaussian templates must not render in the current product build")
 
 
 def test_lammps_nvt_template():

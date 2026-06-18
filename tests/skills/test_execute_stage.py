@@ -2,6 +2,7 @@
 """Tests for canonical stage executor behavior."""
 
 import importlib.util
+import inspect
 import json
 import shutil
 import sys
@@ -22,6 +23,14 @@ from runtime.simflow_helpers.stages.pipeline import run_pipeline
 
 VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"
 CP2K_FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
+STAGE_RUNNER_CONTRACTS = [
+    ("skills/simflow-modeling/scripts/run_modeling_stage.py", "run_modeling_stage"),
+    ("skills/simflow-computation/scripts/run_input_generation_stage.py", "run_input_generation_stage"),
+    ("skills/simflow-computation/scripts/run_compute_stage.py", "run_compute_stage"),
+    ("skills/simflow-analysis-visualization/scripts/run_analysis_stage.py", "run_analysis_stage"),
+    ("skills/simflow-analysis-visualization/scripts/run_visualization_stage.py", "run_visualization_stage"),
+    ("skills/simflow-writing/scripts/run_writing_stage.py", "run_writing_stage"),
+]
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:Duplicate keys found.*ENCUT.*:pymatgen.io.vasp.inputs.BadIncarWarning"
@@ -38,6 +47,25 @@ def _write_metadata(tmpdir: str, workflow_type: str = "dft"):
         "stages": [],
     }
     write_state(metadata, project_root=tmpdir, state_file="metadata.json")
+
+
+def _load_stage_runner(script_path: str, function_name: str):
+    path = ROOT / script_path
+    spec = importlib.util.spec_from_file_location(f"test_{function_name}", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return getattr(module, function_name), path
+
+
+def test_stage_runner_callables_default_to_dry_run_and_require_execute_flag_for_cli():
+    for script_path, function_name in STAGE_RUNNER_CONTRACTS:
+        runner, path = _load_stage_runner(script_path, function_name)
+        signature = inspect.signature(runner)
+        assert signature.parameters["dry_run"].default is True
+        text = path.read_text(encoding="utf-8")
+        assert 'parser.add_argument("--execute"' in text
+        assert 'dest="dry_run"' in text
 
 
 def test_execute_stage_dry_run_uses_workflow_definition_not_workflow_json_stages():

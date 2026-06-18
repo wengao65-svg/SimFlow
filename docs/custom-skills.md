@@ -1,5 +1,20 @@
 # Custom Skills Guide
 
+Custom skills are project-local extensions. They may add a new activity, domain
+helper, or analysis script, or they may override/supplement a built-in
+`simflow-*` skill through an explicit binding file. These are separate
+contracts:
+
+- `SKILL.md` frontmatter follows `schemas/skill-contract.schema.json`.
+- `metadata.json` follows `schemas/custom-skill-metadata.schema.json`.
+- Built-in skill override/extend/disable bindings follow
+  `schemas/custom-skill-binding.schema.json`.
+
+Custom `stage_binding` values may be canonical stages such as
+`analysis_visualization`, or project-local activity/domain labels such as
+`analysis`, `rdf`, or `postprocess`. A custom label is metadata for discovery
+and routing; it does not redefine SimFlow's top-level stage list.
+
 ## Creating a Custom Skill
 
 ### Directory Structure
@@ -19,6 +34,7 @@
 
 ```yaml
 skill_name: my-custom-analysis:run_analysis
+description: Custom RDF analysis with publication-quality plots
 stage_binding: analysis
 inputs:
   - name: trajectory
@@ -79,7 +95,20 @@ if __name__ == "__main__":
 
 ## Binding to Stages
 
-Custom skills bind to workflow stages via `stage_binding`. When a custom skill declares the same stage as a built-in skill, the custom skill takes priority.
+Custom skills bind to workflow stages, activities, or domain labels via
+`stage_binding`.
+
+- Use a canonical stage when the custom skill is intended to participate in a
+  built-in stage boundary, for example `analysis_visualization`.
+- Use a project-local label when the skill is narrower than a canonical stage,
+  for example `analysis` or `rdf`.
+- Do not treat project-local labels as new top-level workflow stages unless the
+  project also defines the surrounding workflow contract and evidence rules.
+
+When a custom skill is meant to override, extend, or disable a built-in
+`simflow-*` skill, declare that separately with a binding document validated by
+`schemas/custom-skill-binding.schema.json`. A metadata-only custom skill does
+not automatically override a built-in skill.
 
 ## Discovery Order
 
