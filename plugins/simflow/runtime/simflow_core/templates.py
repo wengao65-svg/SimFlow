@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
+UNSUPPORTED_TEMPLATE_SOFTWARE = {"qe", "quantum_espresso", "gaussian"}
 
 
 def render_template(template_path: str, variables: Dict[str, Any]) -> str:
@@ -277,12 +278,19 @@ def load_template(software: str, template_name: str) -> str:
     """Load a template by software and name.
 
     Args:
-        software: Software name (vasp, qe, lammps, gaussian)
+        software: Software name (vasp, cp2k, lammps)
         template_name: Template file name (e.g., INCAR.template)
 
     Returns:
         Template string
     """
+    normalized = software.lower()
+    if normalized in UNSUPPORTED_TEMPLATE_SOFTWARE:
+        raise ValueError(
+            f"{software} templates are unsupported placeholders in this SimFlow "
+            "product build. Use generic artifact/evidence intake for "
+            "user-provided files instead of generating engine-specific inputs."
+        )
     path = TEMPLATES_DIR / software / template_name
     with open(path, "r") as f:
         return f.read()
@@ -292,7 +300,7 @@ def render_software_template(software: str, template_name: str, variables: Dict[
     """Load and render a software template.
 
     Args:
-        software: Software name (vasp, qe, lammps, gaussian)
+        software: Software name (vasp, cp2k, lammps)
         template_name: Template file name
         variables: Template variables
 

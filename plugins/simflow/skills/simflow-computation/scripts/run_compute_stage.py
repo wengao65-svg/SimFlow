@@ -218,7 +218,7 @@ def _render_submit_readiness_summary(summary: dict[str, Any]) -> str:
     ])
 
 
-def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = False) -> dict:
+def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = True) -> dict:
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     state = read_state(project_root=str(project_root), state_file="workflow.json")
     if not state:
@@ -519,7 +519,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the canonical compute stage")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--params", type=str, default="{}", help="JSON parameters for the stage")
-    parser.add_argument("--dry-run", action="store_true", default=False)
+    parser.add_argument("--dry-run", action="store_true", default=True)
+    parser.add_argument("--execute", dest="dry_run", action="store_false")
     args = parser.parse_args()
 
     try:

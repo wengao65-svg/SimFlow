@@ -11,23 +11,42 @@ ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
 
+from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 from runtime.simflow_helpers.engines.parsers.vasp_parser import VASPParser
-from runtime.simflow_helpers.engines.parsers.qe_parser import QEParser
 from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
-from runtime.simflow_helpers.engines.parsers.gaussian_parser import GaussianParser
+from runtime.simflow_core.toolchains import normalize_tool_name
 from mcp.shared.stdio_server import run_mcp_server
 
 PARSERS = {
+    "cp2k": CP2KParser,
     "vasp": VASPParser,
-    "qe": QEParser,
     "lammps": LAMMPSParser,
-    "gaussian": GaussianParser,
 }
+
+UNSUPPORTED_PLACEHOLDERS = {"qe", "quantum_espresso", "gaussian"}
+
+
+def _normalized_software(value: object) -> str:
+    return normalize_tool_name(value)
+
+
+def _unsupported_placeholder(software: str) -> dict:
+    return {
+        "status": "unsupported_placeholder",
+        "software": software,
+        "message": (
+            "QE and Gaussian parser/validation helpers are not supported in this "
+            "SimFlow product build. Record user-provided files through generic "
+            "artifact or evidence intake with explicit unsupported provenance."
+        ),
+    }
 
 
 def handle_parse(params: dict) -> dict:
-    software = params.get("software", "").lower()
+    software = _normalized_software(params.get("software", ""))
     file_path = params.get("file_path", "")
+    if software in UNSUPPORTED_PLACEHOLDERS:
+        return _unsupported_placeholder(software)
     if software not in PARSERS:
         return {"status": "error", "message": f"Unsupported: {software}"}
     if not file_path:
@@ -42,8 +61,10 @@ def handle_parse(params: dict) -> dict:
 
 
 def handle_check_convergence(params: dict) -> dict:
-    software = params.get("software", "").lower()
+    software = _normalized_software(params.get("software", ""))
     file_path = params.get("file_path", "")
+    if software in UNSUPPORTED_PLACEHOLDERS:
+        return _unsupported_placeholder(software)
     if software not in PARSERS:
         return {"status": "error", "message": f"Unsupported: {software}"}
     try:

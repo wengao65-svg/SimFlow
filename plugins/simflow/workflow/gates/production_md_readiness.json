@@ -15,35 +15,35 @@
       "evidence": "analysis/labeling_manifest.json",
       "path": "$.status",
       "op": "in",
-      "value": ["completed", "pass", "warning"]
+      "value": ["completed", "pass", "success"]
     },
     {
       "id": "training_completed",
       "evidence": "compute/training_run_manifest.json",
       "path": "$.status",
       "op": "in",
-      "value": ["completed", "pass"]
+      "value": ["completed", "pass", "success"]
     },
     {
       "id": "metrics_summary_present",
       "evidence": "analysis/model_metrics_summary.json",
       "path": "$.status",
       "op": "in",
-      "value": ["success", "pass", "warning"]
+      "value": ["success", "pass", "completed"]
     },
     {
       "id": "validation_passed",
       "evidence": "analysis/model_validation_report.json",
       "path": "$.status",
       "op": "in",
-      "value": ["pass", "warning"]
+      "value": ["pass", "success"]
     },
     {
       "id": "smoke_md_passed",
       "evidence": "compute/smoke_md_manifest.json",
       "path": "$.smoke_status",
       "op": "in",
-      "value": ["pass", "warning"]
+      "value": ["pass", "success"]
     },
     {
       "id": "anomaly_thresholds_defined",
@@ -57,7 +57,7 @@
       "evidence": "analysis/active_learning_round_manifest.json",
       "path": "$.status",
       "op": "in",
-      "value": ["completed", "pass", "warning"]
+      "value": ["completed", "pass", "success"]
     },
     {
       "id": "readiness_report_ready",
@@ -65,6 +65,13 @@
       "path": "$.scientific_readiness.status",
       "op": "eq",
       "value": "ready"
+    },
+    {
+      "id": "readiness_does_not_authorize_submit",
+      "evidence": "analysis/production_md_readiness_report.json",
+      "path": "$.real_submit_allowed",
+      "op": "eq",
+      "value": false
     },
     {
       "id": "approval_present",

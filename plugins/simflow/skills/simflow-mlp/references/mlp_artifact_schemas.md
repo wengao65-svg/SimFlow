@@ -55,9 +55,15 @@ For MLP readiness helper output:
 
 - `scientific_readiness.status` records whether the scientific evidence is
   ready or blocked.
+- `scientific_readiness.semantic_issues` lists role-level minimum-field or
+  status problems that block readiness.
 - `production_md_gate_approved` records whether the optional
   `production_md_readiness` approval evidence was supplied and accepted.
 - `real_submit_gate` should point to `hpc_submit` and state that a separate
   submit gate is required before real local, remote, or HPC execution.
 - `real_submit_allowed` is a compatibility field in MLP readiness evidence and
   must remain `false`; production-readiness approval does not authorize submit.
+
+`prepare_mlp_handoff` output should also use `simflow.helper_evidence.v1` so
+handoff artifacts can be queried by evidence role, helper status, parser status,
+recipe, and claim limits.

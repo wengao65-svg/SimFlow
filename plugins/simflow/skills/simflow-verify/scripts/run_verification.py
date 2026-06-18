@@ -20,6 +20,22 @@ from runtime.simflow_core.verification import create_verification_report, add_ch
 from runtime.simflow_core.utils import now_iso
 
 
+UNSUPPORTED_PLACEHOLDER_SOFTWARE = {"qe", "quantum_espresso", "gaussian"}
+
+
+def _unsupported_placeholder_check(software: str) -> dict:
+    return {
+        "check": "unsupported_placeholder",
+        "passed": False,
+        "message": (
+            f"{software} verification is not supported in this SimFlow product build; "
+            "record user-provided files through generic artifact or evidence intake."
+        ),
+        "software": software,
+        "support_level": "unsupported_placeholder",
+    }
+
+
 def verify_structure(structure_file: str) -> dict:
     """Verify a structure file is valid."""
     try:
@@ -45,9 +61,13 @@ def verify_structure(structure_file: str) -> dict:
 
 def verify_convergence(output_dir: str, software: str) -> dict:
     """Check if calculation outputs show convergence."""
+    normalized = (software or "").lower()
+    if normalized in UNSUPPORTED_PLACEHOLDER_SOFTWARE:
+        return _unsupported_placeholder_check(normalized)
+
     out_dir = Path(output_dir)
 
-    if software == "vasp":
+    if normalized == "vasp":
         outcar = out_dir / "OUTCAR"
         if outcar.exists():
             content = outcar.read_text(errors="replace")
@@ -57,12 +77,6 @@ def verify_convergence(output_dir: str, software: str) -> dict:
                 "passed": converged,
                 "message": "VASP convergence: {}".format("reached" if converged else "NOT reached"),
             }
-    elif software == "qe":
-        for f in out_dir.glob("*.out"):
-            content = f.read_text(errors="replace")
-            if "convergence has been achieved" in content:
-                return {"check": "convergence", "passed": True, "message": "QE converged"}
-        return {"check": "convergence", "passed": False, "message": "QE convergence not found"}
 
     return {"check": "convergence", "passed": False, "message": "No output files found"}
 
@@ -99,7 +113,6 @@ def run_verification(workflow_dir: str, stage: str = None,
     if output_dir:
         expected = {
             "vasp": ["OUTCAR", "OSZICAR", "CONTCAR"],
-            "qe": ["*.out", "*.xml"],
             "lammps": ["log.lammps", "dump.lammps"],
         }
         if software and software in expected:
@@ -125,7 +138,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run workflow verification")
     parser.add_argument("--workflow-dir", required=True, help="Path to .simflow directory")
     parser.add_argument("--stage", help="Stage to verify")
-    parser.add_argument("--software", choices=["vasp", "qe", "lammps", "gaussian"],
+    parser.add_argument("--software", choices=["vasp", "lammps", "qe", "quantum_espresso", "gaussian"],
                         help="Software type")
     parser.add_argument("--output-dir", help="Directory containing calculation outputs")
     add_helper_recording_args(parser, default_stage="analysis_visualization")
