@@ -29,6 +29,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "Support Matrix" in result.stdout
     assert "Restricted Artifact Scan" in result.stdout
     assert "Workflow Automation" in result.stdout
+    assert "Marketplace Version Guard" in result.stdout
     assert "safe dry-run example does not write job records" in result.stdout
     assert "LAMMPS safe dry-run example does not write job records" in result.stdout
     assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
@@ -69,3 +70,62 @@ def test_marketplace_publish_workflows_cover_codex_and_claude():
     assert "npm run build:claude-marketplace" in claude_text
     assert "SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin" in claude_text
     assert "npm run publish:claude-marketplace -- --no-build" in claude_text
+
+
+def _write_minimal_plugin(root: Path, version: str, skills: set[str]) -> None:
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin" / "plugin.json").write_text(
+        f'{{"name":"simflow","version":"{version}"}}\n',
+        encoding="utf-8",
+    )
+    for skill in skills:
+        skill_dir = root / "skills" / skill
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: {skill}\ndescription: test skill\n---\n",
+            encoding="utf-8",
+        )
+
+
+def test_marketplace_skill_changes_require_plugin_version_bump(tmp_path):
+    previous_skills = {"simflow", "simflow-vasp"}
+    current_skills = previous_skills | {"simflow-gpumd", "simflow-mlp"}
+    previous = tmp_path / "previous"
+    current_same_version = tmp_path / "current-same-version"
+    current_new_version = tmp_path / "current-new-version"
+
+    _write_minimal_plugin(previous, "0.8.12", previous_skills)
+    _write_minimal_plugin(current_same_version, "0.8.12", current_skills)
+    _write_minimal_plugin(current_new_version, "0.8.13", current_skills)
+
+    failed = subprocess.run(
+        [
+            "node",
+            "scripts/check_marketplace_version_guard.js",
+            str(current_same_version),
+            str(previous),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert failed.returncode == 1
+    assert "plugin version must increase when packaged skills change" in failed.stderr
+    assert "simflow-gpumd" in failed.stderr
+    assert "simflow-mlp" in failed.stderr
+
+    passed = subprocess.run(
+        [
+            "node",
+            "scripts/check_marketplace_version_guard.js",
+            str(current_new_version),
+            str(previous),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert passed.returncode == 0, passed.stdout + passed.stderr
+    assert "marketplace packaged skill/version guard passed" in passed.stdout

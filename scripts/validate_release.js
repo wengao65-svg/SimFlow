@@ -7,6 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { compareSemver, diffSkillNames } = require('./marketplace_version_guard');
 
 const ROOT = path.resolve(__dirname, '..');
 const args = new Set(process.argv.slice(2));
@@ -516,6 +517,52 @@ function validateWorkflowAutomation() {
   runCheck('hpc.submit blocks before execution when workflow state is absent', 'python', ['-c', hpcSubmitSmoke]);
 }
 
+function gitShow(ref, relativePath) {
+  return run('git', ['show', `${ref}:${relativePath}`], { capture: true });
+}
+
+function gitListTree(ref, relativePath) {
+  return run('git', ['ls-tree', '-r', '--name-only', ref, '--', relativePath], { capture: true })
+    .split(/\r?\n/)
+    .filter(Boolean);
+}
+
+function validateMarketplaceVersionGuard() {
+  console.log('\n--- Marketplace Version Guard ---');
+  const currentVersion = readJson('package.json').version;
+  const currentSkills = fs.readdirSync(path.join(ROOT, 'skills'))
+    .filter(entry => fs.existsSync(path.join(ROOT, 'skills', entry, 'SKILL.md')))
+    .sort();
+
+  for (const [label, branch, manifestPath] of [
+    ['Codex', 'codex-marketplace', 'plugins/simflow/.codex-plugin/plugin.json'],
+    ['Claude', 'claude-marketplace', 'plugins/simflow/.claude-plugin/plugin.json'],
+  ]) {
+    try {
+      const previousVersion = JSON.parse(gitShow(branch, manifestPath)).version;
+      const previousSkills = gitListTree(branch, 'plugins/simflow/skills')
+        .filter(file => file.endsWith('/SKILL.md'))
+        .map(file => file.split('/').at(-2))
+        .sort();
+      const diff = diffSkillNames(currentSkills, previousSkills);
+      const skillsChanged = diff.added.length > 0 || diff.removed.length > 0;
+      const versionIncreased = compareSemver(currentVersion, previousVersion) > 0;
+      check(
+        `${label} marketplace packaged skill changes require plugin version bump`,
+        !skillsChanged || versionIncreased,
+        [
+          `current version: ${currentVersion}`,
+          `previous ${branch} version: ${previousVersion}`,
+          diff.added.length ? `added skills: ${diff.added.join(', ')}` : null,
+          diff.removed.length ? `removed skills: ${diff.removed.join(', ')}` : null,
+        ].filter(Boolean).join('\n'),
+      );
+    } catch (error) {
+      fail(`${label} marketplace packaged skill/version guard can inspect ${branch}`, error.message);
+    }
+  }
+}
+
 function validateMarketplaceWrappers() {
   console.log('\n--- Marketplace Wrappers ---');
   if (SKIP_WRAPPERS) {
@@ -548,6 +595,7 @@ function main() {
   validateSafeExamples();
   validateReleaseNotesCommand();
   validateWorkflowAutomation();
+  validateMarketplaceVersionGuard();
   validateMarketplaceWrappers();
   console.log('\n=== Summary ===');
   if (errors > 0) {

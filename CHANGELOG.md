@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+- Bump the public plugin version to `0.8.13` so Claude Code rebuilds the installed plugin cache and exposes the packaged `simflow-gpumd` and `simflow-mlp` skills after marketplace updates.
+- Add a release guard that blocks marketplace publication when packaged skills change without a plugin version bump.
+
 ### Added
 - Add a Claude Code adapter as a parallel distribution layer with `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.claude.mcp.json`, Claude marketplace wrapper build/publish scripts, validation, and quickstart/release documentation.
 
