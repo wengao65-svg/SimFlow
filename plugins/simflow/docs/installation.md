@@ -63,6 +63,16 @@ claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
+Update SimFlow when a new Claude marketplace version is published:
+
+```bash
+claude plugin marketplace update simflow-claude-marketplace
+claude plugin update simflow
+```
+
+Restart Claude Code or open a new session after updating so the new plugin
+version is loaded.
+
 Verify typical skill names:
 
 ```text

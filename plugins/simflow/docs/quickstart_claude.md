@@ -26,6 +26,19 @@ claude plugin install simflow@simflow-claude-marketplace
 
 `claude plugin marketplace add` supports `--scope` and `--sparse`. It does not use a `--ref` option.
 
+## Update SimFlow
+
+Update the marketplace source and installed plugin when a new SimFlow Claude
+marketplace version is published:
+
+```bash
+claude plugin marketplace update simflow-claude-marketplace
+claude plugin update simflow
+```
+
+Restart Claude Code or open a new session after updating so the new plugin
+version is loaded.
+
 ## Developer Local Test
 
 Build and install the local Claude marketplace wrapper:
