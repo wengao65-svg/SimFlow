@@ -29,7 +29,8 @@ executor and does not replace domain skills or scheduler safety gates.
 - Input validation: record file presence, non-empty checks, hashes, and
   lightweight consistency evidence.
 - Dry-run planning: generate or register calculation manifests, job scripts,
-  resource estimates, credential scans, and submit-readiness evidence.
+  resource estimates, credential scans, and submit-readiness evidence. Prefer
+  explicit or reusable user submit scripts over generating a new script.
 - Generic evidence intake: record user-provided computation artifacts for
   tracked_only or unknown tools without forcing a helper route.
 - Submit handoff: pass reviewed evidence and hashes to the safety gate and MCP
@@ -72,6 +73,12 @@ executor and does not replace domain skills or scheduler safety gates.
 - Preserve a `submit_request_template` payload for MCP submit fields:
   `project_root`, `script_path`, `scheduler`, `dry_run_evidence`,
   `script_hash`, `input_artifact_hash`, and `gate_decision_id`.
+- Preserve user-provided submit scripts unchanged. If a task-specific
+  adaptation is necessary, create a derived script under `.simflow/` with
+  parent-script lineage; do not edit the original script in place.
+- Treat project-local `scripts/submit/` as the default reusable submit-script
+  library. Only reusable scripts belong there; one-off task scripts should stay
+  in the calculation directory or be referenced explicitly.
 - Set `real_submit_allowed` to `false` until an explicit `hpc_submit` gate
   decision id is recorded against matching evidence and hashes.
 - If the job script or input hash changes after approval, require a new dry-run

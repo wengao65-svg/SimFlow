@@ -37,6 +37,16 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _write_metadata(tmpdir: str, workflow_type: str = "dft"):
     state = read_state(tmpdir, "workflow.json")
     metadata = {
@@ -56,6 +66,37 @@ def _load_stage_runner(script_path: str, function_name: str):
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return getattr(module, function_name), path
+
+
+def _write_direct_vasp_inputs(project_root: Path) -> list[str]:
+    inputs_dir = project_root / "inputs" / "vasp"
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+    (inputs_dir / "INCAR").write_text("ENCUT = 520\n", encoding="utf-8")
+    (inputs_dir / "KPOINTS").write_text("Gamma\n0\nGamma\n1 1 1\n0 0 0\n", encoding="utf-8")
+    (inputs_dir / "POSCAR").write_text(
+        "Si\n1.0\n3.0 0.0 0.0\n0.0 3.0 0.0\n0.0 0.0 3.0\nSi\n1\nDirect\n0.0 0.0 0.0\n",
+        encoding="utf-8",
+    )
+    return [
+        "inputs/vasp/INCAR",
+        "inputs/vasp/KPOINTS",
+        "inputs/vasp/POSCAR",
+    ]
+
+
+def _init_direct_vasp_computation(project_root: Path) -> None:
+    input_files = _write_direct_vasp_inputs(project_root)
+    init_research(
+        input_text="\n".join([
+            "entry_stage: computation",
+            "goal: dry-run existing VASP inputs",
+            "material: Si",
+            "software: vasp",
+            "parameters: "
+            + json.dumps({"input_files": input_files, "task": "static"}),
+        ]),
+        output_dir=str(project_root),
+    )
 
 
 def test_stage_runner_callables_default_to_dry_run_and_require_execute_flag_for_cli():
@@ -385,6 +426,184 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         assert {"input_manifest.json", "compute_plan.json", "dry_run_report.json"}.issubset(
             {artifact["name"] for artifact in artifacts}
         )
+
+
+def test_computation_stage_preserves_explicit_user_submit_script():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        script_path = project_root / "scripts" / "submit" / "vasp_submit.sh"
+        script_text = "\n".join([
+            "#!/bin/bash",
+            "#SBATCH --job-name=user-validated",
+            "#SBATCH --nodes=2",
+            "#SBATCH --ntasks=64",
+            "module load vasp/6.4",
+            "srun vasp_std > vasp.out",
+            "",
+        ])
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+        script_path.write_text(script_text, encoding="utf-8")
+        before_hash = _sha256_file(script_path)
+
+        result = execute_stage(
+            str(project_root / ".simflow"),
+            "computation",
+            params={"job_script": "scripts/submit/vasp_submit.sh"},
+            dry_run=False,
+        )
+        compute_manifest = result["manifests"]["compute"]
+        dry_run_report = json.loads(
+            (project_root / ".simflow" / "artifacts" / "compute" / "dry_run_report.json").read_text(encoding="utf-8")
+        )
+        job_script_artifact = next(
+            artifact for artifact in result["artifacts"]
+            if artifact["type"] == "job_script" and artifact["path"] == "scripts/submit/vasp_submit.sh"
+        )
+
+        assert result["status"] == "completed"
+        assert script_path.read_text(encoding="utf-8") == script_text
+        assert _sha256_file(script_path) == before_hash
+        assert compute_manifest["job_script"] == "scripts/submit/vasp_submit.sh"
+        assert compute_manifest["job_script_source"] == "explicit_user_path"
+        assert compute_manifest["job_script_preserved_without_modification"] is True
+        assert compute_manifest["submit_request_template"]["script_path"] == "scripts/submit/vasp_submit.sh"
+        assert dry_run_report["job_script"] == "scripts/submit/vasp_submit.sh"
+        assert dry_run_report["script_hash"] == before_hash
+        assert job_script_artifact["metadata"]["source"] == "explicit_user_path"
+        assert job_script_artifact["metadata"]["preserved_without_modification"] is True
+
+
+def test_computation_stage_discovers_single_reusable_submit_script():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        script_path = project_root / "scripts" / "submit" / "slurm_submit.sh"
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+        script_path.write_text(
+            "#!/bin/bash\n#SBATCH --job-name=reusable\n#SBATCH --ntasks=16\nsrun vasp_std\n",
+            encoding="utf-8",
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        compute_manifest = result["manifests"]["compute"]
+
+        assert result["status"] == "completed"
+        assert compute_manifest["job_script"] == "scripts/submit/slurm_submit.sh"
+        assert compute_manifest["job_script_source"] == "project_script_library"
+        assert compute_manifest["job_script_original_path"] == "scripts/submit/slurm_submit.sh"
+        assert compute_manifest["job_script_preserved_without_modification"] is True
+        assert compute_manifest["submit_readiness"]["script_path"] == "scripts/submit/slurm_submit.sh"
+        assert compute_manifest["submit_request_template"]["script_path"] == "scripts/submit/slurm_submit.sh"
+        assert not (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").exists()
+
+
+def test_computation_stage_ignores_non_scheduler_scripts_in_submit_library():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        helper_path = project_root / "scripts" / "submit" / "cleanup.sh"
+        helper_path.parent.mkdir(parents=True, exist_ok=True)
+        helper_path.write_text("#!/bin/bash\necho cleanup\n", encoding="utf-8")
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        compute_manifest = result["manifests"]["compute"]
+
+        assert result["status"] == "completed"
+        assert compute_manifest["job_script_source"] == "simflow_generated"
+        assert compute_manifest["job_script"] == ".simflow/artifacts/compute/job_script.sh"
+        assert helper_path.read_text(encoding="utf-8") == "#!/bin/bash\necho cleanup\n"
+
+
+def test_compute_stage_dry_run_reports_reused_script_path_as_existing_artifact():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        script_path = project_root / "scripts" / "submit" / "slurm_submit.sh"
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+        script_path.write_text("#!/bin/bash\n#SBATCH --job-name=reusable\nsrun vasp_std\n", encoding="utf-8")
+        input_runner, _ = _load_stage_runner(
+            "skills/simflow-computation/scripts/run_input_generation_stage.py",
+            "run_input_generation_stage",
+        )
+        compute_runner, _ = _load_stage_runner(
+            "skills/simflow-computation/scripts/run_compute_stage.py",
+            "run_compute_stage",
+        )
+
+        input_result = input_runner(str(project_root / ".simflow"), params={}, dry_run=False)
+        result = compute_runner(str(project_root / ".simflow"), params={}, dry_run=True)
+
+        assert input_result["status"] == "success"
+        assert result["status"] == "dry_run_complete"
+        assert result["manifest"]["job_script"] == "scripts/submit/slurm_submit.sh"
+        assert "scripts/submit/slurm_submit.sh" in result["planned_outputs"]
+        assert ".simflow/artifacts/compute/slurm_submit.sh" not in result["planned_outputs"]
+
+
+def test_computation_stage_derives_template_script_without_modifying_original():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        template_path = project_root / "scripts" / "submit" / "template_submit.sh"
+        template_text = "\n".join([
+            "#!/bin/bash",
+            "#SBATCH --job-name={{SIMFLOW_JOB_NAME}}",
+            "#SBATCH --nodes={{SIMFLOW_NODES}}",
+            "#SBATCH --ntasks={{SIMFLOW_NTASKS}}",
+            "#SBATCH --time={{SIMFLOW_WALLTIME}}",
+            "{{SIMFLOW_COMMAND}}",
+            "",
+        ])
+        template_path.parent.mkdir(parents=True, exist_ok=True)
+        template_path.write_text(template_text, encoding="utf-8")
+
+        result = execute_stage(
+            str(project_root / ".simflow"),
+            "computation",
+            params={
+                "job_script": "scripts/submit/template_submit.sh",
+                "render_job_script_template": True,
+                "job_name": "templated-si",
+            },
+            dry_run=False,
+        )
+        compute_manifest = result["manifests"]["compute"]
+        derived_path = project_root / compute_manifest["job_script"]
+
+        assert result["status"] == "completed"
+        assert template_path.read_text(encoding="utf-8") == template_text
+        assert compute_manifest["job_script_source"] == "derived_from_template"
+        assert compute_manifest["job_script_original_path"] == "scripts/submit/template_submit.sh"
+        assert compute_manifest["job_script_preserved_without_modification"] is False
+        assert compute_manifest["job_script"].startswith(".simflow/artifacts/compute/template_submit.derived")
+        assert derived_path.is_file()
+        derived_text = derived_path.read_text(encoding="utf-8")
+        assert "{{SIMFLOW_" not in derived_text
+        assert "#SBATCH --job-name=templated-si" in derived_text
+        assert "vasp_gam > vasp.out" in derived_text
+
+
+def test_computation_stage_waits_when_reusable_submit_script_is_ambiguous():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        _init_direct_vasp_computation(project_root)
+        submit_dir = project_root / "scripts" / "submit"
+        submit_dir.mkdir(parents=True, exist_ok=True)
+        (submit_dir / "slurm_a.sh").write_text("#!/bin/bash\n#SBATCH --job-name=a\nsrun vasp_std\n", encoding="utf-8")
+        (submit_dir / "slurm_b.sh").write_text("#!/bin/bash\n#SBATCH --job-name=b\nsrun vasp_std\n", encoding="utf-8")
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        stages_state = read_state(tmpdir, "stages.json")
+
+        assert result["status"] == "needs_inputs"
+        assert result["needs_inputs"]["code"] == "ambiguous_job_script"
+        assert result["needs_inputs"]["candidates"] == [
+            "scripts/submit/slurm_a.sh",
+            "scripts/submit/slurm_b.sh",
+        ]
+        assert stages_state["computation"]["status"] == "waiting"
+        assert not (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").exists()
 
 
 def test_execute_stage_allows_direct_lammps_computation_entry_with_existing_inputs():

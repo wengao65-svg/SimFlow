@@ -32,6 +32,21 @@ Compute actions start with dry-run evidence. A dry-run package should record:
 The dry-run report is an artifact. Later approval must reference that artifact
 instead of relying on an agent-supplied boolean.
 
+Submit script handling is preserve-first. If the user provides `job_script` or
+`submit_script`, the computation stage records and hashes that script without
+editing it. If no script is provided, SimFlow may reuse a single
+scheduler-compatible script from the project reusable library
+`scripts/submit/`. Multiple candidates require an explicit user choice. Only
+when no suitable script exists should SimFlow generate a new script under
+`.simflow/artifacts/compute/`.
+
+Reusable submit scripts belong under `scripts/submit/`. One-off calculation
+scripts should remain in their calculation directory or be referenced
+explicitly. If a reusable script uses declared `{{SIMFLOW_*}}` placeholders and
+the user requests rendering, SimFlow writes a derived copy under `.simflow/`
+and records lineage to the original; it must not modify the original script in
+place.
+
 The standard computation helper emits the following evidence package:
 
 | Evidence | Canonical path |

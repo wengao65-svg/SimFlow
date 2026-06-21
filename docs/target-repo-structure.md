@@ -29,6 +29,13 @@ simflow/
   scripts/
 ```
 
+The SimFlow plugin repository `scripts/` directory is for packaging,
+validation, scaffolding, and developer utilities. In a user project,
+`scripts/submit/` is the default convention for reusable submit scripts that
+can be referenced by computation-stage dry-run/readiness evidence. One-off
+calculation scripts should stay with the calculation directory or be passed
+explicitly as `job_script`/`submit_script`.
+
 ## Skills
 
 Canonical workflow-layer skills are:
