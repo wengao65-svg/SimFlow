@@ -254,6 +254,11 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
     assert "does not own final property analysis" in lowered
 
 
+def test_lammps_skill_uses_consistent_english_language():
+    text = _skill_text("simflow-lammps")
+    assert not re.search(r"[\u4e00-\u9fff]", text)
+
+
 def test_support_skills_do_not_reintroduce_fixed_executor_contracts():
     for skill_name in SUPPORT_SKILLS:
         text = _skill_text(skill_name)
