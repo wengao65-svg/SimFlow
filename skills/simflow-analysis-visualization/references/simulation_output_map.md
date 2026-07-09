@@ -31,6 +31,11 @@ route are unclear. This map is a guide, not a fixed parser requirement.
 - Common analyses: thermo time series, pressure/temperature/energy drift, density, RDF, MSD, diffusion, stress, strain, and structure snapshots.
 - Optional tools: SimFlow LAMMPS parser, MDAnalysis, OVITO when available, pandas, Pizza.py-style tools, shell extraction, or custom Python.
 - Confirm dump columns, timestep spacing, units style, atom ids, image flags, masses, and topology before interpreting trajectory-derived quantities.
+- Use `simflow-lammps` for LAMMPS-specific output intake and `lammps_output_intake_manifest`; use property references here for final analysis methods and claims.
+- Route RDF, coordination, and structure snapshots to `md_structure_analysis.md`.
+- Route MSD, VACF, diffusion, viscosity, and thermal conductivity to `md_diffusion_transport.md`.
+- Route stress-strain, elastic constants, deformation, and strength to `mechanical_elastic_analysis.md`.
+- Route MLP-MD trajectory or production-readiness claims to `mlp_md_analysis_readiness.md` plus the property-specific method reference.
 
 ## GPUMD outputs
 
@@ -40,6 +45,7 @@ route are unclear. This map is a guide, not a fixed parser requirement.
 - Optional tools: GPUMDkit, GPUMD/NepTrainKit ecosystem tools when available, numpy, pandas, ASE, MDAnalysis-compatible conversions, or custom Python.
 - For GPUMDkit-style conversion, analyzer, calculator, or plotting routes, load `community_postprocessing_tools.md` and preserve generated `PLOT.in` or configuration files, derived data, figures, command logs, and skipped-tool reasons.
 - Record command-line inputs, model or potential identifiers, output cadence, unit conventions, and any conversion scripts.
+- Route RDF/structure outputs to `md_structure_analysis.md`, transport outputs to `md_diffusion_transport.md`, mechanical outputs to `mechanical_elastic_analysis.md`, and MLP-MD readiness claims to `mlp_md_analysis_readiness.md`.
 
 ## Unsupported engine placeholders
 

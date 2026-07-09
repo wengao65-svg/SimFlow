@@ -134,6 +134,14 @@ def test_analysis_visualization_reference_map_is_routable():
         "plotting_principles.md",
         "simulation_output_map.md",
         "analysis_methods.md",
+        "md_structure_analysis.md",
+        "md_diffusion_transport.md",
+        "mechanical_elastic_analysis.md",
+        "electronic_structure_analysis.md",
+        "phonon_vibrational_analysis.md",
+        "neb_barrier_analysis.md",
+        "defect_surface_adsorption_analysis.md",
+        "mlp_md_analysis_readiness.md",
         "data_intake_and_profiling.md",
         "community_postprocessing_tools.md",
         "figure_contract_and_visual_qa.md",
@@ -151,6 +159,7 @@ def test_analysis_visualization_reference_map_is_routable():
     assert "VASPKIT-style optional tools" in text
     assert "publication figure QA" in text
     assert "tool-specific visualization" in text
+    assert "property-specific analysis" in text
 
 
 def test_modeling_preserves_user_provided_models():
@@ -220,9 +229,11 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
         "classic_md",
         "reactive_md",
         "mlp_md_deployment",
-        "analysis_visualization",
+        "analysis_handoff",
+        "lammps_output_intake_manifest",
         "troubleshooting",
         "simflow-mlp",
+        "simflow-analysis-visualization",
         "deployment only",
     ]:
         assert phrase in lowered
@@ -232,11 +243,15 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
         "lammps_input_validation.md",
         "lammps_force_fields_and_mlp.md",
         "lammps_md_workflows.md",
-        "lammps_analysis_visualization.md",
+        "lammps_output_intake.md",
         "lammps_troubleshooting.md",
     ]:
         assert reference in text
         assert (references_dir / reference).is_file()
+
+    assert "lammps_analysis_visualization.md" not in text
+    assert not (references_dir / "lammps_analysis_visualization.md").exists()
+    assert "does not own final property analysis" in lowered
 
 
 def test_support_skills_do_not_reintroduce_fixed_executor_contracts():

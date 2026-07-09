@@ -1,6 +1,6 @@
 ---
 name: simflow-lammps
-description: Provide LAMMPS domain assistance for setup, validation, MLP-MD deployment, trajectory analysis, troubleshooting, and traceable artifacts.
+description: Provide LAMMPS domain assistance for setup, validation, MLP-MD deployment, output intake, troubleshooting, and traceable artifacts.
 ---
 
 # SimFlow LAMMPS
@@ -15,8 +15,8 @@ handoff 仍由 SimFlow workflow 层处理。
   RDF、MSD、diffusion、NVE/NVT/NPT/NPH、ReaxFF、DeepMD、MACE、NequIP、
   Allegro、PACE、SNAP、QUIP 或 MLP-MD。
 - modeling、computation、analysis_visualization 或 writing 需要 LAMMPS-specific
-  context。
-- 用户需要检查、生成草稿、记录、分析或解释 LAMMPS 文件。
+  file context。
+- 用户需要检查、生成草稿、记录、解释或交接 LAMMPS 文件。
 
 ## Task Routing
 
@@ -25,12 +25,16 @@ handoff 仍由 SimFlow workflow 层处理。
 | `classic_md` | EAM/MEAM/Tersoff/SW/AIREBO/LJ/KIM 等经典势 MD | 势函数来源、units、atom_style、ensemble、timestep、log/dump |
 | `reactive_md` | ReaxFF/COMB 等反应性或可变电荷 MD | 参数来源、电荷平衡、long-range 设置、稳定性和时间步长 |
 | `mlp_md_deployment` | LAMMPS 调用已训练 MLP 模型运行 MD | model 文件、type mapping、LAMMPS package/build 证据、`simflow-mlp` handoff |
-| `analysis_visualization` | log/dump/trajectory 后处理 | timestep、frame 覆盖、平衡边界、统计误差、脚本和图件 lineage |
+| `analysis_handoff` | LAMMPS log/dump/trajectory 输出 intake 并交给分析 stage | `lammps_output_intake_manifest`、dump columns、units、atom ids、image flags、type mapping |
 | `troubleshooting` | 输入、运行、package、MPI/GPU 或物理稳定性问题 | error/warning、最小复现输入、环境和变更记录 |
 
 MLP-MD 中本 skill 的 claim scope 是 **deployment only**：它只说明 LAMMPS 如何
 引用模型并准备/检查 MD 输入，不评价 MLP 训练质量、外推安全性、验证覆盖或 production
 readiness。这些证据必须交给 `simflow-mlp`。
+
+Analysis boundary: `simflow-lammps` does not own final property analysis,
+statistics, figures, or scientific claims. It records LAMMPS-specific output
+semantics and hands analysis intent to `simflow-analysis-visualization`.
 
 ## 输入条件
 
@@ -48,13 +52,13 @@ readiness。这些证据必须交给 `simflow-mlp`。
 - `references/lammps_input_validation.md`: input/data/log/dump 静态检查合同。
 - `references/lammps_force_fields_and_mlp.md`: 经典势、反应性势、KIM、MLP 部署证据和 `simflow-mlp` 边界。
 - `references/lammps_md_workflows.md`: minimize、equilibration、production、transport、rerun、restart/smoke/production。
-- `references/lammps_analysis_visualization.md`: RDF/MSD/VACF、扩散、结构识别、OVITO/MDAnalysis 和误差估计。
+- `references/lammps_output_intake.md`: LAMMPS log/dump/data/restart intake、`lammps_output_intake_manifest` 和 analysis handoff。
 - `references/lammps_troubleshooting.md`: package 缺失、lost atoms、dangerous builds、GPU/MPI、漂移和 MLP runtime 问题。
 
 ## 输出 Artifact
 
 - 可选 input manifest、force-field provenance note、MLP deployment manifest、validation report、
-  analysis script/output、figure/caption 或 handoff note。
+  LAMMPS output intake manifest 或 handoff note。
 - 使用任意 helper、脚本或外部工具时记录 helper-run manifest。
 - artifact metadata 应记录 source data、命令/工具、参数、环境、输出和 lineage。
 - 对 input/log/dump 审查，优先输出 inspection report：missing inputs、force-field provenance、
@@ -74,8 +78,8 @@ readiness。这些证据必须交给 `simflow-mlp`。
   输出 input inspection 和 MLP deployment evidence。
 - `scripts/generate_lammps_inputs.py`: 小范围模板助手，适合 `minimize`、`nve`、`nvt`、`npt` 初稿；
   `mlp_md` 缺模型/type/package 证据时返回 `needs_inputs`。
-- `scripts/analyze_lammps_trajectory.py`: 可选 MDAnalysis wrapper，用于 RDF/MSD 辅助分析；用户也可以
-  自写 Python、OVITO、Pizza.py 或其他工具。
+- `scripts/analyze_lammps_trajectory.py`: analysis_visualization stage 可选的 LAMMPS trajectory
+  helper route；从 LAMMPS skill 视角它只是格式/证据适配，不是最终性质分析标准。
 
 这些 helper 只是 domain assistant，不是唯一合法路径；可使用官方 LAMMPS examples 或用户自写脚本，
 只要记录 evidence、lineage 和风险。
@@ -85,6 +89,8 @@ readiness。这些证据必须交给 `simflow-mlp`。
 - 不要把内置 LAMMPS helper 当成唯一合法 parser、builder 或 analysis path。
 - 不要默认未知 LAMMPS 任务为固定 MD alias。
 - 不要把 MLP 模型能被 LAMMPS 引用写成训练已验证、外推安全或 production-ready。
+- 不要把 LAMMPS output intake 写成 RDF/MSD/VACF/输运/弹性等最终性质 claim；这些由
+  `simflow-analysis-visualization` 处理。
 - 不要隐藏不完整力场、能量漂移、未平衡轨迹、缺失 timestep 或统计不确定性。
 - 不要保存 credentials、泄露 proprietary force-field/model files 或私有路径。
 - 不要在未通过 approval gate 时提交真实 local、remote 或 HPC job。

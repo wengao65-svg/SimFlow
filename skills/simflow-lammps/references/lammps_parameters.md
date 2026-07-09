@@ -9,7 +9,7 @@ manual and must not override official LAMMPS documentation.
 - `lammps_input_validation.md`: static inspection contract for input/data/log/dump.
 - `lammps_force_fields_and_mlp.md`: classical, reactive, KIM, and MLP deployment evidence.
 - `lammps_md_workflows.md`: common MD workflow patterns and smoke/production boundaries.
-- `lammps_analysis_visualization.md`: trajectory/log analysis and visualization evidence.
+- `lammps_output_intake.md`: LAMMPS output intake and analysis-stage handoff evidence.
 - `lammps_troubleshooting.md`: common failures and minimum diagnostic evidence.
 
 ## Minimum Evidence
