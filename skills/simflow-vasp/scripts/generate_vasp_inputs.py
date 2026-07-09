@@ -7,6 +7,10 @@ Uses pymatgen.io.vasp for structured input generation.
 NBANDS policy: ordinary calculations (relax, scf, static, bands, dos) do not
 write NBANDS by default. Special calculations (optics, gw, etc.) get automatic
 NBANDS. User-explicit NBANDS is validated against occupied_bands.
+
+NCORE/NPAR policy: unknown hardware omits both and reports missing execution
+context; confirmed CPU defaults to NPAR=4; GPU/OpenACC/offload omits both by
+default; user-explicit values are preserved with warnings when needed.
 """
 
 import argparse
@@ -30,11 +34,17 @@ except ImportError:
     sys.exit(1)
 
 from runtime.simflow_helpers.engines.vasp_potcar import read_poscar_species, validate_potcar, get_potcar_nelect
-from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+from runtime.simflow_helpers.engines.vasp_incar import (
+    apply_nbands_policy,
+    apply_ncore_npar_policy,
+    filter_vasp_incar_params,
+    get_explicit_user_nbands,
+)
 
 
 def generate_incar(job_type: str, params: dict, structure: Structure = None,
-                   potcar_path: str = None) -> Incar:
+                   potcar_path: str = None,
+                   return_policy_report: bool = False) -> Incar:
     """Generate pymatgen Incar object with appropriate defaults.
 
     NBANDS policy is applied after merging defaults with user params:
@@ -48,6 +58,9 @@ def generate_incar(job_type: str, params: dict, structure: Structure = None,
         structure: pymatgen Structure (needed for NELECT/NBANDS calculation)
         potcar_path: Path to POTCAR (needed for ZVAL/NELECT extraction)
     """
+    params = params or {}
+    incar_params = filter_vasp_incar_params(params)
+
     defaults = {
         "PREC": "Accurate",
         "ENCUT": 520,
@@ -74,10 +87,10 @@ def generate_incar(job_type: str, params: dict, structure: Structure = None,
     elif job_type == "dos":
         defaults.update({"NSW": 0, "IBRION": -1, "ICHARG": 11, "LORBIT": 11, "NEDOS": 2001})
     elif job_type in {"neb", "neb_basic"}:
-        defaults.update({"NSW": 200, "IBRION": 3, "POTIM": 0.0, "IMAGES": params.get("IMAGES", 1)})
+        defaults.update({"NSW": 200, "IBRION": 3, "POTIM": 0.0, "IMAGES": incar_params.get("IMAGES", 1)})
 
     # Merge user params FIRST
-    defaults.update(params)
+    defaults.update(incar_params)
 
     # Apply NBANDS policy AFTER merging, so we can override/remove residual NBANDS
     if structure is not None:
@@ -107,6 +120,12 @@ def generate_incar(job_type: str, params: dict, structure: Structure = None,
                 lnoncollinear=lnoncollinear,
             )
 
+    policy_report = {
+        "ncore_npar": apply_ncore_npar_policy(defaults, params),
+    }
+
+    if return_policy_report:
+        return Incar(defaults), policy_report
     return Incar(defaults)
 
 
@@ -177,8 +196,13 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         files_generated.append(str(output_path / "POTCAR_info.json"))
 
     # INCAR (after POTCAR, so we can read ZVAL for NBANDS policy)
-    incar = generate_incar(job_type, params, structure=structure,
-                           potcar_path=potcar_path_for_incar)
+    incar, incar_policy = generate_incar(
+        job_type,
+        params,
+        structure=structure,
+        potcar_path=potcar_path_for_incar,
+        return_policy_report=True,
+    )
     incar_path = output_path / "INCAR"
     incar.write_file(str(incar_path))
     files_generated.insert(0, str(incar_path))
@@ -203,6 +227,7 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         "elements": [str(s) for s in structure.composition.elements],
         "kpoints_mesh": kpoints.kpts[0],
         "incar_params": dict(incar),
+        "incar_policy": incar_policy,
         "potcar": potcar_result,
     }
 

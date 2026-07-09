@@ -140,6 +140,26 @@ def _stage_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[
         "modules",
         "mpi_launcher",
         "pre_commands",
+        "job_script",
+        "submit_script",
+        "job_script_path",
+        "submit_script_path",
+        "script_library_dir",
+        "execution_mode",
+        "execution_context",
+        "hardware_mode",
+        "hardware_context",
+        "accelerator",
+        "accelerator_mode",
+        "vasp_execution_mode",
+        "vasp_execution_context",
+        "vasp_accelerator",
+        "parallel_preference",
+        "vasp_parallel_preference",
+        "cpu_cores_per_socket",
+        "cpu_cores_per_cpu",
+        "cpu_cores_per_numa",
+        "cpu_cores_per_numa_domain",
         "potcar_root",
         "use_vaspkit",
         "pair_style",
@@ -149,6 +169,32 @@ def _stage_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[
         "force_field_files",
     }
     return {key: value for key, value in merged.items() if key not in excluded}
+
+
+def _vasp_policy_context_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    merged = {**contract.get("parameter_overrides", {}), **(params or {})}
+    keys = {
+        "execution_mode",
+        "execution_context",
+        "hardware_mode",
+        "hardware_context",
+        "accelerator",
+        "accelerator_mode",
+        "vasp_execution_mode",
+        "vasp_execution_context",
+        "vasp_accelerator",
+        "parallel_preference",
+        "vasp_parallel_preference",
+        "cpu_cores_per_socket",
+        "cpu_cores_per_cpu",
+        "cpu_cores_per_numa",
+        "cpu_cores_per_numa_domain",
+        "job_script",
+        "submit_script",
+        "job_script_path",
+        "submit_script_path",
+    }
+    return {key: value for key, value in merged.items() if key in keys}
 
 
 def _lammps_generation_params(contract: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
@@ -394,11 +440,12 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
 
     if software == "vasp":
         kppa = int((params or {}).get("kppa") or contract.get("parameter_overrides", {}).get("kppa") or 1000)
+        vasp_params = {**stage_params, **_vasp_policy_context_parameters(contract, params)}
         generation = GENERATE_VASP_INPUTS(
             str(structure_path),
             task,
             str(artifacts_dir),
-            params=stage_params,
+            params=vasp_params,
             kppa=kppa,
             potcar_root=params.get("potcar_root"),
             use_vaspkit=bool(params.get("use_vaspkit", False)),
@@ -410,6 +457,7 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             "num_atoms": generation["num_atoms"],
             "elements": generation["elements"],
             "kpoints_mesh": generation["kpoints_mesh"],
+            "incar_policy": generation.get("incar_policy"),
             "potcar": generation["potcar"],
         })
     elif software == "cp2k":

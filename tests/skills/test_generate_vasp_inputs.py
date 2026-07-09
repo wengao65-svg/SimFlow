@@ -168,6 +168,71 @@ def test_residual_nbands_removed_in_scf():
         assert "NBANDS" not in incar_content
 
 
+# ── NCORE / NPAR policy tests ─────────────────────────────────
+
+def test_vasp_generator_unknown_context_omits_ncore_npar():
+    mod = _load_module("vasp_gen_ncore_unknown", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir, kppa=100
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NCORE" not in incar_content
+        assert "NPAR" not in incar_content
+        assert result["incar_policy"]["ncore_npar"]["status"] == "needs_inputs"
+
+
+def test_vasp_generator_cpu_context_defaults_to_npar():
+    mod = _load_module("vasp_gen_ncore_cpu", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir,
+            params={"execution_mode": "cpu"}, kppa=100,
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NPAR" in incar_content
+        assert "4" in incar_content
+        assert "execution_mode" not in incar_content
+
+
+def test_vasp_generator_accelerated_context_omits_ncore_npar():
+    mod = _load_module("vasp_gen_ncore_gpu", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir,
+            params={"execution_mode": "openacc"}, kppa=100,
+        )
+        assert result["status"] == "success"
+        incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
+        assert "NCORE" not in incar_content
+        assert "NPAR" not in incar_content
+        assert result["incar_policy"]["ncore_npar"]["execution_context"] == "accelerated"
+
+
+def test_template_generator_unknown_context_omits_unresolved_blocks_and_ncore():
+    mod = _load_module("input_gen_ncore_unknown", INPUT_GEN_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = os.path.join(tmpdir, "INCAR")
+        mod.generate_incar("scf", {"job_name": "test"}, out)
+        content = Path(out).read_text()
+        assert "{%" not in content
+        assert "NCORE" not in content
+        assert "NPAR" not in content
+
+
+def test_template_generator_cpu_context_writes_npar_not_ncore():
+    mod = _load_module("input_gen_ncore_cpu", INPUT_GEN_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = os.path.join(tmpdir, "INCAR")
+        mod.generate_incar("scf", {"job_name": "test", "execution_mode": "cpu"}, out)
+        content = Path(out).read_text()
+        assert "NPAR" in content
+        assert "4" in content
+        assert "NCORE" not in content
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

@@ -23,6 +23,7 @@ from runtime.simflow_helpers.computation.readiness import build_computation_read
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
 from runtime.simflow_helpers.engines.gpumd import build_gpumd_task_plan
 from runtime.simflow_helpers.engines.vasp import build_vasp_task_plan
+from runtime.simflow_helpers.engines.vasp_incar import infer_vasp_execution_context
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -537,6 +538,20 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
                 job_script_preserved = bool(rendered["preserved_without_modification"])
                 rendered_fields = rendered["rendered_fields"]
 
+    vasp_execution_context = None
+    if software == "vasp":
+        try:
+            job_script_text = staged_script_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            job_script_text = ""
+        vasp_execution_context = infer_vasp_execution_context(
+            params,
+            job_script_text=job_script_text,
+            modules=config.get("modules"),
+            executable=executable,
+            command=recommended_command,
+        )
+
     compute_plan = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "software": software,
@@ -558,6 +573,8 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "gate_status": raw_plan["compute_plan"].get("hpc_submit_gate"),
         "validation_report": raw_plan.get("validation_report"),
     }
+    if vasp_execution_context is not None:
+        compute_plan["vasp_execution_context"] = vasp_execution_context
     readiness = build_computation_readiness(
         project_root=project_root,
         software=software,

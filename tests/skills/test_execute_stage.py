@@ -294,7 +294,7 @@ def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifa
                 "goal: study Si surface reconstruction",
                 "material: Si(001)",
                 "software: vasp",
-                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+                "parameters: {\"encut\": 520, \"kppa\": 100, \"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"], \"execution_mode\": \"cpu\"}",
                 "pdfs: papers/surface.pdf",
                 "bibtex: refs/references.bib",
                 "dois: 10.1000/alpha",
@@ -314,13 +314,16 @@ def test_execute_stage_execute_runs_input_generation_runner_and_registers_artifa
         assert result["manifests"]["input_generation"]["software"] == "vasp"
         assert result["manifests"]["input_generation"]["task"] == "scf"
         assert result["manifests"]["input_generation"]["missing_optional_inputs"] == ["POTCAR"]
+        assert result["manifests"]["input_generation"]["incar_policy"]["ncore_npar"]["execution_context"] == "cpu"
         assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
         assert stages_state["computation"]["status"] == "completed"
         assert "input_generation" not in stages_state
         assert set(stages_state["computation"]["inputs"]) >= {artifact["artifact_id"] for artifact in modeling_artifacts}
         assert any(artifact["name"] == "input_manifest.json" for artifact in input_generation_artifacts)
-        assert (project_root / ".simflow" / "artifacts" / "input_generation" / "INCAR").is_file()
+        incar_path = project_root / ".simflow" / "artifacts" / "input_generation" / "INCAR"
+        assert incar_path.is_file()
+        assert "NPAR" in incar_path.read_text(encoding="utf-8")
         assert (project_root / ".simflow" / "artifacts" / "input_generation" / "KPOINTS").is_file()
         assert (project_root / ".simflow" / "reports" / "input_generation" / "input_manifest.json").is_file()
 

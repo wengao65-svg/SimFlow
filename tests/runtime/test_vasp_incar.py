@@ -11,9 +11,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 from runtime.simflow_helpers.engines.vasp_incar import (
     apply_nbands_policy,
+    apply_ncore_npar_policy,
     choose_nbands,
     estimate_vasp_default_nbands,
+    filter_vasp_incar_params,
     get_explicit_user_nbands,
+    infer_vasp_execution_context,
     nint_vasp,
     occupied_bands_estimate,
     validate_nbands,
@@ -269,3 +272,91 @@ class TestApplyNbandsPolicy:
         result = apply_nbands_policy(incar, "scf", nelect=32, nions=8)
         assert result is incar  # same object
         assert "NBANDS" not in incar
+
+
+# ── NCORE / NPAR policy ───────────────────────────────────────
+
+class TestNcoreNparPolicy:
+    def test_unknown_context_omits_parallel_tags_and_requests_context(self):
+        incar = {"NCORE": 1, "NPAR": 2, "ENCUT": 520}
+        report = apply_ncore_npar_policy(incar, {})
+        assert report["status"] == "needs_inputs"
+        assert "NCORE" not in incar
+        assert "NPAR" not in incar
+        assert report["missing_information"]
+        assert "ENCUT" in incar
+
+    def test_accelerated_context_omits_parallel_tags(self):
+        incar = {"NCORE": 1, "NPAR": 4}
+        report = apply_ncore_npar_policy(incar, {"execution_mode": "openacc"})
+        assert report["status"] == "pass"
+        assert "NCORE" not in incar
+        assert "NPAR" not in incar
+        assert report["execution_context"] == "accelerated"
+
+    def test_cpu_context_defaults_to_npar_4(self):
+        incar = {}
+        report = apply_ncore_npar_policy(incar, {"execution_mode": "cpu"})
+        assert report["status"] == "pass"
+        assert incar == {"NPAR": 4}
+        assert "set_cpu_default_npar_4" in report["actions"]
+
+    def test_cpu_ncore_preference_requires_topology(self):
+        incar = {}
+        report = apply_ncore_npar_policy(
+            incar,
+            {"execution_mode": "cpu", "parallel_preference": "ncore"},
+        )
+        assert report["status"] == "needs_inputs"
+        assert "NCORE" not in incar
+        assert "cpu_cores_per_socket_or_numa_domain" in report["missing_information"]
+
+    def test_cpu_ncore_preference_uses_socket_core_count(self):
+        incar = {}
+        report = apply_ncore_npar_policy(
+            incar,
+            {
+                "execution_mode": "cpu",
+                "parallel_preference": "ncore",
+                "cpu_cores_per_socket": 64,
+            },
+        )
+        assert report["status"] == "pass"
+        assert incar == {"NCORE": 64}
+
+    def test_user_explicit_both_tags_are_preserved_with_warning(self):
+        incar = {}
+        report = apply_ncore_npar_policy(
+            incar,
+            {"execution_mode": "cpu", "NCORE": 8, "NPAR": 4},
+        )
+        assert report["status"] == "warning"
+        assert incar == {"NCORE": 8, "NPAR": 4}
+        assert report["warnings"]
+
+    def test_user_explicit_ncore_preserved_on_accelerated_with_warning(self):
+        incar = {}
+        report = apply_ncore_npar_policy(
+            incar,
+            {"execution_mode": "gpu", "NCORE": 4},
+        )
+        assert report["status"] == "warning"
+        assert incar == {"NCORE": 4}
+        assert any("Accelerated" in item for item in report["warnings"])
+
+    def test_submit_script_gpu_directive_infers_accelerated(self):
+        report = infer_vasp_execution_context(
+            {},
+            job_script_text="#SBATCH --gres=gpu:2\nmodule load vasp-openacc\n",
+        )
+        assert report["context"] == "accelerated"
+        assert report["source"] == "submit_or_environment_evidence"
+
+    def test_filter_removes_simflow_control_keys(self):
+        result = filter_vasp_incar_params({
+            "ENCUT": 520,
+            "execution_mode": "cpu",
+            "job_script": "submit.sh",
+            "parallel_preference": "npar",
+        })
+        assert result == {"ENCUT": 520}
