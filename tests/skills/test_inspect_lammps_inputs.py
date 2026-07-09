@@ -198,6 +198,9 @@ def test_inspect_lammps_inputs_records_mlp_deployment_model_provenance(tmp_path)
     assert deployment["model_files"][0]["present"] is True
     assert deployment["model_files"][0]["sha256"]
     assert deployment["handoff_to"] == "simflow-mlp"
+    assert deployment["claim_scope"] == "deployment_only"
+    assert "lmp_help_evidence" in deployment
+    assert "required_lammps_packages" in deployment
     assert "training quality" in deployment["claim_limits"][1]
     assert dump_restart["dumps"][0]["file"] == "dump.lammpstrj"
     assert dump_restart["restarts"][0]["files"] == ["restart.*.bin"]
@@ -247,6 +250,10 @@ def test_inspect_lammps_inputs_writes_mlp_deployment_handoff_json(tmp_path):
     assert deployment["actual_tool_used"]["software"] == "lammps"
     assert deployment["model_files"][0]["sha256"]
     assert deployment["handoff_to"] == "simflow-mlp"
+    assert deployment["claim_scope"] == "deployment_only"
+    assert deployment["model_file_status"] == "complete"
+    assert deployment["required_lammps_packages"] == ["DEEPMD package or plugin"]
+    assert deployment["lmp_help_evidence"]["present"] is None
     assert "training quality" in deployment["claim_limits"][1]
 
 
@@ -313,3 +320,140 @@ def test_inspect_lammps_inputs_warns_on_missing_mlp_model_file(tmp_path):
     assert deployment["model_files"][0]["present"] is False
     assert "missing_mlp_model_file" in warning_codes
     assert "mlp_deployment_source_not_documented" in warning_codes
+
+
+def test_inspect_lammps_inputs_records_mlp_type_mapping_and_lmp_help_evidence(tmp_path):
+    mod = _load_module()
+    model = tmp_path / "model.yace"
+    model.write_text("synthetic pace model", encoding="utf-8")
+    help_output = tmp_path / "lmp_help.txt"
+    help_output.write_text(
+        "\n".join([
+            "LAMMPS (synthetic)",
+            "Installed packages:",
+            "MANYBODY ML-PACE KSPACE",
+        ]),
+        encoding="utf-8",
+    )
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style pace",
+            "pair_coeff * * model.yace Si O",
+            "fix 1 all nve",
+            "run 100",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(
+        str(script),
+        force_field_source="synthetic PACE fixture",
+        lmp_help_output=str(help_output),
+    )
+    deployment = result["lammps_mlp_deployment_manifest"]
+    warning_codes = {item["code"] for item in result["warnings"]}
+
+    assert result["status"] == "pass"
+    assert deployment["pair_styles"] == ["pace"]
+    assert deployment["type_mapping"] == ["Si", "O"]
+    assert deployment["model_file_status"] == "complete"
+    assert deployment["required_lammps_packages"] == ["ML-PACE"]
+    assert deployment["lmp_help_evidence"]["present"] is True
+    assert deployment["lmp_help_evidence"]["confirmed_packages"] == ["ML-PACE"]
+    assert "mlp_lammps_package_not_confirmed" not in warning_codes
+
+
+def test_inspect_lammps_inputs_warns_when_mlp_package_evidence_is_missing(tmp_path):
+    mod = _load_module()
+    model = tmp_path / "model.yace"
+    model.write_text("synthetic pace model", encoding="utf-8")
+    help_output = tmp_path / "lmp_help.txt"
+    help_output.write_text("Installed packages:\nMANYBODY KSPACE\n", encoding="utf-8")
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style pace",
+            "pair_coeff * * model.yace Si",
+            "fix 1 all nve",
+            "run 100",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(
+        str(script),
+        force_field_source="synthetic PACE fixture",
+        lmp_help_output=str(help_output),
+    )
+
+    assert result["status"] == "warning"
+    assert any(item["code"] == "mlp_lammps_package_not_confirmed" for item in result["warnings"])
+
+
+def test_inspect_lammps_inputs_detects_mliap_deployment(tmp_path):
+    mod = _load_module()
+    model = tmp_path / "model.pt"
+    model.write_text("synthetic mliap model", encoding="utf-8")
+    help_output = tmp_path / "lmp_help.txt"
+    help_output.write_text("Installed packages:\nML-IAP PYTHON MANYBODY\n", encoding="utf-8")
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style mliap model model.pt descriptor ace",
+            "pair_coeff * * Si",
+            "fix 1 all nve",
+            "run 100",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(
+        str(script),
+        force_field_source="synthetic ML-IAP fixture",
+        lmp_help_output=str(help_output),
+    )
+    deployment = result["lammps_mlp_deployment_manifest"]
+
+    assert result["status"] == "pass"
+    assert deployment["detected"] is True
+    assert deployment["pair_styles"] == ["mliap"]
+    assert deployment["required_lammps_packages"] == ["ML-IAP", "PYTHON"]
+    assert deployment["model_files"][0]["token"] == "model.pt"
+    assert deployment["type_mapping"] == []
+
+
+def test_inspect_lammps_inputs_does_not_treat_second_snap_model_file_as_type_mapping(tmp_path):
+    mod = _load_module()
+    coeff = tmp_path / "snapcoeff.snapcoeff"
+    param = tmp_path / "snapparam.snapparam"
+    coeff.write_text("synthetic snap coeff", encoding="utf-8")
+    param.write_text("synthetic snap param", encoding="utf-8")
+    script = _write_input_package(
+        tmp_path,
+        "\n".join([
+            "units metal",
+            "atom_style atomic",
+            "read_data data.lammps",
+            "pair_style snap",
+            "pair_coeff * * snapcoeff.snapcoeff snapparam.snapparam Si",
+            "fix 1 all nve",
+            "run 100",
+        ]),
+    )
+
+    result = mod.inspect_lammps_inputs(str(script), force_field_source="synthetic SNAP fixture")
+    deployment = result["lammps_mlp_deployment_manifest"]
+
+    assert deployment["pair_styles"] == ["snap"]
+    assert [item["token"] for item in deployment["model_files"]] == [
+        "snapcoeff.snapcoeff",
+        "snapparam.snapparam",
+    ]
+    assert deployment["type_mapping"] == ["Si"]

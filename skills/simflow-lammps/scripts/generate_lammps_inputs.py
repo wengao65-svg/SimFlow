@@ -32,6 +32,13 @@ PAIR_STYLES = {
 }
 
 SUPPORTED_JOB_TYPES = {"minimize", "nvt", "npt", "nve"}
+MLP_JOB_TYPES = {"mlp_md", "mlp-md", "mlp"}
+
+
+MLP_CLAIM_LIMITS = [
+    "MLP-MD scaffold generation records LAMMPS deployment needs only.",
+    "It does not validate model training quality, extrapolation safety, or production readiness.",
+]
 
 
 def _force_field_provenance(pair_style: str, pair_coeff: str, params: dict) -> dict:
@@ -196,6 +203,32 @@ def generate_lammps_inputs(
     """Generate a small, traceable LAMMPS input package."""
     params = params or {}
     normalized_job = job_type.strip().lower().replace("-", "_")
+    if normalized_job in {item.replace("-", "_") for item in MLP_JOB_TYPES}:
+        model_files = params.get("model_files") or params.get("mlp_model_files") or []
+        type_mapping = params.get("type_mapping") or params.get("elements") or []
+        package_evidence = params.get("lammps_package_evidence") or params.get("lmp_help_output")
+        missing = []
+        if not model_files:
+            missing.append("model_files")
+        if not type_mapping:
+            missing.append("type_mapping")
+        if not package_evidence:
+            missing.append("lammps_package_evidence")
+        if missing:
+            return {
+                "status": "needs_inputs",
+                "job_type": "mlp_md",
+                "pair_style": pair_style,
+                "pair_coeff": pair_coeff,
+                "handoff_to": "simflow-mlp",
+                "missing_information": missing,
+                "candidate_paths": [
+                    "provide model file paths and type mapping, then generate a LAMMPS deployment scaffold",
+                    "use inspect_lammps_inputs.py with --lmp-help-output for static package evidence",
+                    "handoff model training, validation, extrapolation, and readiness evidence to simflow-mlp",
+                ],
+                "claim_limits": MLP_CLAIM_LIMITS,
+            }
     if normalized_job not in SUPPORTED_JOB_TYPES:
         return {
             "status": "needs_clarification",
@@ -259,7 +292,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate LAMMPS inputs using ASE")
     parser.add_argument("--input", required=True, help="Input structure (POSCAR/CIF)")
     parser.add_argument("--job-type", required=True,
-                        choices=["minimize", "nvt", "npt", "nve"],
+                        choices=["minimize", "nvt", "npt", "nve", "mlp_md"],
                         help="Simulation type")
     parser.add_argument("--pair-style", default="eam/alloy",
                         help=f"LAMMPS pair style. Options: {list(PAIR_STYLES.keys())}")

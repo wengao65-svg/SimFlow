@@ -211,6 +211,34 @@ def test_gpumd_skill_keeps_execution_and_submit_safety_boundary():
     assert "input generation" in text
 
 
+def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
+    text = _skill_text("simflow-lammps")
+    lowered = text.lower()
+    references_dir = SKILLS / "simflow-lammps" / "references"
+
+    for phrase in [
+        "classic_md",
+        "reactive_md",
+        "mlp_md_deployment",
+        "analysis_visualization",
+        "troubleshooting",
+        "simflow-mlp",
+        "deployment only",
+    ]:
+        assert phrase in lowered
+
+    for reference in [
+        "lammps_official_sources.md",
+        "lammps_input_validation.md",
+        "lammps_force_fields_and_mlp.md",
+        "lammps_md_workflows.md",
+        "lammps_analysis_visualization.md",
+        "lammps_troubleshooting.md",
+    ]:
+        assert reference in text
+        assert (references_dir / reference).is_file()
+
+
 def test_support_skills_do_not_reintroduce_fixed_executor_contracts():
     for skill_name in SUPPORT_SKILLS:
         text = _skill_text(skill_name)
