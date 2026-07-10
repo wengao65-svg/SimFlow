@@ -39,6 +39,16 @@ SUPPORT_SKILLS = [
     "simflow-verify",
 ]
 
+VALIDATOR_REQUIRED_SECTIONS = [
+    "## Trigger conditions",
+    "## Input conditions",
+    "## Output artifacts",
+    "## Status write rules",
+    "## Checkpoint rules",
+    "## Prohibited actions",
+    "## Manual confirmation scenarios",
+]
+
 BANNED_HARD_CONSTRAINTS = [
     re.compile(r"must\s+use\s+parse_[\w.-]+\.py", re.IGNORECASE),
     re.compile(r"must\s+generate\s+(methods|results|final_handoff)\.md", re.IGNORECASE),
@@ -106,7 +116,7 @@ def test_computation_requires_approval_without_fixed_software():
         "## Computation Activities",
         "## Support-Level Behavior",
         "## Domain Skill Delegation",
-        "## Evidence Contract",
+        "## Output artifacts",
         "## Submit-Readiness Handoff",
         "## Status Semantics",
         "## Safety Gate Handoff",
@@ -185,6 +195,13 @@ def test_engine_skills_are_domain_assistants_not_workflow_executors():
         assert "approval gate" in lowered
         assert "only valid" in lowered or "唯一合法" in text
         assert "unknown" in lowered or "未知" in text
+
+
+def test_router_computation_and_lammps_match_skill_validator_sections():
+    for skill_name in ["simflow", "simflow-computation", "simflow-lammps"]:
+        text = _skill_text(skill_name)
+        for section in VALIDATOR_REQUIRED_SECTIONS:
+            assert section in text, f"{skill_name} missing {section}"
 
 
 def test_unsupported_engine_placeholders_do_not_claim_runtime_support():

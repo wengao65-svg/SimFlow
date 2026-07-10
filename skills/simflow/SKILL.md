@@ -25,7 +25,7 @@ for current helper support levels.
 - Keep dry-run-first and evidence-first behavior visible whenever real local,
   remote, or HPC execution may be requested.
 
-## Trigger Conditions
+## Trigger conditions
 
 - The user asks about computational simulation, materials modeling, DFT, AIMD,
   classical MD, MLP-MD, literature review, modeling, computation, analysis,
@@ -35,6 +35,15 @@ for current helper support levels.
   checkpoints for an open research task.
 - Multiple SimFlow skills could apply and a top-level routing decision is
   needed.
+
+## Input conditions
+
+- User intent, available project evidence, current workflow state when present,
+  and the explicit `project_root` whenever state access may be needed.
+- Optional recipe/tag context, software/toolchain provenance, artifact ids,
+  checkpoint references, gate records, or requested deliverables.
+- Missing or ambiguous inputs must remain explicit; do not fabricate state,
+  artifacts, software support, or scientific evidence to complete a route.
 
 ## Stage And Skill Routing
 
@@ -82,7 +91,7 @@ stages.
 - `simflow` must not become the only executor, parser, validator, plotter,
   report generator, or scientific judge.
 
-## State Write Decision
+## Status write rules
 
 Write `.simflow/` state only when the user asks to initialize, track,
 checkpoint, verify, handoff, or record work; when artifacts, inputs, outputs,
@@ -96,7 +105,16 @@ route-only answers that do not create artifacts or decisions.
 Always use the explicit user project root/current `project_root`. Never write
 project state into the plugin root, skill directory, MCP server cwd, tool installation directory, or `.omx/`.
 
-## Router Output
+## Checkpoint rules
+
+- Do not create a checkpoint for route-only or conceptual responses that do not
+  establish a workflow boundary.
+- Delegate checkpoint creation, inspection, and recovery to
+  `simflow-checkpoint`; associate every checkpoint with a workflow and stage.
+- Require a checkpoint when a tracked stage boundary is completed and preserve
+  failure evidence when a tracked stage cannot proceed.
+
+## Output artifacts
 
 When routing a request, produce or instruct the host agent to produce this
 conceptual shape:
@@ -146,7 +164,7 @@ actions, never router actions.
 - Preserve unsupported or unknown tools as provenance and route them to generic
   computation or analysis evidence intake when appropriate.
 
-## Prohibited Actions
+## Prohibited actions
 
 - Do not perform software-specific input generation, parser-specific output
   interpretation, real simulation execution, local submit, remote execution, HPC
@@ -161,7 +179,7 @@ actions, never router actions.
 - Do not force fixed parsers, builders, plotting libraries, report names, or
   engine choices as the only valid path.
 
-## Manual Confirmation Scenarios
+## Manual confirmation scenarios
 
 - Research goal, stage entry, deliverable format, evidence threshold, or
   approval scope is unclear and affects the plan.

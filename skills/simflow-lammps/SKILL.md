@@ -10,7 +10,7 @@ It interprets, checks, and records LAMMPS input/output evidence. Top-level
 stages, checkpoints, approval gates, and cross-skill handoff remain owned by
 the SimFlow workflow layer.
 
-## Trigger Conditions
+## Trigger conditions
 
 - The user mentions LAMMPS, input script, data file, log, dump, trajectory,
   force field, RDF, MSD, diffusion, NVE/NVT/NPT/NPH, ReaxFF, DeepMD, MACE,
@@ -38,7 +38,7 @@ Analysis boundary: `simflow-lammps` does not own final property analysis,
 statistics, figures, or scientific claims. It records LAMMPS-specific output
 semantics and hands analysis intent to `simflow-analysis-visualization`.
 
-## Input Conditions
+## Input conditions
 
 - User-provided data file, input script, log, dump, force-field parameters,
   model-file metadata, `lmp -h` output, artifact id, task intent, or checkpoint.
@@ -60,7 +60,7 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
 - `references/lammps_output_intake.md`: LAMMPS log/dump/data/restart intake, `lammps_output_intake_manifest`, and analysis handoff.
 - `references/lammps_troubleshooting.md`: missing packages, lost atoms, dangerous builds, GPU/MPI, drift, and MLP runtime issues.
 
-## Output Artifacts
+## Output artifacts
 
 - Optional input manifest, force-field provenance note, MLP deployment manifest,
   validation report, LAMMPS output intake manifest, or handoff note.
@@ -71,7 +71,7 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
   inputs, force-field provenance, commands detected, risk warnings, local
   example motifs, and recommended artifacts.
 
-## State And Safety Rules
+## Status write rules
 
 - Pass `project_root` explicitly before writing `.simflow/`.
 - LAMMPS task labels are recipe/tag/helper metadata only; they do not determine
@@ -80,6 +80,18 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
   execution must pass the SimFlow approval gate.
 - MLP-MD is a recipe/tag, not a new top-level stage. Production-readiness claims
   must pass MLP/readiness evidence checks.
+- Keep missing inputs, incomplete provenance, parser limits, dry-run-only state,
+  and blocked scientific claims visible in artifacts and handoff records.
+
+## Checkpoint rules
+
+- Do not create checkpoints for untracked conceptual guidance or file-format
+  explanations.
+- When LAMMPS evidence closes a tracked modeling, computation, or
+  analysis_visualization boundary, associate the checkpoint with the workflow,
+  canonical stage, and registered artifacts.
+- Preserve failure evidence and a failure checkpoint when a tracked LAMMPS
+  validation, execution, parsing, or handoff boundary fails.
 
 ## Optional Helper Scripts
 
@@ -93,11 +105,11 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
   route for the analysis_visualization stage. From the LAMMPS skill boundary,
   it is a format/evidence adapter, not the final property-analysis standard.
 
-These helpers are domain assistants, not the only valid path. Official LAMMPS
+These helper scripts are optional routes, not the only valid path. Official LAMMPS
 examples, user-written scripts, Python, OVITO, Pizza.py, notebooks, or shell
 commands are acceptable when evidence, lineage, and risks are recorded.
 
-## Prohibited Actions
+## Prohibited actions
 
 - Do not treat built-in LAMMPS helpers as the only valid parser, builder, or
   analysis path.
@@ -112,7 +124,7 @@ commands are acceptable when evidence, lineage, and risks are recorded.
   private paths unnecessarily.
 - Do not submit real local, remote, or HPC jobs without approval gate passage.
 
-## Manual Confirmation Scenarios
+## Manual confirmation scenarios
 
 - Force-field choice, mixing rules, charges, type mapping, timestep, ensemble,
   constraints, equilibration criteria, or statistical method is unclear.

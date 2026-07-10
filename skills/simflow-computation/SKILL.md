@@ -12,7 +12,7 @@ preparation, validation, dry-run evidence, submit-readiness handoff, and
 user-provided computation evidence intake. It is not a central simulation
 executor and does not replace domain skills or scheduler safety gates.
 
-## Trigger Conditions
+## Trigger conditions
 
 - The user asks to prepare inputs, validate a calculation setup, estimate
   resources, dry-run a job, record computation evidence, or submit a local,
@@ -21,6 +21,16 @@ executor and does not replace domain skills or scheduler safety gates.
   optional sub-activity.
 - A planned or existing calculation needs evidence, approval, checkpointing, or
   handoff before it can be treated as ready for the next workflow stage.
+
+## Input conditions
+
+- Explicit `project_root`, calculation intent, selected software/toolchain,
+  task or method, and available input or model artifacts.
+- For dry-run or submit-readiness work: command or script, input hashes,
+  resource assumptions, environment details, and credential-scan evidence.
+- Missing required potentials, structures, files, hashes, approval records, or
+  scheduler details must produce waiting or blocked evidence rather than an
+  invented default.
 
 ## Computation Activities
 
@@ -55,7 +65,7 @@ executor and does not replace domain skills or scheduler safety gates.
   user-provided script, notebook, or external workflow is valid when evidence
   and limitations are recorded.
 
-## Evidence Contract
+## Output artifacts
 
 - Calculation manifest with software, task, command, inputs, resources,
   environment, and intended outputs.
@@ -98,7 +108,7 @@ executor and does not replace domain skills or scheduler safety gates.
   result completion unless output/job evidence supports it.
 - `failed` work must produce failure evidence or a failure checkpoint.
 
-## Status Write Rules
+## Status write rules
 
 - Resolve `project_root` explicitly before writing `.simflow/` state,
   artifacts, reports, gates, jobs, or checkpoints.
@@ -109,9 +119,16 @@ executor and does not replace domain skills or scheduler safety gates.
   in status, readiness, handoff, and writing inputs.
 - Write canonical submit-readiness evidence under `.simflow/artifacts/compute/`
   and `.simflow/artifacts/security/`.
-- Create a checkpoint after computation dry-run/readiness evidence is completed,
-  and create or preserve failure evidence when validation, credential scan,
-  approval, submission, or evidence registration fails.
+
+## Checkpoint rules
+
+- Create a checkpoint after computation dry-run or submit-readiness evidence is
+  complete enough to form a recoverable boundary.
+- Associate the checkpoint with the workflow, canonical `computation` stage,
+  and registered input, validation, resource, security, and submit artifacts.
+- Create or preserve failure evidence and a failure checkpoint when validation,
+  credential scan, approval, submission, or evidence registration fails at a
+  tracked boundary.
 
 ## Safety Gate Handoff
 
@@ -121,7 +138,7 @@ executor and does not replace domain skills or scheduler safety gates.
   after a real approved submission.
 - Do not record unfinished calculations as completed results.
 
-## Prohibited Actions
+## Prohibited actions
 
 - Do not submit real local, remote, or HPC jobs without passing the relevant
   approval gate.
@@ -132,7 +149,7 @@ executor and does not replace domain skills or scheduler safety gates.
 - Do not require one specific simulation engine, scheduler, parser, plotting
   library, input builder, or helper script.
 
-## Manual Confirmation Scenarios
+## Manual confirmation scenarios
 
 - Real execution, remote access, licensed software, proprietary files, or
   destructive file operations are involved.
