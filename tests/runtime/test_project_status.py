@@ -145,7 +145,7 @@ def test_evidence_graph_filters_helper_evidence_metadata(tmp_path):
             "evidence_role": "gpumd_nep_output_parse_summary",
             "status": "warning",
             "parser_status": "partial",
-            "actual_tool_used": {"name": "gpumd", "support_level": "tracked_only"},
+            "actual_tool_used": {"name": "gpumd", "support_level": "helper_supported"},
         },
         project_root=str(tmp_path),
     )
@@ -178,7 +178,7 @@ def test_evidence_graph_filters_helper_evidence_metadata(tmp_path):
     assert graph["nodes"][0]["helper"] == "parse_gpumd_outputs"
     assert graph["nodes"][0]["helper_status"] == "warning"
     assert graph["nodes"][0]["parser_status"] == "partial"
-    assert graph["nodes"][0]["actual_tool_used"]["support_level"] == "tracked_only"
+    assert graph["nodes"][0]["actual_tool_used"]["support_level"] == "helper_supported"
 
 
 def test_evidence_graph_v2_filters_recipe_claim_and_depth(tmp_path):

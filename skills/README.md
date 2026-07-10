@@ -27,12 +27,18 @@ under legacy skill directories.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, and
 `simflow-gpumd` are the supported optional domain assistants in the current
-product build. Cross-tool domain helpers such as `simflow-mlp` can inspect
-existing evidence, build manifests, parse narrow output subsets, and prepare
-handoff records, but they do not run training or MD. `simflow-qe` and
+product build. `simflow-mlp` is also a Domain Assistant, but its scope is
+cross-tool MLP lifecycle and readiness methodology rather than one engine. It
+can inspect existing evidence, build manifests, parse narrow output subsets,
+and prepare handoff records, but it does not run training or MD. `simflow-qe` and
 `simflow-gaussian` are reserved unsupported
 placeholders; they should only record user-provided files as generic artifacts
 when traceability is requested.
+
+Domain Assistant is a product role. Tool-level and capability-level helper
+support come from `workflow/toolchains/capabilities.json`. Optional scripts may
+emit `simflow.helper_evidence.v1` records, but that helper-evidence envelope is
+an output contract, not a Skill category.
 
 When adding new skills, keep hard requirements limited to safety and
 traceability. Prefer guidance, recommended evidence, and handoff notes over

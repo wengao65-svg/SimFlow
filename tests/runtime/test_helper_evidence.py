@@ -28,7 +28,7 @@ def test_extract_helper_evidence_metadata_normalizes_common_artifact_fields():
             "parser_status": "partial",
             "recipe": "mlp_md",
             "claim_ids": ["claim_metrics"],
-            "actual_tool_used": {"software": "nep", "support_level": "tracked_only"},
+            "actual_tool_used": {"software": "nep", "support_level": "helper_supported"},
         },
         "lineage": {
             "software": "nep",
@@ -47,7 +47,7 @@ def test_extract_helper_evidence_metadata_normalizes_common_artifact_fields():
     assert metadata["tool"] == "nep"
     assert metadata["recipe"] == "mlp_md"
     assert metadata["claim_ids"] == ["claim_metrics"]
-    assert summary["actual_tool_used"]["support_level"] == "tracked_only"
+    assert summary["actual_tool_used"]["support_level"] == "helper_supported"
 
 
 def test_helper_evidence_schema_matches_runtime_status_vocabularies():

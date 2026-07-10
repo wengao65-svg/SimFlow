@@ -3,25 +3,30 @@
 This page describes the current release boundary. It should be reviewed before
 publishing release notes or marketplace branches.
 
-## Supported Engine Helpers
+## Supported Domain Assistants
 
-The current product build supports optional domain helpers for:
+The current product build includes Domain Assistants for:
 
 - VASP
 - CP2K
 - LAMMPS
-- GPUMD/NEP bounded input preparation, validation, dry-run planning, selected parsing, and evidence handoff
-- General MLP evidence review and handoff
+- GPUMD/NEP input generation, validation, dry-run planning, orchestration, selected parsing, and evidence handoff
+- Cross-tool MLP lifecycle, evidence review, and readiness methodology
 
-These helpers provide guidance, validation, templates, parsing, analysis, or
-artifact-recording assistance. They remain optional helpers and do not make
-SimFlow a workflow executor.
+These Domain Assistants provide guidance and may call optional helpers for
+validation, templates, parsing, analysis, or artifact recording. The product
+role does not make SimFlow a workflow executor.
 
 GPUMD and NEP are helper-supported at the shared tool-support level for
 bounded input preparation, static validation, dry-run planning, selected output
-parsing, manifest generation, and evidence handoff. GPUMD/NEP real execution,
+parsing, orchestration, manifest generation, and evidence handoff. This
+includes helper-supported input generation and validation. GPUMD/NEP real execution,
 local submit, remote execution, and HPC submit are not helper-supported
 actions.
+
+`workflow/toolchains/capabilities.json` is the source of truth for helper
+support. `simflow.helper_evidence.v1` is an optional helper-script output
+format, not a Domain Assistant classification or support level.
 
 Software names outside this helper set do not block workflow planning or
 artifact tracking. A shared toolchain contract records them as `tracked_only`

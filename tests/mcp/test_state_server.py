@@ -250,7 +250,7 @@ def test_evidence_graph_tool_filters_helper_metadata():
                 "evidence_role": "model_metrics_summary",
                 "status": "success",
                 "parser_status": "parsed",
-                "actual_tool_used": {"software": "nep", "support_level": "tracked_only"},
+                "actual_tool_used": {"software": "nep", "support_level": "helper_supported"},
             },
             project_root=tmpdir,
         )
@@ -324,10 +324,10 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
                 "workflow_type": "mlp_md",
                 "entry_point": "computation",
                 "current_stage": "computation",
-                "research_goal": "record GPUMD NEP training evidence",
+                "research_goal": "record DeePMD training evidence",
                 "material": "Si",
-                "software": "gpumd",
-                "toolchain": ["gpumd", "nep"],
+                "software": "deepmd",
+                "toolchain": ["deepmd"],
             },
             project_root=tmpdir,
             state_file="metadata.json",
@@ -336,7 +336,7 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
         evidence_dir.mkdir()
         for name in [
             "calculation_manifest.json",
-            "run.in",
+            "input.json",
             "input_validation.json",
             "dry_run_report.json",
             "resource_estimate.json",
@@ -349,13 +349,13 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
             "params": {
                 "project_root": tmpdir,
                 "evidence_params": {
-                    "software": "gpumd",
-                    "task": "nep_training",
-                    "command": "gpumd < run.in",
+                    "software": "deepmd",
+                    "task": "model_training",
+                    "command": "dp train input.json",
                     "complete_stage": True,
                     "evidence": {
                         "calculation_manifest": "user_compute/calculation_manifest.json",
-                        "input_files": ["user_compute/run.in"],
+                        "input_files": ["user_compute/input.json"],
                         "input_validation_report": "user_compute/input_validation.json",
                         "dry_run_report": "user_compute/dry_run_report.json",
                         "resource_estimate": "user_compute/resource_estimate.json",

@@ -181,7 +181,7 @@ def test_run_writing_stage_allows_direct_writing_entry_with_missing_upstream_art
 def test_writing_claim_audit_classifies_tracked_only_and_conditional_evidence():
     compute_plan = {
         "real_submit": False,
-        "actual_tool_used": {"software": "gpumd", "support_level": "tracked_only"},
+        "actual_tool_used": {"software": "deepmd", "support_level": "tracked_only"},
         "status": "capability_warning",
     }
     analysis_report = {

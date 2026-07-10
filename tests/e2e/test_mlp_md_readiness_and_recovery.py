@@ -326,7 +326,7 @@ def test_gpumd_needs_inputs_checkpoint_recovery_resumes_after_evidence_intake(tm
     init_research(
         input_text="\n".join([
             "entry_stage: modeling",
-            "goal: recover a GPUMD NEP tracked-only workflow",
+            "goal: recover a GPUMD/NEP helper-supported workflow",
             "method: mlp_md",
             "material: Si",
             "software: gpumd",

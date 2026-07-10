@@ -254,9 +254,12 @@ def test_orchestrate_gpumd_task_writes_reports_and_checkpoint(tmp_path):
     assert (tmp_path / "reports" / "gpumd" / "input_manifest.json").is_file()
     assert (tmp_path / "reports" / "gpumd" / "validation_report.json").is_file()
     compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
+    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
     assert compute_plan["task"] == "gpumd_md_nvt"
     assert compute_plan["real_submit_allowed"] is False
     assert result["checkpoint"]["checkpoint_id"].startswith("ckpt_")
+    assert result["checkpoint"]["status"] == "partial"
+    assert stages["computation"]["status"] == "in_progress"
 
 
 def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp_path):
@@ -274,7 +277,9 @@ def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp
     validation = json.loads((tmp_path / "reports" / "gpumd" / "validation_report.json").read_text(encoding="utf-8"))
     compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
 
-    assert result["status"] == "success"
+    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "needs_clarification"
     assert result["task"] == "unknown"
     assert manifest["task"] == "unknown"
     assert manifest["classification_status"] == "needs_clarification"
@@ -282,6 +287,54 @@ def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp
     assert compute_plan["task"] == "unknown"
     assert compute_plan["real_submit_allowed"] is False
     assert compute_plan["task"] not in {"gpumd_md_nvt", "nep_training"}
+    assert result["checkpoint"]["status"] == "partial"
+    assert stages["computation"]["status"] == "in_progress"
+
+
+def test_orchestrate_gpumd_warning_keeps_computation_in_progress(tmp_path):
+    calc = tmp_path / "calc"
+    calc.mkdir()
+    (calc / "run.in").write_text(
+        "potential nep.txt\ntime_step 1\nensemble nvt_ber 300 300 100\nrun 10\n",
+        encoding="utf-8",
+    )
+    (calc / "model.xyz").write_text(
+        '1\npbc="T T T" lattice="5 0 0 0 5 0 0 0 5" properties=species:S:1:pos:R:3\nSi 0 0 0\nBAD_TRAILING_LINE\n',
+        encoding="utf-8",
+    )
+    (calc / "nep.txt").write_text("fixture\n", encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+    )
+    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "warning"
+    assert result["checkpoint"]["status"] == "partial"
+    assert stages["computation"]["status"] == "in_progress"
+
+
+def test_orchestrate_gpumd_failed_validation_blocks_stage(tmp_path):
+    result = _run(
+        "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+    )
+    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "blocked"
+    assert result["checkpoint"]["status"] == "failure"
+    assert stages["computation"]["status"] == "failed"
 
 
 def test_parse_gpumd_outputs_summarizes_numeric_table_without_readiness_claim(tmp_path):
@@ -581,6 +634,73 @@ def test_validate_mlp_evidence_requires_active_learning_round_for_production(tmp
     assert result["blocked_claims"] == ["production MLP-MD readiness", "real production MLP-MD execution"]
 
 
+def test_validate_mlp_evidence_accepts_explicit_no_active_learning_decision(tmp_path):
+    payloads = {
+        "dataset_manifest": {"lineage_complete": True, "datasets": [{"path": "train.xyz", "split": "train", "present": True}]},
+        "labeling_manifest": {"status": "completed", "label_source": "synthetic_dft_fixture"},
+        "training_run_manifest": {"status": "completed", "model_artifact": "nep.txt"},
+        "model_metrics_summary": {"status": "success", "metrics": {"force_rmse": 0.05}},
+        "model_validation_report": {"status": "pass", "validation_domain": "synthetic_holdout", "rmse_energy_mev_atom": 5.0},
+        "smoke_md_manifest": {"smoke_status": "pass", "steps": 1000},
+        "anomaly_report": {"thresholds_defined": True},
+        "active_learning_round_manifest": {
+            "status": "completed",
+            "active_learning_used": False,
+            "decision_rationale": "The target domain is covered by a curated reference dataset and direct validation.",
+            "residual_risk": "Rare configurations outside the validated domain may remain unsupported.",
+        },
+    }
+    args = [
+        "skills/simflow-mlp/scripts/validate_mlp_evidence.py",
+        "--production-readiness",
+    ]
+    for role, payload in payloads.items():
+        path = tmp_path / f"{role}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        args.extend(["--evidence", f"{role}={path}"])
+
+    result = _run(*args)
+
+    assert result["status"] == "success"
+    assert result["scientific_readiness"]["status"] == "ready"
+    assert result["semantic_issues"] == []
+
+
+def test_validate_mlp_evidence_rejects_non_text_no_active_learning_decision(tmp_path):
+    payloads = {
+        "dataset_manifest": {"lineage_complete": True, "datasets": [{"path": "train.xyz", "split": "train", "present": True}]},
+        "labeling_manifest": {"status": "completed", "label_source": "synthetic_dft_fixture"},
+        "training_run_manifest": {"status": "completed", "model_artifact": "nep.txt"},
+        "model_metrics_summary": {"status": "success", "metrics": {"force_rmse": 0.05}},
+        "model_validation_report": {"status": "pass", "validation_domain": "synthetic_holdout", "rmse_energy_mev_atom": 5.0},
+        "smoke_md_manifest": {"smoke_status": "pass", "steps": 1000},
+        "anomaly_report": {"thresholds_defined": True},
+        "active_learning_round_manifest": {
+            "status": "completed",
+            "active_learning_used": False,
+            "decision_rationale": False,
+            "residual_risk": False,
+        },
+    }
+    args = [
+        "skills/simflow-mlp/scripts/validate_mlp_evidence.py",
+        "--production-readiness",
+    ]
+    for role, payload in payloads.items():
+        path = tmp_path / f"{role}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        args.extend(["--evidence", f"{role}={path}"])
+
+    result = _run(*args)
+
+    assert result["status"] == "blocked"
+    assert result["scientific_readiness"]["status"] == "blocked"
+    assert {issue["code"] for issue in result["semantic_issues"]} >= {
+        "missing_active_learning_decision_rationale",
+        "missing_active_learning_residual_risk",
+    }
+
+
 def test_build_mlp_dataset_manifest_counts_extxyz_frames(tmp_path):
     dataset = tmp_path / "train.xyz"
     output = tmp_path / "dataset_manifest.json"
@@ -699,3 +819,56 @@ def test_prepare_mlp_handoff_uses_helper_evidence_envelope(tmp_path):
     assert result["parser_status"] == "parsed"
     assert "production MLP-MD readiness" in result["blocked_claims"]
     assert "model_metrics_summary" in result["missing_production_roles"]
+
+
+def test_prepare_gpumd_handoff_uses_helper_evidence_envelope(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "handoff.json"
+    manifest.write_text('{"status": "success"}\n', encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/prepare_gpumd_handoff.py",
+        "--manifest",
+        str(manifest),
+        "--output",
+        str(output),
+    )
+
+    assert result["status"] == "success"
+    assert result["schema_version"] == HELPER_SCHEMA_VERSION
+    assert result["helper"] == "prepare_gpumd_handoff"
+    assert result["capability"] == "evidence_handoff"
+    assert result["stage"] == "writing"
+    assert result["activity"] == "gpumd_nep_evidence_handoff"
+    assert result["evidence_role"] == "gpumd_nep_handoff"
+    assert result["source_files"][0]["sha256"]
+    assert result["actual_tool_used"]["support_level"] == "helper_supported"
+    assert result["parser_status"] == "parsed"
+    assert result["claim_limits"]
+    assert result["limitations"]
+    assert result["parent_artifacts"] == []
+    assert output.is_file()
+
+
+def test_prepare_gpumd_handoff_preserves_degraded_source_status(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "handoff.json"
+    manifest.write_text(
+        '{"status": "incomplete", "parser_status": "malformed"}\n',
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/prepare_gpumd_handoff.py",
+        "--manifest",
+        str(manifest),
+        "--output",
+        str(output),
+    )
+
+    assert result["status"] == "warning"
+    assert result["parser_status"] == "partial"
+    assert {warning["code"] for warning in result["warnings"]} >= {
+        "degraded_source_status",
+        "degraded_parser_status",
+    }

@@ -63,6 +63,37 @@ def _analysis_report(work_dir: Path, task: str) -> dict[str, Any]:
     }
 
 
+def _orchestration_outcome(task: str, validation_status: str | None) -> dict[str, str]:
+    status = str(validation_status or "").strip().lower()
+    if task == "unknown" or status in {"skip", "skipped"}:
+        return {
+            "result_status": "needs_clarification",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP task intent requires clarification before computation can proceed.",
+        }
+    if status == "warning":
+        return {
+            "result_status": "warning",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP dry-run planning completed with validation warnings.",
+        }
+    if status in {"pass", "success"}:
+        return {
+            "result_status": "success",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP dry-run planning completed; no computation was executed.",
+        }
+    return {
+        "result_status": "blocked",
+        "stage_status": "failed",
+        "checkpoint_status": "failure",
+        "message": "GPUMD/NEP input validation failed; computation remains blocked.",
+    }
+
+
 def orchestrate_gpumd_task(
     task: str,
     project_root: str,
@@ -106,7 +137,9 @@ def orchestrate_gpumd_task(
         compute_plan = plan["compute_plan"]
 
     analysis = _analysis_report(work_dir, task_norm)
+    outcome = _orchestration_outcome(task_norm, validation.get("status"))
     handoff = {
+        "status": outcome["result_status"],
         "task": task_norm,
         "reports": [
             "reports/gpumd/input_manifest.json",
@@ -116,6 +149,7 @@ def orchestrate_gpumd_task(
         ],
         "validation_status": validation.get("status"),
         "analysis_status": analysis.get("status"),
+        "stage_status": outcome["stage_status"],
         "approval_needed": True,
         "real_submit_allowed": False,
         "next_steps": [
@@ -138,16 +172,17 @@ def orchestrate_gpumd_task(
     checkpoint = create_checkpoint(
         workflow_id=state.get("workflow_id", "wf_gpumd"),
         stage_id=stage,
-        description=f"GPUMD/NEP {task_norm} orchestration reports written.",
+        description=f"GPUMD/NEP {task_norm} orchestration reports written. {outcome['message']}",
         project_root=str(root),
-        status="success" if validation.get("status") in {"pass", "skip", "warning"} else "failed",
+        status=outcome["checkpoint_status"],
     )
     update_stage(
         stage,
-        "completed" if checkpoint.get("status") != "failed" else "failed",
+        outcome["stage_status"],
         project_root=str(root),
         outputs=list(files.values()),
         checkpoint_id=checkpoint["checkpoint_id"],
+        error_message=None if outcome["result_status"] == "success" else outcome["message"],
     )
     write_state(
         {
@@ -155,13 +190,14 @@ def orchestrate_gpumd_task(
             "latest_stage": stage,
             "latest_checkpoint": checkpoint["checkpoint_id"],
             "written_files": files,
-            "status": "success",
+            "status": outcome["result_status"],
+            "stage_status": outcome["stage_status"],
         },
         project_root=str(root),
         state_file="gpumd.json",
     )
     return {
-        "status": "success",
+        "status": outcome["result_status"],
         "task": task_norm,
         "reports": files,
         "artifacts": artifacts,

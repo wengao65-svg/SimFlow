@@ -5,7 +5,20 @@ description: Provide general machine-learning-potential domain assistance for da
 
 # SimFlow MLP
 
-`simflow-mlp` is a general domain assistant for machine-learning-potential evidence. It is not a central workflow executor, is not tied to one package, and does not make any MLP software a central executor. Use concrete engine helpers, such as `simflow-gpumd`, only for tool-specific file evidence.
+`simflow-mlp` is a general domain assistant for machine-learning-potential evidence across the full dataset, labeling, training, validation, active-learning, deployment, and production-MD lifecycle. It is not a central workflow executor, is not tied to one package, and does not make any MLP software a central executor. Use concrete engine helpers, such as `simflow-gpumd`, only for tool-specific file evidence and provider implementation details.
+
+Domain Assistant is this Skill's product role. Tool and capability helper
+support are separate contract facts, and `simflow.helper_evidence.v1` is only
+the common output envelope for optional helper scripts. It does not classify
+this Skill or replace the cross-tool MLP evidence methodology.
+
+## Provider-defined training policy
+
+Each trainer may implement optimization, loss scheduling, restart,
+fine-tuning, multi-task training, or explicit stage transitions differently.
+Identify the actual trainer and MD provider, then record the selected training
+mode, optimizer, scheduler, loss policy, checkpoint lineage, stopping conditions,
+evidence, and limitations. `simflow-mlp` does not prescribe a provider-independent training-phase sequence.
 
 ## Trigger conditions
 
@@ -17,12 +30,18 @@ description: Provide general machine-learning-potential domain assistance for da
 
 - User-provided datasets, label manifests, training logs, model artifacts, validation reports, metrics tables, active-learning round notes, long-MD smoke evidence, anomaly reports, artifact ids, or checkpoints.
 - Optional software/toolchain context such as GPUMD/NEP, DeePMD, MACE, NequIP, Allegro, LAMMPS, ASE, Python, VASP, CP2K, or custom scripts.
+- Actual trainer, MD provider, and training mode such as from-scratch,
+  ordinary restart, foundation-model fine-tuning, or multi-task training when
+  training evidence is under review.
 - Unknown tools or unlisted MLP frameworks should be recorded as provenance with explicit uncertainty rather than forced into a supported helper path.
 - For ambiguous setup, clarify MLP family, target chemistry/configuration domain, reference-label source, dataset split, validation criteria, active-learning loop state, and whether any real execution is requested.
 
 ## Output artifacts
 
 - Optional dataset manifest, labeling provenance report, training-run manifest, validation summary, metric summary, active-learning round manifest, production-readiness review, helper-run manifest, or handoff package.
+- Training-run evidence should identify the provider-defined policy and map
+  provider artifacts to generic roles without copying provider configuration
+  syntax into this skill.
 - Artifact metadata should record recipe `mlp_md` when applicable, iteration id, evidence role, toolchain, actual tool used, support level, source files, hashes, assumptions, thresholds, parent artifacts, and lineage.
 - Scientific claims must link to validation evidence and limitations; incomplete evidence should be recorded as missing or degraded, not passed.
 
@@ -37,9 +56,12 @@ description: Provide general machine-learning-potential domain assistance for da
 
 1. Classify the request as dataset/labeling audit, training evidence review, validation metrics summary, active-learning readiness, production MLP-MD readiness, writing, or handoff.
 2. Load `references/mlp_scope_and_toolchains.md` for boundaries, `references/mlp_dataset_and_labeling.md` for data provenance, `references/mlp_training_validation.md` for training and metric checks, and `references/mlp_active_learning_readiness.md` for loop/readiness checks as needed.
-3. Inspect local evidence before drawing conclusions. Report missing dataset lineage, label convergence, split definitions, failed-label exclusions, or validation thresholds.
-4. Use optional helper scripts for evidence manifests and summaries only. Real training, inference, MD, remote execution, or HPC submission requires generic computation evidence and approval gates.
-5. Register generated evidence reports, figures, or handoff summaries as artifacts with metadata and lineage when writing SimFlow state.
+3. Identify the actual trainer, MD provider, and training mode before
+   interpreting optimization, scheduler, loss, restart, fine-tuning, or
+   checkpoint evidence.
+4. Inspect local evidence before drawing conclusions. Report missing dataset lineage, label convergence, split definitions, failed-label exclusions, training-policy details, or validation thresholds.
+5. Use optional helper scripts for evidence manifests and summaries only. Real training, inference, MD, remote execution, or HPC submission requires generic computation evidence and approval gates.
+6. Register generated evidence reports, figures, or handoff summaries as artifacts with metadata and lineage when writing SimFlow state.
 
 ## Reference map
 
@@ -71,6 +93,11 @@ These helpers are optional domain tools, not the only valid MLP workflow, parser
 
 - Do not treat `simflow-mlp` as a training, inference, MD, or active-learning executor.
 - Do not require one MLP package, parser, descriptor family, model architecture, report filename, or metric threshold as the only valid path.
+- Do not require a provider-independent sequence of training phases, fixed
+  loss weights, full-batch training, one scheduler, or one
+  checkpoint/fine-tuning procedure across trainers.
+- Do not copy NEP, MACE, DeePMD, NequIP, Allegro, or other provider-specific
+  configuration into the general MLP methodology contract.
 - Do not run training, inference, local MD, remote jobs, or HPC jobs from this skill without the relevant approval gate.
 - Do not fabricate datasets, labels, metrics, model quality, convergence, extrapolation status, production readiness, figures, citations, or completed calculations.
 - Do not record unfinished, failed, or missing-validation work as completed production-ready evidence.

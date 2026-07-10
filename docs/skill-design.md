@@ -24,8 +24,8 @@ The refactored workflow layer centers on a small core set:
 
 Engine-specific skills for VASP, CP2K, LAMMPS, and GPUMD/NEP are the supported
 domain assistants in the current product build. `simflow-mlp` is a cross-tool
-evidence helper for machine-learning-potential dataset, training, validation,
-active-learning, and readiness records. These skills provide checklists,
+Domain Assistant for machine-learning-potential dataset, training, validation,
+active-learning, deployment, and readiness methodology. These skills provide checklists,
 templates, troubleshooting, validation suggestions, official-documentation
 pointers, and artifact registration guidance. QE and Gaussian skills are
 reserved unsupported placeholders that may only record user-provided files as
@@ -57,7 +57,13 @@ the script, inputs, outputs, environment, and figure lineage are recorded.
 
 ## Domain Assistant Pattern
 
-Engine helpers should answer questions such as:
+Domain Assistant is the Skill product role. It is independent from the helper
+support level assigned to a concrete tool or capability in
+`workflow/toolchains/capabilities.json`. A Domain Assistant may call optional
+helper scripts, and those scripts may emit `simflow.helper_evidence.v1`; the
+helper-evidence envelope is an output contract rather than a product class.
+
+Domain Assistants should answer questions such as:
 
 - What input files are commonly needed?
 - Which checks are risky for this engine or method?
@@ -93,7 +99,9 @@ requirements that make a helper the only valid path.
 
 Skill scripts are optional helpers. They are allowed to parse files, generate
 templates, inspect outputs, or package reports, but they must not become the
-canonical workflow executor.
+canonical workflow executor. When a helper emits a shared evidence record, use
+`simflow.helper_evidence.v1` without treating that schema as the Skill's
+product identity or support level.
 
 Canonical stage runners use this callable contract:
 

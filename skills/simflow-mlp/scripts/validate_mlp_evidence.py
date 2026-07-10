@@ -76,6 +76,16 @@ def _has_any(payload: dict, keys: tuple[str, ...]) -> bool:
     return any(payload.get(key) not in (None, "", [], {}) for key in keys)
 
 
+def _has_text(payload: dict, keys: tuple[str, ...]) -> bool:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, list) and any(isinstance(item, str) and item.strip() for item in value):
+            return True
+    return False
+
+
 def _semantic_issues(role: str, payload: dict) -> list[dict]:
     issues = []
     parser_issue = _parser_issue(role, payload)
@@ -141,11 +151,24 @@ def _semantic_issues(role: str, payload: dict) -> list[dict]:
         status_issue = _status_issue(role, payload)
         if status_issue:
             issues.append(status_issue)
-        if not _has_any(payload, ("iteration_id", "round", "candidate_pool", "selection_report", "dataset_update", "validation_changes")):
+        if payload.get("active_learning_used") is False:
+            if not _has_text(payload, ("decision_rationale", "rationale", "decision", "reason", "justification")):
+                issues.append({
+                    "role": role,
+                    "code": "missing_active_learning_decision_rationale",
+                    "message": "A no-active-learning decision must record its rationale.",
+                })
+            if not _has_text(payload, ("residual_risk", "residual_risks")):
+                issues.append({
+                    "role": role,
+                    "code": "missing_active_learning_residual_risk",
+                    "message": "A no-active-learning decision must record residual risk.",
+                })
+        elif not _has_any(payload, ("iteration_id", "round", "candidate_pool", "selection_report", "dataset_update", "validation_changes")):
             issues.append({
                 "role": role,
                 "code": "missing_active_learning_context",
-                "message": "Active-learning evidence must record an iteration, candidate/selection evidence, dataset update, or validation changes.",
+                "message": "Active-learning evidence must record a round context or an explicit no-active-learning decision.",
             })
         return issues
 

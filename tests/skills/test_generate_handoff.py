@@ -413,8 +413,8 @@ def test_generate_final_handoff_generates_deliverables_without_leaking_absolute_
     with tempfile.TemporaryDirectory() as tmpdir:
         init_workflow("dft", "literature", tmpdir)
         _write_milestone_d_state(tmpdir)
-        tracked_compute_path = Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "gpumd_dry_run.json"
-        tracked_analysis_path = Path(tmpdir) / ".simflow" / "artifacts" / "analysis" / "nep_metrics.json"
+        tracked_compute_path = Path(tmpdir) / ".simflow" / "artifacts" / "compute" / "deepmd_dry_run.json"
+        tracked_analysis_path = Path(tmpdir) / ".simflow" / "artifacts" / "analysis" / "nequip_metrics.json"
         tracked_compute_path.parent.mkdir(parents=True, exist_ok=True)
         tracked_analysis_path.parent.mkdir(parents=True, exist_ok=True)
         tracked_compute_path.write_text('{"status": "pass"}\n', encoding="utf-8")
@@ -422,30 +422,30 @@ def test_generate_final_handoff_generates_deliverables_without_leaking_absolute_
         artifacts = read_state(project_root=tmpdir, state_file="artifacts.json")
         artifacts.extend([
             {
-                "artifact_id": "art_gpumd_compute01",
-                "name": "gpumd_dry_run.json",
+                "artifact_id": "art_deepmd_compute01",
+                "name": "deepmd_dry_run.json",
                 "type": "dry_run_report",
                 "version": "v1.0.0",
                 "stage": "computation",
-                "path": ".simflow/artifacts/compute/gpumd_dry_run.json",
-                "lineage": {"parent_artifacts": ["art_compute01"], "parameters": {"task": "nep_training"}, "software": "gpumd"},
+                "path": ".simflow/artifacts/compute/deepmd_dry_run.json",
+                "lineage": {"parent_artifacts": ["art_compute01"], "parameters": {"task": "model_training"}, "software": "deepmd"},
                 "metadata": {
                     "source": "user_provided",
-                    "actual_tool_used": {"software": "gpumd", "task": "nep_training", "support_level": "tracked_only"},
+                    "actual_tool_used": {"software": "deepmd", "task": "model_training", "support_level": "tracked_only"},
                 },
                 "created_at": "2026-01-08T00:16:00+00:00",
             },
             {
-                "artifact_id": "art_nep_analysis01",
-                "name": "nep_metrics.json",
+                "artifact_id": "art_nequip_analysis01",
+                "name": "nequip_metrics.json",
                 "type": "analysis_outputs",
                 "version": "v1.0.0",
                 "stage": "analysis_visualization",
-                "path": ".simflow/artifacts/analysis/nep_metrics.json",
-                "lineage": {"parent_artifacts": ["art_gpumd_compute01"], "parameters": {"task": "model_validation"}, "software": "nep"},
+                "path": ".simflow/artifacts/analysis/nequip_metrics.json",
+                "lineage": {"parent_artifacts": ["art_deepmd_compute01"], "parameters": {"task": "model_validation"}, "software": "nequip"},
                 "metadata": {
                     "source": "user_provided_analysis_evidence",
-                    "actual_tool_used": {"software": "nep", "task": "model_validation", "support_level": "tracked_only"},
+                    "actual_tool_used": {"software": "nequip", "task": "model_validation", "support_level": "tracked_only"},
                 },
                 "created_at": "2026-01-08T00:17:00+00:00",
             },
@@ -471,7 +471,7 @@ def test_generate_final_handoff_generates_deliverables_without_leaking_absolute_
         assert final_handoff["compute_truth"]["approval_required_for_real_submit"] is True
         assert {
             item["artifact_id"] for item in final_handoff["tracked_only_evidence"]
-        } == {"art_gpumd_compute01", "art_nep_analysis01"}
+        } == {"art_deepmd_compute01", "art_nequip_analysis01"}
         assert all(item["validation_scope"] == "provenance_only" for item in final_handoff["tracked_only_evidence"])
         assert all(item["engine_validated_by_simflow"] is False for item in final_handoff["tracked_only_evidence"])
         assert final_handoff["writing_outputs"]["methods"]["name"] == "methods.md"
