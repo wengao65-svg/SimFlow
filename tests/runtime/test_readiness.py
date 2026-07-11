@@ -145,7 +145,7 @@ def test_completed_stage_requires_checkpoint(tmp_path):
     ready = build_stage_readiness(str(tmp_path), stage="literature_review")
     assert ready["readiness_status"] == "ready"
     assert ready["checkpoint"]["present"] is True
-    assert ready["checkpoint"]["checkpoint_id"] is None
+    assert ready["checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
     assert checkpoint["checkpoint_id"].startswith("ckpt_")
 
 

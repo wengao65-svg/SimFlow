@@ -1,7 +1,9 @@
-"""POTCAR management for VASP calculations.
+"""POTCAR metadata helpers for VASP calculations.
 
-Generates POTCAR files by concatenating per-element pseudopotentials
-from a user-configured library directory, or via vaspkit.
+SimFlow must never generate, concatenate, copy, move, print, snapshot, or
+invoke external tools to produce POTCAR content. This module only supports
+metadata-oriented inspection helpers such as POSCAR species order, POTCAR
+header validation, and local library directory discovery.
 
 Environment variables:
     SIMFLOW_VASP_POTCAR_PATH: Path to pseudopotential library root
@@ -11,8 +13,6 @@ Environment variables:
 
 import os
 import re
-import shutil
-import subprocess
 from pathlib import Path
 from typing import List, Optional
 
@@ -113,20 +113,20 @@ def generate_potcar(
     flavor: str = None,
     use_vaspkit: bool = False,
 ) -> dict:
-    """Generate POTCAR file for a VASP calculation.
-
-    Element order in POTCAR matches POSCAR species order exactly.
+    """Compatibility API for deprecated POTCAR generation requests.
 
     Args:
         poscar_path: Path to POSCAR file
         output_path: Output POTCAR file path
-        potcar_root: Pseudopotential library root (default: from env)
+        potcar_root: Compatibility-only pseudopotential library root
         flavor: Functional type (default: from env, fallback 'PBE')
-        use_vaspkit: Use vaspkit 103 instead of direct concatenation
+        use_vaspkit: Compatibility-only VASPKIT toggle
 
     Returns:
-        Dict with keys: status, elements, potcar_path, method, message
+        Metadata-only unavailable result. The requested output is never created
+        or modified.
     """
+    potcar_root_supplied = potcar_root is not None
     potcar_root = potcar_root or get_potcar_path()
     flavor = flavor or get_potcar_flavor()
 
@@ -139,155 +139,23 @@ def generate_potcar(
     if not elements:
         return {"status": "error", "message": "No elements found in POSCAR"}
 
-    output = Path(output_path)
-
-    # Method 1: vaspkit
-    if use_vaspkit:
-        return _generate_via_vaspkit(poscar_path, output, elements)
-
-    # Method 2: direct concatenation from library
-    if potcar_root:
-        return _generate_via_concat(poscar_path, output, potcar_root, flavor, elements)
-
-    # No method available
     return {
         "status": "unavailable",
+        "reason_code": "potcar_generation_prohibited",
         "message": (
-            "No POTCAR generation method available. "
-            "Set SIMFLOW_VASP_POTCAR_PATH to your pseudopotential library, "
-            "or set --use-vaspkit if vaspkit is installed."
+            "SimFlow does not generate, concatenate, copy, move, print, snapshot, "
+            "or invoke VASPKIT to produce POTCAR content. The compatibility-only "
+            "library-root and VASPKIT inputs are non-operative."
         ),
         "elements": elements,
         "potcar_path": None,
-    }
-
-
-def _generate_via_vaspkit(
-    poscar_path: str, output: Path, elements: List[str]
-) -> dict:
-    """Generate POTCAR using vaspkit 103."""
-    vaspkit_bin = shutil.which("vaspkit")
-    if not vaspkit_bin:
-        return {
-            "status": "error",
-            "message": "vaspkit not found in PATH",
-            "elements": elements,
-        }
-
-    # vaspkit needs POSCAR in the working directory
-    work_dir = output.parent
-    work_dir.mkdir(parents=True, exist_ok=True)
-
-    # Copy POSCAR to work dir if not already there
-    poscar_in_work = work_dir / "POSCAR"
-    poscar_src = Path(poscar_path).resolve()
-    if poscar_src != poscar_in_work.resolve():
-        import shutil as sh
-        sh.copy2(str(poscar_src), str(poscar_in_work))
-
-    # Remove existing POTCAR to force regeneration
-    potcar_in_work = work_dir / "POTCAR"
-    if potcar_in_work.exists():
-        potcar_in_work.unlink()
-
-    # Run vaspkit
-    try:
-        result = subprocess.run(
-            [vaspkit_bin],
-            input="103\n",
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=str(work_dir),
-        )
-    except subprocess.TimeoutExpired:
-        return {
-            "status": "error",
-            "message": "vaspkit timed out",
-            "elements": elements,
-        }
-
-    if not potcar_in_work.is_file():
-        return {
-            "status": "error",
-            "message": f"vaspkit did not generate POTCAR. stderr: {result.stderr[:500]}",
-            "elements": elements,
-        }
-
-    # Move to output path if different
-    if str(potcar_in_work.resolve()) != str(output.resolve()):
-        output.parent.mkdir(parents=True, exist_ok=True)
-        sh.move(str(potcar_in_work), str(output))
-
-    return {
-        "status": "success",
-        "elements": elements,
-        "potcar_path": str(output),
-        "method": "vaspkit",
-    }
-
-
-def _generate_via_concat(
-    poscar_path: str,
-    output: Path,
-    potcar_root: str,
-    flavor: str,
-    elements: List[str],
-) -> dict:
-    """Generate POTCAR by concatenating per-element files from library."""
-    # Check for variant specification in POSCAR
-    # Format: element:variant (e.g., "Si_pv", "Ge_h") or just "Si"
-    element_variants = []
-    for elem in elements:
-        if "_" in elem:
-            # User specified variant explicitly: "Si_pv"
-            parts = elem.split("_", 1)
-            element_variants.append((parts[0], elem))
-        else:
-            element_variants.append((elem, elem))
-
-    # Find each element's POTCAR
-    potcar_files = []
-    missing = []
-    for element, variant in element_variants:
-        # Try exact variant first
-        path = Path(potcar_root) / flavor / variant / "POTCAR"
-        if path.is_file():
-            potcar_files.append(path)
-            continue
-
-        # Try base element
-        path = _find_element_potcar(potcar_root, flavor, element)
-        if path:
-            potcar_files.append(path)
-        else:
-            missing.append(element)
-
-    if missing:
-        available = _list_available_elements(potcar_root, flavor)
-        return {
-            "status": "error",
-            "message": (
-                f"Pseudopotentials not found for: {', '.join(missing)}. "
-                f"Available in {potcar_root}/{flavor}/: {', '.join(available[:20])}"
-            ),
-            "elements": elements,
-            "missing": missing,
-        }
-
-    # Concatenate
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with open(output, "w") as out:
-        for pfile in potcar_files:
-            with open(pfile, "r") as f:
-                out.write(f.read())
-
-    return {
-        "status": "success",
-        "elements": elements,
-        "potcar_path": str(output),
-        "method": "concatenation",
-        "sources": [str(p) for p in potcar_files],
+        "content_generated": False,
+        "requested_output": str(output_path),
+        "compatibility_inputs": {
+            "potcar_root_supplied": potcar_root_supplied,
+            "flavor": flavor,
+            "use_vaspkit_supplied": bool(use_vaspkit),
+        },
     }
 
 

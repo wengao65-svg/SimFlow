@@ -9,6 +9,15 @@ handoff-ready work.
 Skills are not workflow executors. They should not force one parser, one report
 name, one builder, one simulation engine, or one fixed DFT/AIMD/MD path.
 
+Helper outputs are pure evidence producers by default. They may write
+requested input or report files under `project_root`, but they do not
+initialize workflow state, do not advance stages, do not register artifacts,
+and do not create checkpoints unless explicit helper-run recording is
+requested.
+
+Default helper report paths live under project-root `reports/<engine>/`.
+`.simflow` is touched only by explicit helper-run recording.
+
 ## Core Skill Set
 
 The refactored workflow layer centers on a small core set:
@@ -119,3 +128,22 @@ Without `--record-helper-run`, helper scripts should remain standalone and
 avoid writing SimFlow state. With `--record-helper-run`, they must use
 `runtime.simflow_core.helpers.record_helper_run` or the shared script-contract
 wrapper so scripts, inputs, outputs, environment, and lineage are recorded.
+`--record-helper-run` is `record_only`: it registers helper evidence and
+lineage, but it does not complete or fail a stage and does not create a
+stage-boundary checkpoint.
+
+Direct helpers do not register arbitrary report artifacts. Stage runners may
+ingest/register outputs when the canonical stage owns those artifacts.
+
+## Result Vocabulary
+
+Use `simflow.result.v1` to describe canonical nested helper, stage-runner, and
+state-admin results. Roles, outcomes, and state effects belong to that nested
+record, while top-level statuses are compatibility fields.
+
+- Helper evidence `status` describes the helper payload itself.
+- `simflow_result.outcome` describes the canonical nested result.
+- Stage status, readiness status, verification status, gate status, and
+  checkpoint status are separate vocabularies and are not interchangeable.
+- Stage runners own stage transitions.
+- Checkpoint/state-admin APIs own checkpoint operations.

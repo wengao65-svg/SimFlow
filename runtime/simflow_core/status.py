@@ -29,7 +29,7 @@ def _read_project_state(root: Path) -> dict[str, Any]:
         "checkpoints": _as_list(read_state(project_root=str(root), state_file="checkpoints.json")),
         "lineage": _as_dict(read_state(project_root=str(root), state_file="lineage.json")),
         "gates": _as_dict(read_state(project_root=str(root), state_file="gates.json")),
-        "verification": _as_dict(read_state(project_root=str(root), state_file="verification.json")),
+        "verification": _as_list(read_state(project_root=str(root), state_file="verification.json")),
     }
 
 

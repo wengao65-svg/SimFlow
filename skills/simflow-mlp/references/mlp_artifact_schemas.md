@@ -47,6 +47,15 @@ simflow.helper_evidence.v1` when a helper is updated or newly added.
   package or tool is unavailable.
 - `capability_warning`: the requested action is outside helper support, such as real execution, input generation, or submit.
 
+Helper evidence `status` is not the same thing as `simflow.result.v1`
+`outcome`, stage status, readiness status, verification status, gate status,
+or checkpoint status. Top-level statuses are compatibility fields when a
+surface also returns nested `simflow_result` data.
+
+Default helper report paths live under project-root `reports/<engine>/`.
+Direct helpers do not register arbitrary report artifacts. Stage runners may
+ingest/register outputs when those outputs become canonical stage artifacts.
+
 ## Production readiness
 
 Scientific production-readiness evidence should include dataset lineage, training evidence, validation evidence, smoke-MD evidence, and anomaly criteria. Approval/gate evidence is a separate policy requirement and should only be required by helper scripts when the caller explicitly asks for approval readiness.

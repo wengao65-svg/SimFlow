@@ -3,59 +3,55 @@
   "title": "Artifact",
   "description": "Artifact metadata and lineage",
   "type": "object",
-  "required": ["artifact_id", "name", "type", "version", "stage", "created_at"],
+  "required": ["artifact_id", "name", "type", "version", "stage", "lineage", "metadata", "created_at"],
   "properties": {
     "artifact_id": {
       "type": "string",
-      "pattern": "^art_[a-z0-9]{8}$",
-      "description": "Unique artifact identifier"
+      "pattern": "^art_[a-z0-9]{8}$"
     },
     "name": {
-      "type": "string",
-      "description": "Artifact file name"
+      "type": "string"
     },
     "type": {
-      "type": "string",
-      "description": "Artifact type (e.g., literature_matrix, proposal, figure)"
+      "type": "string"
     },
     "version": {
       "type": "string",
-      "pattern": "^v\\d+\\.\\d+\\.\\d+$",
-      "description": "Semantic version"
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
     },
     "stage": {
-      "type": "string",
-      "description": "Stage that produced this artifact"
+      "type": "string"
     },
     "path": {
-      "type": "string",
-      "description": "Relative path to the artifact file"
+      "type": ["string", "null"]
     },
     "lineage": {
       "type": "object",
+      "required": ["parent_artifacts", "parameters", "software"],
       "properties": {
         "parent_artifacts": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "Parent artifact IDs"
+          "items": { "type": "string" }
         },
         "parameters": {
-          "type": "object",
-          "description": "Parameters used to generate this artifact"
+          "type": "object"
         },
         "software": {
-          "type": ["string", "null"],
-          "description": "Software used (if applicable)"
+          "type": ["string", "null"]
         }
-      }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object"
     },
     "checksum": {
-      "type": ["string", "null"],
-      "description": "File checksum for integrity verification"
+      "type": ["string", "null"]
     },
     "created_at": {
       "type": "string",
       "format": "date-time"
     }
-  }
+  },
+  "additionalProperties": true
 }

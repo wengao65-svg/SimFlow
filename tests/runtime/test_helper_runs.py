@@ -57,13 +57,19 @@ def test_record_helper_run_tracks_self_written_analysis_script():
             "helper_output",
             "helper_run_manifest",
         }
-        assert {artifact["name"] for artifact in artifacts} >= {
+        artifact_names = {artifact["name"] for artifact in artifacts}
+
+        assert artifact_names >= {
             "parse_outputs.py",
             "raw.out",
             "summary.csv",
             "energy.png",
-            "custom_python_analysis_helper_run.json",
         }
+        assert any(
+            name.startswith("custom_python_analysis_helper_")
+            and name.endswith("_helper_run.json")
+            for name in artifact_names
+        )
 
 
 def test_helper_output_lineage_links_script_and_inputs():
@@ -96,3 +102,28 @@ def test_helper_output_lineage_links_script_and_inputs():
         assert script_id in output_lineage["parent_artifacts"]
         assert input_id in output_lineage["parent_artifacts"]
         assert output_id in manifest_lineage["parent_artifacts"]
+
+
+def test_repeated_helper_run_recordings_create_distinct_manifest_paths(tmp_path):
+    init_workflow("custom", "analysis_visualization", project_root=str(tmp_path))
+    (tmp_path / "script.py").write_text("print('ok')\n", encoding="utf-8")
+    (tmp_path / "output.dat").write_text("output\n", encoding="utf-8")
+
+    first = record_helper_run(
+        project_root=str(tmp_path),
+        stage="analysis_visualization",
+        run_name="manifest uniqueness",
+        script_path="script.py",
+        output_paths=["output.dat"],
+    )
+    second = record_helper_run(
+        project_root=str(tmp_path),
+        stage="analysis_visualization",
+        run_name="manifest uniqueness",
+        script_path="script.py",
+        output_paths=["output.dat"],
+    )
+
+    assert first["manifest_artifact"]["path"] != second["manifest_artifact"]["path"]
+    assert (tmp_path / first["manifest_artifact"]["path"]).is_file()
+    assert (tmp_path / second["manifest_artifact"]["path"]).is_file()

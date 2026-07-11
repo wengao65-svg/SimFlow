@@ -2,7 +2,7 @@
 
 Software skills are optional domain assistants. They provide input-file
 guidance, common checks, troubleshooting notes, template examples, official
-documentation pointers, and artifact registration suggestions.
+documentation pointers, and workflow-boundary guidance.
 
 They are not workflow executors. They must not make a fixed parser, builder,
 report name, software package, or DFT/AIMD/MD path mandatory.
@@ -29,9 +29,20 @@ python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
   --calc-dir ./neb
 ```
 
-The script writes reports and artifacts under `.simflow/` only when given a
-project root. It does not submit jobs and does not advance a fixed VASP
-workflow.
+The script does not submit jobs and does not advance a fixed VASP workflow.
+
+Default helper reports live under project-root `reports/<engine>/`. `.simflow`
+is touched only by explicit helper-run recording.
+
+Helper outputs do not initialize/advance stages, register artifacts, or create checkpoints unless explicit helper-run recording is requested. When
+`--record-helper-run` is used, the state effect is `record_only`: helper
+evidence and lineage are registered without changing stage status or creating a
+stage-boundary checkpoint.
+
+Direct helpers do not register arbitrary report artifacts. Stage runners may ingest/register outputs when the canonical workflow stage owns them.
+
+`simflow.result.v1` records canonical nested helper/stage/state-admin results.
+Top-level statuses are compatibility fields.
 
 ## CP2K
 

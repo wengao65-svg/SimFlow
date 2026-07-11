@@ -3,8 +3,12 @@
 
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +31,17 @@ def _load_script_module(name: str, path: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _run_script(path: Path, *args: str) -> dict:
+    completed = subprocess.run(
+        [sys.executable, str(path), *args],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    return json.loads(completed.stdout)
 
 
 def _write_inputs(base: Path):
@@ -101,7 +116,7 @@ def _write_inputs(base: Path):
     )
 
 
-def test_orchestrator_ensures_simflow_and_reports(monkeypatch):
+def test_orchestrator_writes_reports_without_default_simflow_state(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda name: None)
     module = _load_module()
     with tempfile.TemporaryDirectory() as tmp:
@@ -110,29 +125,31 @@ def test_orchestrator_ensures_simflow_and_reports(monkeypatch):
         result = module.orchestrate_cp2k_task("energy", str(root))
 
         assert result["status"] == "success"
-        assert (root / ".simflow/state/workflow.json").is_file()
+        assert result["simflow_result"]["role"] == "helper"
+        assert result["simflow_result"]["activity"] == "orchestration"
+        assert result["simflow_result"]["stage"] == "computation"
+        assert result["simflow_result"]["state_effect"] == "none"
         assert (root / "reports/cp2k/input_manifest.json").is_file()
         assert (root / "reports/cp2k/validation_report.json").is_file()
         assert (root / "reports/cp2k/compute_plan.json").is_file()
         assert (root / "reports/cp2k/analysis_report.json").is_file()
         assert (root / "reports/cp2k/handoff_artifact.json").is_file()
+        assert not (root / ".simflow").exists()
         for report in (root / "reports/cp2k").glob("*.json"):
             json.loads(report.read_text(encoding="utf-8"))
 
 
-def test_orchestrator_registers_artifacts_and_checkpoint(monkeypatch):
+def test_orchestrator_does_not_return_artifacts_or_checkpoint(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda name: None)
     module = _load_module()
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         _write_inputs(root)
         result = module.orchestrate_cp2k_task("energy", str(root))
-        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
-        checkpoints = json.loads((root / ".simflow/state/checkpoints.json").read_text(encoding="utf-8"))
 
-        assert len(artifacts) >= 5
-        assert len(checkpoints) >= 1
-        assert result["checkpoint"]["checkpoint_id"].startswith("ckpt_")
+        assert "artifacts" not in result
+        assert "checkpoint" not in result
+        assert not (root / ".simflow").exists()
 
 
 def test_project_root_is_not_plugin_root(monkeypatch):
@@ -176,7 +193,8 @@ def test_orchestrator_unknown_task_writes_uncertainty_manifest(monkeypatch):
         assert result["task"] == "unknown"
         assert manifest["classification_status"] == "needs_clarification"
         assert manifest["candidates"]
-        assert (root / ".simflow/state/stages.json").is_file()
+        assert result["simflow_result"]["stage"] == "computation"
+        assert not (root / ".simflow").exists()
 
 
 def test_orchestrator_parses_outputs_when_present(monkeypatch):
@@ -196,6 +214,31 @@ def test_orchestrator_parses_outputs_when_present(monkeypatch):
         assert analysis["summary"]["final_energy"] == -17.05
 
 
+@pytest.mark.parametrize(
+    ("request_text", "expected_task"),
+    [
+        ("please parse cp2k outputs", "parse"),
+        ("please troubleshoot cp2k outputs", "troubleshoot"),
+    ],
+)
+def test_orchestrator_derives_stage_from_phrase_classified_task(monkeypatch, request_text, expected_task):
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    module = _load_module()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_inputs(root)
+        for name in ("md.log", "md.ener", "md-pos-1.xyz", "md.restart"):
+            (root / name).write_text((FIXTURE_DIR / name).read_text(encoding="utf-8"), encoding="utf-8")
+
+        result = module.orchestrate_cp2k_task(request_text, str(root))
+
+        assert result["status"] == "success"
+        assert result["task"] == expected_task
+        assert result["plan"]["task"] == expected_task
+        assert result["simflow_result"]["stage"] == "analysis_visualization"
+        assert result["simflow_result"]["state_effect"] == "none"
+
+
 def test_cp2k_generation_wrapper_records_computation_stage():
     module = _load_script_module("cp2k_generate_wrapper", GENERATE_SCRIPT)
     with tempfile.TemporaryDirectory() as tmp:
@@ -206,13 +249,15 @@ def test_cp2k_generation_wrapper_records_computation_stage():
         )
 
         result = module.generate_cp2k_inputs(str(root / "structure.xyz"), "energy", str(root))
-        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
-        cp2k_state = json.loads((root / ".simflow/state/cp2k.json").read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
-        assert {artifact["stage"] for artifact in artifacts} == {"computation"}
-        assert {artifact["lineage"]["parameters"]["activity"] for artifact in artifacts} == {"input_generation"}
-        assert cp2k_state["latest_stage"] == "computation"
+        assert result["simflow_result"]["role"] == "helper"
+        assert result["simflow_result"]["activity"] == "input_generation"
+        assert result["simflow_result"]["stage"] == "computation"
+        assert result["simflow_result"]["state_effect"] == "none"
+        assert "artifacts" not in result
+        assert "checkpoint" not in result
+        assert not (root / ".simflow").exists()
 
 
 def test_cp2k_validation_wrapper_records_computation_stage():
@@ -227,13 +272,14 @@ def test_cp2k_validation_wrapper_records_computation_stage():
         generate.generate_cp2k_inputs(str(root / "structure.xyz"), "energy", str(root))
 
         result = validate.run_validation("energy", str(root), input_path="energy.inp")
-        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
-        validation_artifacts = [artifact for artifact in artifacts if artifact["name"] == "validation_report"]
 
         assert result["status"] == "success"
-        assert validation_artifacts
-        assert {artifact["stage"] for artifact in validation_artifacts} == {"computation"}
-        assert {artifact["lineage"]["parameters"]["activity"] for artifact in validation_artifacts} == {"input_validation"}
+        assert result["simflow_result"]["activity"] == "input_validation"
+        assert result["simflow_result"]["stage"] == "computation"
+        assert result["simflow_result"]["state_effect"] == "none"
+        assert "artifacts" not in result
+        assert "checkpoint" not in result
+        assert not (root / ".simflow").exists()
 
 
 def test_cp2k_parse_wrapper_records_analysis_visualization_stage():
@@ -242,10 +288,66 @@ def test_cp2k_parse_wrapper_records_analysis_visualization_stage():
         root = Path(tmp)
 
         result = module.parse_cp2k_outputs(str(root))
-        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
-        cp2k_state = json.loads((root / ".simflow/state/cp2k.json").read_text(encoding="utf-8"))
 
         assert result["status"] == "success"
-        assert {artifact["stage"] for artifact in artifacts} == {"analysis_visualization"}
-        assert {artifact["lineage"]["parameters"]["activity"] for artifact in artifacts} == {"analysis"}
-        assert cp2k_state["latest_stage"] == "analysis_visualization"
+        assert result["simflow_result"]["activity"] == "analysis"
+        assert result["simflow_result"]["stage"] == "analysis_visualization"
+        assert result["simflow_result"]["state_effect"] == "none"
+        assert "artifacts" not in result
+        assert "checkpoint" not in result
+        assert not (root / ".simflow").exists()
+
+
+def test_cp2k_record_helper_run_creates_helper_artifacts_only():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_inputs(root)
+
+        result = _run_script(
+            SCRIPT,
+            "--task",
+            "energy",
+            "--project-root",
+            str(root),
+            "--record-helper-run",
+        )
+
+        assert result["status"] == "success"
+        assert result["simflow_result"]["state_effect"] == "record_only"
+        checkpoints = json.loads((root / ".simflow/state/checkpoints.json").read_text(encoding="utf-8"))
+        stages = json.loads((root / ".simflow/state/stages.json").read_text(encoding="utf-8"))
+        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+        manifest_path = next(
+            Path(root / artifact["path"])
+            for artifact in artifacts
+            if artifact["type"] == "helper_run_manifest"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        assert checkpoints == []
+        assert stages == {}
+        assert manifest["metadata"]["simflow_result"]["state_effect"] == "record_only"
+        assert {artifact["type"] for artifact in artifacts} == {
+            "helper_script",
+            "helper_output",
+            "helper_run_manifest",
+        }
+
+
+@pytest.mark.parametrize("calc_dir_factory", [lambda root: "../outside", lambda root: str(root.parent / "outside-abs")])
+def test_cp2k_wrappers_reject_calc_dir_outside_project_root(monkeypatch, calc_dir_factory):
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    orchestrate = _load_module()
+    generate = _load_script_module("cp2k_generate_wrapper_boundary", GENERATE_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_inputs(root)
+        outside = root.parent / "outside-abs"
+
+        with pytest.raises(ValueError, match="project_root|project root|boundary"):
+            orchestrate.orchestrate_cp2k_task("energy", str(root), calc_dir=calc_dir_factory(root))
+        with pytest.raises(ValueError, match="project_root|project root|boundary"):
+            generate.generate_cp2k_inputs(str(root / "structure.xyz"), "energy", str(root), calc_dir=calc_dir_factory(root))
+
+        assert not outside.exists()
+        assert not (root.parent / "outside").exists()

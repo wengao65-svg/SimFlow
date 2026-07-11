@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -69,6 +70,90 @@ def test_vasp_pymatgen_inputs():
         assert result["num_atoms"] == 2
 
 
+def test_vasp_generator_function_result_has_default_helper_result_contract():
+    mod = _load_module("vasp_gen_result_contract", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"), "scf", tmpdir, kppa=100
+        )
+
+        assert result["status"] == "success"
+        assert result["simflow_result"]["schema_version"] == "simflow.result.v1"
+        assert result["simflow_result"]["role"] == "helper"
+        assert result["simflow_result"]["activity"] == "vasp_generate_inputs"
+        assert result["simflow_result"]["stage"] == "computation"
+        assert result["simflow_result"]["state_effect"] == "none"
+        assert result["simflow_result"]["outcome"] == "success"
+
+
+def test_vasp_generator_cli_default_result_has_helper_result_contract(tmp_path):
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(VASP_SCRIPT),
+            "--poscar",
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "--job-type",
+            "scf",
+            "--output-dir",
+            str(tmp_path / "vasp_input"),
+            "--kppa",
+            "100",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["status"] == "success"
+    assert result["simflow_result"]["role"] == "helper"
+    assert result["simflow_result"]["activity"] == "vasp_generate_inputs"
+    assert result["simflow_result"]["stage"] == "computation"
+    assert result["simflow_result"]["state_effect"] == "none"
+    assert not (tmp_path / ".simflow").exists()
+
+
+def test_vasp_generator_cli_recording_upgrades_helper_result_contract(tmp_path):
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(VASP_SCRIPT),
+            "--poscar",
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "--job-type",
+            "scf",
+            "--output-dir",
+            str(tmp_path / "vasp_input"),
+            "--kppa",
+            "100",
+            "--project-root",
+            str(tmp_path),
+            "--record-helper-run",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["status"] == "success"
+    assert result["simflow_result"]["role"] == "helper"
+    assert result["simflow_result"]["activity"] == "vasp_generate_inputs"
+    assert result["simflow_result"]["stage"] == "computation"
+    assert result["simflow_result"]["state_effect"] == "record_only"
+    assert result["helper_run_id"].startswith("helper_")
+
+    manifests = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in (tmp_path / ".simflow").rglob("*_helper_run.json")
+    ]
+    assert len(manifests) == 1
+    assert manifests[0]["metadata"]["simflow_result"]["state_effect"] == "record_only"
+
+
 def test_vasp_pymatgen_relax():
     mod = _load_module("vasp_gen", VASP_SCRIPT)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,6 +163,170 @@ def test_vasp_pymatgen_relax():
         assert result["status"] == "success"
         incar_content = Path(os.path.join(tmpdir, "INCAR")).read_text()
         assert "NSW" in incar_content
+
+
+def test_vasp_generator_potcar_compatibility_inputs_are_nonoperative():
+    mod = _load_module("vasp_gen_potcar_compat", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "scf",
+            tmpdir,
+            kppa=100,
+            potcar_root="/licensed/potpaw_PBE",
+            use_vaspkit=True,
+        )
+        assert result["status"] == "success"
+        assert result["potcar"]["status"] == "metadata_only"
+        assert result["potcar"]["content_generated"] is False
+        assert "compatibility" in result["potcar"]["message"].lower()
+        assert result["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
+        assert result["potcar"]["compatibility_inputs_ignored"]["use_vaspkit_supplied"] is True
+        serialized = json.dumps(result)
+        assert "/licensed/potpaw_PBE" not in serialized
+        assert '"potcar_root":' not in serialized
+        assert os.path.exists(os.path.join(tmpdir, "POTCAR")) is False
+        potcar_info = json.loads(Path(os.path.join(tmpdir, "POTCAR_info.json")).read_text(encoding="utf-8"))
+        assert potcar_info["generation"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
+        serialized_info = json.dumps(potcar_info)
+        assert "/licensed/potpaw_PBE" not in serialized_info
+        assert '"potcar_root":' not in serialized_info
+
+
+def test_vasp_generator_does_not_persist_raw_potcar_root_in_stage_payloads():
+    mod = _load_module("vasp_gen_potcar_privacy", VASP_SCRIPT)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = mod.generate_vasp_inputs(
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "scf",
+            tmpdir,
+            kppa=100,
+            potcar_root="/licensed/private/library",
+        )
+
+        assert result["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
+        assert result["potcar"]["compatibility_inputs_ignored"]["use_vaspkit_supplied"] is False
+        assert "/licensed/private/library" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("inline_value", [False, True])
+def test_vasp_helper_run_redacts_raw_potcar_root_from_recorded_command(tmp_path, inline_value):
+    private_root = "/licensed/private/potpaw_PBE"
+    potcar_args = (
+        [f"--potcar-root={private_root}"]
+        if inline_value
+        else ["--potcar-root", private_root]
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(VASP_SCRIPT),
+            "--poscar",
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "--job-type",
+            "scf",
+            "--output-dir",
+            str(tmp_path / "vasp_input"),
+            "--kppa",
+            "100",
+            *potcar_args,
+            "--project-root",
+            str(tmp_path),
+            "--record-helper-run",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert private_root not in completed.stdout
+    recorded_json = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (tmp_path / ".simflow").rglob("*.json")
+    )
+    assert private_root not in recorded_json
+    assert "<redacted>" in recorded_json
+
+
+@pytest.mark.parametrize("inline_value", [False, True])
+def test_vasp_helper_run_redacts_sensitive_values_inside_params(tmp_path, inline_value):
+    raw_values = [
+        "/licensed/private/potpaw_PBE",
+        "/licensed/private/single/POTCAR",
+        "/licensed/private/env/potpaw_LDA",
+        "password-value-123",
+        "token-value-123",
+        "secret-value-123",
+        "api-key-value-123",
+        "credential-value-123",
+    ]
+    params = {
+        "ENCUT": 520,
+        "potcar_root": raw_values[0],
+        "potcar_path": raw_values[1],
+        "SIMFLOW_VASP_POTCAR_PATH": raw_values[2],
+        "db_password": raw_values[3],
+        "service_token": raw_values[4],
+        "client_secret": raw_values[5],
+        "api_key": raw_values[6],
+        "credential_file": raw_values[7],
+    }
+    params_arg = json.dumps(params)
+    params_args = (
+        [f"--params={params_arg}"]
+        if inline_value
+        else ["--params", params_arg]
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(VASP_SCRIPT),
+            "--poscar",
+            str(FIXTURE_DIR / "POSCAR_Si"),
+            "--job-type",
+            "scf",
+            "--output-dir",
+            str(tmp_path / "vasp_input"),
+            "--kppa",
+            "100",
+            *params_args,
+            "--project-root",
+            str(tmp_path),
+            "--record-helper-run",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    for raw_value in raw_values:
+        assert raw_value not in completed.stdout
+    recorded_json = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (tmp_path / ".simflow").rglob("*.json")
+    )
+    for raw_value in raw_values:
+        assert raw_value not in recorded_json
+    assert "ENCUT" in recorded_json
+    assert "520" in recorded_json
+    assert recorded_json.count("<redacted>") >= len(raw_values)
+
+
+def test_vasp_generator_help_marks_potcar_generation_flags_as_compatibility_only():
+    completed = subprocess.run(
+        [sys.executable, str(VASP_SCRIPT), "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    assert "compatibility-only" in completed.stdout.lower()
+    assert "--potcar-root" in completed.stdout
+    assert "--use-vaspkit" in completed.stdout
 
 
 # ── NBANDS policy tests ───────────────────────────────────────

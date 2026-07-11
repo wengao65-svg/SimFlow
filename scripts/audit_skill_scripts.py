@@ -23,6 +23,9 @@ STAGE_RUNNER_FUNCTIONS = {
     "run_writing_stage",
     "verify_workflow",
 }
+STATE_ADMIN_SCRIPTS = {
+    "skills/simflow-checkpoint/scripts/manage_checkpoint.py",
+}
 
 
 def _read(path: Path) -> str:
@@ -62,6 +65,9 @@ def _uses_standard_recording_args(tree: ast.AST) -> bool:
 
 
 def _category(path: Path, functions: dict[str, ast.FunctionDef]) -> str:
+    relative = str(path.relative_to(ROOT))
+    if relative in STATE_ADMIN_SCRIPTS:
+        return "state_admin"
     names = set(functions)
     if names & STAGE_RUNNER_FUNCTIONS:
         return "stage_runner"

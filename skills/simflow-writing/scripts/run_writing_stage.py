@@ -122,6 +122,19 @@ def _read_parameter_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _dedupe_artifacts_in_order(artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    ordered: list[dict[str, Any]] = []
+    for artifact in artifacts:
+        artifact_id = artifact.get("artifact_id")
+        if artifact_id and artifact_id in seen:
+            continue
+        if artifact_id:
+            seen.add(artifact_id)
+        ordered.append(artifact)
+    return ordered
+
+
 def _modeling_summary(structure_manifest: dict[str, Any]) -> list[str]:
     lines = []
     source_mode = structure_manifest.get("source_mode", "unknown")
@@ -804,15 +817,19 @@ def run_writing_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     if verification_result.get("verification_status") in {"warning", "fail"}:
         manifest["status"] = "completed_with_warnings"
 
+    artifacts = _dedupe_artifacts_in_order([
+        methods_artifact,
+        results_artifact,
+        claim_map_artifact,
+        reproducibility_package_artifact,
+        reproducibility_manifest_artifact,
+        *final_handoff_result["artifacts"],
+        *verification_result.get("artifacts", []),
+    ])
+
     return {
         "status": "success",
-        "artifacts": [
-            methods_artifact,
-            results_artifact,
-            claim_map_artifact,
-            reproducibility_package_artifact,
-            *final_handoff_result["artifacts"],
-        ],
+        "artifacts": artifacts,
         "manifest": manifest,
         "inputs": parent_artifact_ids,
     }

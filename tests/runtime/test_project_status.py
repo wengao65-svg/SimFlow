@@ -15,6 +15,7 @@ from runtime.simflow_core.status import (
     build_handoff_summary,
     build_project_status,
 )
+from runtime.simflow_core.verification import persist_verification_state
 
 
 def _write(root: Path, relative_path: str, content: str = "content\n") -> None:
@@ -304,3 +305,32 @@ def test_project_status_without_workflow_state_reports_risk(tmp_path):
     risk_codes = {risk["code"] for risk in status["risks"]}
     assert {"missing_workflow_state", "missing_checkpoint"}.issubset(risk_codes)
     assert status["next_actions"][0]["action"] == "start_stage"
+
+
+def test_project_status_preserves_list_backed_verification_reports(tmp_path):
+    workflow = init_workflow("custom", "writing", project_root=str(tmp_path))
+    report = {
+        "stage": "writing",
+        "workflow_id": workflow["workflow_id"],
+        "status": "warning",
+        "generated_at": "2026-07-11T00:00:00+00:00",
+        "completed_at": "2026-07-11T00:05:00+00:00",
+        "checks": [
+            {
+                "name": "traceability",
+                "status": "warning",
+                "message": "missing provenance appendix",
+                "details": {},
+                "checked_at": "2026-07-11T00:05:00+00:00",
+            }
+        ],
+        "warnings": ["missing provenance appendix"],
+        "failures": [],
+        "source_artifact_ids": ["art_1234abcd"],
+    }
+    persist_verification_state(report, project_root=str(tmp_path))
+
+    status = build_project_status(str(tmp_path))
+
+    assert isinstance(status["verification"], list)
+    assert status["verification"] == [report]

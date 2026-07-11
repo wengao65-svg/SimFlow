@@ -4,7 +4,9 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const childProcess = require('child_process');
 const Ajv = require('ajv');
 
 const ROOT = path.resolve(__dirname, '../..');
@@ -21,6 +23,197 @@ function readJson(relativePath) {
 function compileSchema(name) {
   const ajv = new Ajv({ strict: false, validateFormats: false });
   return ajv.compile(readJson(path.join('schemas', name)));
+}
+
+function buildRuntimeFixtures() {
+  const timestamp = '2026-07-11T00:00:00+00:00';
+  const workflow = {
+    workflow_id: 'wf_ab12cd34',
+    workflow_type: 'custom_recipe',
+    current_stage: 'literature_review',
+    status: 'initialized',
+    plan: null,
+    entry_point: 'literature_review',
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+  const stage = {
+    stage_name: 'literature_review',
+    status: 'completed',
+    agent: null,
+    inputs: ['seed'],
+    outputs: ['art_1234abcd'],
+    checkpoint_id: 'ckpt_001_literature_review',
+    error_message: null,
+    started_at: timestamp,
+    completed_at: timestamp,
+  };
+  const artifact = {
+    artifact_id: 'art_1234abcd',
+    name: 'summary.txt',
+    type: 'review_summary',
+    version: 'v1.0.0',
+    stage: 'literature_review',
+    path: '.simflow/artifacts/literature_review/summary.txt',
+    lineage: {
+      parent_artifacts: [],
+      parameters: {},
+      software: null,
+    },
+    metadata: {},
+    checksum: null,
+    created_at: timestamp,
+  };
+  const checkpoint = {
+    checkpoint_id: 'ckpt_001_literature_review',
+    workflow_id: workflow.workflow_id,
+    stage_id: 'literature_review',
+    job_id: null,
+    description: 'Checkpoint after literature review',
+    state_snapshot: {
+      'workflow.json': workflow,
+      'stages.json': { literature_review: stage },
+      'artifacts.json': [artifact],
+      'checkpoints.json': [{
+        checkpoint_id: 'ckpt_001_literature_review',
+        workflow_id: workflow.workflow_id,
+        stage_id: 'literature_review',
+        job_id: null,
+        description: 'Checkpoint after literature review',
+        status: 'success',
+        path: '.simflow/checkpoints/ckpt_001_literature_review.json',
+        created_at: timestamp,
+      }],
+      'lineage.json': { links: [] },
+      'verification.json': [],
+      'jobs.json': [],
+      'gates.json': [],
+      'metadata.json': {},
+      'summary.json': { state_root: '.simflow' },
+      'project.json': {
+        project_root: '/tmp/project',
+        state_root: '.simflow',
+        workflow_id: workflow.workflow_id,
+        created_at: timestamp,
+        updated_at: timestamp,
+      },
+    },
+    artifact_versions: {
+      art_1234abcd: 'v1.0.0',
+    },
+    lineage_snapshot: { links: [] },
+    status: 'success',
+    created_at: timestamp,
+    simflow_result: {
+      schema_version: 'simflow.result.v1',
+      role: 'state_admin',
+      activity: 'create_checkpoint',
+      legacy_status: 'success',
+      outcome: 'success',
+      stage: 'literature_review',
+      state_effect: 'checkpoint_admin',
+    },
+  };
+  const verification = [{
+    stage: 'writing',
+    workflow_id: workflow.workflow_id,
+    status: 'pass',
+    generated_at: timestamp,
+    completed_at: timestamp,
+    checks: [{
+      name: 'traceability',
+      status: 'pass',
+      message: 'ok',
+      details: {},
+      checked_at: timestamp,
+    }],
+    warnings: [],
+    failures: [],
+    source_artifact_ids: [],
+  }];
+  return {
+    workflow,
+    stages: { literature_review: stage },
+    artifacts: [artifact],
+    checkpoints: checkpoint.state_snapshot['checkpoints.json'],
+    verification,
+    artifact,
+    checkpoint,
+  };
+}
+
+function buildActualRuntimeState() {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'simflow-schema-'));
+  const script = `
+from pathlib import Path
+import json
+import sys
+
+root = Path(sys.argv[1])
+repo_root = Path(sys.argv[2])
+sys.path.insert(0, str(repo_root / "runtime"))
+
+from runtime.simflow_core.artifacts import register_artifact
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.state import CANONICAL_STATE_FILES, init_workflow, read_state, update_stage
+
+workflow = init_workflow("custom_recipe", "literature_review", project_root=str(root))
+initialized = {
+    "artifacts": read_state(project_root=str(root), state_file="artifacts.json"),
+    "checkpoints": read_state(project_root=str(root), state_file="checkpoints.json"),
+    "jobs": read_state(project_root=str(root), state_file="jobs.json"),
+    "gates": read_state(project_root=str(root), state_file="gates.json"),
+    "verification": read_state(project_root=str(root), state_file="verification.json"),
+}
+canonical = {
+    name: read_state(project_root=str(root), state_file=name)
+    for name in CANONICAL_STATE_FILES
+}
+artifact_path = root / "literature" / "summary.txt"
+artifact_path.parent.mkdir(parents=True, exist_ok=True)
+artifact_path.write_text("summary\\n", encoding="utf-8")
+update_stage(
+    "literature_review",
+    "completed",
+    project_root=str(root),
+    inputs=["seed"],
+    outputs=["art_1234abcd"],
+)
+artifact = register_artifact(
+    "summary.txt",
+    "review_summary",
+    "literature_review",
+    path="literature/summary.txt",
+    project_root=str(root),
+)
+checkpoint = create_checkpoint(
+    workflow["workflow_id"],
+    "literature_review",
+    "Checkpoint after literature review",
+    project_root=str(root),
+)
+produced = {
+    "workflow": read_state(project_root=str(root), state_file="workflow.json"),
+    "stages": read_state(project_root=str(root), state_file="stages.json"),
+    "artifacts": read_state(project_root=str(root), state_file="artifacts.json"),
+    "checkpoints": read_state(project_root=str(root), state_file="checkpoints.json"),
+    "artifact": artifact,
+    "checkpoint": checkpoint,
+}
+print(json.dumps({"initialized": initialized, "canonical": canonical, "produced": produced}))
+`;
+  const result = childProcess.spawnSync('python', ['-c', script, projectRoot, ROOT], {
+    cwd: ROOT,
+    encoding: 'utf-8',
+  });
+  try {
+    if (result.status !== 0) {
+      throw new Error(result.stderr || result.stdout || 'python helper failed');
+    }
+    return JSON.parse(result.stdout);
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
 }
 
 function test(name, fn) {
@@ -71,6 +264,128 @@ test('checkpoint.json has workflow_id and stage_id', () => {
       throw new Error(`Missing required field: ${f}`);
     }
   });
+});
+
+test('runtime-produced workflow, stage, artifact, checkpoint, and verification state validate against schemas', () => {
+  const fixtures = buildRuntimeFixtures();
+  const stateSchema = compileSchema('state.schema.json');
+  const workflowSchema = compileSchema('workflow_state.json');
+  const stageSchema = compileSchema('stage_state.json');
+  const artifactSchema = compileSchema('artifact.json');
+  const checkpointSchema = compileSchema('checkpoint.json');
+  const verificationSchema = compileSchema('verification.json');
+
+  if (!stateSchema(fixtures.workflow)) {
+    throw new Error(`workflow.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(fixtures.stages)) {
+    throw new Error(`stages.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(fixtures.artifacts)) {
+    throw new Error(`artifacts.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(fixtures.checkpoints)) {
+    throw new Error(`checkpoints.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(fixtures.verification)) {
+    throw new Error(`verification.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!workflowSchema(fixtures.workflow)) {
+    throw new Error(`workflow_state.json rejected: ${JSON.stringify(workflowSchema.errors)}`);
+  }
+  if (!stageSchema(fixtures.stages.literature_review)) {
+    throw new Error(`stage_state.json rejected: ${JSON.stringify(stageSchema.errors)}`);
+  }
+  if (!artifactSchema(fixtures.artifact)) {
+    throw new Error(`artifact.json rejected: ${JSON.stringify(artifactSchema.errors)}`);
+  }
+  if (!checkpointSchema(fixtures.checkpoint)) {
+    throw new Error(`checkpoint.json rejected: ${JSON.stringify(checkpointSchema.errors)}`);
+  }
+  if (!verificationSchema(fixtures.verification[0])) {
+    throw new Error(`verification.json component rejected: ${JSON.stringify(verificationSchema.errors)}`);
+  }
+});
+
+test('actual init_workflow empty array states validate against the unified schema', () => {
+  const runtimeState = buildActualRuntimeState();
+  const stateSchema = compileSchema('state.schema.json');
+
+  ['artifacts', 'checkpoints', 'jobs', 'gates', 'verification'].forEach((name) => {
+    if (!stateSchema(runtimeState.initialized[name])) {
+      throw new Error(`${name}.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+    }
+  });
+});
+
+test('actual init_workflow canonical state files validate by file name', () => {
+  const runtimeState = buildActualRuntimeState();
+  const stateSchema = compileSchema('state.schema.json');
+  const expected = [
+    'project.json',
+    'workflow.json',
+    'stages.json',
+    'artifacts.json',
+    'checkpoints.json',
+    'gates.json',
+    'lineage.json',
+    'verification.json',
+    'jobs.json',
+    'summary.json',
+    'metadata.json',
+  ];
+  const actual = Object.keys(runtimeState.canonical).sort();
+  const missing = expected.filter((name) => !actual.includes(name));
+  if (missing.length) {
+    throw new Error(`missing canonical state files: ${missing.join(', ')}`);
+  }
+  expected.forEach((name) => {
+    if (!stateSchema(runtimeState.canonical[name])) {
+      throw new Error(`${name} rejected: ${JSON.stringify(stateSchema.errors)}`);
+    }
+  });
+  const metadata = {
+    research_goal: 'screen lanthanide hydration structures',
+    labels: ['dft', 'vasp'],
+    project_notes: { owner: 'local', pii_free: true },
+  };
+  if (!stateSchema(metadata)) {
+    throw new Error(`metadata.json project-specific object rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+});
+
+test('actual runtime-produced workflow, stages, artifact, and checkpoint records validate against schemas', () => {
+  const runtimeState = buildActualRuntimeState();
+  const stateSchema = compileSchema('state.schema.json');
+  const workflowSchema = compileSchema('workflow_state.json');
+  const stageSchema = compileSchema('stage_state.json');
+  const artifactSchema = compileSchema('artifact.json');
+  const checkpointSchema = compileSchema('checkpoint.json');
+
+  if (!stateSchema(runtimeState.produced.workflow)) {
+    throw new Error(`workflow.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(runtimeState.produced.stages)) {
+    throw new Error(`stages.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(runtimeState.produced.artifacts)) {
+    throw new Error(`artifacts.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!stateSchema(runtimeState.produced.checkpoints)) {
+    throw new Error(`checkpoints.json rejected: ${JSON.stringify(stateSchema.errors)}`);
+  }
+  if (!workflowSchema(runtimeState.produced.workflow)) {
+    throw new Error(`workflow_state.json rejected: ${JSON.stringify(workflowSchema.errors)}`);
+  }
+  if (!stageSchema(runtimeState.produced.stages.literature_review)) {
+    throw new Error(`stage_state.json rejected: ${JSON.stringify(stageSchema.errors)}`);
+  }
+  if (!artifactSchema(runtimeState.produced.artifact)) {
+    throw new Error(`artifact.json rejected: ${JSON.stringify(artifactSchema.errors)}`);
+  }
+  if (!checkpointSchema(runtimeState.produced.checkpoint)) {
+    throw new Error(`checkpoint.json rejected: ${JSON.stringify(checkpointSchema.errors)}`);
+  }
 });
 
 test('workflow.schema.json keeps workflow_type open', () => {

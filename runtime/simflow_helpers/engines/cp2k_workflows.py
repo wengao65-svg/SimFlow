@@ -11,7 +11,7 @@ from typing import Any
 
 from .cp2k_input import read_cif_to_xyz, read_xyz_structure
 from .cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
-from runtime.simflow_core.state import resolve_project_root
+from runtime.simflow_core.state import resolve_project_path, resolve_project_root
 
 
 TASK_ALIASES = {
@@ -112,7 +112,7 @@ def build_cp2k_task_plan(
     """Build a dry-run orchestration plan for a common CP2K task."""
     options = options or {}
     root = resolve_project_root(project_root=base_dir)
-    calc_dir = root / options.get("calc_dir", ".")
+    calc_dir = resolve_project_path(options.get("calc_dir", "."), project_root=str(root))
     files = [path.name for path in calc_dir.iterdir()] if calc_dir.exists() else []
     classification = classify_cp2k_request(task, files, options)
 

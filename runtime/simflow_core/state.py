@@ -10,6 +10,11 @@ from typing import Any, Optional
 SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW_STATUSES = ("initialized", "in_progress", "paused", "completed", "failed")
+STAGE_STATUSES = ("pending", "in_progress", "waiting", "completed", "failed", "skipped")
+TERMINAL_STAGE_STATUSES = ("completed", "failed", "skipped")
+VERIFICATION_STATUSES = ("pass", "warning", "fail", "pending")
+CHECKPOINT_STATUSES = ("success", "partial", "failure")
 CANONICAL_STATE_FILES = {
     "project.json": {},
     "workflow.json": {},
@@ -18,7 +23,7 @@ CANONICAL_STATE_FILES = {
     "checkpoints.json": [],
     "gates.json": [],
     "lineage.json": {"links": []},
-    "verification.json": {},
+    "verification.json": [],
     "jobs.json": [],
     "summary.json": {"state_root": ".simflow"},
     "metadata.json": {},
@@ -84,6 +89,24 @@ def resolve_project_root(
     return resolved
 
 
+def resolve_project_path(
+    path: str | Path,
+    *,
+    project_root: str | Path,
+) -> Path:
+    """Resolve a path inside project_root and reject boundary escapes."""
+    root = resolve_project_root(project_root=str(project_root))
+    candidate = Path(path).expanduser()
+    resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ProjectRootError(
+            f"Refusing to resolve path outside project_root: {path}"
+        ) from exc
+    return resolved
+
+
 def get_simflow_path(base_dir: str = ".") -> Path:
     """Get the .simflow directory path."""
     return resolve_project_root(base_dir=base_dir) / SIMFLOW_DIR
@@ -140,7 +163,7 @@ def write_report(
     return path
 
 
-def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_root: Optional[str] = None) -> dict:
+def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_root: Optional[str] = None) -> Any:
     """Read a state file from .simflow/state/."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     path = root / STATE_DIR / state_file
@@ -151,7 +174,7 @@ def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_r
 
 
 def write_state(
-    data: dict,
+    data: Any,
     base_dir: str = ".",
     state_file: str = "workflow.json",
     project_root: Optional[str] = None,
@@ -253,6 +276,9 @@ def update_stage(
     **kwargs: Any,
 ) -> dict:
     """Update a stage's state."""
+    normalized_status = str(status).strip().lower()
+    if normalized_status not in STAGE_STATUSES:
+        raise ValueError(f"Unsupported stage status: {status}")
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     stages = read_state(project_root=str(root), state_file="stages.json")
     now = datetime.now(timezone.utc).isoformat()
@@ -265,14 +291,17 @@ def update_stage(
             "outputs": [],
             "checkpoint_id": None,
             "error_message": None,
-            "started_at": now,
+            "started_at": None,
             "completed_at": None,
         }
-    stages[stage_name]["status"] = status
-    if status == "in_progress":
+    stages[stage_name]["status"] = normalized_status
+    if normalized_status == "in_progress":
         stages[stage_name]["started_at"] = now
-    elif status in ("completed", "failed"):
+        stages[stage_name]["completed_at"] = None
+    elif normalized_status in TERMINAL_STAGE_STATUSES:
         stages[stage_name]["completed_at"] = now
+    else:
+        stages[stage_name]["completed_at"] = None
     for k, v in kwargs.items():
         if k in stages[stage_name]:
             stages[stage_name][k] = v

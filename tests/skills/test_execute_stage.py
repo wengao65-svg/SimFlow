@@ -122,6 +122,10 @@ def test_execute_stage_dry_run_uses_workflow_definition_not_workflow_json_stages
 
         assert result["status"] == "dry_run_complete"
         assert result["stage"] == "literature_review"
+        assert result["simflow_result"]["role"] == "stage_runner"
+        assert result["simflow_result"]["stage"] == "literature_review"
+        assert result["simflow_result"]["activity"] == "literature_review"
+        assert result["simflow_result"]["state_effect"] == "none"
         assert stages_state["literature_review"]["status"] == "pending"
         assert "legacy_stage" not in stages_state
         assert not (Path(tmpdir) / ".simflow" / "workflow_state.json").exists()
@@ -362,6 +366,10 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
 
         assert pipeline_result["status"] == "success"
         assert result["status"] == "completed"
+        assert result["simflow_result"]["role"] == "stage_runner"
+        assert result["simflow_result"]["stage"] == "computation"
+        assert result["simflow_result"]["activity"] == "computation"
+        assert result["simflow_result"]["state_effect"] == "stage_transition"
         assert result["manifest"]["software"] == "vasp"
         assert result["manifest"]["dry_run"] is True
         assert result["manifest"]["real_submit"] is False
@@ -429,6 +437,32 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         assert {"input_manifest.json", "compute_plan.json", "dry_run_report.json"}.issubset(
             {artifact["name"] for artifact in artifacts}
         )
+
+
+def test_execute_stage_vasp_input_manifest_redacts_raw_potcar_root():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: prepare VASP inputs with compatibility-only POTCAR hint",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"], \"potcar_root\": \"/licensed/private/library\"}",
+            ]),
+            output_dir=tmpdir,
+        )
+        run_pipeline(str(project_root / ".simflow"), target_stage="proposal", dry_run=False)
+
+        result = execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)
+        assert result["status"] == "completed"
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+        input_manifest = result["manifests"]["input_generation"]
+        manifest_text = json.dumps(input_manifest)
+
+        assert input_manifest["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
+        assert "/licensed/private/library" not in manifest_text
 
 
 def test_computation_stage_preserves_explicit_user_submit_script():
@@ -600,6 +634,8 @@ def test_computation_stage_waits_when_reusable_submit_script_is_ambiguous():
         stages_state = read_state(tmpdir, "stages.json")
 
         assert result["status"] == "needs_inputs"
+        assert result["simflow_result"]["outcome"] == "waiting"
+        assert result["simflow_result"]["reason_code"] == "ambiguous_job_script"
         assert result["needs_inputs"]["code"] == "ambiguous_job_script"
         assert result["needs_inputs"]["candidates"] == [
             "scripts/submit/slurm_a.sh",
@@ -729,6 +765,8 @@ def test_execute_stage_waits_for_gpumd_required_potential_input():
 
         assert modeling["status"] == "completed"
         assert result["status"] == "needs_inputs"
+        assert result["simflow_result"]["outcome"] == "waiting"
+        assert result["simflow_result"]["reason_code"] == "needs_inputs"
         assert result["needs_inputs"]["missing_inputs"] == ["potential_file"]
         assert result["scripts"][0]["status"] == "warning"
         assert stages_state["computation"]["status"] == "waiting"
@@ -789,6 +827,8 @@ def test_execute_stage_returns_capability_warning_for_tracked_only_classical_md_
 
         assert modeling["status"] == "completed"
         assert result["status"] == "capability_warning"
+        assert result["simflow_result"]["outcome"] == "waiting"
+        assert result["simflow_result"]["reason_code"] == "capability_warning"
         assert result["warning"]["software"] == "gromacs"
         assert result["warning"]["support_level"] == "tracked_only"
         assert stages_state["computation"]["status"] == "waiting"
@@ -816,6 +856,8 @@ def test_execute_stage_returns_capability_warning_for_unknown_tool_without_admis
 
         assert modeling["status"] == "completed"
         assert result["status"] == "capability_warning"
+        assert result["simflow_result"]["outcome"] == "waiting"
+        assert result["simflow_result"]["reason_code"] == "capability_warning"
         assert result["warning"]["software"] == "bespoke_md"
         assert result["warning"]["support_level"] == "unknown"
         assert result["warning"]["message"].startswith("No built-in SimFlow helper is available")
@@ -1037,7 +1079,7 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 6
+        assert len(stages_state["writing"]["outputs"]) == 8
         assert {artifact["name"] for artifact in artifacts} == {
             "methods.md",
             "results.md",
@@ -1058,8 +1100,10 @@ def test_execute_stage_execute_runs_writing_runner_and_registers_artifacts():
             "results.md",
             "claim_map.json",
             "reproducibility_package.md",
+            "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         assert methods_path.is_file()
         assert results_path.is_file()

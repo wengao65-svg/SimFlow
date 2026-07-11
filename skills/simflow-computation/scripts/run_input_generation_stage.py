@@ -447,8 +447,10 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
             str(artifacts_dir),
             params=vasp_params,
             kppa=kppa,
-            potcar_root=params.get("potcar_root"),
-            use_vaspkit=bool(params.get("use_vaspkit", False)),
+            potcar_root=params.get("potcar_root") or contract.get("parameter_overrides", {}).get("potcar_root"),
+            use_vaspkit=bool(
+                params.get("use_vaspkit", contract.get("parameter_overrides", {}).get("use_vaspkit", False))
+            ),
         )
         generated_files = [_relative_path(project_root, Path(path)) for path in generation["files_generated"]]
         manifest.update({

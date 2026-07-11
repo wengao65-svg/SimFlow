@@ -257,12 +257,6 @@ def record_analysis_evidence(
             project_root=str(project_root),
             job_id="user_provided_analysis_evidence",
         )
-        update_stage(
-            "analysis_visualization",
-            "completed",
-            project_root=str(project_root),
-            checkpoint_id=checkpoint["checkpoint_id"],
-        )
         readiness = build_stage_readiness(str(project_root), stage="analysis_visualization")
 
     return {

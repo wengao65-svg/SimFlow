@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER_SCHEMA_VERSION = "simflow.helper_evidence.v1"
@@ -174,6 +176,37 @@ def test_generate_gpumd_inputs_needs_existing_potential(tmp_path):
 
     assert result["status"] == "needs_inputs"
     assert result["missing_inputs"] == ["potential_file"]
+    assert result["simflow_result"]["role"] == "helper"
+    assert result["simflow_result"]["activity"] == "input_generation"
+    assert result["simflow_result"]["stage"] == "computation"
+    assert result["simflow_result"]["state_effect"] == "none"
+
+
+def test_generate_gpumd_inputs_recording_preserves_helper_authored_simflow_result(tmp_path):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+    potential = tmp_path / "nep.txt"
+    potential.write_text("dummy potential fixture\n", encoding="utf-8")
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--structure",
+        str(structure),
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+        "--params",
+        '{"potential_file": "nep.txt", "steps": 10}',
+        "--record-helper-run",
+    )
+
+    assert result["status"] == "success"
+    assert result["simflow_result"]["role"] == "helper"
+    assert result["simflow_result"]["activity"] == "input_generation"
+    assert result["simflow_result"]["stage"] == "computation"
+    assert result["simflow_result"]["state_effect"] == "record_only"
 
 
 def test_generate_nep_inputs_from_existing_dataset(tmp_path):
@@ -251,15 +284,18 @@ def test_orchestrate_gpumd_task_writes_reports_and_checkpoint(tmp_path):
     )
 
     assert result["status"] == "success"
+    assert result["simflow_result"]["role"] == "helper"
+    assert result["simflow_result"]["activity"] == "orchestration"
+    assert result["simflow_result"]["stage"] == "computation"
+    assert result["simflow_result"]["state_effect"] == "none"
     assert (tmp_path / "reports" / "gpumd" / "input_manifest.json").is_file()
     assert (tmp_path / "reports" / "gpumd" / "validation_report.json").is_file()
     compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
-    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
     assert compute_plan["task"] == "gpumd_md_nvt"
     assert compute_plan["real_submit_allowed"] is False
-    assert result["checkpoint"]["checkpoint_id"].startswith("ckpt_")
-    assert result["checkpoint"]["status"] == "partial"
-    assert stages["computation"]["status"] == "in_progress"
+    assert "checkpoint" not in result
+    assert "artifacts" not in result
+    assert not (tmp_path / ".simflow").exists()
 
 
 def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp_path):
@@ -277,8 +313,6 @@ def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp
     validation = json.loads((tmp_path / "reports" / "gpumd" / "validation_report.json").read_text(encoding="utf-8"))
     compute_plan = json.loads((tmp_path / "reports" / "gpumd" / "compute_plan.json").read_text(encoding="utf-8"))
 
-    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
-
     assert result["status"] == "needs_clarification"
     assert result["task"] == "unknown"
     assert manifest["task"] == "unknown"
@@ -287,8 +321,9 @@ def test_orchestrate_unknown_gpumd_task_does_not_fallback_to_nvt_or_training(tmp
     assert compute_plan["task"] == "unknown"
     assert compute_plan["real_submit_allowed"] is False
     assert compute_plan["task"] not in {"gpumd_md_nvt", "nep_training"}
-    assert result["checkpoint"]["status"] == "partial"
-    assert stages["computation"]["status"] == "in_progress"
+    assert result["simflow_result"]["state_effect"] == "none"
+    assert "checkpoint" not in result
+    assert not (tmp_path / ".simflow").exists()
 
 
 def test_orchestrate_gpumd_warning_keeps_computation_in_progress(tmp_path):
@@ -313,11 +348,111 @@ def test_orchestrate_gpumd_warning_keeps_computation_in_progress(tmp_path):
         "--calc-dir",
         "calc",
     )
-    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
-
     assert result["status"] == "warning"
-    assert result["checkpoint"]["status"] == "partial"
-    assert stages["computation"]["status"] == "in_progress"
+    assert result["simflow_result"]["state_effect"] == "none"
+    assert "checkpoint" not in result
+    assert not (tmp_path / ".simflow").exists()
+
+
+def test_orchestrate_gpumd_record_helper_run_creates_helper_artifacts_only(tmp_path):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+    potential = tmp_path / "nep.txt"
+    potential.write_text("dummy potential fixture\n", encoding="utf-8")
+    _run(
+        "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+        "--structure",
+        str(structure),
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+        "--params",
+        '{"potential_file": "nep.txt", "steps": 10}',
+    )
+
+    result = _run(
+        "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+        "--task",
+        "nvt",
+        "--project-root",
+        str(tmp_path),
+        "--calc-dir",
+        "calc",
+        "--record-helper-run",
+    )
+
+    assert result["status"] == "success"
+    assert result["simflow_result"]["state_effect"] == "record_only"
+    checkpoints = json.loads((tmp_path / ".simflow/state/checkpoints.json").read_text(encoding="utf-8"))
+    stages = json.loads((tmp_path / ".simflow/state/stages.json").read_text(encoding="utf-8"))
+    artifacts = json.loads((tmp_path / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+    manifest_path = next(
+        tmp_path / artifact["path"]
+        for artifact in artifacts
+        if artifact["type"] == "helper_run_manifest"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert checkpoints == []
+    assert stages == {}
+    assert manifest["metadata"]["simflow_result"]["state_effect"] == "record_only"
+    assert {artifact["type"] for artifact in artifacts} == {
+        "helper_script",
+        "helper_output",
+        "helper_run_manifest",
+    }
+
+
+@pytest.mark.parametrize("calc_dir_factory", [lambda root: "../outside", lambda root: str(root.parent / "outside-abs")])
+def test_gpumd_scripts_reject_calc_dir_outside_project_root(tmp_path, calc_dir_factory):
+    structure = ROOT / "tests" / "fixtures" / "Si.cif"
+    outside = tmp_path.parent / "outside-abs"
+
+    generate = subprocess.run(
+        [
+            sys.executable,
+            "skills/simflow-gpumd/scripts/generate_gpumd_inputs.py",
+            "--structure",
+            str(structure),
+            "--task",
+            "nvt",
+            "--project-root",
+            str(tmp_path),
+            "--calc-dir",
+            calc_dir_factory(tmp_path),
+            "--params",
+            '{"potential_file": "nep.txt"}',
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    orchestrate = subprocess.run(
+        [
+            sys.executable,
+            "skills/simflow-gpumd/scripts/orchestrate_gpumd_task.py",
+            "--task",
+            "nvt",
+            "--project-root",
+            str(tmp_path),
+            "--calc-dir",
+            calc_dir_factory(tmp_path),
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+
+    assert generate.returncode == 1
+    assert orchestrate.returncode == 1
+    assert "project" in generate.stdout.lower() or "boundary" in generate.stdout.lower()
+    assert "project" in orchestrate.stdout.lower() or "boundary" in orchestrate.stdout.lower()
+    assert not outside.exists()
+    assert not (tmp_path.parent / "outside").exists()
 
 
 def test_orchestrate_gpumd_failed_validation_blocks_stage(tmp_path):
@@ -330,11 +465,12 @@ def test_orchestrate_gpumd_failed_validation_blocks_stage(tmp_path):
         "--calc-dir",
         "calc",
     )
-    stages = json.loads((tmp_path / ".simflow" / "state" / "stages.json").read_text(encoding="utf-8"))
 
     assert result["status"] == "blocked"
-    assert result["checkpoint"]["status"] == "failure"
-    assert stages["computation"]["status"] == "failed"
+    assert result["stage_status"] == "failed"
+    assert result["checkpoint_status"] == "failure"
+    assert result["simflow_result"]["state_effect"] == "none"
+    assert not (tmp_path / ".simflow").exists()
 
 
 def test_parse_gpumd_outputs_summarizes_numeric_table_without_readiness_claim(tmp_path):

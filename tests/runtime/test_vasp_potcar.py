@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for runtime/lib/vasp_potcar.py"""
 
+import json
 import os
 import shutil
 import sys
@@ -164,51 +165,62 @@ class TestGeneratePotcar:
             with open(os.path.join(d, "POTCAR"), "w") as f:
                 f.write(content)
 
-    def test_concat_single_element(self):
+    def test_generate_potcar_is_blocked_even_with_library_root(self):
         poscar = self._write_poscar("Si", "2")
         self._create_library({"Si": "PAW_PBE Si 05Jan2001\n"})
         output = os.path.join(self.tmpdir, "POTCAR")
         result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
-        assert result["status"] == "success"
-        assert result["method"] == "concatenation"
+        assert result["status"] in {"unavailable", "blocked"}
         assert result["elements"] == ["Si"]
-        assert os.path.isfile(output)
+        assert result["content_generated"] is False
+        assert os.path.isfile(output) is False
+        assert "does not generate" in result["message"].lower()
+        assert result["compatibility_inputs"]["potcar_root_supplied"] is True
+        serialized = json.dumps(result)
+        assert os.path.join(self.tmpdir, "potlib") not in serialized
+        assert '"potcar_root":' not in serialized
 
-    def test_concat_multi_element(self):
+    def test_generate_potcar_does_not_read_library_content_into_output(self):
         poscar = self._write_poscar("Si Ge", "2 2")
         self._create_library({"Si": "PAW_PBE Si\n", "Ge": "PAW_PBE Ge\n"})
         output = os.path.join(self.tmpdir, "POTCAR")
         result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
-        assert result["status"] == "success"
+        assert result["status"] in {"unavailable", "blocked"}
         assert result["elements"] == ["Si", "Ge"]
-        content = Path(output).read_text()
-        # Si must come before Ge
-        si_pos = content.index("Si")
-        ge_pos = content.index("Ge")
-        assert si_pos < ge_pos
+        assert result["content_generated"] is False
+        assert Path(output).exists() is False
 
     def test_missing_element(self):
         poscar = self._write_poscar("Si Xe", "2 2")
         self._create_library({"Si": "PAW_PBE Si\n"})
         output = os.path.join(self.tmpdir, "POTCAR")
         result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
-        assert result["status"] == "error"
-        assert "Xe" in result["message"]
+        assert result["status"] in {"unavailable", "blocked"}
+        assert result["elements"] == ["Si", "Xe"]
+        assert "does not generate" in result["message"].lower()
 
     def test_no_method_available(self):
         poscar = self._write_poscar("Si", "2")
         output = os.path.join(self.tmpdir, "POTCAR")
         result = generate_potcar(poscar, output)
         assert result["status"] == "unavailable"
+        assert result["content_generated"] is False
+        assert result["compatibility_inputs"]["potcar_root_supplied"] is False
 
-    def test_variant_specification(self):
+    def test_generate_potcar_preserves_existing_output(self):
         poscar = self._write_poscar("Si_pv", "2")
         self._create_library({"Si_pv": "PAW_PBE Si_pv\n", "Si": "PAW_PBE Si\n"})
         output = os.path.join(self.tmpdir, "POTCAR")
-        result = generate_potcar(poscar, output, potcar_root=os.path.join(self.tmpdir, "potlib"))
-        assert result["status"] == "success"
-        content = Path(output).read_text()
-        assert "Si_pv" in content
+        Path(output).write_text("KEEP_ME", encoding="utf-8")
+        result = generate_potcar(
+            poscar,
+            output,
+            potcar_root=os.path.join(self.tmpdir, "potlib"),
+            use_vaspkit=True,
+        )
+        assert result["status"] in {"unavailable", "blocked"}
+        assert result["content_generated"] is False
+        assert Path(output).read_text(encoding="utf-8") == "KEEP_ME"
 
 
 class TestValidatePotcar:

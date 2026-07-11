@@ -2,100 +2,281 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SimFlowState",
   "description": "Unified SimFlow state file schema (.simflow/state/*.json)",
-  "type": "object",
-  "oneOf": [
-    {"$ref": "#/definitions/workflowState"},
-    {"$ref": "#/definitions/stagesState"},
-    {"$ref": "#/definitions/jobsState"},
-    {"$ref": "#/definitions/artifactsState"},
-    {"$ref": "#/definitions/verificationState"}
+  "type": ["object", "array"],
+  "anyOf": [
+    { "$ref": "#/definitions/projectState" },
+    { "$ref": "#/definitions/workflowState" },
+    { "$ref": "#/definitions/stagesState" },
+    { "$ref": "#/definitions/artifactsState" },
+    { "$ref": "#/definitions/checkpointsState" },
+    { "$ref": "#/definitions/jobsState" },
+    { "$ref": "#/definitions/gatesState" },
+    { "$ref": "#/definitions/lineageState" },
+    { "$ref": "#/definitions/summaryState" },
+    { "$ref": "#/definitions/metadataState" },
+    { "$ref": "#/definitions/verificationState" }
   ],
   "definitions": {
+    "projectState": {
+      "type": "object",
+      "required": ["project_root", "state_root", "workflow_id", "created_at", "updated_at"],
+      "properties": {
+        "project_root": { "type": "string" },
+        "state_root": { "type": "string", "const": ".simflow" },
+        "workflow_id": { "type": "string", "pattern": "^wf_[a-z0-9]{8}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
     "workflowState": {
       "type": "object",
-      "required": ["workflow_id", "workflow_type", "current_stage", "status"],
+      "required": ["workflow_id", "workflow_type", "current_stage", "status", "created_at", "updated_at"],
       "properties": {
-        "workflow_id": {"type": "string", "pattern": "^wf_[a-z0-9]{8}$"},
-        "workflow_type": {"type": "string", "enum": ["dft", "aimd", "md", "custom"]},
-        "current_stage": {"type": "string"},
-        "status": {"type": "string", "enum": ["initialized", "in_progress", "paused", "completed", "failed"]},
-        "plan": {"type": ["string", "null"]},
-        "entry_point": {"type": "string"},
-        "created_at": {"type": "string", "format": "date-time"},
-        "updated_at": {"type": "string", "format": "date-time"}
-      }
+        "workflow_id": { "type": "string", "pattern": "^wf_[a-z0-9]{8}$" },
+        "workflow_type": { "type": "string" },
+        "current_stage": { "type": "string" },
+        "status": { "type": "string", "enum": ["initialized", "in_progress", "paused", "completed", "failed"] },
+        "plan": { "type": ["string", "null"] },
+        "entry_point": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "stageRecord": {
+      "type": "object",
+      "required": [
+        "stage_name",
+        "status",
+        "agent",
+        "inputs",
+        "outputs",
+        "checkpoint_id",
+        "error_message",
+        "started_at",
+        "completed_at"
+      ],
+      "properties": {
+        "stage_name": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "waiting", "completed", "failed", "skipped"] },
+        "agent": { "type": ["string", "null"] },
+        "inputs": { "type": "array", "items": { "type": "string" } },
+        "outputs": { "type": "array", "items": { "type": "string" } },
+        "checkpoint_id": { "type": ["string", "null"] },
+        "error_message": { "type": ["string", "null"] },
+        "started_at": { "type": ["string", "null"], "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
     },
     "stagesState": {
       "type": "object",
       "patternProperties": {
-        "^[a-z_]+$": {
-          "type": "object",
-          "required": ["status"],
-          "properties": {
-            "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "failed", "skipped"]},
-            "started_at": {"type": ["string", "null"], "format": "date-time"},
-            "completed_at": {"type": ["string", "null"], "format": "date-time"},
-            "artifacts": {"type": "array", "items": {"type": "string"}},
-            "checkpoint_id": {"type": ["string", "null"]},
-            "error": {"type": ["string", "null"]}
-          }
-        }
-      }
+        "^[A-Za-z0-9_]+$": { "$ref": "#/definitions/stageRecord" }
+      },
+      "additionalProperties": false
     },
-    "jobsState": {
+    "artifactRecord": {
       "type": "object",
-      "patternProperties": {
-        "^job_[a-z0-9]+$": {
+      "required": ["artifact_id", "name", "type", "version", "stage", "lineage", "metadata", "created_at"],
+      "properties": {
+        "artifact_id": { "type": "string", "pattern": "^art_[a-z0-9]{8}$" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "version": { "type": "string", "pattern": "^v\\d+\\.\\d+\\.\\d+$" },
+        "stage": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "lineage": {
           "type": "object",
-          "required": ["job_id", "stage", "status"],
+          "required": ["parent_artifacts", "parameters", "software"],
           "properties": {
-            "job_id": {"type": "string"},
-            "stage": {"type": "string"},
-            "status": {"type": "string", "enum": ["pending", "submitted", "running", "completed", "failed", "cancelled"]},
-            "scheduler_id": {"type": ["string", "null"]},
-            "submitted_at": {"type": ["string", "null"], "format": "date-time"},
-            "completed_at": {"type": ["string", "null"], "format": "date-time"}
-          }
-        }
-      }
+            "parent_artifacts": { "type": "array", "items": { "type": "string" } },
+            "parameters": { "type": "object" },
+            "software": { "type": ["string", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "metadata": { "type": "object" },
+        "checksum": { "type": ["string", "null"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
     },
     "artifactsState": {
-      "type": "object",
-      "patternProperties": {
-        "^art_[a-z0-9]+$": {
-          "type": "object",
-          "required": ["artifact_id", "name", "type", "stage"],
-          "properties": {
-            "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9]{8}$"},
-            "name": {"type": "string"},
-            "type": {"type": "string"},
-            "version": {"type": "string"},
-            "stage": {"type": "string"},
-            "path": {"type": "string"},
-            "checksum": {"type": "string"},
-            "created_at": {"type": "string", "format": "date-time"}
-          }
-        }
-      }
+      "type": "array",
+      "items": { "$ref": "#/definitions/artifactRecord" }
     },
-    "verificationState": {
+    "checkpointRegistryEntry": {
       "type": "object",
-      "required": ["verifications"],
+      "required": ["checkpoint_id", "workflow_id", "stage_id", "status", "path", "created_at"],
       "properties": {
-        "verifications": {
+        "checkpoint_id": { "type": "string", "pattern": "^ckpt_\\d{3}_[a-z0-9_]+$" },
+        "workflow_id": { "type": "string" },
+        "stage_id": { "type": "string" },
+        "job_id": { "type": ["string", "null"] },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "partial", "failure"] },
+        "path": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "checkpointsState": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/checkpointRegistryEntry" }
+    },
+    "jobRecord": {
+      "type": "object",
+      "required": ["job_id", "workflow_id", "stage", "status", "dry_run", "created_at"],
+      "properties": {
+        "job_id": { "type": "string" },
+        "workflow_id": { "type": "string" },
+        "stage": { "type": "string" },
+        "status": { "type": "string", "enum": ["prepared", "dry_run", "submitted", "running", "completed", "failed", "cancelled"] },
+        "dry_run": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "jobsState": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/jobRecord" }
+    },
+    "gatesState": {
+      "oneOf": [
+        {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["stage", "status", "timestamp"],
+            "required": ["decision_id", "gate", "decision", "timestamp"],
             "properties": {
-              "stage": {"type": "string"},
-              "status": {"type": "string", "enum": ["pass", "fail", "warning", "skip"]},
-              "checks": {"type": "array", "items": {"type": "object"}},
-              "timestamp": {"type": "string", "format": "date-time"}
-            }
+              "decision_id": { "type": "string" },
+              "gate": { "type": "string" },
+              "decision": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            },
+            "additionalProperties": true
           }
+        },
+        {
+          "type": "object",
+          "required": ["decisions"],
+          "properties": {
+            "decisions": {
+              "type": "array",
+              "items": { "type": "object" }
+            }
+          },
+          "additionalProperties": true
         }
-      }
+      ]
+    },
+    "lineageNode": {
+      "type": "object",
+      "properties": {
+        "artifact_id": { "type": "string" },
+        "name": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"] },
+        "stage": { "type": ["string", "null"] },
+        "version": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "checksum": { "type": ["string", "null"] },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "lineageLink": {
+      "type": "object",
+      "properties": {
+        "link_id": { "type": "string" },
+        "child_artifact_id": { "type": "string" },
+        "parent_artifact_id": { "type": "string" },
+        "relationship": { "type": "string" },
+        "stage": { "type": ["string", "null"] },
+        "parameters": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "lineageState": {
+      "type": "object",
+      "required": ["links"],
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lineageNode" }
+        },
+        "links": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lineageLink" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "summaryState": {
+      "type": "object",
+      "required": ["state_root"],
+      "properties": {
+        "workflow_id": { "type": "string", "pattern": "^wf_[a-z0-9]{8}$" },
+        "workflow_type": { "type": "string" },
+        "current_stage": { "type": "string" },
+        "status": { "type": "string" },
+        "state_root": { "type": "string", "const": ".simflow" },
+        "summary_report": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "metadataState": {
+      "type": "object",
+      "description": "Open project/research-specific metadata.json state object.",
+      "additionalProperties": true
+    },
+    "verificationRecord": {
+      "type": "object",
+      "required": [
+        "stage",
+        "workflow_id",
+        "status",
+        "generated_at",
+        "completed_at",
+        "checks",
+        "warnings",
+        "failures",
+        "source_artifact_ids"
+      ],
+      "properties": {
+        "stage": { "type": "string" },
+        "workflow_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pass", "warning", "fail", "pending"] },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "status", "message", "details", "checked_at"],
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["pass", "warning", "fail", "pending"] },
+              "message": { "type": "string" },
+              "details": { "type": "object" },
+              "checked_at": { "type": "string", "format": "date-time" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "failures": { "type": "array", "items": { "type": "string" } },
+        "source_artifact_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "verificationState": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/verificationRecord" }
     }
   }
 }

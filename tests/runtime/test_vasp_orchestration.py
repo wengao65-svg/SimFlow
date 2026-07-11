@@ -7,9 +7,11 @@ import tempfile
 import types
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
-from runtime.simflow_core.state import init_workflow
+from runtime.simflow_core.state import ProjectRootError
 from runtime.simflow_helpers.engines.vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
 from runtime.simflow_helpers.engines.vasp_tools import detect_vaspkit, plan_vaspkit_task, run_vaspkit_safe
 from runtime.simflow_helpers.engines.vasp_validation import validate_potcar_metadata, validate_vasp_inputs
@@ -66,6 +68,47 @@ def test_vaspkit_missing_fallback_plan(monkeypatch):
     assert dry["status"] == "dry_run"
 
 
+def test_vaspkit_detection_and_plans_do_not_return_absolute_executable_paths(monkeypatch, tmp_path):
+    private_vaspkit = "/private/tools/vaspkit/bin/vaspkit"
+    monkeypatch.setattr("shutil.which", lambda name: private_vaspkit if name == "vaspkit" else None)
+
+    def fake_run(*args, **kwargs):
+        return types.SimpleNamespace(stdout="VASPKIT 1.5.1\n", stderr="", returncode=0)
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    detected = detect_vaspkit()
+    plan = plan_vaspkit_task("band", str(tmp_path))
+    serialized = json.dumps({"detected": detected, "plan": plan})
+
+    assert detected["available"] is True
+    assert detected["executable"] == "vaspkit"
+    assert detected["version"] == "VASPKIT 1.5.1"
+    assert "path" not in detected
+    assert private_vaspkit not in serialized
+
+
+def test_vasp_task_plan_and_reports_do_not_persist_private_vaspkit_paths(monkeypatch, tmp_path):
+    _write_basic_inputs(tmp_path)
+    private_vaspkit = "/private/tools/vaspkit/bin/vaspkit"
+    monkeypatch.setattr("shutil.which", lambda name: private_vaspkit if name == "vaspkit" else None)
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *args, **kwargs: types.SimpleNamespace(stdout="VASPKIT 1.5.1\n", stderr="", returncode=0),
+    )
+
+    plan = build_vasp_task_plan("dos", str(tmp_path), {"calc_dir": "."})
+    written = write_vasp_artifacts(plan, str(tmp_path))
+    returned_json = json.dumps({"plan": plan, "written": written})
+    written_json = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (tmp_path / "reports" / "vasp").glob("*.json")
+    )
+
+    assert private_vaspkit not in returned_json
+    assert private_vaspkit not in written_json
+
+
 def test_potcar_metadata_does_not_include_content(tmp_path):
     _write_basic_inputs(tmp_path)
     result = validate_potcar_metadata(str(tmp_path / "POSCAR"), str(tmp_path / "POTCAR"))
@@ -104,16 +147,17 @@ def test_py4vasp_preferred_when_h5_exists(monkeypatch, tmp_path):
     assert result["backend"] == "py4vasp"
 
 
-def test_workflow_writes_artifacts_checkpoint_and_blocks_submit(tmp_path):
+def test_workflow_writes_reports_only_and_blocks_submit(tmp_path):
     _write_basic_inputs(tmp_path)
-    init_workflow("dft", "input_generation", str(tmp_path))
     plan = build_vasp_task_plan("relax", str(tmp_path), {"calc_dir": "."})
     written = write_vasp_artifacts(plan, str(tmp_path), workflow_id="wf_test")
 
     assert (tmp_path / "reports/vasp/input_manifest.json").is_file()
     assert (tmp_path / "reports/vasp/validation_report.json").is_file()
-    assert (tmp_path / ".simflow/state/artifacts.json").is_file()
-    assert written["checkpoint"]["checkpoint_id"].startswith("ckpt_")
+    assert written["files"]["input_manifest"] == "reports/vasp/input_manifest.json"
+    assert "artifacts" not in written
+    assert "checkpoint" not in written
+    assert not (tmp_path / ".simflow").exists()
     compute_plan = json.loads((tmp_path / "reports/vasp/compute_plan.json").read_text())
     assert compute_plan["dry_run"] is True
     assert compute_plan["real_submit_allowed"] is False
@@ -141,3 +185,11 @@ def test_surface_adsorption_defect_checks_are_poscar_scoped(tmp_path):
     assert any(c["check"] == "adsorption_species_diversity" for c in adsorption["checks"])
     assert defect["status"] in {"pass", "fail"}
     assert not any(c["check"] == "incar_exists" for c in surface["checks"])
+
+
+@pytest.mark.parametrize("calc_dir_factory", [lambda root: "../outside", lambda root: str(root.parent / "outside-abs")])
+def test_build_plan_rejects_calc_dir_outside_project_root(tmp_path, calc_dir_factory):
+    _write_basic_inputs(tmp_path)
+
+    with pytest.raises(ProjectRootError):
+        build_vasp_task_plan("relax", str(tmp_path), {"calc_dir": calc_dir_factory(tmp_path)})

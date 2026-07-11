@@ -49,6 +49,17 @@ helper or redefine its GPUMD/NEP domain ownership.
 ## Status write rules
 
 - Read `.simflow/state/` before acting when workflow state is relevant, and resolve explicit `project_root` before writing `.simflow/` reports, artifacts, checkpoints, or helper-run manifests.
+- Helper outputs are pure evidence producers by default. They may write
+  requested manifests, reports, or bounded inputs under `project_root`, but
+  they do not initialize or advance stages, do not register artifacts, and do
+  not create checkpoints unless explicit helper-run recording is requested.
+- Default helper report paths live under project-root `reports/<engine>/`.
+  `.simflow` is touched only by explicit helper-run recording.
+- `--record-helper-run` is `record_only`: it records helper evidence and
+  lineage only. Canonical stage runners own stage transitions, and
+  checkpoint/state-admin APIs own checkpoint operations.
+- Direct helpers do not register arbitrary report artifacts. Canonical stage
+  runners may ingest/register outputs when the workflow stage owns them.
 - Keep real execution and submit separate from helper support. `gpumd` and `nep` helper support covers input preparation, static validation, dry-run planning, manifest generation, selected output parsing, orchestration reports, and evidence handoff.
 - Use open stages such as `computation`, `analysis_visualization`, or `writing` according to research intent. GPUMD/NEP task labels are recipe/helper metadata, not top-level workflow stages.
 - Do not write under `.omx/`; it belongs to the host session, not SimFlow workflow state.
@@ -67,7 +78,7 @@ helper or redefine its GPUMD/NEP domain ownership.
    readiness, and production MLP-MD readiness to `simflow-mlp`; retain
    GPUMD/NEP file semantics and provider implementation details here.
 7. Use the optional helper scripts only for offline preparation, validation, planning, parsing, and evidence tasks. They must not call `gpumd`, `nep`, NEPTrainKit, GPU tools, MPI, schedulers, or remote systems.
-8. Register generated reports or helper-run manifests as artifacts with lineage when writing SimFlow state.
+8. Register generated reports or helper-run manifests as artifacts only when explicit helper-run recording is requested or when a canonical stage runner ingests those outputs.
 
 ## Reference map
 
@@ -85,7 +96,7 @@ helper or redefine its GPUMD/NEP domain ownership.
 
 - `scripts/generate_gpumd_inputs.py`: Generate bounded GPUMD/NEP input files from explicit structure, potential/model, dataset, and parameter evidence.
 - `scripts/validate_gpumd_inputs.py`: Statically validate GPUMD/NEP inputs without running the engine.
-- `scripts/orchestrate_gpumd_task.py`: Build SimFlow reports, artifacts, checkpoints, dry-run compute plans, and handoff records without submitting jobs.
+- `scripts/orchestrate_gpumd_task.py`: Build SimFlow reports, dry-run compute plans, handoff records, and optional helper-run evidence without submitting jobs.
 - `scripts/inspect_gpumd_inputs.py`: Inspect existing GPUMD/NEP inputs without running anything.
 - `scripts/build_gpumd_manifest.py`: Build a provenance manifest from existing files, commands, versions, hashes, and environment notes.
 - `scripts/parse_gpumd_outputs.py`: Parse selected recognized table-like outputs conservatively.
@@ -95,9 +106,12 @@ These helpers are optional routes, not the only valid parser, report format, or 
 
 ## Checkpoint rules
 
-- Create a checkpoint only when GPUMD/NEP evidence is ready for review, handoff, or an approval gate.
-- Create failure checkpoints for true helper failures such as unreadable evidence, parse failure, unavailable proprietary files, or blocked approval gates.
-- For real execution or submit requests without approval evidence, keep workflow state waiting and report the missing approval gate; do not record a completed calculation or job.
+- GPUMD/NEP helpers do not create stage-boundary checkpoints by default.
+- Helper-run recording remains `record_only`; use canonical stage runners or
+  checkpoint/state-admin APIs when checkpoint operations are explicitly needed.
+- For real execution or submit requests without approval evidence, keep
+  workflow state waiting and report the missing approval gate; do not record a
+  completed calculation or job.
 
 ## Prohibited actions
 

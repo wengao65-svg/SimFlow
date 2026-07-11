@@ -12,7 +12,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
+from _common import resolve_cp2k_paths, write_json_verified
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_helpers.engines.cp2k_validation import normalize_cp2k_task
 from runtime.simflow_helpers.engines.cp2k_workflows import build_cp2k_task_plan
@@ -25,19 +26,18 @@ def orchestrate_cp2k_task(
     calc_dir: str = ".",
     options: dict | None = None,
 ) -> dict:
-    """Build CP2K reports, artifacts, checkpoint, and handoff without submitting jobs."""
+    """Build CP2K evidence reports and handoff without mutating workflow state."""
     options = dict(options or {})
     options["calc_dir"] = calc_dir
     try:
         task_norm = normalize_cp2k_task(task)
     except ValueError:
         task_norm = "unknown"
-    stage = _suggest_stage(task_norm)
-    root, state = ensure_cp2k_project(project_root, stage)
-    work_dir = (root / calc_dir).resolve()
+    root, work_dir = resolve_cp2k_paths(project_root, calc_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
     plan = build_cp2k_task_plan(task if task_norm == "unknown" else task_norm, str(root), options)
+    stage = _suggest_stage(plan["task"])
     parser = CP2KParser()
     analysis = parser.parse_outputs(str(work_dir), project=options.get("project")) if _has_outputs(work_dir) else {
         "status": "missing_outputs",
@@ -78,35 +78,21 @@ def orchestrate_cp2k_task(
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
 
-    artifacts = []
-    for name, rel_path in files.items():
-        artifacts.append(register_report(
-            root,
-            stage,
-            plan["task"],
-            name,
-            rel_path,
-            artifact_type="handoff" if name == "handoff_artifact" else "report",
-        ))
-
-    checkpoint = finalize_stage(
-        root,
-        state,
-        stage,
-        plan["task"],
-        files,
-        "success" if plan["validation_report"]["status"] in {"pass", "skip"} else "failed",
-        f"CP2K {plan['task']} orchestration reports written.",
-    )
-    return {
+    result = {
         "status": "success",
         "task": plan["task"],
         "plan": plan,
         "analysis_report": analysis,
         "reports": files,
-        "artifacts": artifacts,
-        "checkpoint": checkpoint,
     }
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="orchestration",
+        legacy_status=result["status"],
+        stage=stage,
+        state_effect="none",
+    )
 
 
 def _has_outputs(work_dir: Path) -> bool:

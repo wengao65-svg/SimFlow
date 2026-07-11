@@ -3,45 +3,66 @@
   "title": "Checkpoint",
   "description": "Workflow checkpoint for recovery",
   "type": "object",
-  "required": ["checkpoint_id", "workflow_id", "stage_id", "created_at"],
+  "required": [
+    "checkpoint_id",
+    "workflow_id",
+    "stage_id",
+    "description",
+    "state_snapshot",
+    "artifact_versions",
+    "lineage_snapshot",
+    "status",
+    "created_at"
+  ],
   "properties": {
     "checkpoint_id": {
       "type": "string",
-      "pattern": "^ckpt_\\d{3}_[a-z_]+$",
-      "description": "Checkpoint identifier"
+      "pattern": "^ckpt_\\d{3}_[a-z0-9_]+$"
     },
     "workflow_id": {
-      "type": "string",
-      "description": "Associated workflow ID"
+      "type": "string"
     },
     "stage_id": {
-      "type": "string",
-      "description": "Stage at checkpoint time"
+      "type": "string"
     },
     "job_id": {
-      "type": ["string", "null"],
-      "description": "Associated job ID (if applicable)"
+      "type": ["string", "null"]
     },
     "description": {
-      "type": "string",
-      "description": "Human-readable checkpoint description"
+      "type": "string"
     },
     "state_snapshot": {
-      "type": "object",
-      "description": "Workflow state at checkpoint time"
+      "type": "object"
     },
     "artifact_versions": {
-      "type": "object",
-      "description": "Artifact versions at checkpoint time"
+      "type": "object"
+    },
+    "lineage_snapshot": {
+      "type": "object"
     },
     "status": {
       "type": "string",
-      "enum": ["success", "failure", "partial"],
-      "description": "Checkpoint status"
+      "enum": ["success", "partial", "failure"]
     },
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "simflow_result": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "const": "simflow.result.v1" },
+        "role": { "type": "string", "enum": ["helper", "stage_runner", "state_admin"] },
+        "activity": { "type": "string" },
+        "legacy_status": {},
+        "outcome": { "type": "string", "enum": ["success", "warning", "waiting", "blocked", "error", "skipped"] },
+        "stage": { "type": "string" },
+        "reason_code": { "type": "string" },
+        "state_effect": { "type": "string", "enum": ["none", "record_only", "stage_transition", "checkpoint_admin"] }
+      },
+      "required": ["schema_version", "role", "activity", "legacy_status", "outcome", "state_effect"],
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }

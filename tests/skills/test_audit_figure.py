@@ -101,4 +101,10 @@ def test_audit_figure_helper_run_recording_args(tmp_path):
     assert payload["helper_run_id"].startswith("helper_")
     assert payload["helper_run_manifest_artifact_id"].startswith("art_")
     assert output.is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "analysis_visualization" / "audit_figure_helper_run.json").is_file()
+    assert (
+        tmp_path
+        / ".simflow"
+        / "artifacts"
+        / "analysis_visualization"
+        / f"audit_figure_{payload['helper_run_id']}_helper_run.json"
+    ).is_file()

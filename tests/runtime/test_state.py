@@ -12,6 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
+import runtime.simflow_core.state as state_module
 from runtime.simflow_core.state import (
     ARTIFACT_CATEGORY_DIRS,
     CANONICAL_ARTIFACT_STAGE_DIRS,
@@ -21,6 +22,7 @@ from runtime.simflow_core.state import (
     get_plugin_root,
     init_workflow,
     read_state,
+    resolve_project_path,
     resolve_project_root,
     update_stage,
     write_state,
@@ -126,6 +128,50 @@ class TestState:
         assert stage["status"] == "completed"
         assert stage["completed_at"] is not None
 
+    def test_update_stage_accepts_waiting_and_rejects_helper_only_statuses(self):
+        init_workflow("dft", "literature_review", self.base_dir)
+
+        stage = update_stage("computation", "waiting", self.base_dir, error_message="need more input")
+
+        assert stage["status"] == "waiting"
+        assert stage["error_message"] == "need more input"
+
+        for invalid_status in ("needs_inputs", "capability_warning", "waiting_for_outputs"):
+            with pytest.raises(ValueError):
+                update_stage("computation", invalid_status, self.base_dir)
+
+    def test_update_stage_timestamp_semantics_refresh_and_clear_terminal_values(self, monkeypatch):
+        from datetime import datetime
+
+        init_workflow("dft", "literature_review", self.base_dir)
+
+        class _FakeDatetime:
+            values = iter([
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:05:00+00:00",
+                "2026-01-01T00:10:00+00:00",
+                "2026-01-01T00:15:00+00:00",
+            ])
+
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.fromisoformat(next(cls.values))
+
+        monkeypatch.setattr(state_module, "datetime", _FakeDatetime)
+
+        started = update_stage("modeling", "in_progress", self.base_dir)
+        completed = update_stage("modeling", "completed", self.base_dir)
+        waiting = update_stage("modeling", "waiting", self.base_dir)
+        restarted = update_stage("modeling", "in_progress", self.base_dir)
+
+        assert started["started_at"] == "2026-01-01T00:00:00+00:00"
+        assert started["completed_at"] is None
+        assert completed["completed_at"] == "2026-01-01T00:05:00+00:00"
+        assert waiting["started_at"] == "2026-01-01T00:00:00+00:00"
+        assert waiting["completed_at"] is None
+        assert restarted["started_at"] == "2026-01-01T00:15:00+00:00"
+        assert restarted["completed_at"] is None
+
     def test_ensure_workflow_initialized_uses_canonical_default_entry(self):
         state = ensure_workflow_initialized(project_root=self.base_dir)
 
@@ -152,6 +198,24 @@ class TestState:
 
         with pytest.raises(ProjectRootError):
             resolve_project_root(project_root=str(fake_plugin_root))
+
+    def test_resolve_project_path_allows_dot_and_nested_paths_inside_project_root(self):
+        root = Path(self.base_dir).resolve()
+
+        assert resolve_project_path(".", project_root=str(root)) == root
+        assert resolve_project_path("calc/subdir", project_root=str(root)) == root / "calc" / "subdir"
+
+    @pytest.mark.parametrize("candidate", ["../outside", None])
+    def test_resolve_project_path_rejects_paths_outside_project_root(self, candidate):
+        root = Path(self.base_dir).resolve()
+        outside = root.parent / "outside-abs"
+        value = candidate if candidate is not None else str(outside)
+
+        with pytest.raises(ProjectRootError):
+            resolve_project_path(value, project_root=str(root))
+
+        assert not outside.exists()
+        assert not (root.parent / "outside").exists()
 
 
 if __name__ == "__main__":

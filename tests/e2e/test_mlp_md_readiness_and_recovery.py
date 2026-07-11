@@ -363,7 +363,10 @@ def test_gpumd_needs_inputs_checkpoint_recovery_resumes_after_evidence_intake(tm
 
     restored = restore_checkpoint(intake["checkpoint_id"], project_root=str(tmp_path))
     assert restored is not None
-    assert read_state(project_root=str(tmp_path), state_file="stages.json")["computation"]["status"] == "completed"
+    restored_stage = read_state(project_root=str(tmp_path), state_file="stages.json")["computation"]
+    assert restored_stage["status"] == "completed"
+    assert restored_stage["checkpoint_id"] == intake["checkpoint_id"]
+    assert restored_stage["outputs"]
 
     rerun = run_pipeline(str(tmp_path / ".simflow"), target_stage="computation", dry_run=False)
     assert rerun["status"] == "success"

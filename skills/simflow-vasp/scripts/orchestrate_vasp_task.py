@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Orchestrate common VASP tasks inside SimFlow.
 
-This script writes reports and SimFlow state only. It never submits HPC jobs.
+By default this script writes report files under reports/vasp/. It touches
+.simflow only when explicit helper-run recording is requested, and it never
+submits HPC jobs.
 """
 
 from __future__ import annotations
@@ -14,8 +16,9 @@ from pathlib import Path
 SIMFLOW_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SIMFLOW_ROOT))
 
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root
+from runtime.simflow_core.state import resolve_project_root
 from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, suggest_vasp_stage, write_vasp_artifacts
 
 
@@ -25,22 +28,37 @@ def orchestrate_vasp_task(
     calc_dir: str = ".",
     options: dict | None = None,
 ) -> dict:
-    """Build VASP orchestration reports, artifacts, and checkpoint."""
+    """Build VASP orchestration evidence reports without mutating workflow state."""
     options = dict(options or {})
     options["calc_dir"] = calc_dir
     project_root = resolve_project_root(project_root=base_dir)
 
     plan = build_vasp_task_plan(task, str(project_root), options)
-    state = ensure_workflow_initialized("custom", plan.get("stage") or suggest_vasp_stage(plan["task"]), project_root=str(project_root))
-    written = write_vasp_artifacts(plan, str(project_root), workflow_id=state.get("workflow_id"))
-    return {"status": "success", "plan": plan, "written": written}
+    written = write_vasp_artifacts(plan, str(project_root))
+    result = {"status": "success", "plan": plan, "written": written}
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="orchestration",
+        legacy_status=result["status"],
+        stage=plan.get("stage") or suggest_vasp_stage(plan["task"]),
+        state_effect="none",
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Orchestrate common VASP tasks without submitting jobs")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Write reports/vasp VASP helper reports without submitting jobs; "
+            ".simflow is touched only by explicit helper-run recording"
+        )
+    )
     parser.add_argument("--task", required=True, help="Task request or task name")
-    parser.add_argument("--base-dir", default=".", help="Project root where SimFlow writes .simflow and reports")
-    parser.add_argument("--project-root", help="Project root where SimFlow writes .simflow and reports")
+    parser.add_argument("--base-dir", default=".", help="Project root for default reports/vasp output")
+    parser.add_argument(
+        "--project-root",
+        help="Project root for reports/vasp output and optional explicit helper-run recording",
+    )
     parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to base-dir")
     parser.add_argument("--options", default="{}", help="JSON options")
     add_helper_recording_args(parser, default_stage="computation")
@@ -61,7 +79,8 @@ def main() -> None:
             script_path=Path(__file__).resolve(),
             helper_name="vasp_orchestrate_task",
             software="vasp",
-            output_paths=list(result.get("written", {}).values()) if isinstance(result.get("written"), dict) else [],
+            output_paths=list(result.get("written", {}).get("files", {}).values()),
+            sensitive_json_cli_options={"--options": []},
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

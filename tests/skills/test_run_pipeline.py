@@ -75,6 +75,9 @@ def test_run_pipeline_dry_run_uses_canonical_stage_sequence():
         stages_state = read_state(tmpdir, "stages.json")
 
         assert result["status"] == "success"
+        assert result["simflow_result"]["role"] == "stage_runner"
+        assert result["simflow_result"]["activity"] == "pipeline"
+        assert result["simflow_result"]["state_effect"] == "none"
         assert [item["stage"] for item in result["results"]] == ["literature_review", "proposal"]
         assert all(item["status"] == "dry_run_complete" for item in result["results"])
         assert stages_state["literature_review"]["status"] == "pending"
@@ -94,6 +97,7 @@ def test_run_pipeline_execute_updates_stages_and_checkpoint_registry():
         checkpoints = read_state(tmpdir, "checkpoints.json")
 
         assert result["status"] == "success"
+        assert result["simflow_result"]["state_effect"] == "stage_transition"
         assert [item["stage"] for item in result["results"]] == ["literature_review"]
         assert all(item["status"] == "completed" for item in result["results"])
         assert workflow["current_stage"] == "literature_review"
@@ -131,6 +135,8 @@ def test_run_pipeline_stops_without_checkpoint_when_gpumd_needs_inputs():
         checkpoints = read_state(tmpdir, "checkpoints.json")
 
         assert result["status"] == "needs_inputs"
+        assert result["simflow_result"]["outcome"] == "waiting"
+        assert result["simflow_result"]["reason_code"] == "needs_inputs"
         assert result["checkpoint_id"] is None
         assert [item["status"] for item in result["results"]] == ["completed", "needs_inputs"]
         assert result["results"][-1]["needs_inputs"]["missing_inputs"] == ["potential_file"]
@@ -170,6 +176,41 @@ def test_run_pipeline_execute_starts_after_completed_current_stage():
 
         assert [item["stage"] for item in result["results"]] == ["computation", "analysis_visualization"]
         assert all(item["status"] == "dry_run_complete" for item in result["results"])
+
+
+def test_run_pipeline_noop_result_includes_canonical_simflow_result():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("dft", "literature", tmpdir)
+        _write_metadata(tmpdir)
+        workflow = read_state(tmpdir, "workflow.json")
+        workflow["current_stage"] = "proposal"
+        write_state(workflow, project_root=tmpdir, state_file="workflow.json")
+        write_state(
+            {
+                "proposal": {
+                    "stage_name": "proposal",
+                    "status": "completed",
+                    "agent": None,
+                    "inputs": [],
+                    "outputs": [],
+                    "checkpoint_id": "ckpt_001_proposal",
+                    "error_message": None,
+                    "started_at": None,
+                    "completed_at": "2026-01-01T00:00:00+00:00",
+                }
+            },
+            project_root=tmpdir,
+            state_file="stages.json",
+        )
+
+        result = run_pipeline(str(Path(tmpdir) / ".simflow"), target_stage="proposal", dry_run=False)
+
+        assert result["status"] == "success"
+        assert result["stages_executed"] == 0
+        assert result["results"] == []
+        assert result["simflow_result"]["role"] == "stage_runner"
+        assert result["simflow_result"]["activity"] == "pipeline"
+        assert result["simflow_result"]["state_effect"] == "none"
 
 
 
@@ -657,7 +698,7 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
         assert workflow["status"] == "completed"
         assert stages_state["writing"]["status"] == "completed"
         assert len(stages_state["writing"]["inputs"]) == 7
-        assert len(stages_state["writing"]["outputs"]) == 6
+        assert len(stages_state["writing"]["outputs"]) == 8
         assert {artifact["name"] for artifact in writing_artifacts} == {
             "methods.md",
             "results.md",
@@ -678,8 +719,10 @@ def test_run_pipeline_execute_runs_writing_stage_from_visualization_outputs():
             "results.md",
             "claim_map.json",
             "reproducibility_package.md",
+            "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         assert results_path.is_file()
         assert claim_map_path.is_file()

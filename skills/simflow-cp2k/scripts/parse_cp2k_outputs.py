@@ -12,7 +12,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
+from _common import resolve_cp2k_paths, write_json_verified
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_helpers.engines.parsers.cp2k_parser import CP2KParser
 
@@ -21,8 +22,7 @@ def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | No
     """Parse CP2K outputs from a calculation directory and write analysis reports."""
     stage = "analysis_visualization"
     activity = "analysis"
-    root, state = ensure_cp2k_project(project_root, stage)
-    work_dir = (root / calc_dir).resolve()
+    root, work_dir = resolve_cp2k_paths(project_root, calc_dir)
     parser = CP2KParser()
     analysis = parser.parse_outputs(str(work_dir), project=project)
     handoff = {
@@ -38,26 +38,19 @@ def parse_cp2k_outputs(project_root: str, calc_dir: str = ".", project: str | No
         "analysis_report": write_json_verified(root, "reports/cp2k/analysis_report.json", analysis),
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
-    artifacts = [
-        register_report(root, stage, "parse", "analysis_report", files["analysis_report"], activity=activity),
-        register_report(root, stage, "parse", "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
-    ]
-    checkpoint = finalize_stage(
-        root,
-        state,
-        stage,
-        "parse",
-        files,
-        "success" if analysis["status"] == "parsed" else "failed",
-        "Parsed CP2K outputs and wrote analysis report.",
-    )
-    return {
+    result = {
         "status": "success",
         "analysis_report": analysis,
         "reports": files,
-        "artifacts": artifacts,
-        "checkpoint": checkpoint,
     }
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity=activity,
+        legacy_status=result["status"],
+        stage=stage,
+        state_effect="none",
+    )
 
 
 def main() -> None:

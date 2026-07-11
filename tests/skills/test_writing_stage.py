@@ -84,8 +84,10 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
             "results.md",
             "claim_map.json",
             "reproducibility_package.md",
+            "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
         assert {artifact["name"] for artifact in writing_artifacts} == {
             "methods.md",
@@ -97,7 +99,7 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
             "final_handoff.json",
             "verification_report.json",
         }
-        assert len(result["artifacts"]) == 6
+        assert len(result["artifacts"]) == 8
         assert {
             artifact["name"]
             for artifact in writing_artifacts
@@ -107,9 +109,21 @@ def test_run_writing_stage_generates_methods_and_results_from_waiting_outputs():
             "results.md",
             "claim_map.json",
             "reproducibility_package.md",
+            "reproducibility_manifest.json",
             "final_handoff.md",
             "final_handoff.json",
+            "verification_report.json",
         }
+        assert [artifact["name"] for artifact in result["artifacts"]] == [
+            "methods.md",
+            "results.md",
+            "claim_map.json",
+            "reproducibility_package.md",
+            "reproducibility_manifest.json",
+            "final_handoff.md",
+            "final_handoff.json",
+            "verification_report.json",
+        ]
         assert methods_path.is_file()
         assert results_path.is_file()
         assert claim_map_path.is_file()

@@ -13,6 +13,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.state import read_state, update_stage, write_state
 from runtime.simflow_core.utils import now_iso
 from runtime.simflow_helpers.stages.progress import (
@@ -107,6 +108,33 @@ def _execute_runner(
     return runner(str(project_root / ".simflow")), script_path
 
 
+def _reason_code(status: str, payload: dict[str, Any] | None = None) -> str | None:
+    if payload and payload.get("code"):
+        return str(payload["code"])
+    if status in {"needs_inputs", "capability_warning"}:
+        return status
+    return None
+
+
+def _attach_stage_result(
+    result: dict[str, Any],
+    *,
+    stage_name: str,
+    legacy_status: str,
+    state_effect: str,
+    reason_code: str | None = None,
+) -> dict[str, Any]:
+    return attach_simflow_result(
+        result,
+        role="stage_runner",
+        activity=stage_name,
+        legacy_status=legacy_status,
+        stage=stage_name,
+        reason_code=reason_code,
+        state_effect=state_effect,
+    )
+
+
 def _checkpoint_completed_computation_stage(project_root: Path, state: dict[str, Any], stage_name: str) -> dict[str, Any] | None:
     if stage_name != "computation":
         return None
@@ -120,7 +148,6 @@ def _checkpoint_completed_computation_stage(project_root: Path, state: dict[str,
         project_root=str(project_root),
         job_id="computation_dry_run_readiness",
     )
-    update_stage(stage_name, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
     return checkpoint
 
 
@@ -130,13 +157,23 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
     state = read_state(project_root=str(project_root), state_file="workflow.json")
 
     if not state:
-        return {"status": "error", "message": "No workflow state found"}
+        return _attach_stage_result(
+            {"status": "error", "message": "No workflow state found"},
+            stage_name=stage_name,
+            legacy_status="error",
+            state_effect="none",
+        )
 
     metadata = read_state(project_root=str(project_root), state_file="metadata.json")
     workflow_type = metadata.get("workflow_type", state.get("workflow_type", "dft"))
     stages = load_workflow_stages(workflow_type, metadata)
     if stage_name not in stages:
-        return {"status": "error", "message": f"Unknown stage: {stage_name}"}
+        return _attach_stage_result(
+            {"status": "error", "message": f"Unknown stage: {stage_name}"},
+            stage_name=stage_name,
+            legacy_status="error",
+            state_effect="none",
+        )
 
     params = params or {}
     runner_specs = CANONICAL_STAGE_RUNNERS.get(stage_name, [])
@@ -157,7 +194,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         ]
         result["message"] = f"Would execute {len(runner_specs)} helpers for stage: {stage_name}"
         result["completed_at"] = now_iso()
-        return result
+        return _attach_stage_result(result, stage_name=stage_name, legacy_status=result["status"], state_effect="none")
 
     update_stage(stage_name, "in_progress", project_root=str(project_root))
     aggregate_artifacts: list[dict[str, Any]] = []
@@ -183,7 +220,13 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
             result["warning"] = stage_result if capability_warning else None
             result["needs_inputs"] = stage_result if needs_inputs else None
             result["completed_at"] = now_iso()
-            return result
+            return _attach_stage_result(
+                result,
+                stage_name=stage_name,
+                legacy_status=result["status"],
+                state_effect="stage_transition",
+                reason_code=_reason_code(result["status"], stage_result),
+            )
         if not success:
             message = stage_result.get("message", f"Failed to execute activity: {activity}")
             update_stage(stage_name, "failed", project_root=str(project_root), error_message=message)
@@ -191,7 +234,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
             result["status"] = "error"
             result["message"] = message
             result["completed_at"] = now_iso()
-            return result
+            return _attach_stage_result(result, stage_name=stage_name, legacy_status=result["status"], state_effect="stage_transition")
 
         artifacts = stage_result.get("artifacts", [])
         inputs = _stage_inputs(stage_result, artifacts)
@@ -221,7 +264,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         result["manifests"] = manifests
     result["message"] = f"Executed {len(runner_specs)} helpers for stage: {stage_name}"
     result["completed_at"] = now_iso()
-    return result
+    return _attach_stage_result(result, stage_name=stage_name, legacy_status=result["status"], state_effect="stage_transition")
 
 
 def main() -> None:

@@ -24,6 +24,7 @@ SIMFLOW_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(SIMFLOW_ROOT))
 sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
 
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
@@ -146,14 +147,15 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         output_dir: Output directory
         params: INCAR parameter overrides
         kppa: K-points per reciprocal atom
-        potcar_root: Path to pseudopotential library (default: from env)
-        use_vaspkit: Use vaspkit for POTCAR generation
+        potcar_root: Compatibility-only pseudopotential library hint
+        use_vaspkit: Compatibility-only VASPKIT toggle
 
     Returns:
         Dict with status, files generated, and POTCAR generation info
     """
     structure = Structure.from_file(poscar_path)
     params = params or {}
+    potcar_root_supplied = potcar_root is not None
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -176,8 +178,14 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         "content_generated": False,
         "message": (
             "SimFlow does not generate or distribute POTCAR content. "
-            "Provide a licensed local POTCAR for validation and execution."
+            "The compatibility-only library-root and VASPKIT inputs are accepted as "
+            "compatibility-only placeholders and are ignored. Provide a "
+            "licensed local POTCAR for validation and execution."
         ),
+        "compatibility_inputs_ignored": {
+            "potcar_root_supplied": potcar_root_supplied,
+            "use_vaspkit_supplied": bool(use_vaspkit),
+        },
     }
 
     if potcar_out.is_file():
@@ -218,7 +226,7 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
     structure.to(filename=str(poscar_out), fmt="poscar")
     files_generated.insert(2, str(poscar_out))
 
-    return {
+    result = {
         "status": "success",
         "job_type": job_type,
         "output_dir": str(output_path),
@@ -230,6 +238,14 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         "incar_policy": incar_policy,
         "potcar": potcar_result,
     }
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="vasp_generate_inputs",
+        legacy_status=result["status"],
+        stage="computation",
+        state_effect="none",
+    )
 
 
 def main():
@@ -247,9 +263,9 @@ def main():
     parser.add_argument("--kppa", type=int, default=1000,
                         help="K-points per reciprocal atom")
     parser.add_argument("--potcar-root", type=str, default=None,
-                        help="Path to VASP pseudopotential library (overrides SIMFLOW_VASP_POTCAR_PATH)")
+                        help="Compatibility-only POTCAR library hint; SimFlow does not generate POTCAR content")
     parser.add_argument("--use-vaspkit", action="store_true",
-                        help="Use vaspkit for POTCAR generation")
+                        help="Compatibility-only flag; SimFlow never invokes VASPKIT to generate POTCAR content")
     add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
@@ -267,6 +283,20 @@ def main():
             software="vasp",
             input_paths=[args.poscar],
             output_paths=result.get("files_generated", []),
+            sensitive_cli_options=["--potcar-root"],
+            sensitive_json_cli_options={
+                "--params": [
+                    "potcar_root",
+                    "potcar_path",
+                    "SIMFLOW_VASP_POTCAR_PATH",
+                    "VASP_POTCAR_PATH",
+                    "POTCAR_ROOT",
+                    "POTCAR_PATH",
+                    "POTPAW",
+                    "POTPAW_PBE",
+                    "POTPAW_LDA",
+                ],
+            },
         )
         print(json.dumps(result, indent=2))
     except Exception as e:

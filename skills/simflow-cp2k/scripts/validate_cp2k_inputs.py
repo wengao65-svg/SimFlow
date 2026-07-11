@@ -12,7 +12,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _common import ensure_cp2k_project, finalize_stage, register_report, write_json_verified
+from _common import resolve_cp2k_paths, write_json_verified
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_helpers.engines.cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
 
@@ -27,8 +28,7 @@ def run_validation(
     task_norm = normalize_cp2k_task(task)
     stage = "computation"
     activity = "input_validation"
-    root, state = ensure_cp2k_project(project_root, stage)
-    work_dir = (root / calc_dir).resolve()
+    root, work_dir = resolve_cp2k_paths(project_root, calc_dir)
 
     if input_path and not input_path.startswith("/"):
         input_path = str(work_dir / input_path)
@@ -47,27 +47,20 @@ def run_validation(
         "validation_report": write_json_verified(root, "reports/cp2k/validation_report.json", report),
         "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
     }
-    artifacts = [
-        register_report(root, stage, task_norm, "validation_report", files["validation_report"], activity=activity),
-        register_report(root, stage, task_norm, "handoff_artifact", files["handoff_artifact"], artifact_type="handoff", activity=activity),
-    ]
-    checkpoint = finalize_stage(
-        root,
-        state,
-        stage,
-        task_norm,
-        files,
-        "success" if report["status"] in {"pass", "skip"} else "failed",
-        f"Validated CP2K inputs for {task_norm}.",
-    )
-    return {
+    result = {
         "status": "success",
         "task": task_norm,
         "validation_report": report,
         "reports": files,
-        "artifacts": artifacts,
-        "checkpoint": checkpoint,
     }
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity=activity,
+        legacy_status=result["status"],
+        stage=stage,
+        state_effect="none",
+    )
 
 
 def main() -> None:

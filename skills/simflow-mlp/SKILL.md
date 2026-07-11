@@ -48,6 +48,17 @@ evidence, and limitations. `simflow-mlp` does not prescribe a provider-independe
 ## Status write rules
 
 - Read `.simflow/state/` before acting when workflow state is relevant, and resolve explicit `project_root` before writing `.simflow/` reports, artifacts, checkpoints, or helper-run manifests.
+- Helper outputs are pure evidence producers by default. They may write
+  requested manifests or reports under `project_root`, but they do not
+  initialize or advance stages, do not register artifacts, and do not create
+  checkpoints unless explicit helper-run recording is requested.
+- Default helper report paths live under project-root `reports/<engine>/`.
+  `.simflow` is touched only by explicit helper-run recording.
+- `--record-helper-run` is `record_only`: it records helper evidence and
+  lineage only. Canonical stage runners own stage transitions, and
+  checkpoint/state-admin APIs own checkpoint operations.
+- Direct helpers do not register arbitrary report artifacts. Canonical stage
+  runners may ingest/register outputs when the workflow stage owns them.
 - Keep MLP activities as recipe/helper metadata inside existing stages such as `proposal`, `computation`, `analysis_visualization`, and `writing`.
 - Do not change tool-level support for GPUMD, NEP, DeePMD, MACE, NequIP, Allegro, or custom tools unless the shared toolchain contract is explicitly updated.
 - Do not write under `.omx/`; it belongs to the host session, not SimFlow workflow state.
@@ -61,7 +72,7 @@ evidence, and limitations. `simflow-mlp` does not prescribe a provider-independe
    checkpoint evidence.
 4. Inspect local evidence before drawing conclusions. Report missing dataset lineage, label convergence, split definitions, failed-label exclusions, training-policy details, or validation thresholds.
 5. Use optional helper scripts for evidence manifests and summaries only. Real training, inference, MD, remote execution, or HPC submission requires generic computation evidence and approval gates.
-6. Register generated evidence reports, figures, or handoff summaries as artifacts with metadata and lineage when writing SimFlow state.
+6. Register generated evidence reports, figures, or handoff summaries as artifacts only when explicit helper-run recording is requested or when a canonical stage runner ingests those outputs.
 
 ## Reference map
 
@@ -85,9 +96,13 @@ These helpers are optional domain tools, not the only valid MLP workflow, parser
 
 ## Checkpoint rules
 
-- Create a checkpoint only when MLP evidence is ready for review, active-learning decision, production-readiness gate, or handoff.
-- Create failure checkpoints for true helper failures such as conflicting dataset lineage, unreadable evidence, unavailable proprietary data, validation failure, or blocked approval gates.
-- For unsupported training, inference, MD, input-generation, or submit requests, return a `capability_warning` and keep workflow state waiting; do not record a completed or failed checkpoint solely for the unsupported capability.
+- MLP helpers do not create stage-boundary checkpoints by default.
+- Helper-run recording remains `record_only`; use canonical stage runners or
+  checkpoint/state-admin APIs when checkpoint operations are explicitly needed.
+- For unsupported training, inference, MD, input-generation, or submit
+  requests, return a `capability_warning` and keep workflow state waiting; do
+  not record a completed or failed checkpoint solely for the unsupported
+  capability.
 
 ## Prohibited actions
 
