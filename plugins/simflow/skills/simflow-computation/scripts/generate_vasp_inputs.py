@@ -8,6 +8,12 @@ NBANDS policy is applied via runtime.simflow_helpers.engines.vasp_incar:
 - Ordinary calc types (relax, scf, bands, etc.): NBANDS removed
 - Special calc types (optics, gw, etc.): NBANDS auto-calculated
 - User-explicit NBANDS: validated and preserved
+
+NCORE/NPAR policy is applied via the same shared module:
+- Unknown hardware: omit both and report missing execution context
+- Confirmed CPU: default to NPAR=4 unless user preference says otherwise
+- GPU/OpenACC/offload: omit both by default
+- User-explicit values are preserved with warnings when needed
 """
 
 import argparse
@@ -26,16 +32,31 @@ sys.path.insert(0, str(_project_root / "runtime"))
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
-    from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+    from runtime.simflow_core.templates import render_string
+    from runtime.simflow_helpers.engines.vasp_incar import (
+        apply_nbands_policy,
+        apply_ncore_npar_policy,
+        filter_vasp_incar_params,
+        get_explicit_user_nbands,
+    )
 except ImportError:
     # Fallback: try from simflow root
     _alt_root = Path(__file__).resolve().parents[3].parent
     sys.path.insert(0, str(_alt_root / "runtime"))
     try:
-        from runtime.simflow_helpers.engines.vasp_incar import apply_nbands_policy, get_explicit_user_nbands
+        from runtime.simflow_core.templates import render_string
+        from runtime.simflow_helpers.engines.vasp_incar import (
+            apply_nbands_policy,
+            apply_ncore_npar_policy,
+            filter_vasp_incar_params,
+            get_explicit_user_nbands,
+        )
     except ImportError:
         apply_nbands_policy = None
+        apply_ncore_npar_policy = None
+        filter_vasp_incar_params = None
         get_explicit_user_nbands = None
+        render_string = None
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "templates" / "vasp"
@@ -43,6 +64,8 @@ TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "templates" / "vasp"
 
 def render_template(template_content: str, variables: dict) -> str:
     """Render a Jinja-style template with {{ variable }} placeholders."""
+    if render_string is not None:
+        return render_string(template_content, variables)
     result = template_content
     for key, value in variables.items():
         pattern = r"\{\{\s*" + re.escape(key) + r"\s*(?:\|[^}]*)?\}\}"
@@ -70,6 +93,9 @@ def generate_incar(job_type: str, params: dict, output_path: str,
         raise FileNotFoundError(f"Template not found: {template_path}")
 
     template = template_path.read_text()
+
+    params = params or {}
+    incar_params = filter_vasp_incar_params(params) if filter_vasp_incar_params else dict(params)
 
     defaults = {
         "job_type": job_type,
@@ -118,11 +144,17 @@ def generate_incar(job_type: str, params: dict, output_path: str,
         defaults["nbands"] = params["NBANDS"]
     # else: nbands not set -> template conditional block won't render
 
-    defaults.update(params)
-    # Ensure nbands from policy is not overwritten by params merge
-    if apply_nbands_policy is not None and nelect is not None and nions is not None:
-        # Re-apply to get the correct nbands value after params merge
-        pass  # nbands was already computed above
+    if apply_ncore_npar_policy is not None:
+        policy_incar = {}
+        ncore_npar_report = apply_ncore_npar_policy(policy_incar, params)
+        defaults["ncore"] = policy_incar.get("NCORE")
+        defaults["npar"] = policy_incar.get("NPAR")
+        defaults["_ncore_npar_policy"] = ncore_npar_report
+
+    defaults.update(incar_params)
+    if apply_ncore_npar_policy is not None:
+        defaults["ncore"] = policy_incar.get("NCORE")
+        defaults["npar"] = policy_incar.get("NPAR")
 
     content = render_template(template, defaults)
 

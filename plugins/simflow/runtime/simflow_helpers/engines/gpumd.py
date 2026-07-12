@@ -14,7 +14,7 @@ from typing import Any
 
 from pymatgen.core import Structure
 
-from runtime.simflow_core.state import resolve_project_root
+from runtime.simflow_core.state import resolve_project_path, resolve_project_root
 
 
 TASK_ALIASES = {
@@ -295,7 +295,7 @@ def generate_gpumd_inputs(
     """Generate bounded GPUMD/NEP inputs from explicit evidence."""
     params = dict(params or {})
     root = resolve_project_root(project_root=project_root or ".")
-    out = Path(output_dir).expanduser().resolve()
+    out = resolve_project_path(output_dir, project_root=str(root))
     task_norm = normalize_gpumd_task(task, software=software)
     warnings: list[dict[str, str]] = []
 
@@ -447,7 +447,7 @@ def build_gpumd_task_plan(task: str, base_dir: str, options: dict[str, Any] | No
     root = resolve_project_root(project_root=base_dir)
     software = options.get("software", "gpumd")
     task_norm = normalize_gpumd_task(task, software=software)
-    calc_dir = root / options.get("calc_dir", ".")
+    calc_dir = resolve_project_path(options.get("calc_dir", "."), project_root=str(root))
     validation = validate_gpumd_inputs(task_norm, str(calc_dir), software=software)
     atom_count = _estimated_atoms(calc_dir, task_norm)
     resources = _estimate_resources(task_norm, atom_count, options)

@@ -98,6 +98,14 @@ Before real local, remote, or HPC execution, record:
 - script/input hashes
 - gate decision id or approval token
 
+If you already have a working submit script, pass it as `job_script` or
+`submit_script`. SimFlow will preserve it unchanged, hash that exact file, and
+point `submit_readiness` at it. Reusable submit scripts should live under
+`scripts/submit/`; task-specific scripts can stay with the calculation inputs.
+When SimFlow finds more than one reusable script, it waits for an explicit
+choice instead of guessing. Template rendering is opt-in and writes a derived
+copy under `.simflow/`, never an in-place edit.
+
 A job record is only required after a real local, remote, or HPC submit has
 occurred. Dry-run-only computation evidence does not need
 `job_record_if_submitted`. When a real `hpc.submit` succeeds through the MCP

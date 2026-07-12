@@ -19,6 +19,11 @@ from .state import ensure_workflow_initialized, resolve_project_root
 
 
 HELPER_ARTIFACT_TYPE = "helper_run_manifest"
+_CANONICAL_OUTPUT_METADATA_KEYS = (
+    "simflow_result",
+    "helper_evidence",
+    "helper_evidence_summary",
+)
 
 
 def _now_iso() -> str:
@@ -41,6 +46,30 @@ def _relative_path(project_root: Path, value: str | Path) -> str:
 
 def _artifact_name(value: str | Path) -> str:
     return Path(value).name or str(value)
+
+
+def _merge_metadata(*parts: Optional[dict[str, Any]]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        for key, value in part.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = _merge_metadata(merged[key], value)
+            else:
+                merged[key] = value
+    return merged
+
+
+def _merge_output_artifact_metadata(
+    general_metadata: dict[str, Any],
+    output_metadata: Optional[dict[str, Any]],
+) -> dict[str, Any]:
+    merged = _merge_metadata(general_metadata, output_metadata)
+    for key in _CANONICAL_OUTPUT_METADATA_KEYS:
+        if key in general_metadata:
+            merged[key] = general_metadata[key]
+    return merged
 
 
 def _register_path_artifact(
@@ -104,6 +133,11 @@ def record_helper_run(
     input_paths = input_paths or []
     output_paths = output_paths or []
     metadata = metadata or {}
+    general_metadata = {
+        key: value
+        for key, value in metadata.items()
+        if key not in {"script_metadata", "input_metadata", "output_metadata"}
+    }
 
     script_artifact = None
     if script_path:
@@ -148,13 +182,16 @@ def record_helper_run(
             parent_artifacts=output_parent_ids,
             role="output",
             helper_name=helper,
-            metadata=metadata.get("output_metadata") if isinstance(metadata.get("output_metadata"), dict) else None,
+            metadata=_merge_output_artifact_metadata(
+                general_metadata,
+                metadata.get("output_metadata") if isinstance(metadata.get("output_metadata"), dict) else None,
+            ),
             software=software,
         )
         for path in output_paths
     ]
 
-    manifest_rel = str(Path(".simflow") / "artifacts" / stage / f"{_slug(run_name)}_helper_run.json")
+    manifest_rel = str(Path(".simflow") / "artifacts" / stage / f"{_slug(run_name)}_{run_id}_helper_run.json")
     manifest_path = root / manifest_rel
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -193,7 +230,7 @@ def record_helper_run(
             "script_path": manifest["script_path"],
         },
         software=software,
-        metadata={"helper_optional": True, **metadata},
+        metadata=_merge_metadata({"helper_optional": True}, general_metadata),
     )
 
     artifacts = [

@@ -1,6 +1,6 @@
 {
   "schema_version": "simflow.toolchain_capabilities.v1",
-  "policy": "Helper support does not define software admission, real execution support, or workflow blocking. Tracked-only and unknown tools may still be planned and recorded for provenance. Real execution, submit, credentials, and unsupported scientific claims remain governed by safety gates and evidence checks.",
+  "policy": "Domain Assistant is a Skill product role, helper support is a tool/capability support level, and simflow.helper_evidence.v1 is an optional helper-evidence output contract; these concepts are independent. Helper support does not define software admission, real execution support, or workflow blocking. Tracked-only and unknown tools may still be planned and recorded for provenance. Real execution, submit, credentials, and unsupported scientific claims remain governed by safety gates and evidence checks.",
   "helper_supported_software": [
     "vasp",
     "cp2k",

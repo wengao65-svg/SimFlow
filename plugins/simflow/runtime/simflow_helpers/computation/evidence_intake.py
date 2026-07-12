@@ -276,12 +276,6 @@ def record_computation_evidence(
             project_root=str(project_root),
             job_id="user_provided_computation_evidence",
         )
-        update_stage(
-            "computation",
-            "completed",
-            project_root=str(project_root),
-            checkpoint_id=checkpoint["checkpoint_id"],
-        )
         _update_workflow_after_completion(project_root)
         readiness = build_stage_readiness(str(project_root), stage="computation")
 

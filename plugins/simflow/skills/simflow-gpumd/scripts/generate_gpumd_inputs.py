@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from runtime.simflow_core.state import resolve_project_path
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.toolchains import build_actual_tool_used, classify_tool_support
 from runtime.simflow_helpers.engines.gpumd import generate_gpumd_inputs as generate_inputs
@@ -26,7 +28,7 @@ def generate_gpumd_inputs(
 ) -> dict:
     """Generate GPUMD/NEP input files into a calculation directory."""
     root = Path(project_root).expanduser().resolve()
-    work_dir = (root / calc_dir).resolve()
+    work_dir = resolve_project_path(calc_dir, project_root=str(root))
     params = dict(params or {})
     result = generate_inputs(
         structure_path,
@@ -42,7 +44,14 @@ def generate_gpumd_inputs(
         result.get("software") or software,
     )
     result["calc_dir"] = str(work_dir)
-    return result
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="input_generation",
+        legacy_status=result.get("status"),
+        stage="computation",
+        state_effect="none",
+    )
 
 
 def main() -> None:

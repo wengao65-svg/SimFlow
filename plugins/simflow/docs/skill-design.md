@@ -9,6 +9,15 @@ handoff-ready work.
 Skills are not workflow executors. They should not force one parser, one report
 name, one builder, one simulation engine, or one fixed DFT/AIMD/MD path.
 
+Helper outputs are pure evidence producers by default. They may write
+requested input or report files under `project_root`, but they do not
+initialize workflow state, do not advance stages, do not register artifacts,
+and do not create checkpoints unless explicit helper-run recording is
+requested.
+
+Default helper report paths live under project-root `reports/<engine>/`.
+`.simflow` is touched only by explicit helper-run recording.
+
 ## Core Skill Set
 
 The refactored workflow layer centers on a small core set:
@@ -24,8 +33,8 @@ The refactored workflow layer centers on a small core set:
 
 Engine-specific skills for VASP, CP2K, LAMMPS, and GPUMD/NEP are the supported
 domain assistants in the current product build. `simflow-mlp` is a cross-tool
-evidence helper for machine-learning-potential dataset, training, validation,
-active-learning, and readiness records. These skills provide checklists,
+Domain Assistant for machine-learning-potential dataset, training, validation,
+active-learning, deployment, and readiness methodology. These skills provide checklists,
 templates, troubleshooting, validation suggestions, official-documentation
 pointers, and artifact registration guidance. QE and Gaussian skills are
 reserved unsupported placeholders that may only record user-provided files as
@@ -57,7 +66,13 @@ the script, inputs, outputs, environment, and figure lineage are recorded.
 
 ## Domain Assistant Pattern
 
-Engine helpers should answer questions such as:
+Domain Assistant is the Skill product role. It is independent from the helper
+support level assigned to a concrete tool or capability in
+`workflow/toolchains/capabilities.json`. A Domain Assistant may call optional
+helper scripts, and those scripts may emit `simflow.helper_evidence.v1`; the
+helper-evidence envelope is an output contract rather than a product class.
+
+Domain Assistants should answer questions such as:
 
 - What input files are commonly needed?
 - Which checks are risky for this engine or method?
@@ -93,7 +108,9 @@ requirements that make a helper the only valid path.
 
 Skill scripts are optional helpers. They are allowed to parse files, generate
 templates, inspect outputs, or package reports, but they must not become the
-canonical workflow executor.
+canonical workflow executor. When a helper emits a shared evidence record, use
+`simflow.helper_evidence.v1` without treating that schema as the Skill's
+product identity or support level.
 
 Canonical stage runners use this callable contract:
 
@@ -111,3 +128,22 @@ Without `--record-helper-run`, helper scripts should remain standalone and
 avoid writing SimFlow state. With `--record-helper-run`, they must use
 `runtime.simflow_core.helpers.record_helper_run` or the shared script-contract
 wrapper so scripts, inputs, outputs, environment, and lineage are recorded.
+`--record-helper-run` is `record_only`: it registers helper evidence and
+lineage, but it does not complete or fail a stage and does not create a
+stage-boundary checkpoint.
+
+Direct helpers do not register arbitrary report artifacts. Stage runners may
+ingest/register outputs when the canonical stage owns those artifacts.
+
+## Result Vocabulary
+
+Use `simflow.result.v1` to describe canonical nested helper, stage-runner, and
+state-admin results. Roles, outcomes, and state effects belong to that nested
+record, while top-level statuses are compatibility fields.
+
+- Helper evidence `status` describes the helper payload itself.
+- `simflow_result.outcome` describes the canonical nested result.
+- Stage status, readiness status, verification status, gate status, and
+  checkpoint status are separate vocabularies and are not interchangeable.
+- Stage runners own stage transitions.
+- Checkpoint/state-admin APIs own checkpoint operations.

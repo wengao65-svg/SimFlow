@@ -26,6 +26,55 @@ except ImportError:
     sys.exit(1)
 
 
+def build_analysis_quality_manifest(
+    *,
+    n_frames: int,
+    timestep: float | None,
+    timestep_units: str | None,
+    equilibration_start: int | None,
+    analyses: list,
+    error_estimates: dict | None = None,
+) -> dict:
+    """Record limits on trajectory-derived claims."""
+    error_estimates = error_estimates or {}
+    warnings = []
+    if n_frames < 10:
+        warnings.append({
+            "code": "insufficient_frames_for_statistics",
+            "message": "Trajectory has fewer than 10 frames; statistical claims should remain preliminary.",
+        })
+    if timestep is None:
+        warnings.append({
+            "code": "timestep_not_recorded",
+            "message": "No timestep was recorded for analysis provenance or unit conversion.",
+        })
+    if equilibration_start is None:
+        warnings.append({
+            "code": "equilibration_boundary_not_recorded",
+            "message": "No equilibration/production boundary was recorded.",
+        })
+    missing_error_estimates = [analysis for analysis in analyses if analysis not in error_estimates]
+    if missing_error_estimates:
+        warnings.append({
+            "code": "analysis_error_estimates_missing",
+            "message": "No uncertainty estimate was recorded for: " + ", ".join(missing_error_estimates),
+        })
+    return {
+        "claim_scope": "analysis_support_only",
+        "n_frames": n_frames,
+        "timestep": timestep,
+        "timestep_units": timestep_units,
+        "equilibration_start": equilibration_start,
+        "analyses": analyses,
+        "error_estimates": error_estimates,
+        "warnings": warnings,
+        "claim_limits": [
+            "Trajectory analysis supports derived-observable evidence only.",
+            "No production MD claim should be made without equilibration, sampling, and uncertainty evidence.",
+        ],
+    }
+
+
 def load_lammps_universe(data_file: str, dump_file: str) -> Universe:
     """Load LAMMPS data and dump files into MDAnalysis Universe."""
     return Universe(data_file, dump_file, format="LAMMPSDUMP")
@@ -86,7 +135,14 @@ def compute_msd(u: Universe, select: str = "all") -> dict:
     }
 
 
-def analyze_lammps(data_file: str, dump_file: str, analyses: list) -> dict:
+def analyze_lammps(
+    data_file: str,
+    dump_file: str,
+    analyses: list,
+    *,
+    timestep_units: str | None = None,
+    equilibration_start: int | None = None,
+) -> dict:
     """Run analyses on LAMMPS trajectory."""
     u = load_lammps_universe(data_file, dump_file)
     results = {"data_file": data_file, "dump_file": dump_file, "analyses": {}}
@@ -94,12 +150,22 @@ def analyze_lammps(data_file: str, dump_file: str, analyses: list) -> dict:
     n_frames = len(u.trajectory)
     results["n_frames"] = n_frames
     results["n_atoms"] = len(u.atoms)
+    timestep = getattr(u.trajectory, "dt", None)
 
     if "rdf" in analyses:
         results["analyses"]["rdf"] = compute_rdf(u)
 
     if "msd" in analyses:
         results["analyses"]["msd"] = compute_msd(u)
+
+    results["analysis_quality"] = build_analysis_quality_manifest(
+        n_frames=n_frames,
+        timestep=timestep,
+        timestep_units=timestep_units,
+        equilibration_start=equilibration_start,
+        analyses=analyses,
+        error_estimates={},
+    )
 
     return results
 
@@ -113,11 +179,19 @@ def main():
     parser.add_argument("--rdf-rmax", type=float, default=10.0)
     parser.add_argument("--rdf-nbins", type=int, default=200)
     parser.add_argument("--msd-select", default="all")
+    parser.add_argument("--timestep-units", default=None, help="Optional units for trajectory timestep metadata")
+    parser.add_argument("--equilibration-start", type=int, default=None, help="First production frame index after equilibration")
     add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
-        result = analyze_lammps(args.data, args.dump, args.analyses)
+        result = analyze_lammps(
+            args.data,
+            args.dump,
+            args.analyses,
+            timestep_units=args.timestep_units,
+            equilibration_start=args.equilibration_start,
+        )
         result["status"] = "success"
         result = maybe_record_helper_run(
             args=args,

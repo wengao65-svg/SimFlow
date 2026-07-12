@@ -30,6 +30,17 @@ description: Provide CP2K domain assistance for official-documentation lookup, i
 
 - Resolve explicit `project_root` before writing `.simflow/` state, artifacts, checkpoints, reports, or lineage.
 - Read `.simflow/state/` before acting and write CP2K reports only as evidence records; do not automatically impose a fixed CP2K stage progression.
+- Helper outputs are pure evidence producers by default. They may write
+  requested CP2K inputs or reports under `project_root`, but they do not
+  initialize or advance stages, do not register artifacts, and do not create
+  checkpoints unless explicit helper-run recording is requested.
+- Default helper report paths live under project-root `reports/<engine>/`.
+  `.simflow` is touched only by explicit helper-run recording.
+- `--record-helper-run` is `record_only`: it records helper evidence and
+  lineage only. Canonical stage runners own stage transitions, and
+  checkpoint/state-admin APIs own checkpoint operations.
+- Direct helpers do not register arbitrary report artifacts. Canonical stage
+  runners may ingest/register outputs when the workflow stage owns them.
 - Use open stages such as `modeling`, `computation`, or `analysis_visualization` according to research intent.
 - Keep CP2K task labels such as `dft`, `aimd`, `geo_opt`, `cell_opt`, `restart`, `qmmm`, `neb`, `xtb`, or `custom` separate from workflow stage.
 - Do not write under `.omx/`; it belongs to the host session, not SimFlow workflow state.
@@ -38,11 +49,11 @@ description: Provide CP2K domain assistance for official-documentation lookup, i
 
 1. Read `.simflow/state/` before acting and resolve `project_root` explicitly before any SimFlow write.
 2. Classify the request as official-source lookup, input preparation, validation, dry-run planning, troubleshooting, parsing, analysis/visualization, writing, or handoff. Return uncertainty when the task does not match a known safe pattern.
-3. Prefer official CP2K sources for parameter or workflow claims. Load `references/cp2k_official_sources.md` for documentation navigation, `references/cp2k_example_patterns.md` for portable setup and execution-environment boundary patterns, `references/cp2k_task_checklists.md` for task-specific checks, `references/cp2k_parameters.md` for parameter policies, and `references/cp2k_troubleshooting.md` for diagnosis. Load `references/cp2k_local_examples_index.md` only when the user provides a CP2K source-tree path or relevant environment variable.
+3. Prefer official CP2K sources for parameter or workflow claims. Before official CP2K parameter or keyword lookup, first load `references/cp2k_official_sources.md` and use its official links in latest-first or version-matched order; do not run a generic web search first to decide whether a CP2K keyword exists. Load `references/cp2k_example_patterns.md` for portable setup and execution-environment boundary patterns, `references/cp2k_task_checklists.md` for task-specific checks, `references/cp2k_parameters.md` for parameter policies, and `references/cp2k_troubleshooting.md` for diagnosis. Load `references/cp2k_local_examples_index.md` only when the user provides a CP2K source-tree path or relevant environment variable.
 4. Load only the reference files needed for the concrete request. Avoid loading all CP2K references unless the user asks for a broad CP2K workflow audit.
 5. Inspect local inputs before generating or interpreting results. Preserve user-provided files and report missing predecessors instead of inventing them.
 6. Default compute work to dry-run/static inspection. Real local, remote, or HPC execution requires the same approval gate evidence used by `simflow-computation`.
-7. Register outputs as artifacts with metadata and lineage when writing reports, generated inputs, figures, helper-run manifests, troubleshooting notes, or handoff material.
+7. Register outputs as artifacts with metadata and lineage only when explicit helper-run recording is requested or when a canonical stage runner ingests those outputs.
 
 ## Reference map
 
@@ -71,14 +82,15 @@ description: Provide CP2K domain assistance for official-documentation lookup, i
 - `scripts/generate_cp2k_inputs.py`: Generate conservative common-task CP2K input decks and normalized coordinates for `energy`, `geo_opt`, `cell_opt`, `aimd_nvt`, `aimd_nve`, and `aimd_npt` from CIF or XYZ structures. It covers a limited DFT/QS/MOLOPT/GTH-style surface and may require explicit `element_params` beyond its built-in element defaults.
 - `scripts/validate_cp2k_inputs.py`: Statically inspect common-task input decks for `GLOBAL/RUN_TYPE`, `FORCE_EVAL/DFT`, basis/potential file names, `MGRID`, `SCF`, `OT`, `XC`, `SUBSYS/CELL`, topology coordinates, `KIND` coverage, task-motion consistency, and restart file presence.
 - `scripts/parse_cp2k_outputs.py`: Parse available `.log`, `.ener`, `*-pos-*.xyz`, and `.restart` files into an analysis report without running CP2K.
-- `scripts/orchestrate_cp2k_task.py`: Build SimFlow CP2K reports, artifacts, checkpoints, dry-run compute plans, and handoff records for common tasks without submitting jobs.
+- `scripts/orchestrate_cp2k_task.py`: Build SimFlow CP2K reports, dry-run compute plans, handoff records, and optional helper-run evidence for common tasks without submitting jobs.
 
 These helpers are optional domain tools, not the only valid parser, builder, analysis path, or report format. Official CP2K examples, user inputs, CP2K tools, ASE, notebooks, shell commands, or custom Python are acceptable when evidence, lineage, assumptions, and risks are recorded.
 
 ## Checkpoint rules
 
-- Create a checkpoint when CP2K helper evidence is ready for review, handoff, or a safety gate.
-- Create failure checkpoints for missing files, uncertain task intent, validation failure, parse failure, failed official-source retrieval, unsupported advanced scope, or blocked approval gates.
+- CP2K helpers do not create stage-boundary checkpoints by default.
+- Helper-run recording remains `record_only`; use canonical stage runners or
+  checkpoint/state-admin APIs when checkpoint operations are explicitly needed.
 
 ## Prohibited actions
 

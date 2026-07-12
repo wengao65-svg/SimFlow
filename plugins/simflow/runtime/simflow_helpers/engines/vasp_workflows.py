@@ -10,7 +10,7 @@ from typing import Any
 from runtime.simflow_core.artifacts import register_artifact
 from runtime.simflow_core.checkpoints import create_checkpoint
 from runtime.simflow_core.hpc import estimate_resources
-from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
+from runtime.simflow_core.state import resolve_project_path, resolve_project_root
 from .vasp_py4vasp import can_use_py4vasp, read_with_py4vasp
 from .vasp_tools import detect_vaspkit, plan_vaspkit_task
 from .vasp_validation import validate_vasp_inputs
@@ -182,7 +182,7 @@ def build_vasp_task_plan(task: str, base_dir: str, options: dict[str, Any] | Non
     """Build a VASP helper plan without authorizing or simulating submission gates."""
     options = options or {}
     root = resolve_project_root(project_root=base_dir)
-    calc_dir = root / options.get("calc_dir", ".")
+    calc_dir = resolve_project_path(options.get("calc_dir", "."), project_root=str(root))
     files = [p.name for p in calc_dir.iterdir()] if calc_dir.exists() else []
     classification = classify_vasp_request(task, files)
     task_name = options.get("task") or classification["task"]
@@ -245,11 +245,9 @@ def suggest_vasp_stage(task: str) -> str:
 
 
 def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str | None = None) -> dict[str, Any]:
-    """Write VASP reports and register them as SimFlow artifacts."""
+    """Write VASP orchestration evidence files without mutating SimFlow state."""
     root = resolve_project_root(project_root=base_dir)
     stage = plan.get("stage") or suggest_vasp_stage(plan.get("task", "unknown"))
-    state = ensure_workflow_initialized("custom", stage, project_root=str(root))
-    workflow_id = workflow_id or state.get("workflow_id", "wf_vasp")
 
     manifest = {
         "task": plan["task"],
@@ -280,31 +278,4 @@ def write_vasp_artifacts(plan: dict[str, Any], base_dir: str, workflow_id: str |
         "analysis_report": _write_json(root, "reports/vasp/analysis_report.json", plan["analysis_report"]),
         "handoff_artifact": _write_json(root, "reports/vasp/handoff_artifact.json", handoff),
     }
-
-    artifacts = []
-    for name, rel_path in files.items():
-        artifacts.append(register_artifact(
-            name=name,
-            artifact_type="report" if name != "handoff_artifact" else "handoff",
-            stage=stage,
-            project_root=str(root),
-            path=rel_path,
-            parameters={"task": plan["task"]},
-            software="vasp",
-        ))
-
-    checkpoint = create_checkpoint(
-        workflow_id=workflow_id,
-        stage_id=stage,
-        description=f"VASP {plan['task']} orchestration reports written",
-        project_root=str(root),
-        status="success" if plan["validation_report"].get("status") in {"pass", "skip"} else "failed",
-    )
-    update_stage(stage, "completed", project_root=str(root), outputs=list(files.values()), checkpoint_id=checkpoint["checkpoint_id"])
-    write_state(
-        {"latest_vasp_task": plan["task"], "latest_checkpoint": checkpoint["checkpoint_id"]},
-        project_root=str(root),
-        state_file="vasp.json",
-    )
-
-    return {"files": files, "artifacts": artifacts, "checkpoint": checkpoint}
+    return {"files": files}

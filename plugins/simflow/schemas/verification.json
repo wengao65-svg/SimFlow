@@ -1,34 +1,71 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Verification",
-  "description": "Stage verification result",
+  "title": "VerificationReport",
+  "description": "Verification report persisted in verification.json",
   "type": "object",
-  "required": ["stage", "timestamp", "results"],
+  "required": [
+    "stage",
+    "workflow_id",
+    "status",
+    "generated_at",
+    "completed_at",
+    "checks",
+    "warnings",
+    "failures",
+    "source_artifact_ids"
+  ],
   "properties": {
     "stage": {
-      "type": "string",
-      "description": "Stage being verified"
+      "type": "string"
     },
-    "timestamp": {
+    "workflow_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "warning", "fail", "pending"]
+    },
+    "generated_at": {
       "type": "string",
       "format": "date-time"
     },
-    "results": {
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "checks": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["validator", "status"],
+        "required": ["name", "status", "message", "details", "checked_at"],
         "properties": {
-          "validator": { "type": "string" },
-          "status": { "type": "string", "enum": ["pass", "fail", "warning"] },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "warning", "fail", "pending"] },
           "message": { "type": "string" },
-          "details": { "type": "object" }
-        }
+          "details": { "type": "object" },
+          "checked_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": true
       }
     },
-    "overall": {
-      "type": "string",
-      "enum": ["pass", "fail", "warning"]
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "failures": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_artifact_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "output_file": {
+      "type": "string"
+    },
+    "markdown_file": {
+      "type": "string"
     }
-  }
+  },
+  "additionalProperties": true
 }

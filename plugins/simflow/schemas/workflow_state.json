@@ -7,30 +7,23 @@
   "properties": {
     "workflow_id": {
       "type": "string",
-      "pattern": "^wf_[a-z0-9]{8}$",
-      "description": "Unique workflow identifier"
+      "pattern": "^wf_[a-z0-9]{8}$"
     },
     "workflow_type": {
-      "type": "string",
-      "enum": ["dft", "aimd", "md", "custom"],
-      "description": "Workflow type"
+      "type": "string"
     },
     "current_stage": {
-      "type": "string",
-      "description": "Current active stage name"
+      "type": "string"
     },
     "status": {
       "type": "string",
-      "enum": ["initialized", "in_progress", "paused", "completed", "failed"],
-      "description": "Overall workflow status"
+      "enum": ["initialized", "in_progress", "paused", "completed", "failed"]
     },
     "plan": {
-      "type": ["string", "null"],
-      "description": "Path to the plan file"
+      "type": ["string", "null"]
     },
     "entry_point": {
-      "type": "string",
-      "description": "Stage where the workflow was entered"
+      "type": "string"
     },
     "created_at": {
       "type": "string",
@@ -40,5 +33,6 @@
       "type": "string",
       "format": "date-time"
     }
-  }
+  },
+  "additionalProperties": true
 }

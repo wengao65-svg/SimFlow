@@ -12,10 +12,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.state import ensure_workflow_initialized, resolve_project_root, update_stage, write_state
+from runtime.simflow_core.state import resolve_project_path, resolve_project_root
 from runtime.simflow_helpers.engines.gpumd import build_gpumd_task_plan, normalize_gpumd_task, read_extxyz_summary
 
 
@@ -25,18 +24,6 @@ def _write_json(root: Path, relative_path: str, data: dict[str, Any]) -> str:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     json.loads(path.read_text(encoding="utf-8"))
     return relative_path
-
-
-def _register_report(root: Path, stage: str, task: str, name: str, relative_path: str, software: str, artifact_type: str = "report") -> dict[str, Any]:
-    return register_artifact(
-        name=name,
-        artifact_type=artifact_type,
-        stage=stage,
-        project_root=str(root),
-        path=relative_path,
-        parameters={"task": task},
-        software=software,
-    )
 
 
 def _has_outputs(work_dir: Path) -> bool:
@@ -63,13 +50,44 @@ def _analysis_report(work_dir: Path, task: str) -> dict[str, Any]:
     }
 
 
+def _orchestration_outcome(task: str, validation_status: str | None) -> dict[str, str]:
+    status = str(validation_status or "").strip().lower()
+    if task == "unknown" or status in {"skip", "skipped"}:
+        return {
+            "result_status": "needs_clarification",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP task intent requires clarification before computation can proceed.",
+        }
+    if status == "warning":
+        return {
+            "result_status": "warning",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP dry-run planning completed with validation warnings.",
+        }
+    if status in {"pass", "success"}:
+        return {
+            "result_status": "success",
+            "stage_status": "in_progress",
+            "checkpoint_status": "partial",
+            "message": "GPUMD/NEP dry-run planning completed; no computation was executed.",
+        }
+    return {
+        "result_status": "blocked",
+        "stage_status": "failed",
+        "checkpoint_status": "failure",
+        "message": "GPUMD/NEP input validation failed; computation remains blocked.",
+    }
+
+
 def orchestrate_gpumd_task(
     task: str,
     project_root: str,
     calc_dir: str = ".",
     options: dict | None = None,
 ) -> dict:
-    """Build reports, artifacts, and a checkpoint for a GPUMD/NEP task."""
+    """Build GPUMD/NEP evidence reports without mutating workflow state."""
     options = dict(options or {})
     software = options.get("software", "gpumd")
     try:
@@ -78,8 +96,7 @@ def orchestrate_gpumd_task(
         task_norm = "unknown"
     stage = "analysis_visualization" if task_norm in {"parse", "troubleshoot"} else "computation"
     root = resolve_project_root(project_root=project_root)
-    state = ensure_workflow_initialized("custom", stage, project_root=str(root))
-    work_dir = (root / calc_dir).resolve()
+    work_dir = resolve_project_path(calc_dir, project_root=str(root))
     work_dir.mkdir(parents=True, exist_ok=True)
 
     if task_norm == "unknown":
@@ -106,7 +123,9 @@ def orchestrate_gpumd_task(
         compute_plan = plan["compute_plan"]
 
     analysis = _analysis_report(work_dir, task_norm)
+    outcome = _orchestration_outcome(task_norm, validation.get("status"))
     handoff = {
+        "status": outcome["result_status"],
         "task": task_norm,
         "reports": [
             "reports/gpumd/input_manifest.json",
@@ -116,6 +135,7 @@ def orchestrate_gpumd_task(
         ],
         "validation_status": validation.get("status"),
         "analysis_status": analysis.get("status"),
+        "stage_status": outcome["stage_status"],
         "approval_needed": True,
         "real_submit_allowed": False,
         "next_steps": [
@@ -130,43 +150,24 @@ def orchestrate_gpumd_task(
         "analysis_report": _write_json(root, "reports/gpumd/analysis_report.json", analysis),
         "handoff_artifact": _write_json(root, "reports/gpumd/handoff_artifact.json", handoff),
     }
-    artifact_software = compute_plan.get("software") or software
-    artifacts = [
-        _register_report(root, stage, task_norm, name, rel_path, artifact_software, artifact_type="handoff" if name == "handoff_artifact" else "report")
-        for name, rel_path in files.items()
-    ]
-    checkpoint = create_checkpoint(
-        workflow_id=state.get("workflow_id", "wf_gpumd"),
-        stage_id=stage,
-        description=f"GPUMD/NEP {task_norm} orchestration reports written.",
-        project_root=str(root),
-        status="success" if validation.get("status") in {"pass", "skip", "warning"} else "failed",
-    )
-    update_stage(
-        stage,
-        "completed" if checkpoint.get("status") != "failed" else "failed",
-        project_root=str(root),
-        outputs=list(files.values()),
-        checkpoint_id=checkpoint["checkpoint_id"],
-    )
-    write_state(
-        {
-            "latest_task": task_norm,
-            "latest_stage": stage,
-            "latest_checkpoint": checkpoint["checkpoint_id"],
-            "written_files": files,
-            "status": "success",
-        },
-        project_root=str(root),
-        state_file="gpumd.json",
-    )
-    return {
-        "status": "success",
+    result = {
+        "status": outcome["result_status"],
         "task": task_norm,
         "reports": files,
-        "artifacts": artifacts,
-        "checkpoint": checkpoint,
+        "stage_status": outcome["stage_status"],
+        "checkpoint_status": outcome["checkpoint_status"],
+        "message": outcome["message"],
     }
+    reason_code = "needs_clarification" if task_norm == "unknown" else f"validation_{validation.get('status', 'unknown')}"
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="orchestration",
+        legacy_status=result["status"],
+        stage=stage,
+        reason_code=reason_code,
+        state_effect="none",
+    )
 
 
 def main() -> None:

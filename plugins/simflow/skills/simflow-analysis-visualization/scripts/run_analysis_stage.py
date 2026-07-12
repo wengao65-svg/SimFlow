@@ -122,7 +122,18 @@ def _resolve_direct_output_files(project_root: Path, values: list[str]) -> list[
 def _trajectory_status(task: str, source_files: list[str]) -> dict[str, Any]:
     if task not in {"md", "aimd", "aimd_nvt", "aimd_nve", "aimd_npt"}:
         return {"status": "not_requested"}
-    if not any(path.endswith(("XDATCAR", ".xyz")) for path in source_files):
+    def _is_lammps_dump_path(path: str) -> bool:
+        name = Path(path).name.lower()
+        if name.endswith(("dump.lammps", ".lammpstrj", ".dump")):
+            return True
+        if not name.startswith("dump"):
+            return False
+        return not name.endswith((".txt", ".md", ".json", ".csv", ".yaml", ".yml", ".log"))
+    if not any(
+        path.endswith(("XDATCAR", ".xyz", "dump.lammps", ".lammpstrj", ".dump"))
+        or _is_lammps_dump_path(path)
+        for path in source_files
+    ):
         return {"status": "missing_trajectory"}
     if importlib.util.find_spec("MDAnalysis") is None:
         return {

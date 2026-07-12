@@ -10,6 +10,20 @@ windows, filtering, binning, equilibration cuts, or uncertainty estimates.
 - Record warnings, unconverged states, failed frames, rejected points, and alternative interpretations.
 - Do not infer completion from the presence of an output file alone. Check convergence, run termination, and expected frame or step counts.
 
+## Property-Specific References
+
+Use this file for shared numerical discipline. For full property contracts, use
+the focused references:
+
+- `md_structure_analysis.md`
+- `md_diffusion_transport.md`
+- `mechanical_elastic_analysis.md`
+- `electronic_structure_analysis.md`
+- `phonon_vibrational_analysis.md`
+- `neb_barrier_analysis.md`
+- `defect_surface_adsorption_analysis.md`
+- `mlp_md_analysis_readiness.md`
+
 ## Energies, forces, and stress
 
 - Energy convergence plots should record the energy column, step definition, unit, and whether values are electronic, ionic, thermo, potential, total, or free energies.

@@ -35,6 +35,30 @@
 3. **Completed**: Artifacts registered, checkpoint created
 4. **Recovery**: Load last checkpoint, resume from that stage
 
+## Ownership Boundaries
+
+Canonical stage runners own stage transitions. Checkpoint/state-admin APIs own
+checkpoint operations. Helper outputs are evidence-only by default; they may
+write requested files under `project_root`, but they do not initialize or
+advance stages, do not register artifacts, and do not create checkpoints
+unless explicit helper-run recording is requested.
+
+Default helper reports live under project-root `reports/<engine>/`. `.simflow`
+is touched only by explicit helper-run recording.
+
+`--record-helper-run` is `record_only`: it registers helper evidence and
+lineage only. It does not mark a stage complete or failed and does not create
+a stage-boundary checkpoint.
+
+Direct helpers do not register arbitrary report artifacts. Stage runners may
+ingest/register outputs when those outputs become canonical stage artifacts.
+
+`simflow.result.v1` defines canonical nested roles, outcomes, and state
+effects. Top-level statuses are compatibility fields rather than the canonical
+cross-surface contract. Helper evidence status, stage status, verification
+status, readiness status, gate status, and checkpoint status are distinct
+vocabularies.
+
 ## Host State Boundary
 
 `.omx/` is owned by oh-my-codex / the host session. SimFlow may read `.omx/` for host context, but `.omx/` is never the SimFlow workflow state root. Initializing SimFlow in a project that already contains `.omx/` must leave `.omx/` untouched and create or update only `.simflow/` for workflow state.

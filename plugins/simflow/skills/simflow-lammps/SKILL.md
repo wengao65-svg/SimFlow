@@ -1,68 +1,133 @@
 ---
 name: simflow-lammps
-description: Provide LAMMPS domain assistance for setup, validation, trajectory analysis, and traceable artifacts.
+description: Provide LAMMPS domain assistance for setup, validation, MLP-MD deployment, output intake, troubleshooting, and traceable artifacts.
 ---
 
 # SimFlow LAMMPS
 
-## 触发条件
+`simflow-lammps` is a LAMMPS domain assistant, not a central workflow executor.
+It interprets, checks, and records LAMMPS input/output evidence. Top-level
+stages, checkpoints, approval gates, and cross-skill handoff remain owned by
+the SimFlow workflow layer.
 
-- 用户提到 LAMMPS、input script、data file、log、dump、trajectory、force field、RDF、MSD、diffusion、NVE/NVT/NPT 或 molecular dynamics。
-- modeling、computation、analysis_visualization 或 writing 需要 LAMMPS-specific context。
-- 用户需要检查、记录、分析或解释 LAMMPS 文件。
+## Trigger conditions
 
-## 输入条件
+- The user mentions LAMMPS, input script, data file, log, dump, trajectory,
+  force field, RDF, MSD, diffusion, NVE/NVT/NPT/NPH, ReaxFF, DeepMD, MACE,
+  NequIP, Allegro, PACE, SNAP, QUIP, or MLP-MD.
+- Modeling, computation, analysis_visualization, or writing needs
+  LAMMPS-specific file context.
+- The user needs to inspect, draft, record, interpret, or hand off LAMMPS files.
 
-- 用户提供的 data file、input script、log、dump、force-field parameters、artifact id、任务意图或 checkpoint。
-- 可选：MDAnalysis、OVITO、Pizza.py、自写 Python、shell 命令、notebook 或用户指定工具。
-- 未知或未枚举任务应返回候选路径和缺失信息，不强制归入固定 MD alias。
-- 如果用户只给出模糊意图，先澄清体系、力场来源、units、atom style、ensemble、timestep、equilibration/production 边界、统计方法和是否需要真实执行。
+## Task Routing
 
-## 输出 Artifact
+| Route | Use | Main Evidence |
+| --- | --- | --- |
+| `classic_md` | Classical-potential MD with EAM, MEAM, Tersoff, SW, AIREBO, LJ, KIM, or similar models | Potential source, units, atom_style, ensemble, timestep, log/dump |
+| `reactive_md` | Reactive or variable-charge MD such as ReaxFF or COMB | Parameter source, charge equilibration, long-range settings, stability, timestep |
+| `mlp_md_deployment` | LAMMPS runs MD with an already trained MLP model | Model file, type mapping, LAMMPS package/build evidence, `simflow-mlp` handoff |
+| `analysis_handoff` | LAMMPS log/dump/trajectory output intake before analysis-stage handoff | `lammps_output_intake_manifest`, dump columns, units, atom ids, image flags, type mapping |
+| `troubleshooting` | Input, runtime, package, MPI/GPU, or physical-stability problems | Error/warning text, minimal reproducer inputs, environment, change record |
 
-- 可选 input manifest、force-field provenance note、validation report、analysis script/output、figure/caption 或 handoff note。
-- 使用任意 helper、脚本或外部工具时记录 helper-run manifest。
-- artifact metadata 应记录 source data、命令/工具、参数、环境、输出和 lineage。
-- 对 input/log/dump 审查，优先输出 inspection report：missing inputs、force-field provenance、commands detected、risk warnings、local example motif、recommended artifacts。
+For MLP-MD, this skill's claim scope is **deployment only**: it explains how
+LAMMPS references the model and prepares/checks MD inputs. It does not evaluate
+MLP training quality, extrapolation safety, validation coverage, or production
+readiness. Those evidence questions must be handed to `simflow-mlp`.
 
-## 状态写入规则
+Analysis boundary: `simflow-lammps` does not own final property analysis,
+statistics, figures, or scientific claims. It records LAMMPS-specific output
+semantics and hands analysis intent to `simflow-analysis-visualization`.
 
-- 写入 `.simflow/` 前必须显式传入 `project_root`。
-- LAMMPS task label 只是 recipe/tag/helper metadata，不决定顶层 workflow。
-- 不自动推进固定阶段；按研究意图记录到 `modeling`、`computation` 或 `analysis_visualization`。
-- 默认只做 dry-run / static inspection。真实 local、remote 或 HPC 执行必须走 SimFlow approval gate。
+## Input conditions
 
-## 推荐检查
+- User-provided data file, input script, log, dump, force-field parameters,
+  model-file metadata, `lmp -h` output, artifact id, task intent, or checkpoint.
+- Optional tools may include MDAnalysis, OVITO, Pizza.py, self-written Python,
+  shell commands, notebooks, or user-specified tools.
+- Unknown or unlisted tasks should return candidate routes and missing inputs;
+  do not force them into fixed MD aliases.
+- Ambiguous intent requires clarification of system, force-field source, units,
+  atom style, ensemble, timestep, equilibration/production boundary,
+  statistical method, and whether real execution is requested.
 
-- 输入结构：`units`、`atom_style`、`read_data`/`create_atoms`、`pair_style`、`pair_coeff`、`run`/`minimize`/`rerun` 是否清楚。
-- 力场证据：potential 文件、mixing rule、charge model、long-range electrostatics、KIM/ML potential 或 proprietary 文件来源是否记录。
-- MD 风险：timestep、thermostat/barostat damping、equilibration 与 production 分段、restart/dump/thermo 间隔是否合理。
-- 分析风险：RDF/MSD/VACF/viscosity/elastic 常需要统计长度、time origin、averaging method、单位转换和误差估计说明。
-- 输出追踪：log、dump、restart、analysis data、plot script、figure/caption 必须能链接到输入、命令和环境。
+## Reference Map
+
+- `references/lammps_parameters.md`: compact index and legacy entry point.
+- `references/lammps_official_sources.md`: official documentation entry points for commands, packages, acceleration, ML pair styles, and errors.
+- `references/lammps_input_validation.md`: static inspection contract for input/data/log/dump evidence.
+- `references/lammps_force_fields_and_mlp.md`: classical, reactive, KIM, and MLP deployment evidence plus the `simflow-mlp` boundary.
+- `references/lammps_md_workflows.md`: minimize, equilibration, production, transport, rerun, restart, smoke, and production workflows.
+- `references/lammps_output_intake.md`: LAMMPS log/dump/data/restart intake, `lammps_output_intake_manifest`, and analysis handoff.
+- `references/lammps_troubleshooting.md`: missing packages, lost atoms, dangerous builds, GPU/MPI, drift, and MLP runtime issues.
+
+## Output artifacts
+
+- Optional input manifest, force-field provenance note, MLP deployment manifest,
+  validation report, LAMMPS output intake manifest, or handoff note.
+- Record a helper-run manifest when using any helper, script, or external tool.
+- Artifact metadata should record source data, command/tool, parameters,
+  environment, outputs, and lineage.
+- For input/log/dump inspection, prefer an inspection report covering missing
+  inputs, force-field provenance, commands detected, risk warnings, local
+  example motifs, and recommended artifacts.
+
+## Status write rules
+
+- Pass `project_root` explicitly before writing `.simflow/`.
+- LAMMPS task labels are recipe/tag/helper metadata only; they do not determine
+  the top-level workflow stage.
+- Default to dry-run or static inspection only. Real local, remote, or HPC
+  execution must pass the SimFlow approval gate.
+- MLP-MD is a recipe/tag, not a new top-level stage. Production-readiness claims
+  must pass MLP/readiness evidence checks.
+- Keep missing inputs, incomplete provenance, parser limits, dry-run-only state,
+  and blocked scientific claims visible in artifacts and handoff records.
+
+## Checkpoint rules
+
+- Do not create checkpoints for untracked conceptual guidance or file-format
+  explanations.
+- When LAMMPS evidence closes a tracked modeling, computation, or
+  analysis_visualization boundary, associate the checkpoint with the workflow,
+  canonical stage, and registered artifacts.
+- Preserve failure evidence and a failure checkpoint when a tracked LAMMPS
+  validation, execution, parsing, or handoff boundary fails.
 
 ## Optional Helper Scripts
 
-- `scripts/inspect_lammps_inputs.py`: 静态审查 input/data/log，不运行 LAMMPS，输出 evidence-oriented JSON report。
-- `scripts/generate_lammps_inputs.py`: 小范围模板助手，适合 `minimize`、`nve`、`nvt`、`npt` 初稿；未知任务返回 clarification。
-- `scripts/analyze_lammps_trajectory.py`: 可选 MDAnalysis wrapper，用于 RDF/MSD 辅助分析；用户也可以自写 Python、OVITO、Pizza.py 或其他工具。
+- `scripts/inspect_lammps_inputs.py`: statically inspects input/data/log files
+  and optional `lmp -h` output without running LAMMPS; produces input
+  inspection and MLP deployment evidence.
+- `scripts/generate_lammps_inputs.py`: narrow template helper for initial
+  `minimize`, `nve`, `nvt`, and `npt` drafts; returns `needs_inputs` when
+  `mlp_md` lacks model/type/package evidence.
+- `scripts/analyze_lammps_trajectory.py`: optional LAMMPS trajectory helper
+  route for the analysis_visualization stage. From the LAMMPS skill boundary,
+  it is a format/evidence adapter, not the final property-analysis standard.
 
-这些 helper 只是 domain assistant，不是唯一合法路径；可使用官方 LAMMPS examples 或用户自写脚本，只要记录 evidence、lineage 和风险。
+These helper scripts are optional routes, not the only valid path. Official LAMMPS
+examples, user-written scripts, Python, OVITO, Pizza.py, notebooks, or shell
+commands are acceptable when evidence, lineage, and risks are recorded.
 
-## Checkpoint 规则
+## Prohibited actions
 
-- helper 结果可审查、可交接、可进入安全 gate 或失败时创建 checkpoint。
-- checkpoint 记录力场来源、输入完整性、轨迹覆盖、统计风险和下一步。
+- Do not treat built-in LAMMPS helpers as the only valid parser, builder, or
+  analysis path.
+- Do not default unknown LAMMPS tasks to fixed MD aliases.
+- Do not turn successful MLP model loading in LAMMPS into claims that training
+  is validated, extrapolation is safe, or the model is production-ready.
+- Do not turn LAMMPS output intake into final RDF/MSD/VACF, transport, elastic,
+  or other property claims; those belong to `simflow-analysis-visualization`.
+- Do not hide incomplete force-field provenance, energy drift, unequilibrated
+  trajectories, missing timestep evidence, or missing statistical uncertainty.
+- Do not store credentials, leak proprietary force-field/model files, or record
+  private paths unnecessarily.
+- Do not submit real local, remote, or HPC jobs without approval gate passage.
 
-## 禁止事项
+## Manual confirmation scenarios
 
-- 不要把内置 LAMMPS helper 当成唯一合法 parser、builder 或 analysis path。
-- 不要默认未知 LAMMPS 任务为固定 MD alias。
-- 不要隐藏不完整力场、能量漂移、未平衡轨迹、缺失 timestep 或统计不确定性。
-- 不要保存 credentials、泄露 proprietary force-field files 或私有路径。
-- 不要在未通过 approval gate 时提交真实 local、remote 或 HPC job。
-
-## 需要人工确认的场景
-
-- 力场选择、混合规则、电荷、时间步长、ensemble、约束、平衡标准或统计方法不明确。
-- 涉及真实执行、远程系统、proprietary force field、credentials 或高成本资源。
-- 分析方法会改变科学结论。
+- Force-field choice, mixing rules, charges, type mapping, timestep, ensemble,
+  constraints, equilibration criteria, or statistical method is unclear.
+- The request involves real execution, remote systems, proprietary force-field
+  or model files, credentials, or high-cost resources.
+- The analysis method would materially change the scientific conclusion.
