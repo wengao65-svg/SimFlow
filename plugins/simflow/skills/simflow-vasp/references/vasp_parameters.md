@@ -12,6 +12,10 @@ Use this reference for parameter policy and risk reminders. Verify task-specific
 - NBANDS: https://www.vasp.at/wiki/NBANDS
 - NELECT: https://www.vasp.at/wiki/NELECT
 - Smearing: https://www.vasp.at/wiki/Smearing_technique
+- NCORE: https://www.vasp.at/wiki/NCORE
+- NPAR: https://www.vasp.at/wiki/NPAR
+- Optimizing parallelization: https://www.vasp.at/wiki/Optimizing_the_parallelization
+- GPU ports of VASP: https://www.vasp.at/wiki/GPU_ports_of_VASP
 
 ## INCAR essential parameters
 
@@ -154,6 +158,49 @@ Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
 - `choose_nbands()` — returns `None` (don't write) or `int` (write this value)
 - `apply_nbands_policy()` — modifies INCAR dict in-place
 - `get_explicit_user_nbands()` — distinguishes user value from template residual
+
+## NCORE / NPAR Policy
+
+`NCORE` and `NPAR` control band-level parallelization and are inverse choices
+for a fixed number of available ranks. SimFlow should not auto-generate both at
+the same time. If the user explicitly supplies both, preserve the values but
+warn that benchmarking is needed and that `NPAR` takes precedence in VASP.
+
+### Hardware-context rule
+
+Do not guess the execution hardware from a structure or calculation type:
+- Unknown hardware or missing submit-script evidence: omit both `NCORE` and
+  `NPAR`, report missing execution context, and ask whether the target run is
+  CPU-only or GPU/OpenACC/OpenMP-offload.
+- Confirmed GPU/OpenACC/OpenMP-offload execution: omit both by default. VASP
+  GPU/offload paths reset or avoid `NCORE > 1`; use GPU/OpenMP/KPAR/NSIM
+  guidance from the official GPU and parallelization pages instead.
+- Confirmed CPU execution with no user preference: write `NPAR = 4`.
+- Confirmed CPU execution with user preference `parallel_preference=ncore`:
+  write `NCORE` only when per-socket or per-NUMA-domain core evidence is known.
+  Example: two CPUs with 128 total cores means `NCORE = 64` if the topology is
+  two 64-core sockets and this is the intended CPU tuning.
+- User-explicit `NCORE` or `NPAR`: preserve the explicit value and record the
+  hardware-context warning if the target is accelerated or unknown.
+
+### Evidence sources
+
+Acceptable execution-context evidence includes explicit user parameters,
+preserved submit scripts, resource-manager GPU directives, GPU/offload
+environment variables, module/executable names that clearly indicate
+OpenACC/GPU/offload builds, or approved remote inspection. Remote or HPC
+inspection requires the normal SimFlow safety approval discipline; do not SSH
+or probe a machine just to infer these tags without approval.
+
+### Implementation
+
+Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
+- `infer_vasp_execution_context()` — conservatively classifies CPU,
+  accelerated, or unknown execution evidence
+- `apply_ncore_npar_policy()` — removes residual tags, preserves explicit user
+  tags, and writes only the safe default for confirmed CPU mode
+- `filter_vasp_incar_params()` — prevents SimFlow control keys such as
+  execution context and submit-script paths from being written as INCAR tags
 
 ## Advanced-method parameter provenance
 

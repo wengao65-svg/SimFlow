@@ -1,6 +1,6 @@
 # CP2K Official Sources
 
-Use official CP2K sources for parameter meanings, workflow claims, and examples. Prefer the CP2K version that matches the user calculation. For ordinary use, pair this reference with `cp2k_example_patterns.md`; do not require a local CP2K source tree or local CP2K executable.
+Use official CP2K sources for parameter meanings, workflow claims, and examples. Use this file as the first navigation index: start latest-first for unknown or current work, switch to the version-matched manual when user input or logs identify a CP2K version, then use official howtos and exercises for workflow examples. For ordinary use, pair this reference with `cp2k_example_patterns.md`; do not require a local CP2K source tree or local CP2K executable.
 
 ## Online sources
 

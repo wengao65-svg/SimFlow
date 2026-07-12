@@ -44,5 +44,12 @@ NBANDS = {{ nbands }}           # number of bands (auto or user-specified)
 ISYM   = {{ isym | default(2) }}        # 0=nosym, 2=symmetry
 
 # Parallelization
-NCORE  = {{ ncore | default(1) }}
-KPAR   = {{ kpar | default(1) }}
+{% if ncore %}
+NCORE  = {{ ncore }}
+{% endif %}
+{% if npar %}
+NPAR   = {{ npar }}
+{% endif %}
+{% if kpar %}
+KPAR   = {{ kpar }}
+{% endif %}

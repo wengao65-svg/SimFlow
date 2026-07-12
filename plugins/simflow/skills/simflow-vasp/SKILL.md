@@ -30,6 +30,17 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 
 - Resolve explicit `project_root` before writing `.simflow/` state, artifacts, checkpoints, reports, or lineage.
 - Write reports only as evidence records; do not advance a fixed VASP workflow automatically.
+- Helper outputs are pure evidence producers by default. They may write
+  requested VASP inputs or reports under `project_root`, but they do not
+  initialize or advance stages, do not register artifacts, and do not create
+  checkpoints unless explicit helper-run recording is requested.
+- Default helper report paths live under project-root `reports/<engine>/`.
+  `.simflow` is touched only by explicit helper-run recording.
+- `--record-helper-run` is `record_only`: it records helper evidence and
+  lineage only. Canonical stage runners own stage transitions, and
+  checkpoint/state-admin APIs own checkpoint operations.
+- Direct helpers do not register arbitrary report artifacts. Canonical stage
+  runners may ingest/register outputs when the workflow stage owns them.
 - Use open stages such as `modeling`, `computation`, or `analysis_visualization` according to research intent.
 - Keep recipe/tag values such as `dft`, `aimd`, `neb`, `phonon`, `defect`, or `custom` separate from workflow stage.
 - Do not write under `.omx/`; it belongs to the host session, not SimFlow workflow state.
@@ -42,7 +53,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 4. For a concrete calculation class, load only the matching `references/vasp_calc_*.md` file listed below. Avoid loading all calculation references unless the user asks for a broad VASP workflow audit.
 5. Inspect local inputs before generating or interpreting results. Preserve user-provided files and report missing predecessors instead of inventing them.
 6. Default compute work to dry-run/static inspection. Real local, remote, or HPC execution requires the same approval gate evidence used by `simflow-computation`.
-7. Register outputs as artifacts with metadata and lineage when writing reports, generated inputs, figures, helper-run manifests, or handoff material.
+7. Register outputs as artifacts with metadata and lineage only when explicit helper-run recording is requested or when a canonical stage runner ingests those outputs.
 
 ## Calculation-class references
 
@@ -77,7 +88,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 ## Optional helper scripts
 
 - `scripts/generate_vasp_inputs.py`: Generate a conservative VASP input set from a structure using pymatgen. It writes POTCAR metadata/instructions only; it does not generate or distribute POTCAR content.
-- `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, artifacts, and checkpoint records for common tasks without submitting jobs.
+- `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, dry-run plans, and helper-run evidence for common tasks without submitting jobs.
 - `scripts/validate_vasp_outputs.py`: Inspect VASP outputs for convergence and obvious warning/error evidence.
 - `scripts/troubleshoot_vasp.py`: Produce source-backed troubleshooting notes using official VASP/py4vasp documentation links.
 - `scripts/plot_band_structure.py`: Plot a band structure from `EIGENVAL` and optional line-mode `KPOINTS`, recording helper-run metadata when requested.
@@ -86,15 +97,17 @@ These helpers are optional domain tools, not the only valid parser, builder, ana
 
 ## Checkpoint rules
 
-- Create a checkpoint when a VASP helper result is ready for review, handoff, or a safety gate.
-- Create failure checkpoints for missing files, uncertain task intent, validation failure, parse failure, unavailable licensed/proprietary resources, failed official-source retrieval, or blocked approval gates.
+- VASP helpers do not create stage-boundary checkpoints by default.
+- Helper-run recording remains `record_only`; use canonical stage runners or
+  checkpoint/state-admin APIs when checkpoint operations are explicitly needed.
 
 ## Prohibited actions
 
 - Do not default unknown VASP tasks to `static`.
 - Do not treat common aliases as the full VASP capability surface.
 - Do not require py4vasp, VASPKIT, SimFlow parsers, fixed report names, or generated templates as the only valid path.
-- Do not generate, copy, distribute, snapshot, or print POTCAR content.
+- Do not generate, concatenate, copy, move, print, snapshot, or invoke VASPKIT
+  to produce POTCAR content.
 - Do not fabricate VASP results, literature, figures, citations, convergence status, or completed calculations.
 - Do not record unfinished or failed calculations as completed results.
 - Do not submit real local, remote, or HPC jobs from this skill without the relevant approval gate.

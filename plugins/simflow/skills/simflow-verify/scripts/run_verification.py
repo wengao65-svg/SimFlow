@@ -15,9 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.verification import create_verification_report, add_check, finalize_report
-from runtime.simflow_core.utils import now_iso
 
 
 UNSUPPORTED_PLACEHOLDER_SOFTWARE = {"qe", "quantum_espresso", "gaussian"}
@@ -94,6 +93,23 @@ def verify_outputs_exist(output_dir: str, expected_files: list) -> dict:
     }
 
 
+def _verification_status(checks: list[dict]) -> tuple[str, str | None, str]:
+    if not checks:
+        return "pending", "no_checks_executed", "No verification checks were executed."
+    if all(check.get("passed") for check in checks):
+        return "pass", None, "All verification checks passed."
+    return "fail", "verification_checks_failed", "One or more verification checks failed."
+
+
+def _verification_outcome(verification_status: str) -> str:
+    return {
+        "pass": "success",
+        "warning": "warning",
+        "fail": "blocked",
+        "pending": "waiting",
+    }[verification_status]
+
+
 def run_verification(workflow_dir: str, stage: str = None,
                      software: str = None, output_dir: str = None) -> dict:
     """Run verification checks."""
@@ -121,17 +137,33 @@ def run_verification(workflow_dir: str, stage: str = None,
     # Summary
     passed = sum(1 for c in checks if c["passed"])
     total = len(checks)
+    verification_status, reason_code, message = _verification_status(checks)
 
-    return {
+    result = {
         "status": "success",
         "stage": stage,
         "software": software,
+        "verification_status": verification_status,
         "total_checks": total,
         "passed": passed,
         "failed": total - passed,
-        "all_passed": passed == total,
+        "all_passed": total > 0 and passed == total,
         "checks": checks,
+        "message": message,
     }
+    if reason_code:
+        result["reason_code"] = reason_code
+    return attach_simflow_result(
+        result,
+        role="helper",
+        activity="verification",
+        legacy_status=result.get("status"),
+        stage=stage or "analysis_visualization",
+        outcome=_verification_outcome(verification_status),
+        reason_code=reason_code,
+        state_effect="none",
+        verification_status=verification_status,
+    )
 
 
 def main():

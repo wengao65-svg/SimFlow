@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 
@@ -147,11 +148,11 @@ def detect_potcar_library() -> dict:
             )
 
     return {
-        "potcar_path": potcar_path,
+        "path_configured": potcar_path is not None,
         "flavor": flavor,
         "path_exists": path_exists,
         "vaspkit_available": vaspkit is not None,
-        "vaspkit_path": vaspkit,
+        "vaspkit_executable": Path(vaspkit).name if vaspkit else None,
         "element_count": element_count,
     }
 

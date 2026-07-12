@@ -23,6 +23,7 @@ from runtime.simflow_helpers.computation.readiness import build_computation_read
 from runtime.simflow_helpers.engines.cp2k import build_cp2k_task_plan
 from runtime.simflow_helpers.engines.gpumd import build_gpumd_task_plan
 from runtime.simflow_helpers.engines.vasp import build_vasp_task_plan
+from runtime.simflow_helpers.engines.vasp_incar import infer_vasp_execution_context
 
 
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
@@ -71,6 +72,168 @@ def _walltime(hours: float) -> str:
 
 def _script_name_for_scheduler(scheduler: str) -> str:
     return "job_script.pbs" if scheduler == "pbs" else "job_script.sh"
+
+
+def _as_path_values(value: Any) -> list[str]:
+    if value in (None, "", False):
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        values: list[str] = []
+        if value.get("path"):
+            values.append(str(value["path"]))
+        values.extend(str(item) for item in value.values() if isinstance(item, str) and item)
+        return values
+    if isinstance(value, (list, tuple)):
+        paths: list[str] = []
+        for item in value:
+            if isinstance(item, dict) and item.get("path"):
+                paths.append(str(item["path"]))
+            elif item:
+                paths.append(str(item))
+        return paths
+    return []
+
+
+def _resolve_project_file(project_root: Path, value: str | Path) -> Path | None:
+    path = Path(value).expanduser()
+    resolved = path if path.is_absolute() else project_root / path
+    return resolved.resolve() if resolved.is_file() else None
+
+
+def _scheduler_compatible_script(path: Path, scheduler: str) -> bool:
+    suffix = path.suffix.lower()
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    if scheduler == "pbs":
+        return suffix == ".pbs" or "#PBS" in text
+    return suffix in {".slurm", ".sbatch"} or "#SBATCH" in text
+
+
+def _script_library_candidates(project_root: Path, scheduler: str, script_library_dir: str | None) -> list[Path]:
+    library = Path(script_library_dir or "scripts/submit").expanduser()
+    library_path = library if library.is_absolute() else project_root / library
+    if not library_path.is_dir():
+        return []
+    candidates = [
+        path.resolve()
+        for path in sorted(library_path.iterdir())
+        if path.is_file() and _scheduler_compatible_script(path, scheduler)
+    ]
+    return list(dict.fromkeys(candidates))
+
+
+def _render_job_script_template(
+    *,
+    source_path: Path,
+    artifacts_dir: Path,
+    values: dict[str, Any],
+) -> dict[str, Any]:
+    text = source_path.read_text(encoding="utf-8")
+    if "{{SIMFLOW_" not in text:
+        return {"status": "not_template", "path": source_path}
+
+    replacements = {
+        "SIMFLOW_JOB_NAME": values["job_name"],
+        "SIMFLOW_NODES": values["nodes"],
+        "SIMFLOW_NTASKS": values["ntasks"],
+        "SIMFLOW_WALLTIME": values["walltime"],
+        "SIMFLOW_MEMORY": values["memory"],
+        "SIMFLOW_COMMAND": values["command"],
+    }
+    rendered = text
+    for key, value in replacements.items():
+        rendered = rendered.replace("{{" + key + "}}", str(value))
+
+    unknown = sorted(set(part.split("}}", 1)[0] for part in rendered.split("{{") if part.startswith("SIMFLOW_")))
+    if unknown:
+        return {
+            "status": "needs_inputs",
+            "message": "Job script template contains unknown SimFlow placeholders.",
+            "code": "unknown_job_script_placeholders",
+            "unknown_placeholders": unknown,
+        }
+
+    suffix = source_path.suffix or ".sh"
+    derived_path = artifacts_dir / f"{source_path.stem}.derived{suffix}"
+    derived_path.write_text(rendered, encoding="utf-8")
+    return {
+        "status": "rendered",
+        "path": derived_path,
+        "source": "derived_from_template",
+        "original_path": source_path,
+        "preserved_without_modification": False,
+        "rendered_fields": sorted(replacements),
+    }
+
+
+def _select_job_script(
+    *,
+    project_root: Path,
+    params: dict[str, Any],
+    input_manifest: dict[str, Any],
+    scheduler: str,
+) -> dict[str, Any]:
+    explicit_keys = ("job_script", "submit_script", "job_script_path", "submit_script_path")
+    for key in explicit_keys:
+        for value in _as_path_values(params.get(key)):
+            resolved = _resolve_project_file(project_root, value)
+            if resolved:
+                return {
+                    "status": "selected",
+                    "path": resolved,
+                    "source": "explicit_user_path",
+                    "original_path": resolved,
+                    "preserved_without_modification": True,
+                }
+            return {
+                "status": "error",
+                "message": f"Specified job script does not exist: {value}",
+                "code": "job_script_not_found",
+            }
+
+    hint_sources = [
+        input_manifest,
+        input_manifest.get("downstream_compute_hints", {}),
+    ]
+    for source in hint_sources:
+        for key in explicit_keys:
+            for value in _as_path_values(source.get(key)):
+                resolved = _resolve_project_file(project_root, value)
+                if resolved:
+                    return {
+                        "status": "selected",
+                        "path": resolved,
+                        "source": "input_manifest_hint",
+                        "original_path": resolved,
+                        "preserved_without_modification": True,
+                    }
+
+    candidates = _script_library_candidates(project_root, scheduler, params.get("script_library_dir"))
+    if len(candidates) == 1:
+        return {
+            "status": "selected",
+            "path": candidates[0],
+            "source": "project_script_library",
+            "original_path": candidates[0],
+            "preserved_without_modification": True,
+        }
+    if len(candidates) > 1:
+        return {
+            "status": "needs_inputs",
+            "message": "Multiple reusable submit scripts were found; provide job_script to choose one.",
+            "code": "ambiguous_job_script",
+            "candidates": [_relative_path(project_root, path) for path in candidates],
+        }
+
+    return {
+        "status": "generate",
+        "source": "simflow_generated",
+        "preserved_without_modification": False,
+    }
 
 
 def _recommended_executable(software: str, input_manifest: dict[str, Any], raw_plan: dict[str, Any]) -> str:
@@ -314,9 +477,80 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "pre_commands": params.get("pre_commands"),
         "mpi_launcher": params.get("mpi_launcher", "mpirun"),
     }
-    prepared = PREPARE_JOB(config, scheduler, str(artifacts_dir), dry_run=True)
-    staged_script_path = artifacts_dir / _script_name_for_scheduler(scheduler)
-    shutil.move(prepared["script_path"], staged_script_path)
+    script_selection = _select_job_script(
+        project_root=project_root,
+        params=params,
+        input_manifest=input_manifest,
+        scheduler=scheduler,
+    )
+    if script_selection["status"] == "error":
+        return {
+            "status": "error",
+            "message": script_selection["message"],
+            "code": script_selection["code"],
+        }
+    if script_selection["status"] == "needs_inputs":
+        return {
+            "status": "needs_inputs",
+            "message": script_selection["message"],
+            "code": script_selection["code"],
+            "candidates": script_selection["candidates"],
+        }
+    recommended_command = _recommended_command(software, _script_name_for_scheduler(scheduler), raw_plan, executable)
+    if script_selection["status"] == "generate":
+        prepared = PREPARE_JOB(config, scheduler, str(artifacts_dir), dry_run=True)
+        staged_script_path = artifacts_dir / _script_name_for_scheduler(scheduler)
+        shutil.move(prepared["script_path"], staged_script_path)
+        job_script_source = "simflow_generated"
+        job_script_original_path = None
+        job_script_preserved = False
+        rendered_fields: list[str] = []
+    else:
+        staged_script_path = script_selection["path"]
+        job_script_source = script_selection["source"]
+        job_script_original_path = script_selection["original_path"]
+        job_script_preserved = bool(script_selection["preserved_without_modification"])
+        rendered_fields = []
+        if params.get("render_job_script_template") is True:
+            rendered = _render_job_script_template(
+                source_path=staged_script_path,
+                artifacts_dir=artifacts_dir,
+                values={
+                    "job_name": config["job_name"],
+                    "nodes": config["nodes"],
+                    "ntasks": config["ntasks"],
+                    "walltime": config["time"],
+                    "memory": config["mem"],
+                    "command": recommended_command,
+                },
+            )
+            if rendered["status"] == "needs_inputs":
+                return {
+                    "status": "needs_inputs",
+                    "message": rendered["message"],
+                    "code": rendered["code"],
+                    "unknown_placeholders": rendered["unknown_placeholders"],
+                }
+            if rendered["status"] == "rendered":
+                staged_script_path = rendered["path"]
+                job_script_source = rendered["source"]
+                job_script_original_path = rendered["original_path"]
+                job_script_preserved = bool(rendered["preserved_without_modification"])
+                rendered_fields = rendered["rendered_fields"]
+
+    vasp_execution_context = None
+    if software == "vasp":
+        try:
+            job_script_text = staged_script_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            job_script_text = ""
+        vasp_execution_context = infer_vasp_execution_context(
+            params,
+            job_script_text=job_script_text,
+            modules=config.get("modules"),
+            executable=executable,
+            command=recommended_command,
+        )
 
     compute_plan = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -330,11 +564,17 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
         "input_manifest_artifact_id": input_manifest_artifact["artifact_id"],
         "input_files": input_manifest.get("generated_files", []),
         "resource_estimate": resources,
-        "recommended_command": _recommended_command(software, staged_script_path.name, raw_plan, executable),
+        "recommended_command": recommended_command,
         "job_script": _relative_path(project_root, staged_script_path),
+        "job_script_source": job_script_source,
+        "job_script_original_path": _relative_path(project_root, job_script_original_path) if job_script_original_path else None,
+        "job_script_preserved_without_modification": job_script_preserved,
+        "job_script_rendered_fields": rendered_fields,
         "gate_status": raw_plan["compute_plan"].get("hpc_submit_gate"),
         "validation_report": raw_plan.get("validation_report"),
     }
+    if vasp_execution_context is not None:
+        compute_plan["vasp_execution_context"] = vasp_execution_context
     readiness = build_computation_readiness(
         project_root=project_root,
         software=software,
@@ -348,7 +588,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     )
     evidence_paths = write_readiness_evidence(project_root, readiness)
     compute_plan["submit_readiness"] = readiness["submit_readiness"]
-    compute_plan["actual_tool_used"]["command"] = _recommended_command(software, staged_script_path.name, raw_plan, executable)
+    compute_plan["actual_tool_used"]["command"] = recommended_command
     compute_plan["evidence_paths"] = evidence_paths
     compute_plan["readiness_status"] = readiness["status"]
     compute_plan["user_submit_readiness"] = _build_user_submit_readiness(readiness, evidence_paths)
@@ -384,7 +624,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
                 ".simflow/artifacts/compute/resource_estimate.json",
                 ".simflow/artifacts/compute/dry_run_report.json",
                 ".simflow/artifacts/security/credential_scan.json",
-                f".simflow/artifacts/compute/{staged_script_path.name}",
+                compute_plan["job_script"],
             ],
         }
 
@@ -416,6 +656,10 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
             "evidence_keys": ["job_script"],
             "actual_tool_used": compute_plan.get("actual_tool_used"),
             "execution_mode": "dry_run",
+            "source": job_script_source,
+            "original_path": compute_plan["job_script_original_path"],
+            "preserved_without_modification": job_script_preserved,
+            "rendered_fields": rendered_fields,
         },
     )
     calculation_manifest_artifact = register_artifact(

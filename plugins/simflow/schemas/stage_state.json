@@ -3,46 +3,50 @@
   "title": "StageState",
   "description": "Per-stage state tracking",
   "type": "object",
-  "required": ["stage_name", "status", "started_at"],
+  "required": [
+    "stage_name",
+    "status",
+    "agent",
+    "inputs",
+    "outputs",
+    "checkpoint_id",
+    "error_message",
+    "started_at",
+    "completed_at"
+  ],
   "properties": {
     "stage_name": {
-      "type": "string",
-      "description": "Stage identifier"
+      "type": "string"
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "in_progress", "completed", "failed", "skipped"],
-      "description": "Stage execution status"
+      "enum": ["pending", "in_progress", "waiting", "completed", "failed", "skipped"]
     },
     "agent": {
-      "type": ["string", "null"],
-      "description": "Agent assigned to this stage"
+      "type": ["string", "null"]
     },
     "inputs": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Input artifact paths"
+      "items": { "type": "string" }
     },
     "outputs": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Output artifact paths"
+      "items": { "type": "string" }
     },
     "checkpoint_id": {
-      "type": ["string", "null"],
-      "description": "Checkpoint created after this stage"
+      "type": ["string", "null"]
     },
     "error_message": {
-      "type": ["string", "null"],
-      "description": "Error message if stage failed"
+      "type": ["string", "null"]
     },
     "started_at": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "date-time"
     },
     "completed_at": {
       "type": ["string", "null"],
       "format": "date-time"
     }
-  }
+  },
+  "additionalProperties": true
 }

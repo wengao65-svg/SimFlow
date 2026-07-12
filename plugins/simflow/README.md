@@ -27,7 +27,7 @@ Host Agent (Claude Code, Codex, or compatible agent)
 - **Artifact Lineage**: inputs, scripts, outputs, figures, and claims can be traced through registered artifacts
 - **Checkpoint Recovery**: stage boundaries create recoverable state checkpoints
 - **Safety Gates**: real local, remote, or HPC execution is dry-run first and requires approval
-- **Domain Helpers**: supported VASP, CP2K, LAMMPS, GPUMD/NEP helpers, and generic MLP evidence handoff
+- **Domain Assistants**: VASP, CP2K, LAMMPS, GPUMD/NEP, and cross-tool MLP guidance with optional helper scripts
 - **MCP Recording Tools**: project state, artifact, checkpoint, lineage, gate, and handoff records
 - **Custom Skills**: project-specific skill extensions under `.simflow/extensions/skills/`
 
@@ -45,25 +45,31 @@ Default top-level stages are `literature_review`, `proposal`, `modeling`,
 `computation`, `analysis_visualization`, and `writing`. A project may enter any
 stage directly when the needed inputs and evidence are present.
 
-## Domain Helpers
+## Domain Assistants
 
-| Helper | Typical use |
-|--------|-------------|
+| Domain Assistant | Typical use |
+|------------------|-------------|
 | VASP | DFT, AIMD, phonon, NEB, defects, surfaces, output inspection |
 | CP2K | Quickstep DFT, AIMD, common CP2K task checks |
 | LAMMPS | Classical MD setup and trajectory analysis guidance |
-| GPUMD/NEP | Bounded input preparation, validation, dry-run planning, selected output parsing, and MLP handoff |
+| GPUMD/NEP | Input generation, validation, dry-run planning, orchestration, selected output parsing, and MLP handoff |
 | MLP | Cross-tool dataset, training, validation, active-learning, readiness, and handoff evidence guidance |
 | QE / Gaussian | Unsupported placeholders; user-provided files can still be recorded as generic artifacts |
 
-These helpers suggest and validate. They do not limit what the host agent can
-do, and they should return uncertainty rather than silently mapping unknown
-tasks to a default calculation.
+Domain Assistants guide software- or domain-specific work. They do not limit
+what the host agent can do, and they should return uncertainty rather than
+silently mapping unknown tasks to a default calculation.
+
+The product role, helper support level, and helper output format are separate
+concepts. A Domain Assistant may use optional helper scripts. The shared
+toolchain contract records which tool capabilities are `helper_supported`,
+while `simflow.helper_evidence.v1` is only the common helper-evidence output
+format for scripts that produce such records.
 
 GPUMD and NEP are helper-supported for bounded preparation, validation,
 dry-run planning, selected parsing, and evidence handoff. The `simflow-gpumd`
-helper does not provide real execution, local submit, remote execution, or HPC
-submit. `simflow-mlp` is a general MLP evidence helper, not a concrete MLP
+Domain Assistant does not provide real execution, local submit, remote execution, or HPC
+submit. `simflow-mlp` is a cross-tool MLP Domain Assistant, not a concrete MLP
 engine executor.
 
 Software and toolchain fields are planning/provenance metadata, not a mandatory
@@ -153,7 +159,7 @@ Developer checkout and maintainer build details are covered in the
 
 ```
 simflow/
-├── skills/                    # Workflow-layer and domain helper skills
+├── skills/                    # Workflow-layer skills and Domain Assistants
 ├── workflow/                  # Stage, recipe, gate, policy definitions
 │   ├── stages/                # Research intent contracts
 │   ├── recipes/               # Optional JSON reference recipes

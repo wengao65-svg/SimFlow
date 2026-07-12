@@ -24,11 +24,11 @@ _TASK_TO_VASPKIT_CODES = {
 def detect_vaspkit(executable: str = "vaspkit") -> dict[str, Any]:
     """Detect a local VASPKIT executable without requiring it."""
     path = shutil.which(executable)
+    executable_name = Path(path or executable).name
     if not path:
         return {
             "available": False,
-            "executable": executable,
-            "path": None,
+            "executable": executable_name,
             "version": None,
             "message": "VASPKIT not found in PATH",
         }
@@ -49,8 +49,7 @@ def detect_vaspkit(executable: str = "vaspkit") -> dict[str, Any]:
 
     return {
         "available": True,
-        "executable": executable,
-        "path": path,
+        "executable": executable_name,
         "version": version,
         "message": "VASPKIT detected",
     }
@@ -94,7 +93,10 @@ def run_vaspkit_safe(plan: dict[str, Any], execute: bool = False, timeout: int =
 
     work_dir = Path(plan["work_dir"])
     work_dir.mkdir(parents=True, exist_ok=True)
-    executable = plan["tool_info"]["path"]
+    executable_name = (plan.get("tool_info") or {}).get("executable") or "vaspkit"
+    executable = shutil.which(executable_name)
+    if not executable:
+        return {"status": "unavailable", "message": "VASPKIT executable not found at execution time", "plan": plan}
     try:
         result = subprocess.run(
             [executable],

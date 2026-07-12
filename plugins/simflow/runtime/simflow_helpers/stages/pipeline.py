@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.result_contract import attach_simflow_result
 from runtime.simflow_core.state import read_state, update_stage, write_state
 from runtime.simflow_helpers.stages.progress import (
     get_activities_to_run,
@@ -33,6 +34,25 @@ def get_stages_to_run(stages: list[str], current_stage: str, stage_registry: dic
     return get_activities_to_run(stages, current_stage, stage_registry, target_stage)
 
 
+def _attach_pipeline_result(
+    result: dict,
+    *,
+    legacy_status: str,
+    stage: str | None,
+    state_effect: str,
+    reason_code: str | None = None,
+) -> dict:
+    return attach_simflow_result(
+        result,
+        role="stage_runner",
+        activity="pipeline",
+        legacy_status=legacy_status,
+        stage=stage,
+        reason_code=reason_code,
+        state_effect=state_effect,
+    )
+
+
 def run_pipeline(workflow_dir: str, target_stage: str = None,
                  dry_run: bool = True, stop_on_failure: bool = True) -> dict:
     """Execute workflow pipeline up to target stage."""
@@ -40,7 +60,12 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
     state = read_state(project_root=str(project_root), state_file="workflow.json")
 
     if not state:
-        return {"status": "error", "message": "No workflow state found"}
+        return _attach_pipeline_result(
+            {"status": "error", "message": "No workflow state found"},
+            legacy_status="error",
+            stage=target_stage,
+            state_effect="none",
+        )
 
     metadata = read_state(project_root=str(project_root), state_file="metadata.json")
     stage_registry = read_state(project_root=str(project_root), state_file="stages.json")
@@ -49,13 +74,23 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
     current_stage = state.get("current_stage", metadata.get("entry_point") or (stages[0] if stages else None))
 
     if not stages:
-        return {"status": "error", "message": "No stages defined"}
+        return _attach_pipeline_result(
+            {"status": "error", "message": "No stages defined"},
+            legacy_status="error",
+            stage=target_stage or current_stage,
+            state_effect="none",
+        )
     if target_stage and target_stage not in stages:
-        return {"status": "error", "message": f"Unknown stage: {target_stage}"}
+        return _attach_pipeline_result(
+            {"status": "error", "message": f"Unknown stage: {target_stage}"},
+            legacy_status="error",
+            stage=target_stage,
+            state_effect="none",
+        )
 
     stages_to_run = get_stages_to_run(stages, current_stage, stage_registry, target_stage)
     if not stages_to_run:
-        return {
+        return _attach_pipeline_result({
             "status": "success",
             "workflow_dir": workflow_dir,
             "current_stage": current_stage,
@@ -63,7 +98,7 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
             "stages_executed": 0,
             "dry_run": dry_run,
             "results": [],
-        }
+        }, legacy_status="success", stage=target_stage or current_stage, state_effect="none")
 
     results = []
     checkpoint = None
@@ -102,7 +137,6 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
                 f"Pipeline advanced through {final_stage}",
                 project_root=str(project_root),
             )
-            update_stage(final_stage, "completed", project_root=str(project_root), checkpoint_id=checkpoint["checkpoint_id"])
         state = read_state(project_root=str(project_root), state_file="workflow.json")
         state["current_stage"] = final_stage
         state["status"] = "completed" if final_stage == stages[-1] else "in_progress"
@@ -110,7 +144,12 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         write_state(state, project_root=str(project_root), state_file="workflow.json")
 
     status = "error" if failed else ("capability_warning" if capability_warning else ("needs_inputs" if needs_inputs else "success"))
-    return {
+    reason_code = None
+    if terminal_result and terminal_result.get("simflow_result", {}).get("reason_code"):
+        reason_code = terminal_result["simflow_result"]["reason_code"]
+    elif status in {"needs_inputs", "capability_warning"}:
+        reason_code = status
+    result = {
         "status": status,
         "workflow_dir": workflow_dir,
         "current_stage": current_stage,
@@ -121,6 +160,13 @@ def run_pipeline(workflow_dir: str, target_stage: str = None,
         "checkpoint_id": checkpoint["checkpoint_id"] if checkpoint else None,
         "message": terminal_result.get("message") if terminal_result else None,
     }
+    return _attach_pipeline_result(
+        result,
+        legacy_status=status,
+        stage=(results[-1].get("stage") if results else (target_stage or current_stage)),
+        state_effect="none" if dry_run else "stage_transition",
+        reason_code=reason_code,
+    )
 
 
 def main():

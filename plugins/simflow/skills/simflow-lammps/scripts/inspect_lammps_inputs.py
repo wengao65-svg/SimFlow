@@ -20,12 +20,17 @@ from runtime.simflow_helpers.adapters import adapter_capabilities
 
 OFFICIAL_REFERENCES = {
     "commands": "https://docs.lammps.org/Commands.html",
+    "packages": "https://docs.lammps.org/Packages_details.html",
+    "acceleration": "https://docs.lammps.org/Speed_packages.html",
     "units": "https://docs.lammps.org/units.html",
     "dump": "https://docs.lammps.org/dump.html",
     "compute_msd": "https://docs.lammps.org/compute_msd.html",
     "compute_rdf": "https://docs.lammps.org/compute_rdf.html",
     "fix_ave_time": "https://docs.lammps.org/fix_ave_time.html",
     "fix_nvt_npt_nph": "https://docs.lammps.org/fix_nh.html",
+    "pair_mliap": "https://docs.lammps.org/pair_mliap.html",
+    "pair_pace": "https://docs.lammps.org/pair_pace.html",
+    "pair_snap": "https://docs.lammps.org/pair_snap.html",
 }
 
 LOCAL_EXAMPLE_MOTIFS = {
@@ -76,12 +81,23 @@ POTENTIAL_SUFFIXES = (
 )
 MLP_PAIR_STYLES = {
     "deepmd",
+    "mliap",
     "pace",
     "mace",
     "nequip",
     "allegro",
     "snap",
     "quip",
+}
+MLP_PACKAGE_REQUIREMENTS = {
+    "deepmd": ["DEEPMD package or plugin"],
+    "mliap": ["ML-IAP", "PYTHON"],
+    "pace": ["ML-PACE"],
+    "mace": ["ML-MACE"],
+    "nequip": ["ML-IAP", "PYTHON"],
+    "allegro": ["ML-IAP", "PYTHON"],
+    "snap": ["ML-SNAP"],
+    "quip": ["ML-QUIP"],
 }
 MLP_MODEL_SUFFIXES = (
     ".pb",
@@ -240,6 +256,73 @@ def _model_tokens_for_mlp(commands: list[dict[str, Any]], styles: list[str]) -> 
     return list(dict.fromkeys(tokens))
 
 
+def _type_mapping_for_mlp(commands: list[dict[str, Any]], styles: list[str], model_tokens: list[str]) -> list[str]:
+    if not styles or not model_tokens:
+        return []
+    model_token_set = set(model_tokens)
+    mapping: list[str] = []
+    ignored = {"*", "none", "null"}
+    for command in _commands_named(commands, "pair_coeff"):
+        args = command["args"]
+        for index, token in enumerate(args):
+            if token not in model_token_set:
+                continue
+            for candidate in args[index + 1:]:
+                lowered = candidate.lower()
+                if candidate in model_token_set:
+                    continue
+                if lowered in ignored or lowered in MLP_PAIR_STYLES:
+                    continue
+                if re.fullmatch(r"[-+]?\d+(\.\d+)?([eE][-+]?\d+)?", candidate):
+                    continue
+                if candidate.startswith(("$", "{")):
+                    continue
+                mapping.append(candidate)
+            break
+    return list(dict.fromkeys(mapping))
+
+
+def _required_mlp_packages(styles: list[str]) -> list[str]:
+    packages: list[str] = []
+    for style in styles:
+        for package in MLP_PACKAGE_REQUIREMENTS.get(style, []):
+            packages.append(package)
+    return list(dict.fromkeys(packages))
+
+
+def _lmp_help_evidence(lmp_help_output: str | None, required_packages: list[str]) -> dict[str, Any]:
+    if not lmp_help_output:
+        return {
+            "path": None,
+            "present": None,
+            "required_packages": required_packages,
+            "confirmed_packages": [],
+            "missing_packages": [],
+            "note": "No user-provided lmp -h output was inspected.",
+        }
+    path = Path(lmp_help_output).expanduser()
+    if not path.exists():
+        return {
+            "path": str(path),
+            "present": False,
+            "required_packages": required_packages,
+            "confirmed_packages": [],
+            "missing_packages": required_packages,
+            "note": "The user-provided lmp -h output file was not found.",
+        }
+    text = path.read_text(encoding="utf-8", errors="replace").upper()
+    confirmed = [package for package in required_packages if package.upper() in text]
+    missing = [package for package in required_packages if package not in confirmed]
+    return {
+        "path": str(path),
+        "present": True,
+        "required_packages": required_packages,
+        "confirmed_packages": confirmed,
+        "missing_packages": missing,
+        "note": "Parsed from user-provided lmp -h output; no LAMMPS executable was called.",
+    }
+
+
 def _file_provenance(input_script: Path, token: str, role: str) -> dict[str, Any]:
     path = _resolve_relative(input_script, token)
     return {
@@ -253,14 +336,34 @@ def _file_provenance(input_script: Path, token: str, role: str) -> dict[str, Any
     }
 
 
-def _lammps_mlp_deployment_manifest(input_script: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
+def _lammps_mlp_deployment_manifest(
+    input_script: Path,
+    commands: list[dict[str, Any]],
+    *,
+    lmp_help_output: str | None = None,
+) -> dict[str, Any]:
     styles = _detected_mlp_pair_styles(commands)
     model_tokens = _model_tokens_for_mlp(commands, styles)
     model_files = [_file_provenance(input_script, token, "mlp_model_file") for token in model_tokens]
+    type_mapping = _type_mapping_for_mlp(commands, styles, model_tokens)
+    required_packages = _required_mlp_packages(styles)
+    if not styles:
+        model_file_status = "not_applicable"
+    elif not model_files:
+        model_file_status = "not_recorded"
+    elif any(not item.get("present") for item in model_files):
+        model_file_status = "missing"
+    else:
+        model_file_status = "complete"
     return {
         "detected": bool(styles),
         "pair_styles": styles,
         "model_files": model_files,
+        "model_file_status": model_file_status,
+        "type_mapping": type_mapping,
+        "required_lammps_packages": required_packages,
+        "lmp_help_evidence": _lmp_help_evidence(lmp_help_output, required_packages),
+        "claim_scope": "deployment_only",
         "handoff_to": "simflow-mlp" if styles else None,
         "claim_limits": [
             "Records LAMMPS MLP deployment provenance only.",
@@ -309,6 +412,11 @@ def _lammps_mlp_deployment_evidence(
         detected=manifest.get("detected", False),
         pair_styles=manifest.get("pair_styles", []),
         model_files=manifest.get("model_files", []),
+        model_file_status=manifest.get("model_file_status"),
+        type_mapping=manifest.get("type_mapping", []),
+        required_lammps_packages=manifest.get("required_lammps_packages", []),
+        lmp_help_evidence=manifest.get("lmp_help_evidence", {}),
+        claim_scope=manifest.get("claim_scope"),
         handoff_to=manifest.get("handoff_to"),
         adapter_capabilities=adapter_capabilities("lammps"),
     )
@@ -553,6 +661,7 @@ def inspect_lammps_inputs(
     data_file: str | None = None,
     log_file: str | None = None,
     force_field_source: str | None = None,
+    lmp_help_output: str | None = None,
 ) -> dict[str, Any]:
     """Inspect a LAMMPS input package without running it."""
     script_path = Path(input_script).expanduser()
@@ -606,7 +715,11 @@ def inspect_lammps_inputs(
         })
 
     potential_files = _potential_tokens(commands)
-    mlp_deployment_manifest = _lammps_mlp_deployment_manifest(script_path, commands)
+    mlp_deployment_manifest = _lammps_mlp_deployment_manifest(
+        script_path,
+        commands,
+        lmp_help_output=lmp_help_output,
+    )
     dump_restart_manifest = _dump_restart_manifest(script_path, commands)
     missing_mlp_models = [
         item for item in mlp_deployment_manifest["model_files"]
@@ -621,6 +734,17 @@ def inspect_lammps_inputs(
         warnings.append({
             "code": "mlp_deployment_source_not_documented",
             "message": "LAMMPS MLP pair style detected; record model training/provenance evidence before scientific claims.",
+        })
+    help_evidence = mlp_deployment_manifest.get("lmp_help_evidence", {})
+    if mlp_deployment_manifest["detected"] and help_evidence.get("present") is False:
+        warnings.append({
+            "code": "lmp_help_output_missing",
+            "message": "The user-provided lmp -h output file for package evidence was not found.",
+        })
+    for package in help_evidence.get("missing_packages", []):
+        warnings.append({
+            "code": "mlp_lammps_package_not_confirmed",
+            "message": f"LAMMPS MLP deployment requires package/capability not confirmed by lmp -h evidence: {package}",
         })
 
     result = {
@@ -703,6 +827,7 @@ def main() -> None:
     parser.add_argument("--data-file", default=None, help="Optional LAMMPS data file if not inferable from read_data")
     parser.add_argument("--log-file", default=None, help="Optional LAMMPS log file for post-run diagnostics")
     parser.add_argument("--force-field-source", default=None, help="Human-readable force-field provenance note")
+    parser.add_argument("--lmp-help-output", default=None, help="Optional saved output from `lmp -h`; the helper reads it but does not run LAMMPS")
     parser.add_argument("--output", default=None, help="Optional JSON report path")
     parser.add_argument("--mlp-deployment-output", default=None, help="Optional LAMMPS MLP deployment handoff JSON path")
     add_helper_recording_args(parser, default_stage="computation")
@@ -713,6 +838,7 @@ def main() -> None:
         data_file=args.data_file,
         log_file=args.log_file,
         force_field_source=args.force_field_source,
+        lmp_help_output=args.lmp_help_output,
     )
     output_paths: list[str] = []
     if args.output:
@@ -739,6 +865,8 @@ def main() -> None:
     for optional_path in (args.data_file, args.log_file):
         if optional_path:
             input_paths.append(optional_path)
+    if args.lmp_help_output:
+        input_paths.append(args.lmp_help_output)
 
     result = maybe_record_helper_run(
         args=args,
