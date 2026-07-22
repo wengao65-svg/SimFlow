@@ -91,6 +91,7 @@ def _write_final_delivery_state(
         "figures_manifest": project_root / ".simflow" / "reports" / "visualization" / "figures_manifest.json",
         "methods": project_root / ".simflow" / "reports" / "writing" / "methods.md",
         "results": project_root / ".simflow" / "reports" / "writing" / "results.md",
+        "claim_map": project_root / ".simflow" / "reports" / "writing" / "claim_map.json",
         "reproducibility_package": project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_package.md",
         "reproducibility_manifest": project_root / ".simflow" / "reports" / "reproducibility" / "reproducibility_manifest.json",
         "final_handoff_markdown": project_root / ".simflow" / "reports" / "handoff" / "final_handoff.md",
@@ -107,6 +108,28 @@ def _write_final_delivery_state(
     files["figures_manifest"].write_text(json.dumps({"status": "waiting_for_outputs", "figures": [], "skipped_reasons": []}, indent=2), encoding="utf-8")
     files["methods"].write_text("# Methods\n", encoding="utf-8")
     files["results"].write_text("# Results\n", encoding="utf-8")
+    files["claim_map"].write_text(
+        json.dumps(
+            {
+                "claims": [
+                    {
+                        "claim_id": "claim_001",
+                        "claim": "The computed energy is summarized in the results.",
+                        "source_artifact_ids": ["art_results01"],
+                        "speculative": False,
+                    },
+                    {
+                        "claim_id": "claim_002",
+                        "claim": "A mechanistic explanation may involve bonding changes.",
+                        "source_artifact_ids": [],
+                        "speculative": True,
+                    },
+                ]
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     files["reproducibility_package"].write_text("# Reproducibility Package\n", encoding="utf-8")
     files["final_handoff_markdown"].write_text("# Final Handoff\n", encoding="utf-8")
 
@@ -176,6 +199,7 @@ def _write_final_delivery_state(
         {"artifact_id": "art_figman01", "name": "figures_manifest.json", "type": "figures_manifest", "version": "v1.0.0", "stage": "visualization", "path": ".simflow/reports/visualization/figures_manifest.json", "lineage": {"parent_artifacts": ["art_analysis01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-07T00:00:00+00:00"},
         {"artifact_id": "art_methods01", "name": "methods.md", "type": "methods", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/writing/methods.md", "lineage": {"parent_artifacts": ["art_prop01", "art_param01", "art_questions01", "art_struct01", "art_compute01", "art_analysis01", "art_figman01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:00:00+00:00"},
         {"artifact_id": "art_results01", "name": "results.md", "type": "results", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/writing/results.md", "lineage": {"parent_artifacts": ["art_methods01", "art_prop01", "art_param01", "art_questions01", "art_struct01", "art_compute01", "art_analysis01", "art_figman01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:05:00+00:00"},
+        {"artifact_id": "art_claim_map01", "name": "claim_map.json", "type": "claim_map", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/writing/claim_map.json", "lineage": {"parent_artifacts": ["art_methods01", "art_results01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:06:00+00:00"},
         {"artifact_id": "art_repro_manifest01", "name": "reproducibility_manifest.json", "type": "reproducibility_manifest", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/reproducibility/reproducibility_manifest.json", "lineage": {"parent_artifacts": ["art_methods01", "art_results01", "art_prop01", "art_param01", "art_questions01", "art_struct01", "art_compute01", "art_analysis01", "art_figman01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:10:00+00:00"},
         {"artifact_id": "art_repro_pkg01", "name": "reproducibility_package.md", "type": "reproducibility_package", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/reproducibility/reproducibility_package.md", "lineage": {"parent_artifacts": ["art_methods01", "art_results01", "art_repro_manifest01", "art_prop01", "art_param01", "art_questions01", "art_struct01", "art_compute01", "art_analysis01", "art_figman01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:15:00+00:00"},
         {"artifact_id": "art_handoff_md01", "name": "final_handoff.md", "type": "final_handoff", "version": "v1.0.0", "stage": "writing", "path": ".simflow/reports/handoff/final_handoff.md", "lineage": {"parent_artifacts": ["art_methods01", "art_results01", "art_repro_pkg01", "art_repro_manifest01", "art_prop01", "art_param01", "art_questions01", "art_struct01", "art_compute01", "art_analysis01", "art_figman01"], "parameters": {}, "software": "vasp"}, "created_at": "2026-01-08T00:20:00+00:00"},
@@ -204,13 +228,14 @@ def _write_final_delivery_state(
                 "path": ".simflow/checkpoints/ckpt_009_writing.json",
             },
             "artifact_summary": {
-                "artifacts_count": 11,
-                "artifacts_by_stage": {"writing": 5},
+                "artifacts_count": 12,
+                "artifacts_by_stage": {"writing": 6},
                 "artifacts_by_type": {"final_handoff": 1},
             },
             "writing_outputs": {
                 "methods": {"artifact_id": "art_methods01", "name": "methods.md", "type": "methods", "stage": "writing", "path": ".simflow/reports/writing/methods.md"},
                 "results": {"artifact_id": "art_results01", "name": "results.md", "type": "results", "stage": "writing", "path": ".simflow/reports/writing/results.md"},
+                "claim_map": {"artifact_id": "art_claim_map01", "name": "claim_map.json", "type": "claim_map", "stage": "writing", "path": ".simflow/reports/writing/claim_map.json"},
                 "final_handoff_markdown": {"artifact_id": "art_handoff_md01", "name": "final_handoff.md", "type": "final_handoff", "stage": "writing", "path": ".simflow/reports/handoff/final_handoff.md"},
                 "final_handoff_json": {"artifact_id": "art_handoff_json01", "name": "final_handoff.json", "type": "final_handoff_summary", "stage": "writing", "path": ".simflow/reports/handoff/final_handoff.json"},
             },
@@ -257,6 +282,50 @@ def test_build_final_delivery_report_passes_with_complete_artifacts():
         assert checks["artifact_traceability"]["status"] == "pass"
         assert checks["compute_truth_declared"]["status"] == "pass"
         assert checks["no_real_submit_without_approval"]["status"] == "pass"
+        assert checks["claim_traceability"]["status"] == "pass"
+
+
+def test_build_final_delivery_report_fails_without_claim_map():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("dft", "literature", tmpdir)
+        _write_final_delivery_state(tmpdir)
+        claim_map_path = Path(tmpdir) / ".simflow" / "reports" / "writing" / "claim_map.json"
+        claim_map_path.unlink()
+
+        report = build_final_delivery_report(project_root=tmpdir)
+        checks = _check_map(report)
+
+        assert checks["claim_traceability"]["status"] == "fail"
+        assert "claim_map.json is missing" in checks["claim_traceability"]["message"]
+
+
+def test_build_final_delivery_report_warns_when_claim_lacks_evidence():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("dft", "literature", tmpdir)
+        _write_final_delivery_state(tmpdir)
+        claim_map_path = Path(tmpdir) / ".simflow" / "reports" / "writing" / "claim_map.json"
+        claim_map_path.write_text(
+            json.dumps(
+                {
+                    "claims": [
+                        {
+                            "claim_id": "claim_001",
+                            "claim": "Unsupported claim.",
+                            "source_artifact_ids": ["art_nonexistent"],
+                            "speculative": False,
+                        }
+                    ]
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        report = build_final_delivery_report(project_root=tmpdir)
+        checks = _check_map(report)
+
+        assert checks["claim_traceability"]["status"] == "warning"
+        assert checks["claim_traceability"]["details"]["untraced_claims"]
 
 
 def test_build_final_delivery_report_fails_without_final_handoff_json():

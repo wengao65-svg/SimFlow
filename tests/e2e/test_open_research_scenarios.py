@@ -2,14 +2,20 @@
 """Acceptance scenarios for the open SimFlow workflow layer."""
 
 import json
+import sys
 from pathlib import Path
 
-from runtime.simflow_core.artifacts import register_artifact
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "skills" / "simflow-literature-review" / "scripts"))
+
+from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.checkpoints import create_checkpoint
 from runtime.simflow_core.helpers import record_helper_run
 from runtime.simflow_core.lineage import get_lineage
 from runtime.simflow_core.state import init_workflow, read_state
 from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, classify_vasp_request
+from runtime.simflow_helpers.project.intake import init_research
+from generate_literature_matrix import generate_literature_matrix
 
 
 def test_user_pdf_literature_review_tracks_sources_without_fixed_provider(tmp_path):
@@ -67,6 +73,49 @@ def test_user_pdf_literature_review_tracks_sources_without_fixed_provider(tmp_pa
     }
     assert artifacts[0]["metadata"]["source"] == "user_upload"
     assert checkpoint["stage_id"] == "literature_review"
+
+
+def test_generate_literature_matrix_emits_canonical_search_log_and_citation_map(tmp_path):
+    """The literature matrix script must emit the real schema, not a manual stub."""
+    pdf_path = tmp_path / "papers" / "surface.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_text("pdf placeholder", encoding="utf-8")
+
+    init_research(
+        input_text="\n".join([
+            "goal: study Si surface reconstruction",
+            "material: Si(001)",
+            "pdfs: papers/surface.pdf",
+            "dois: 10.1000/surface",
+            "note: Focus on dimer buckling evidence",
+        ]),
+        output_dir=str(tmp_path),
+    )
+
+    result = generate_literature_matrix(str(tmp_path / ".simflow"))
+    assert result["status"] == "success"
+
+    literature_dir = tmp_path / ".simflow" / "artifacts" / "literature"
+    search_log = json.loads((literature_dir / "search_log.json").read_text(encoding="utf-8"))
+    citation_map = json.loads((literature_dir / "citation_map.json").read_text(encoding="utf-8"))
+
+    assert search_log["source_policy"] == "user_provided_or_agent_selected_sources"
+    assert search_log["provider_constraints"] == "none_fixed_by_simflow"
+    access_statuses = {source["access_status"] for source in search_log["sources"]}
+    assert "full_text_provided_by_user" in access_statuses
+    assert "metadata_only_full_text_not_accessed" in access_statuses
+    assert "manual_note_no_external_full_text" in access_statuses
+
+    assert citation_map["entries"]
+    for entry in citation_map["entries"]:
+        assert entry["access_status"]
+        assert entry["verification_status"]
+    doi_entry = next(entry for entry in citation_map["entries"] if entry.get("locator") == "10.1000/surface")
+    assert doi_entry["access_status"] == "metadata_only_full_text_not_accessed"
+
+    artifacts = list_artifacts(project_root=str(tmp_path), stage="literature_review")
+    artifact_types = {artifact["type"] for artifact in artifacts}
+    assert {"search_log", "citation_map", "paper_notes"}.issubset(artifact_types)
 
 
 def test_user_provided_poscar_modeling_preserves_original_and_lineage(tmp_path):

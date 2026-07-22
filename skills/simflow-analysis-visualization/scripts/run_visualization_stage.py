@@ -21,6 +21,25 @@ from runtime.simflow_core.toolchains import capability_warning
 from runtime.simflow_helpers.engines.cp2k import CP2KParser
 
 
+def _detect_environment() -> dict[str, Any]:
+    """Detect Python version and optional visualization packages."""
+    env: dict[str, Any] = {"python": sys.version.split()[0]}
+    packages: dict[str, str | bool] = {}
+    for pkg_name in ("matplotlib", "PIL"):
+        spec = importlib.util.find_spec(pkg_name)
+        if spec is None:
+            packages[pkg_name] = False
+            continue
+        try:
+            module = importlib.import_module(pkg_name)
+            version = getattr(module, "__version__", None)
+            packages[pkg_name] = version or True
+        except Exception:
+            packages[pkg_name] = True
+    env["packages"] = packages
+    return env
+
+
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
     path = Path(workflow_dir).expanduser().resolve()
     return path.parent if path.name == ".simflow" else path
@@ -107,6 +126,7 @@ def run_visualization_stage(workflow_dir: str, params: dict | None = None, dry_r
         "renderer": {
             "matplotlib": importlib.util.find_spec("matplotlib") is not None,
         },
+        "environment": _detect_environment(),
         "figure_traceability": {
             "analysis_report_artifact_id": analysis_report_artifact["artifact_id"],
             "input_artifact_ids": parent_artifact_ids,

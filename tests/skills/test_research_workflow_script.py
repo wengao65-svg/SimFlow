@@ -47,6 +47,7 @@ def test_research_workflow_script_runs_literature_to_writing(tmp_path):
     assert summary["status"] == "success"
     assert summary["current_stage"] == "writing"
     assert summary["workflow_status"] == "completed"
+    assert summary["workflow_id"]
     assert summary["target_stage"] == "writing"
     assert summary["stages_executed"] == 6
     assert summary["completed_stages"] == [
@@ -58,7 +59,11 @@ def test_research_workflow_script_runs_literature_to_writing(tmp_path):
         "writing",
     ]
     assert summary["artifact_summary"]["total"] >= 30
+    assert summary["artifact_summary"]["by_stage"]
+    assert summary["artifact_summary"]["by_type"]
     assert summary["checkpoint_summary"]["count"] >= 1
+    assert summary["checkpoint_summary"]["latest"]
+    assert summary["next_actions"]
     assert summary["computation"]["dry_run_status"] in {"pass", "warning"}
     assert summary["computation"]["hpc_submit_gate_status"] == "block"
     assert (tmp_path / ".simflow" / "reports" / "research_workflow_summary.json").is_file()
@@ -66,6 +71,8 @@ def test_research_workflow_script_runs_literature_to_writing(tmp_path):
     assert (tmp_path / ".simflow" / "reports" / "compute" / "submit_readiness_summary.md").is_file()
     assert (tmp_path / ".simflow" / "reports" / "writing" / "claim_map.json").is_file()
     assert (tmp_path / ".simflow" / "reports" / "handoff" / "final_handoff.md").is_file()
+    handoff_markdown = summary["important_paths"]["handoff_markdown"]
+    assert (tmp_path / handoff_markdown).is_file()
 
     proposal_contract = json.loads((tmp_path / ".simflow" / "plans" / "proposal_contract.json").read_text(encoding="utf-8"))
     compute_plan = json.loads((tmp_path / ".simflow" / "reports" / "compute" / "compute_plan.json").read_text(encoding="utf-8"))
@@ -92,6 +99,35 @@ def test_research_workflow_script_runs_literature_to_writing(tmp_path):
         "results.md",
         "claim_map.json",
     }.issubset(artifact_names)
+
+
+def test_research_workflow_script_accepts_input_file(tmp_path):
+    input_file = tmp_path / "research_intent.txt"
+    input_file.write_text(_research_text(), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "python",
+            str(SCRIPT),
+            "--project-root",
+            str(tmp_path),
+            "--input",
+            str(input_file),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    summary = json.loads(result.stdout)
+
+    assert summary["status"] == "success"
+    assert summary["current_stage"] == "writing"
+    assert summary["workflow_status"] == "completed"
+    assert summary["stages_executed"] == 6
+    assert (tmp_path / ".simflow" / "reports" / "research_workflow_summary.json").is_file()
 
 
 def test_research_workflow_script_supports_plan_only_dry_run(tmp_path):

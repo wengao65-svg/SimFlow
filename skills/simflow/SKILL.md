@@ -136,6 +136,19 @@ conceptual shape:
 
 This is a router output contract, not a mandatory runtime schema.
 
+## Optional End-To-End Research Workflow Script
+
+When a user wants to drive the full canonical chain
+`literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing`
+from a structured research intent, the optional
+`scripts/run_research_workflow.py` skill script initializes research via
+`runtime.simflow_helpers.project.intake`, runs the canonical pipeline with
+dry-run-first behavior, and emits a compact JSON summary at
+`.simflow/reports/research_workflow_summary.json` covering workflow id/status,
+completed stages, artifact counts by stage/type, checkpoint summary, computation
+dry-run status, `hpc_submit` gate status, handoff report paths, and next
+actions. It never submits local, remote, or HPC jobs.
+
 ## Safety Escalation
 
 Escalate to `simflow-safety-gates` whenever the request involves real local execution,

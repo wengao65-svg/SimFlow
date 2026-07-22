@@ -17,6 +17,7 @@ FINAL_HANDOFF_FILE = ".simflow/reports/handoff/final_handoff.json"
 REQUIRED_WRITING_OUTPUTS = {
     "methods.md": ".simflow/reports/writing/methods.md",
     "results.md": ".simflow/reports/writing/results.md",
+    "claim_map.json": ".simflow/reports/writing/claim_map.json",
     "reproducibility_package.md": ".simflow/reports/reproducibility/reproducibility_package.md",
     "final_handoff.md": ".simflow/reports/handoff/final_handoff.md",
     "final_handoff.json": ".simflow/reports/handoff/final_handoff.json",
@@ -30,6 +31,7 @@ REQUIRED_CHECK_NAMES = [
     "no_real_submit_without_approval",
     "no_sensitive_paths",
     "checkpoint_summary_present",
+    "claim_traceability",
 ]
 SENSITIVE_KEY_PARTS = ("token", "password", "secret")
 APPROVED_GATE_STATUSES = {"approve", "approved", "allow", "allowed", "pass", "passed"}
@@ -367,6 +369,7 @@ def _check_artifact_traceability(
     tracked_names = [
         *REQUIRED_WRITING_OUTPUTS.keys(),
         "reproducibility_manifest.json",
+        "claim_map.json",
     ]
     missing_artifacts = []
     missing_lineage = []
@@ -522,6 +525,59 @@ def _check_sensitive_content(
     }
 
 
+def _check_claim_traceability(
+    project_root: Path,
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Verify claim_map.json exists, is registered, and claims trace to real artifacts."""
+    claim_map_path = project_root / ".simflow" / "reports" / "writing" / "claim_map.json"
+    if not claim_map_path.is_file():
+        return {
+            "status": "fail",
+            "message": "claim_map.json is missing from writing outputs.",
+            "details": {"expected_path": ".simflow/reports/writing/claim_map.json"},
+        }
+    claim_artifact = _latest_artifact(artifacts, name="claim_map.json", stage="writing")
+    if claim_artifact is None:
+        return {
+            "status": "fail",
+            "message": "claim_map.json exists on disk but is not registered as a writing artifact.",
+            "details": {"missing_artifact": "claim_map.json"},
+        }
+    try:
+        claim_map = json.loads(claim_map_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return {
+            "status": "fail",
+            "message": f"claim_map.json could not be parsed: {exc}",
+            "details": {},
+        }
+    registered_ids = {artifact.get("artifact_id") for artifact in artifacts if artifact.get("artifact_id")}
+    claims = claim_map.get("claims", [])
+    untraced_claims = []
+    for claim in claims:
+        if claim.get("speculative"):
+            continue
+        source_ids = claim.get("source_artifact_ids") or claim.get("evidence_artifacts") or []
+        missing = [sid for sid in source_ids if sid not in registered_ids]
+        if missing:
+            untraced_claims.append({
+                "claim_id": claim.get("claim_id"),
+                "missing_artifact_ids": missing,
+            })
+    if untraced_claims:
+        return {
+            "status": "warning",
+            "message": "Some non-speculative claims reference unregistered artifacts.",
+            "details": {"untraced_claims": untraced_claims},
+        }
+    return {
+        "status": "pass",
+        "message": "claim_map.json is registered and non-speculative claims trace to registered artifacts.",
+        "details": {"claim_count": len(claims), "claim_map_artifact_id": claim_artifact.get("artifact_id")},
+    }
+
+
 def _check_checkpoint_summary(
     checkpoints: list[dict[str, Any]],
     reproducibility_manifest: dict[str, Any] | None,
@@ -601,4 +657,5 @@ def build_final_delivery_report(
     add_check(report, "no_real_submit_without_approval", **_check_real_submit_approval(selected_truth))
     add_check(report, "no_sensitive_paths", **_check_sensitive_content(reproducibility_manifest, final_handoff))
     add_check(report, "checkpoint_summary_present", **_check_checkpoint_summary(checkpoints, reproducibility_manifest, final_handoff))
+    add_check(report, "claim_traceability", **_check_claim_traceability(root, artifacts))
     return _complete_report(report)

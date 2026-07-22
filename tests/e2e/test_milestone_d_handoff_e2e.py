@@ -86,6 +86,7 @@ def test_milestone_d_final_handoff_e2e():
             "no_real_submit_without_approval",
             "no_sensitive_paths",
             "checkpoint_summary_present",
+            "claim_traceability",
         }
         assert set(artifact["name"] for artifact in writing_artifacts) >= {
             "methods.md",

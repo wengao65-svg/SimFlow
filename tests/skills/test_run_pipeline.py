@@ -571,7 +571,9 @@ def test_run_pipeline_execute_runs_postcompute_vasp_chain_with_fixture_outputs()
         assert result["results"][0]["manifests"]["analysis"]["source_files"]
         assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["input_artifact_ids"]
         assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["analysis_script"].endswith("analyze_dft_results.py")
+        assert result["results"][0]["manifests"]["analysis"]["analysis_provenance"]["environment"]["python"]
         assert result["results"][0]["manifests"]["visualization"]["figure_traceability"]["analysis_report_artifact_id"]
+        assert result["results"][0]["manifests"]["visualization"]["environment"]["python"]
         assert "visual_qa" in result["results"][0]["manifests"]["visualization"]
         if importlib.util.find_spec("matplotlib") is None:
             assert result["results"][0]["manifests"]["visualization"]["status"] == "skipped_optional_dependency"

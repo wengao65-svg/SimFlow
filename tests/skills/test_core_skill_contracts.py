@@ -105,6 +105,19 @@ def test_legacy_executor_skill_entries_are_removed():
         assert not (SKILLS / skill_name / "SKILL.md").exists(), skill_name
 
 
+def test_router_documents_optional_end_to_end_research_workflow_script():
+    text = _skill_text("simflow")
+    assert "run_research_workflow" in text
+    assert "research_workflow_summary.json" in text
+    assert "literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing" in text
+
+
+def test_computation_documents_submit_readiness_summary_artifact():
+    text = _skill_text("simflow-computation")
+    assert "submit_readiness_summary" in text
+    assert "user_submit_readiness" in text
+
+
 def test_computation_requires_approval_without_fixed_software():
     text = _skill_text("simflow-computation").lower()
     assert "approval" in text

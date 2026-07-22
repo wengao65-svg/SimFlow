@@ -22,6 +22,25 @@ from runtime.simflow_helpers.engines.cp2k import CP2KParser
 from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
 
 
+def _detect_environment() -> dict[str, Any]:
+    """Detect Python version and optional analysis packages."""
+    env: dict[str, Any] = {"python": sys.version.split()[0]}
+    packages: dict[str, str | bool] = {}
+    for pkg_name in ("matplotlib", "MDAnalysis", "PIL"):
+        spec = importlib.util.find_spec(pkg_name)
+        if spec is None:
+            packages[pkg_name] = False
+            continue
+        try:
+            module = importlib.import_module(pkg_name)
+            version = getattr(module, "__version__", None)
+            packages[pkg_name] = version or True
+        except Exception:
+            packages[pkg_name] = True
+    env["packages"] = packages
+    return env
+
+
 def resolve_project_root_from_workflow_dir(workflow_dir: str) -> Path:
     path = Path(workflow_dir).expanduser().resolve()
     return path.parent if path.name == ".simflow" else path
@@ -386,6 +405,7 @@ def run_analysis_stage(workflow_dir: str, params: dict | None = None, dry_run: b
             _relative_path(project_root, json_path),
             _relative_path(project_root, markdown_path),
         ],
+        "environment": _detect_environment(),
     }
     json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     GENERATE_REPORT(report, str(markdown_path))
