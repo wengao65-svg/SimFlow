@@ -1,8 +1,9 @@
 """Literature MCP Server.
 
 Provides literature search and management tools.
-Supports multiple backends: arxiv, crossref, semantic_scholar.
-Falls back to mock connector when credentials are missing.
+Supports multiple backends: OpenAlex (default, no key), arXiv, Crossref,
+Semantic Scholar (requires S2_API_KEY).
+Falls back to mock connector only when network is unreachable.
 """
 
 import json
@@ -18,6 +19,7 @@ from connectors.mock import MockLiteratureConnector
 from connectors.arxiv import ArxivConnector
 from connectors.crossref import CrossrefConnector
 from connectors.semantic_scholar import SemanticScholarConnector
+from connectors.openalex import OpenAlexConnector
 from mcp.shared.transport import dispatch_request, run_server
 
 
@@ -26,21 +28,39 @@ _CONNECTORS = {
     "arxiv": ArxivConnector,
     "crossref": CrossrefConnector,
     "semantic_scholar": SemanticScholarConnector,
+    "openalex": OpenAlexConnector,
 }
 
 _mock = MockLiteratureConnector()
 
 
 def _get_connector(backend: str = "auto"):
-    """Get a connector instance, with auto-detection and fallback."""
+    """Get a connector instance, with auto-detection and fallback.
+
+    Auto-detection order:
+    1. S2_API_KEY set -> SemanticScholar (richest metadata)
+    2. Default -> OpenAlex (free, no key required, real scholarly data)
+    3. If OpenAlex fails to instantiate -> mock (with mock_unverified status)
+
+    The mock connector is NEVER the default for 'auto' — it is only a
+    last-resort fallback when network access is unavailable. Mock results
+    are tagged with status='mock_unverified' and usable_as_evidence=False.
+    """
     if backend == "auto":
         import os
         if os.environ.get("S2_API_KEY"):
-            return SemanticScholarConnector()
-        return _mock
+            try:
+                return SemanticScholarConnector()
+            except Exception:
+                pass
+        # OpenAlex is the default: free, no key required, real scholarly data
+        try:
+            return OpenAlexConnector()
+        except Exception:
+            return _mock
     cls = _CONNECTORS.get(backend)
     if cls is None:
-        return None
+        return _mock
     try:
         return cls()
     except Exception:
@@ -89,8 +109,8 @@ TOOLS = {
 }
 
 TOOL_DESCRIPTIONS = {
-    "search": "Search literature sources with mock/dry-run fallback by default.",
-    "get_metadata": "Fetch literature metadata by DOI with safe fallback behavior.",
+    "search": "Search literature sources. Defaults to OpenAlex (free, no key). Set S2_API_KEY for Semantic Scholar.",
+    "get_metadata": "Fetch literature metadata by DOI via OpenAlex (default) or specified backend.",
 }
 
 TOOL_SCHEMAS = {
