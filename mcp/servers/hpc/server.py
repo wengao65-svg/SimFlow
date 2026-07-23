@@ -30,20 +30,37 @@ _CONNECTORS = {
     "ssh": SSHConnector,
 }
 
-_default = SlurmConnector()
+_default = None
 
 
 def _get_connector(scheduler: str = "auto"):
-    """Get a connector instance, with auto-detection and fallback."""
+    """Get a connector instance, with auto-detection and fallback.
+
+    Auto-detection order:
+    1. SIMFLOW_SLURM_HOST set -> SlurmConnector
+    2. SIMFLOW_SSH_HOST set -> SSHConnector (workstation mode, no scheduler)
+    3. SIMFLOW_SSH_WORKSTATION_MODE=1 -> SSHConnector explicitly
+    4. Fallback -> LocalConnector
+    """
     if scheduler == "auto":
-        return _default
+        # Lazy-import os to avoid global side effects at module load
+        import os as _os
+        if _os.environ.get("SIMFLOW_SLURM_HOST"):
+            return SlurmConnector()
+        if _os.environ.get("SIMFLOW_SSH_HOST") or _os.environ.get("SIMFLOW_SSH_WORKSTATION_MODE"):
+            try:
+                return SSHConnector()
+            except Exception:
+                pass
+        # Default fallback: local shell
+        return LocalConnector()
     cls = _CONNECTORS.get(scheduler)
     if cls is None:
-        return None
+        return LocalConnector()
     try:
         return cls()
     except Exception:
-        return _default
+        return LocalConnector()
 
 
 def handle_dry_run(params: dict) -> dict:

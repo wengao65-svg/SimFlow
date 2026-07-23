@@ -15,8 +15,12 @@ class BaseHPCConnector(ABC):
     """Abstract base for HPC scheduler connectors."""
 
     @abstractmethod
-    def dry_run(self, script_path: str) -> dict:
-        """Validate a job script without submitting."""
+    def dry_run(self, script_path: str, manifest_path: str = "", base_dir: str = ".") -> dict:
+        """Validate a job script without submitting.
+
+        All connectors must accept manifest_path and base_dir for polymorphism,
+        even if they ignore them (local, ssh, pbs).
+        """
         ...
 
     @abstractmethod
