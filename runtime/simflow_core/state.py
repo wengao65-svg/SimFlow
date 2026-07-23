@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -9,6 +10,7 @@ from typing import Any, Optional
 
 SIMFLOW_DIR = ".simflow"
 STATE_DIR = os.path.join(SIMFLOW_DIR, "state")
+BACKUPS_DIR = os.path.join(SIMFLOW_DIR, "backups")
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_STATUSES = ("initialized", "in_progress", "paused", "completed", "failed")
 STAGE_STATUSES = ("pending", "in_progress", "waiting", "completed", "failed", "skipped")
@@ -188,21 +190,67 @@ def write_state(
     return path
 
 
+def _backup_simflow_tree(root: Path) -> Optional[Path]:
+    """Create a timestamped backup of the entire .simflow tree.
+
+    The ``backups/`` subdirectory itself is excluded to avoid recursive
+    self-copy. Returns the backup path on success, or None if there was
+    nothing to back up.
+    """
+    sf = root / SIMFLOW_DIR
+    if not sf.exists():
+        return None
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_root = root / BACKUPS_DIR
+    backup_root.mkdir(parents=True, exist_ok=True)
+    backup_path = backup_root / timestamp
+    counter = 1
+    while backup_path.exists():
+        backup_path = backup_root / f"{timestamp}_{counter:02d}"
+        counter += 1
+
+    def _ignore_backups(directory, names):
+        # Skip the backups subdirectory during copy to avoid recursion.
+        if Path(directory).name == SIMFLOW_DIR and "backups" in names:
+            return ["backups"]
+        return []
+
+    shutil.copytree(sf, backup_path, dirs_exist_ok=False, ignore=_ignore_backups)
+    return backup_path
+
+
 def init_workflow(
     workflow_type: str,
     entry_point: str,
     base_dir: str = ".",
     project_root: Optional[str] = None,
+    *,
+    force: bool = False,
 ) -> dict:
     """Initialize a new workflow state under .simflow/.
 
-    .omx belongs to the host session layer and is never used as SimFlow's
+    By default this function is idempotent: if a workflow state already exists
+    under ``project_root/.simflow/state/workflow.json`` it is preserved and the
+    existing state is returned unchanged. Pass ``force=True`` to back up the
+    existing ``.simflow`` tree to ``.simflow/backups/<timestamp>`` and recreate
+    the canonical backbone state files.
+
+    ``.omx`` belongs to the host session layer and is never used as SimFlow's
     workflow state root.
     """
     import uuid
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    existing_state = read_state(project_root=str(root))
+    if existing_state and not force:
+        ensure_simflow_dir(project_root=str(root))
+        return existing_state
+
+    backup_path: Optional[Path] = None
+    if existing_state and force:
+        backup_path = _backup_simflow_tree(root)
+
     now = datetime.now(timezone.utc).isoformat()
-    wf_id = f"wf_{uuid.uuid4().hex[:8]}"
+    wf_id = existing_state.get("workflow_id") if existing_state else f"wf_{uuid.uuid4().hex[:8]}"
     state = {
         "workflow_id": wf_id,
         "workflow_type": workflow_type,
@@ -210,19 +258,23 @@ def init_workflow(
         "status": "initialized",
         "plan": None,
         "entry_point": entry_point,
-        "created_at": now,
+        "created_at": existing_state.get("created_at", now) if existing_state else now,
         "updated_at": now,
     }
+    if backup_path is not None:
+        state["_simflow_backup_path"] = str(backup_path)
     write_state(state, project_root=str(root))
     for state_file, default_value in CANONICAL_STATE_FILES.items():
         if state_file in ("workflow.json", "summary.json", "project.json"):
+            continue
+        if existing_state and not force:
             continue
         write_state(default_value, project_root=str(root), state_file=state_file)
     project = {
         "project_root": str(root),
         "state_root": ".simflow",
         "workflow_id": wf_id,
-        "created_at": now,
+        "created_at": existing_state.get("created_at", now) if existing_state else now,
         "updated_at": now,
     }
     write_state(project, project_root=str(root), state_file="project.json")
@@ -233,7 +285,7 @@ def init_workflow(
         "status": "initialized",
         "state_root": ".simflow",
         "summary_report": ".simflow/reports/status_summary.md",
-        "created_at": now,
+        "created_at": existing_state.get("created_at", now) if existing_state else now,
         "updated_at": now,
     }
     write_state(summary, project_root=str(root), state_file="summary.json")

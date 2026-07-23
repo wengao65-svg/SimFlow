@@ -92,6 +92,11 @@ TOOL_SCHEMAS = {
                     "writing",
                 ],
             },
+            "force": {
+                "type": "boolean",
+                "default": False,
+                "description": "Back up existing .simflow tree to .simflow/backups/<timestamp>/ and recreate canonical state files. Default false (idempotent).",
+            },
         },
         "additionalProperties": False,
     },
