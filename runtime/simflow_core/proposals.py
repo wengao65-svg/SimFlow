@@ -85,9 +85,22 @@ def _stage_index(stage: str | None) -> int:
     return 0
 
 
-def _allows_direct_contract(metadata: dict[str, Any], minimum_stage: str) -> bool:
-    entry_stage = metadata.get("entry_point")
-    current_stage = metadata.get("current_stage")
+def _allows_direct_contract(
+    metadata: dict[str, Any],
+    minimum_stage: str,
+    *,
+    workflow_state: dict[str, Any] | None = None,
+) -> bool:
+    """Return True if the project may skip the proposal stage.
+
+    The proposal stage is optional when the workflow's entry_point or
+    current_stage has already advanced past the proposal stage. This is
+    checked against both metadata.json (legacy) and workflow.json (current),
+    so that projects initialized with entry_point=computation are not
+    blocked by the proposal-artifact requirement.
+    """
+    entry_stage = metadata.get("entry_point") or (workflow_state or {}).get("entry_point")
+    current_stage = metadata.get("current_stage") or (workflow_state or {}).get("current_stage")
     return max(_stage_index(entry_stage), _stage_index(current_stage)) >= _stage_index(minimum_stage)
 
 
@@ -228,8 +241,18 @@ def _metadata_parameter_rows(metadata: dict[str, Any]) -> list[dict[str, str]]:
     return rows
 
 
-def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
-    workflow_type = str(metadata.get("workflow_type") or "dft")
+def _build_direct_entry_contract(
+    metadata: dict[str, Any],
+    workflow_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    # Prefer workflow.json's workflow_type over metadata.json's when available,
+    # since projects entering at computation+ typically have no metadata.json.
+    wf_state = workflow_state or {}
+    workflow_type = str(
+        wf_state.get("workflow_type")
+        or metadata.get("workflow_type")
+        or "custom"
+    )
     material = metadata.get("material") or "Not specified"
     research_goal = metadata.get("research_goal") or ""
     parameter_values = metadata.get("parameters", {})
@@ -301,15 +324,28 @@ def _build_direct_entry_contract(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_proposal_contract(workflow_dir: str, *, allow_direct_entry: bool = False) -> dict[str, Any]:
-    """Load proposal artifacts and normalize them into a downstream contract."""
+    """Load proposal artifacts and normalize them into a downstream contract.
+
+    When ``allow_direct_entry`` is True and the project's entry_point or
+    current_stage has advanced past the proposal stage (checked against both
+    metadata.json and workflow.json), a direct-entry contract is returned
+    instead of raising FileNotFoundError. This allows projects that entered
+    SimFlow at computation or later stages to record evidence without first
+    creating proposal.md/parameter_table.csv/research_questions.json.
+    """
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
     metadata_state = read_state(project_root=str(project_root), state_file="metadata.json")
+    workflow_state = read_state(project_root=str(project_root), state_file="workflow.json")
 
     try:
         artifacts = _load_required_artifacts(project_root)
     except FileNotFoundError:
-        if allow_direct_entry and _allows_direct_contract(metadata_state, "modeling"):
-            return _build_direct_entry_contract(metadata_state)
+        if allow_direct_entry and _allows_direct_contract(
+            metadata_state,
+            "modeling",
+            workflow_state=workflow_state,
+        ):
+            return _build_direct_entry_contract(metadata_state, workflow_state)
         raise
 
     proposal_path = resolve_artifact_path(project_root, artifacts["proposal.md"]["path"])

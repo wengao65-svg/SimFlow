@@ -21,4 +21,6 @@ def execute(params: dict) -> dict:
         )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}
+    except FileNotFoundError as error:
+        return {"status": "error", "message": str(error), "code": "missing_proposal_artifacts"}
     return {"status": result.get("status", "success"), "project_root": project_root, "data": result}
