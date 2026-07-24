@@ -135,6 +135,42 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 - 3 existing tests updated for stage_id canonical naming
 - Full suite: 859 passed, 7 skipped, 0 failed
 
+### Phase 3 — P3 Skill Usage Rate + P7 New Layer
+
+#### P3.1 — Auto-read_state middleware
+- When a read-only tool (workflow_status, stage_readiness, etc.) is called
+  and no prior engagement exists, the middleware auto-records a read_state
+  call in the engagement log
+- Satisfies prerequisites for subsequent state-write tools automatically
+- Reduces friction: agents that check status get their read_state met
+
+#### P3.2 — session_handoff MCP tool
+- New simflow_state/session_handoff tool generates compact handoff report
+- Report includes: workflow state, latest checkpoint, counts, stage statuses,
+  engagement status, warnings (stale state, empty gates, missing stages),
+  and suggested next steps
+- Written to .simflow/reports/session_handoff_<timestamp>.md
+
+#### P3.3 — Auto-verification on stage completion
+- update_stage(completed/failed) auto-creates a 'pending' verification
+  record in verification.json
+- Ensures verification.json is never empty when stages are completed
+- Verification includes checkpoint_id reference when available
+
+#### P3.4+P7.1+P7.2 — Task-shape-aware router + skill-contract schema
+- skill-contract.schema.json: new required_mcp_tools, minimum_mcp_engagement,
+  task_shapes fields
+- router_contract.json: task_shape_engagement_policy with 4 task shape
+  patterns (multi_stage_research, single_stage_compute, analysis_only,
+  literature_review), each with minimum engagement levels
+- simflow/SKILL.md: Required MCP Engagement section + Quick Start for
+  Re-entering a Project section
+
+### Phase 3 Test Coverage
+- 21 new tests across 3 test files
+- 1 existing test updated for verification timestamp accommodation
+- Full suite: 880 passed, 7 skipped, 0 failed
+
 ## Unreleased (previous)
 
 ### Fixed
