@@ -28,6 +28,7 @@ from tools.project_readiness import execute as project_readiness
 from tools.record_computation_evidence import execute as record_computation_evidence
 from tools.record_analysis_evidence import execute as record_analysis_evidence
 from tools.orphan_compute_scanner import execute as orphan_compute_scanner
+from tools.record_user_override import execute as record_user_override
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -43,6 +44,7 @@ TOOLS = {
     "record_computation_evidence": record_computation_evidence,
     "record_analysis_evidence": record_analysis_evidence,
     "orphan_compute_scanner": orphan_compute_scanner,
+    "record_user_override": record_user_override,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -58,6 +60,7 @@ TOOL_DESCRIPTIONS = {
     "record_computation_evidence": "Record user-provided computation evidence for tracked-only or unknown tools.",
     "record_analysis_evidence": "Record user-provided analysis/visualization evidence for custom or tracked-only workflows.",
     "orphan_compute_scanner": "Scan project root for compute directories not registered in SimFlow state.",
+    "record_user_override": "Record a user-approved gate bypass/override decision in gates.json.",
 }
 
 TOOL_SCHEMAS = {
@@ -219,6 +222,21 @@ TOOL_SCHEMAS = {
         "properties": {
             "project_root": {"type": "string"},
             "max_depth": {"type": "integer", "default": 3},
+        },
+        "additionalProperties": False,
+    },
+    "record_user_override": {
+        "type": "object",
+        "required": ["project_root", "gate_id", "approver_context", "risk_note"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "gate_id": {"type": "string"},
+            "approver_context": {"type": "string"},
+            "risk_note": {"type": "string"},
+            "requested_action": {"type": "string"},
+            "directory_path": {"type": "string"},
+            "original_gate_failure_ref": {"type": "string"},
+            "stage": {"type": "string"},
         },
         "additionalProperties": False,
     },
