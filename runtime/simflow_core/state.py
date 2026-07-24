@@ -352,6 +352,108 @@ def ensure_workflow_initialized(
     return init_workflow(workflow_type, entry_point, project_root=str(root))
 
 
+def _build_status_summary_md(root: Path) -> str:
+    """Build a human-readable status summary from current state files."""
+    wf = read_state(project_root=str(root), state_file="workflow.json") or {}
+    summary = read_state(project_root=str(root), state_file="summary.json") or {}
+    stages = read_state(project_root=str(root), state_file="stages.json") or {}
+    artifacts = read_state(project_root=str(root), state_file="artifacts.json")
+    artifact_count = len(artifacts) if isinstance(artifacts, list) else 0
+    checkpoints = read_state(project_root=str(root), state_file="checkpoints.json")
+    checkpoint_count = len(checkpoints) if isinstance(checkpoints, list) else 0
+    gates = read_state(project_root=str(root), state_file="gates.json")
+    gate_count = len(gates) if isinstance(gates, list) else 0
+    jobs = read_state(project_root=str(root), state_file="jobs.json")
+    job_count = len(jobs) if isinstance(jobs, list) else 0
+
+    lines = [
+        "# SimFlow Status Summary",
+        "",
+        f"- Workflow ID: {wf.get('workflow_id', 'unknown')}",
+        f"- Workflow type: {wf.get('workflow_type', 'unknown')}",
+        f"- Current stage: {wf.get('current_stage', 'unknown')}",
+        f"- Status: {wf.get('status', 'unknown')}",
+        f"- State root: .simflow",
+        f"- Updated: {wf.get('updated_at', 'unknown')}",
+        "",
+        "## Stage Status",
+        "",
+    ]
+    if isinstance(stages, dict) and stages:
+        for stage_name in CANONICAL_ARTIFACT_STAGE_DIRS:
+            stage = stages.get(stage_name)
+            if isinstance(stage, dict):
+                lines.append(f"- {stage_name}: {stage.get('status', 'pending')}")
+        # Also include any non-canonical stages that were declared
+        for stage_name, stage in sorted(stages.items()):
+            if stage_name not in CANONICAL_ARTIFACT_STAGE_DIRS and isinstance(stage, dict):
+                lines.append(f"- {stage_name}: {stage.get('status', 'pending')}")
+    else:
+        lines.append("(no stages declared)")
+
+    lines.extend([
+        "",
+        "## Counts",
+        "",
+        f"- Artifacts: {artifact_count}",
+        f"- Checkpoints: {checkpoint_count}",
+        f"- Gates: {gate_count}",
+        f"- Jobs: {job_count}",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def touch_workflow(
+    project_root: str,
+    *,
+    current_stage: Optional[str] = None,
+    status: Optional[str] = None,
+) -> None:
+    """Refresh workflow.json, summary.json, and status_summary.md timestamps.
+
+    Call this after any meaningful state change (checkpoint creation, artifact
+    registration, evidence recording, stage update) to keep the top-level
+    state files current. This prevents cross-session amnesia where
+    summary.json.updated_at falls days behind the actual latest work.
+
+    Args:
+        project_root: The project root path.
+        current_stage: If provided, update workflow.json.current_stage.
+        status: If provided, update workflow.json.status.
+    """
+    root = resolve_project_root(project_root=project_root)
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Update workflow.json
+    wf = read_state(project_root=str(root), state_file="workflow.json") or {}
+    wf["updated_at"] = now
+    if current_stage is not None:
+        wf["current_stage"] = current_stage
+    if status is not None:
+        wf["status"] = status
+    write_state(wf, project_root=str(root), state_file="workflow.json")
+
+    # Update summary.json
+    summary = read_state(project_root=str(root), state_file="summary.json") or {}
+    summary["updated_at"] = now
+    if current_stage is not None:
+        summary["current_stage"] = current_stage
+    if status is not None:
+        summary["status"] = status
+    if "workflow_id" not in summary and "workflow_id" in wf:
+        summary["workflow_id"] = wf["workflow_id"]
+    if "workflow_type" not in summary and "workflow_type" in wf:
+        summary["workflow_type"] = wf["workflow_type"]
+    summary.setdefault("state_root", ".simflow")
+    summary.setdefault("summary_report", ".simflow/reports/status_summary.md")
+    write_state(summary, project_root=str(root), state_file="summary.json")
+
+    # Regenerate status_summary.md
+    report_content = _build_status_summary_md(root)
+    write_report(report_content, project_root=str(root))
+
+
 def update_stage(
     stage_name: str,
     status: str,
@@ -390,4 +492,9 @@ def update_stage(
         if k in stages[stage_name]:
             stages[stage_name][k] = v
     write_state(stages, project_root=str(root), state_file="stages.json")
+    # Auto-refresh workflow.json/summary.json/status_summary.md
+    touch_workflow(
+        str(root),
+        current_stage=stage_name if normalized_status == "in_progress" else None,
+    )
     return stages[stage_name]

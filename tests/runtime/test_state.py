@@ -147,10 +147,14 @@ class TestState:
 
         class _FakeDatetime:
             values = iter([
-                "2026-01-01T00:00:00+00:00",
-                "2026-01-01T00:05:00+00:00",
-                "2026-01-01T00:10:00+00:00",
-                "2026-01-01T00:15:00+00:00",
+                "2026-01-01T00:00:00+00:00",  # update_stage #1 (in_progress)
+                "2026-01-01T00:00:30+00:00",  # touch_workflow #1
+                "2026-01-01T00:05:00+00:00",  # update_stage #2 (completed)
+                "2026-01-01T00:05:30+00:00",  # touch_workflow #2
+                "2026-01-01T00:10:00+00:00",  # update_stage #3 (waiting)
+                "2026-01-01T00:10:30+00:00",  # touch_workflow #3
+                "2026-01-01T00:15:00+00:00",  # update_stage #4 (in_progress again)
+                "2026-01-01T00:15:30+00:00",  # touch_workflow #4
             ])
 
             @classmethod

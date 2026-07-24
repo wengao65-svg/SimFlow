@@ -14,6 +14,7 @@ from .state import (
     ensure_workflow_initialized,
     read_state,
     resolve_project_root,
+    touch_workflow,
 )
 
 CHECKPOINTS_DIR = ".simflow/checkpoints"
@@ -197,6 +198,11 @@ def create_checkpoint(
         ckpt_file.unlink(missing_ok=True)
         _restore_checkpoint_state(root, stages=stages, registry=registry)
         raise
+
+    # P1.5: Auto-propagate checkpoint creation to workflow.json/summary.json
+    # so cross-session continuity works (fixes S6->S14 amnesia where
+    # summary.json.updated_at stayed 4 days behind checkpoint creation).
+    touch_workflow(str(root))
 
     return checkpoint
 

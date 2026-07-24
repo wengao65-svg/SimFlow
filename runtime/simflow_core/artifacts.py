@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .state import ensure_workflow_initialized, resolve_project_root
+from .state import ensure_workflow_initialized, resolve_project_root, touch_workflow
 
 ARTIFACTS_DIR = ".simflow/artifacts"
 STATE_FILE = ".simflow/state/artifacts.json"
@@ -142,6 +142,8 @@ def register_artifact(
     _write_artifacts(artifacts, project_root=str(root))
     from .lineage import record_artifact_lineage
     record_artifact_lineage(artifact, project_root=str(root))
+    # Auto-refresh workflow.json/summary.json/status_summary.md
+    touch_workflow(str(root))
     return artifact
 
 
