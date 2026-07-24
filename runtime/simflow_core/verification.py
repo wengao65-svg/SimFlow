@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from .state import read_state, resolve_project_root
+from .state import read_state, resolve_project_root, write_state, touch_workflow
 
 VERIFICATION_FILE = ".simflow/state/verification.json"
 VERIFY_REPORT_JSON = ".simflow/reports/verify/verification_report.json"
@@ -248,6 +248,56 @@ def get_verifications(stage: Optional[str] = None, base_dir: str = ".", project_
     if stage:
         return [report for report in reports if report.get("stage") == stage]
     return reports
+
+
+def record_stage_completion_verification(
+    stage_name: str,
+    project_root: str,
+    *,
+    checkpoint_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """Auto-create a verification record when a stage is marked completed.
+
+    P3.3: Called by update_stage when status='completed' is set. Records
+    a basic verification entry in verification.json with the stage name,
+    checkpoint reference, and timestamp. This ensures verification.json
+    is never empty when stages have been completed.
+
+    The verification status is 'pending' — it indicates that the stage
+    was marked complete but formal verification checks have not yet been
+    run. Users or agents can later upgrade this to 'pass' or 'fail' by
+    running formal verification checks.
+    """
+    now = _now_iso()
+    entry = {
+        "verification_id": f"verify_{stage_name}_{now.replace(':', '').replace('-', '')[:15]}",
+        "stage": stage_name,
+        "status": "pending",
+        "checkpoint_id": checkpoint_id,
+        "checks": [],
+        "message": f"Stage '{stage_name}' marked complete. Formal verification pending.",
+        "created_at": now,
+    }
+
+    root = resolve_project_root(project_root=project_root)
+    path = root / VERIFICATION_FILE
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(existing, list):
+            verifications = existing
+        elif isinstance(existing, dict):
+            verifications = existing.get("reports", [])
+            if not isinstance(verifications, list):
+                verifications = []
+        else:
+            verifications = []
+    except (FileNotFoundError, json.JSONDecodeError):
+        verifications = []
+
+    verifications.append(entry)
+    write_state(verifications, project_root=str(root), state_file="verification.json")
+    touch_workflow(str(root))
+    return entry
 
 
 def run_checks(

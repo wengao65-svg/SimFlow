@@ -497,4 +497,14 @@ def update_stage(
         str(root),
         current_stage=stage_name if normalized_status == "in_progress" else None,
     )
+    # P3.3: Auto-create verification record when stage is marked completed
+    if normalized_status in TERMINAL_STAGE_STATUSES:
+        try:
+            from .verification import record_stage_completion_verification
+            checkpoint_id = stages[stage_name].get("checkpoint_id")
+            record_stage_completion_verification(
+                stage_name, str(root), checkpoint_id=checkpoint_id,
+            )
+        except Exception:
+            pass  # Don't fail update_stage if verification recording fails
     return stages[stage_name]

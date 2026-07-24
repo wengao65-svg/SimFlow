@@ -146,20 +146,30 @@ class TestState:
         init_workflow("dft", "literature_review", self.base_dir)
 
         class _FakeDatetime:
-            values = iter([
-                "2026-01-01T00:00:00+00:00",  # update_stage #1 (in_progress)
-                "2026-01-01T00:00:30+00:00",  # touch_workflow #1
-                "2026-01-01T00:05:00+00:00",  # update_stage #2 (completed)
-                "2026-01-01T00:05:30+00:00",  # touch_workflow #2
-                "2026-01-01T00:10:00+00:00",  # update_stage #3 (waiting)
-                "2026-01-01T00:10:30+00:00",  # touch_workflow #3
-                "2026-01-01T00:15:00+00:00",  # update_stage #4 (in_progress again)
-                "2026-01-01T00:15:30+00:00",  # touch_workflow #4
-            ])
+            # Each datetime.now() call consumes one value.
+            # update_stage calls now() + touch_workflow(now())
+            # completed also triggers verification's touch_workflow(now())
+            _vals = [
+                "2026-01-01T00:00:00+00:00",  # 0: update_stage #1 (in_progress) now
+                "2026-01-01T00:00:30+00:00",  # 1: touch_workflow #1 now
+                "2026-01-01T00:05:00+00:00",  # 2: update_stage #2 (completed) now
+                "2026-01-01T00:05:30+00:00",  # 3: touch_workflow #2 now
+                "2026-01-01T00:05:45+00:00",  # 4: verification touch_workflow now
+                "2026-01-01T00:10:00+00:00",  # 5: update_stage #3 (waiting) now
+                "2026-01-01T00:10:30+00:00",  # 6: touch_workflow #3 now
+                "2026-01-01T00:15:00+00:00",  # 7: update_stage #4 (in_progress) now
+                "2026-01-01T00:15:30+00:00",  # 8: touch_workflow #4 now
+                "2026-01-01T00:20:00+00:00",  # 9: spare
+                "2026-01-01T00:25:00+00:00",  # 10: spare
+            ]
+            values = iter(_vals)
 
             @classmethod
             def now(cls, tz=None):
-                return datetime.fromisoformat(next(cls.values))
+                try:
+                    return datetime.fromisoformat(next(cls.values))
+                except StopIteration:
+                    return datetime.fromisoformat(cls._vals[-1])
 
         monkeypatch.setattr(state_module, "datetime", _FakeDatetime)
 
