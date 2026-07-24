@@ -332,6 +332,11 @@ def test_record_computation_evidence_tool_registers_tracked_only_evidence():
             project_root=tmpdir,
             state_file="metadata.json",
         )
+        # Engagement contract: call read_state before state-write tools
+        server.handle_request({
+            "tool": "read_state",
+            "params": {"project_root": tmpdir, "file": "workflow.json"},
+        })
         evidence_dir = root / "user_compute"
         evidence_dir.mkdir()
         for name in [
@@ -406,6 +411,12 @@ def test_record_analysis_evidence_tool_registers_custom_analysis_evidence():
             "claim_evidence_map.json",
         ]:
             (evidence_dir / name).write_text("{}\n", encoding="utf-8")
+
+        # Engagement contract: call read_state before state-write tools
+        server.handle_request({
+            "tool": "read_state",
+            "params": {"project_root": tmpdir, "file": "workflow.json"},
+        })
 
         result = server.handle_request({
             "tool": "record_analysis_evidence",

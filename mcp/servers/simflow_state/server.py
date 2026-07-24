@@ -213,11 +213,44 @@ TOOL_SCHEMAS = {
 
 
 def handle_request(request: dict) -> dict:
-    """Handle an MCP request."""
+    """Handle an MCP request with skill-engagement contract enforcement.
+
+    State-write tools (register, checkpoint_create, update_stage, record_*,
+    write_state) are blocked unless read_state has been called in the same
+    session. This prevents cargo-cult patterns where agents load SKILL.md
+    files but never engage the MCP tool layer.
+    """
     tool = request.get("tool")
     params = request.get("params", {})
     if tool not in TOOLS:
         return {"status": "error", "message": f"Unknown tool: {tool}"}
+
+    # Skill-engagement contract: check prerequisites for protected tools
+    project_root = params.get("project_root")
+    if project_root:
+        from runtime.simflow_core.engagement import (
+            check_prerequisites,
+            record_tool_call,
+            EngagementViolation,
+        )
+        full_tool_name = f"simflow_state/{tool}"
+        try:
+            check_prerequisites(full_tool_name, project_root)
+        except EngagementViolation as violation:
+            return {
+                "status": "error",
+                "code": "skill_engagement_contract_violation",
+                "message": (
+                    f"Before calling {tool}, you must call read_state first in "
+                    f"this session. Load the relevant SimFlow skill and engage "
+                    f"the workflow layer via MCP tools. Missing: {violation.missing}"
+                ),
+                "required_prerequisites": violation.missing,
+                "session_start": violation.session_start,
+            }
+        # Record the tool call after prerequisite check passes
+        record_tool_call(full_tool_name, project_root)
+
     try:
         return TOOLS[tool](params)
     except Exception as e:
