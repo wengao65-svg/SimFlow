@@ -3,7 +3,8 @@
 Provides tools for workflow state management.
 Tools: read_state, write_state, init_workflow, update_stage,
 workflow_status, evidence_graph, handoff_summary, stage_readiness,
-project_readiness, record_computation_evidence, record_analysis_evidence
+project_readiness, record_computation_evidence, record_analysis_evidence,
+orphan_compute_scanner
 """
 
 import json
@@ -26,6 +27,7 @@ from tools.stage_readiness import execute as stage_readiness
 from tools.project_readiness import execute as project_readiness
 from tools.record_computation_evidence import execute as record_computation_evidence
 from tools.record_analysis_evidence import execute as record_analysis_evidence
+from tools.orphan_compute_scanner import execute as orphan_compute_scanner
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -40,6 +42,7 @@ TOOLS = {
     "project_readiness": project_readiness,
     "record_computation_evidence": record_computation_evidence,
     "record_analysis_evidence": record_analysis_evidence,
+    "orphan_compute_scanner": orphan_compute_scanner,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -54,6 +57,7 @@ TOOL_DESCRIPTIONS = {
     "project_readiness": "Build read-only readiness diagnostics for a SimFlow project.",
     "record_computation_evidence": "Record user-provided computation evidence for tracked-only or unknown tools.",
     "record_analysis_evidence": "Record user-provided analysis/visualization evidence for custom or tracked-only workflows.",
+    "orphan_compute_scanner": "Scan project root for compute directories not registered in SimFlow state.",
 }
 
 TOOL_SCHEMAS = {
@@ -206,6 +210,15 @@ TOOL_SCHEMAS = {
                 "additionalProperties": True,
             },
             "dry_run": {"type": "boolean"},
+        },
+        "additionalProperties": False,
+    },
+    "orphan_compute_scanner": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "max_depth": {"type": "integer", "default": 3},
         },
         "additionalProperties": False,
     },
