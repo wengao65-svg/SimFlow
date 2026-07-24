@@ -217,5 +217,32 @@
     "scientific_convergence_judgment_without_evidence",
     "production_readiness_approval_without_evidence",
     "fabricated_literature_results_data_figures_citations_convergence_or_job_states"
-  ]
+  ],
+  "task_shape_engagement_policy": {
+    "description": "P3.4: All task shapes — including single-stage compute tasks — should engage SimFlow MCP tools. The router must suggest at least read_state for any task that involves computation, analysis, modeling, or writing.",
+    "all_task_shapes_require_engagement": true,
+    "engagement_floor": "simflow_state/read_state",
+    "task_shape_patterns": {
+      "multi_stage_research": {
+        "description": "Audit, selection, analysis, dataset construction — maps to multiple stages",
+        "minimum_engagement": 3,
+        "example_triggers": ["审计", "分析", "筛选", "dataset", "baseline", "reproduce"]
+      },
+      "single_stage_compute": {
+        "description": "GPUMD compile, VASP relax, AIMD, NEP training — single computation",
+        "minimum_engagement": 1,
+        "example_triggers": ["编译", "compile", "训练", "train", "NVT", "NPT", "AIMD", "relax"]
+      },
+      "analysis_only": {
+        "description": "Plot, statistics, trajectory analysis — no new compute",
+        "minimum_engagement": 1,
+        "example_triggers": ["绘图", "plot", "统计", "RDF", "MSD", "energy", "force"]
+      },
+      "literature_review": {
+        "description": "Search, screening, synthesis",
+        "minimum_engagement": 2,
+        "example_triggers": ["文献", "literature", "search", "DOI", "reference"]
+      }
+    }
+  }
 }
