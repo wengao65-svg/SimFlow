@@ -29,6 +29,7 @@ from tools.record_computation_evidence import execute as record_computation_evid
 from tools.record_analysis_evidence import execute as record_analysis_evidence
 from tools.orphan_compute_scanner import execute as orphan_compute_scanner
 from tools.record_user_override import execute as record_user_override
+from tools.session_handoff import execute as session_handoff
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -45,6 +46,7 @@ TOOLS = {
     "record_analysis_evidence": record_analysis_evidence,
     "orphan_compute_scanner": orphan_compute_scanner,
     "record_user_override": record_user_override,
+    "session_handoff": session_handoff,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -61,6 +63,7 @@ TOOL_DESCRIPTIONS = {
     "record_analysis_evidence": "Record user-provided analysis/visualization evidence for custom or tracked-only workflows.",
     "orphan_compute_scanner": "Scan project root for compute directories not registered in SimFlow state.",
     "record_user_override": "Record a user-approved gate bypass/override decision in gates.json.",
+    "session_handoff": "Generate a session-level handoff report with state, warnings, and next steps.",
 }
 
 TOOL_SCHEMAS = {
@@ -240,16 +243,26 @@ TOOL_SCHEMAS = {
         },
         "additionalProperties": False,
     },
+    "session_handoff": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
 }
 
 
 def handle_request(request: dict) -> dict:
     """Handle an MCP request with skill-engagement contract enforcement.
 
-    State-write tools (register, checkpoint_create, update_stage, record_*,
-    write_state) are blocked unless read_state has been called in the same
-    session. This prevents cargo-cult patterns where agents load SKILL.md
-    files but never engage the MCP tool layer.
+    P0.7: State-write tools are blocked unless read_state was called.
+    P3.1: When a read-only tool is called and no prior engagement exists,
+    auto-record a read_state call so prerequisites are satisfied for
+    subsequent state-write tools. This reduces friction: agents that call
+    workflow_status or stage_readiness automatically get their read_state
+    prerequisite met.
     """
     tool = request.get("tool")
     params = request.get("params", {})
@@ -262,9 +275,21 @@ def handle_request(request: dict) -> dict:
         from runtime.simflow_core.engagement import (
             check_prerequisites,
             record_tool_call,
+            get_engagement_status,
             EngagementViolation,
         )
         full_tool_name = f"simflow_state/{tool}"
+
+        # P3.1: Auto-read_state for first-call to read-only tools
+        # If no prior session exists and this is a read-only tool (not read_state
+        # itself, not a state-write tool), auto-record read_state to bootstrap
+        # the session. This satisfies the prerequisite for future state-write calls.
+        if tool not in ("read_state", "init_workflow"):
+            status = get_engagement_status(project_root)
+            if not status.get("has_session"):
+                # No prior engagement — auto-record read_state
+                record_tool_call("simflow_state/read_state", project_root)
+
         try:
             check_prerequisites(full_tool_name, project_root)
         except EngagementViolation as violation:
