@@ -1,6 +1,75 @@
 # Changelog
 
-## Unreleased
+## Unreleased — v0.9.0-dev (Audit Remediation Phase 1)
+
+Phase 1 of the audit-remediation development plan. Addresses 7 P0 blocking
+issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
+(91 session transcripts + state files + code verification).
+
+### P0.1 — init_workflow idempotent by default
+- `init_workflow` no longer overwrites existing `.simflow/state/` files
+- New `force=True` parameter backs up to `.simflow/backups/<timestamp>/`
+- `workflow_id` and `created_at` preserved across force re-init
+- MCP `init_workflow` tool exposes `force` boolean (default false)
+- Fixes: `init_workflow` clobbering custom `gates.json` (07/19T19-55-26)
+
+### P0.2 — HPC SSH workstation + LocalConnector signature
+- `LocalConnector.dry_run()` now accepts `(script_path, manifest_path, base_dir)`
+  matching `SlurmConnector` signature (was taking 2 args, got 4)
+- HPC auto-detection: SLURM > SSH workstation > Local (was hardcoded to SLURM)
+- `SIMFLOW_SSH_HOST` env var triggers SSHConnector for workstation mode
+- `SIMFLOW_SSH_WORKSTATION_MODE=1` explicitly enables nohup bash path
+- Unknown scheduler strings now fall back to LocalConnector (was None)
+- Fixes: LBS 07/22 `LocalConnector.dry_run() takes 2 positional arguments`
+
+### P0.3 — Literature search defaults to OpenAlex
+- New `OpenAlexConnector` (free, no API key required, real scholarly data)
+- Auto-detection: S2_API_KEY → SemanticScholar; default → OpenAlex (was Mock)
+- Mock connector results now tagged `status='mock_unverified'`,
+  `usable_as_evidence=False`
+- Tool descriptions updated (removed "mock/dry-run fallback by default")
+- Fixes: 06/26T16-17-32 user opt-out "connector 返回 mock/无关结果"
+
+### P0.4 — record_computation_evidence without proposal artifacts
+- `_allows_direct_contract` now checks `workflow.json` entry_point/current_stage
+  (was only checking empty `metadata.json`)
+- Projects with `entry_point=computation` can record evidence without
+  proposal.md/parameter_table.csv/research_questions.json
+- `_build_direct_entry_contract` prefers `workflow.json` workflow_type
+- MCP tool catches `FileNotFoundError` and returns error dict
+- Fixes: 3 independent sessions with `Missing proposal artifacts` error
+
+### P0.5 — project_root case normalization
+- `resolve_project_root` normalizes path casing via `os.path.realpath()`
+- On WSL case-insensitive FS, lowercase paths normalized to disk's real casing
+- Issues `UserWarning` when casing is corrected
+- Fixes: Li-O-B-Si 28 lowercase path fields in artifacts.json/lineage.json
+
+### P0.6 — register_artifact accepts directory paths
+- New `_compute_directory_tree_hash()` walks directory, sorts files,
+  computes per-file SHA256, concatenates, hashes concatenation
+- Directory artifacts get metadata: `is_directory`, `file_count`,
+  `total_size_bytes`, `tree_hash`
+- Empty directories produce valid hash (not None)
+- Fixes: `[Errno 21] Is a directory` in 4 sessions (06/23, 06/24, 06/26)
+
+### P0.7 — Skill-MCP hard-binding via session-level engagement contract
+- New `runtime/simflow_core/engagement.py` module
+- State-write MCP tools blocked unless `read_state` called in same session
+  (30-min timeout, configurable via `SIMFLOW_SESSION_TIMEOUT_MIN`)
+- File-backed engagement log: `.simflow/state/mcp_engagement_log.jsonl`
+- Prerequisite matrix: exempt (read-only) vs protected (state-write) tools
+- Violation returns error code `skill_engagement_contract_violation`
+- Integrated into `simflow_state`, `artifact_store`, `checkpoint_store` servers
+- Fixes: Batch 4 cargo-cult pattern (243 skill loads, 0 MCP calls)
+
+### Test Coverage
+- 48 new tests across 7 test files
+- 2 existing tests updated for new mock-fallback behavior
+- 2 existing tests updated for engagement contract (added read_state calls)
+- Full suite: 823 passed, 7 skipped, 0 failed
+
+## Unreleased (previous)
 
 ### Fixed
 - Bump the public plugin version to `0.8.13` so Claude Code rebuilds the installed plugin cache and exposes the packaged `simflow-gpumd` and `simflow-mlp` skills after marketplace updates.
