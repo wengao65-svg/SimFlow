@@ -253,4 +253,4 @@ def handle_request(request: dict) -> dict:
 if __name__ == "__main__":
     from mcp.shared.stdio_server import run_mcp_server
 
-    run_mcp_server("hpc", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)
+    run_mcp_server("hpc", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS, request_handler=handle_request)

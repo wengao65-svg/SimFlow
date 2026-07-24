@@ -217,12 +217,17 @@ function validateMcpStdio(name, server, pluginRoot) {
   }
   const lines = (result.stdout || '').trim().split('\n').filter(Boolean);
   let initializeOk = false;
+  let hostInstructionsOk = name !== 'simflow_state';
   let toolsOk = false;
   for (const line of lines) {
     try {
       const response = JSON.parse(line);
       if (response.id === 1 && response.result?.serverInfo?.name === name) {
         initializeOk = true;
+        if (name === 'simflow_state') {
+          hostInstructionsOk = typeof response.result?.instructions === 'string'
+            && response.result.instructions.includes('/simflow:simflow');
+        }
       }
       if (response.id === 2 && Array.isArray(response.result?.tools) && response.result.tools.length > 0) {
         toolsOk = true;
@@ -232,6 +237,7 @@ function validateMcpStdio(name, server, pluginRoot) {
     }
   }
   check(`${name} MCP initialize response is valid`, initializeOk);
+  check(`${name} MCP host instructions match Claude Code`, hostInstructionsOk);
   check(`${name} MCP tools/list returns tools`, toolsOk);
 }
 

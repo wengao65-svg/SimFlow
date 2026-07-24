@@ -87,7 +87,7 @@
       "type": "integer",
       "minimum": 0,
       "default": 1,
-      "description": "Minimum number of MCP tool calls required when this skill is loaded. 0 means no MCP engagement required (documentation-only skill)."
+      "description": "Declarative routing guidance for minimum MCP engagement. Runtime enforcement applies to protected MCP writes and does not depend on observable skill-load events."
     },
     "task_shapes": {
       "type": "array",

@@ -87,6 +87,17 @@ def test_router_skill_has_quick_start_section():
     assert "orphan_compute_scanner" in skill
 
 
+def test_router_contract_declares_host_adaptation_without_skill_load_hooks():
+    contract = json.loads(
+        (ROOT / "skills" / "simflow" / "router_contract.json").read_text()
+    )
+    policy = contract["host_adaptation_policy"]
+    assert policy["signal"] == "mcp_initialize_client_info"
+    assert policy["skill_load_hooks_required"] is False
+    assert policy["supported_profiles"] == ["codex", "claude_code", "generic"]
+    assert "engagement_prerequisites" in policy["host_invariant_behavior"]
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))

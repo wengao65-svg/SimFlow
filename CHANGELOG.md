@@ -219,6 +219,46 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
   verification fields
 - Full suite: 888 passed, 7 skipped, 0 failed
 
+### Phase 5 — P7.3 Host Adaptation + State Repair
+
+#### P7.3 — MCP clientInfo host adaptation
+- New shared `host_adaptation.py` detects Codex, Claude Code, or generic MCP
+  clients from the standard initialize handshake
+- `simflow_state` emits host-specific invocation guidance while preserving
+  identical project-root, engagement, artifact, checkpoint, and safety rules
+- No skill-load hook, transcript access, cwd inference, or host-specific
+  workflow implementation is required
+- Codex and Claude plugin validators now verify their matching initialization
+  guidance
+
+#### repair_state audit/apply
+- New `simflow_state/repair_state` tool defaults to strictly read-only audit
+- Apply mode requires prior `read_state`, rejects thresholds at or below 0.8,
+  re-audits immediately, and creates a full `.simflow` backup
+- Safe repairs include workflow IDs, lineage-node projections, canonical stage
+  declarations and outputs, live path casing, known checkpoint statuses and
+  recoverability, workflow activity state, and summary projection
+- Scientific completion, unknown lineage parents, historical workflow IDs,
+  checkpoint snapshots, checksums, jobs, and gates remain unchanged
+- Backup uses byte-copy semantics compatible with DrvFS and cleans incomplete
+  backups after failure
+
+#### Authorized project repairs
+- `/mnt/d/PEE_NEP`: applied 444 high-confidence repairs across two backed-up
+  passes; retained 267
+  provenance/custom-stage findings as audit-only; 200 artifacts and lineage
+  nodes now align with workflow and stage outputs
+- `/mnt/d/Li-O-B-Si`: re-audited immediately before apply and repaired the
+  then-current 23 artifacts and 6 checkpoints, including path-case correction
+- Both projects preserve checkpoint snapshots byte-semantically and produce
+  repair reports plus complete pre-repair backups
+
+### Phase 5 Test Coverage
+- 19 net new tests for repair planning/apply, rollback and conflict handling,
+  production stdio engagement, host detection, initialization guidance, and
+  router policy
+- Full suite: 907 passed, 7 skipped, 0 failed
+
 ## Unreleased (previous)
 
 ### Fixed

@@ -31,6 +31,7 @@ from tools.orphan_compute_scanner import execute as orphan_compute_scanner
 from tools.record_user_override import execute as record_user_override
 from tools.session_handoff import execute as session_handoff
 from tools.record_stage_failure import execute as record_stage_failure
+from tools.repair_state import execute as repair_state
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -49,14 +50,15 @@ TOOLS = {
     "record_user_override": record_user_override,
     "session_handoff": session_handoff,
     "record_stage_failure": record_stage_failure,
+    "repair_state": repair_state,
 }
 
 TOOL_DESCRIPTIONS = {
-    "read_state": "Read a SimFlow workflow state file.",
+    "read_state": "Start here for an existing project: read a SimFlow workflow state file.",
     "write_state": "Write a SimFlow workflow state file.",
     "init_workflow": "Initialize a SimFlow workflow state tree.",
     "update_stage": "Update the current SimFlow stage status.",
-    "workflow_status": "Build a read-only SimFlow project status summary.",
+    "workflow_status": "Start here for an existing project: build a read-only status summary and bootstrap engagement.",
     "evidence_graph": "Build a read-only SimFlow artifact evidence graph.",
     "handoff_summary": "Build a compact read-only SimFlow handoff summary.",
     "stage_readiness": "Build a read-only readiness diagnostic for one SimFlow stage.",
@@ -67,6 +69,7 @@ TOOL_DESCRIPTIONS = {
     "record_user_override": "Record a user-approved gate bypass/override decision in gates.json.",
     "session_handoff": "Generate a session-level handoff report with state, warnings, and next steps.",
     "record_stage_failure": "Record an error report, failure artifacts, failed state, and failure checkpoint.",
+    "repair_state": "Audit state inconsistencies or apply backed-up repairs above a confidence threshold.",
 }
 
 TOOL_SCHEMAS = {
@@ -271,6 +274,16 @@ TOOL_SCHEMAS = {
         },
         "additionalProperties": False,
     },
+    "repair_state": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "mode": {"type": "string", "enum": ["audit", "apply"], "default": "audit"},
+            "min_confidence": {"type": "number", "exclusiveMinimum": 0.8, "default": 0.81},
+        },
+        "additionalProperties": False,
+    },
 }
 
 
@@ -300,12 +313,15 @@ def handle_request(request: dict) -> dict:
             EXEMPT_TOOLS,
         )
         full_tool_name = f"simflow_state/{tool}"
+        if tool == "repair_state":
+            full_tool_name += f".{str(params.get('mode', 'audit')).strip().lower()}"
+        repair_audit = full_tool_name == "simflow_state/repair_state.audit"
 
         # P3.1: Auto-read_state for first-call to read-only tools
         # If no prior session exists and this is a read-only tool (not read_state
         # itself, not a state-write tool), auto-record read_state to bootstrap
         # the session. This satisfies the prerequisite for future state-write calls.
-        if full_tool_name in EXEMPT_TOOLS and tool not in ("read_state", "init_workflow"):
+        if full_tool_name in EXEMPT_TOOLS and tool not in ("read_state", "init_workflow", "repair_state"):
             status = get_engagement_status(project_root)
             if not status.get("has_session"):
                 # No prior engagement — auto-record read_state
@@ -326,7 +342,8 @@ def handle_request(request: dict) -> dict:
                 "session_start": violation.session_start,
             }
         # Record the tool call after prerequisite check passes
-        record_tool_call(full_tool_name, project_root)
+        if not repair_audit:
+            record_tool_call(full_tool_name, project_root)
 
     try:
         return TOOLS[tool](params)
@@ -335,4 +352,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("simflow_state", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)
+    run_mcp_server("simflow_state", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS, request_handler=handle_request)

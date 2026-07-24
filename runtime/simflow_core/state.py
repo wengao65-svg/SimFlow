@@ -241,13 +241,23 @@ def _backup_simflow_tree(root: Path) -> Optional[Path]:
         backup_path = backup_root / f"{timestamp}_{counter:02d}"
         counter += 1
 
-    def _ignore_backups(directory, names):
-        # Skip the backups subdirectory during copy to avoid recursion.
-        if Path(directory).name == SIMFLOW_DIR and "backups" in names:
-            return ["backups"]
-        return []
-
-    shutil.copytree(sf, backup_path, dirs_exist_ok=False, ignore=_ignore_backups)
+    backup_path.mkdir(parents=True, exist_ok=False)
+    try:
+        for source in sorted(sf.rglob("*")):
+            relative = source.relative_to(sf)
+            if relative.parts and relative.parts[0] == "backups":
+                continue
+            destination = backup_path / relative
+            if source.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+            elif source.is_file():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                # Copy bytes only. DrvFS and other mounted filesystems may not
+                # support POSIX ownership/permission metadata used by copy2.
+                shutil.copyfile(source, destination)
+    except Exception:
+        shutil.rmtree(backup_path, ignore_errors=True)
+        raise
     return backup_path
 
 

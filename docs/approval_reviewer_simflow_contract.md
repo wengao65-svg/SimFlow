@@ -84,18 +84,21 @@ historical checkpoints have this issue, recommend running `repair_state`.
 - **P2.3 (record_user_override)**: Implemented — records gate bypasses
 - **P2.4 (gate_decision_id enforcement)**: Implemented — blocks job records
   without gate approval
+- **repair_state (Phase 5)**: Implemented — read-only audit plus backed-up,
+  confidence-gated structural repair
+- **P7.3 host adaptation**: Implemented through MCP `clientInfo`; invocation
+  guidance adapts without requiring skill-load telemetry
 - **Signal 1 (cargo-cult detection)**: Not yet automated — requires Codex/
   Claude Code platform to expose skill-load events to SimFlow
 - **Signal 3-6**: Detectable via existing SimFlow tools but not yet
   integrated into reviewer workflow
 
-## Future: Platform Integration
+## Platform Telemetry Boundary
 
-If Codex/Claude Code provides skill-load hooks in the future, SimFlow
-can implement Signal 1 (cargo-cult detection) automatically. Until then,
-the engagement contract (P0.7) serves as an indirect enforcement — agents
-that load skills but don't call MCP tools will be blocked when they try
-to write state.
+SimFlow does not require Codex/Claude Code skill-load hooks. MCP `clientInfo`
+supports host-specific discovery guidance, while the engagement contract
+enforces state discipline. Direct skill-load counting remains unavailable
+unless a host explicitly exposes that telemetry in the future.
 
 ## Reviewer Rationale Template
 
@@ -116,5 +119,5 @@ When reviewing actions in a SimFlow project, the reviewer should include:
 }
 ```
 
-This is a specification document, not yet implemented in the reviewer
-subsystem. Implementation depends on Codex/Claude Code platform support.
+The rationale shape remains reviewer guidance. Structural signals are available
+through SimFlow state tools; direct skill-load counts remain host-dependent.

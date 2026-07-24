@@ -244,5 +244,17 @@
         "example_triggers": ["文献", "literature", "search", "DOI", "reference"]
       }
     }
+  },
+  "host_adaptation_policy": {
+    "signal": "mcp_initialize_client_info",
+    "skill_load_hooks_required": false,
+    "supported_profiles": ["codex", "claude_code", "generic"],
+    "host_specific_behavior": ["invocation_syntax", "discovery_guidance"],
+    "host_invariant_behavior": [
+      "project_root_boundary",
+      "engagement_prerequisites",
+      "artifact_and_checkpoint_semantics",
+      "safety_gates"
+    ]
   }
 }

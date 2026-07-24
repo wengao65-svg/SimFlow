@@ -99,4 +99,4 @@ def handle_request(request: dict) -> dict:
 
 
 if __name__ == "__main__":
-    run_mcp_server("checkpoint_store", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS)
+    run_mcp_server("checkpoint_store", TOOLS, TOOL_DESCRIPTIONS, TOOL_SCHEMAS, request_handler=handle_request)

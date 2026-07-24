@@ -22,13 +22,16 @@ SERVERS = [
 ]
 
 
-def _mcp_payload() -> str:
+def _mcp_payload(client_name: str | None = None) -> str:
+    initialize_params = {"protocolVersion": "2024-11-05"}
+    if client_name:
+        initialize_params["clientInfo"] = {"name": client_name, "version": "test"}
     return "\n".join([
         json.dumps({
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05"},
+            "params": initialize_params,
         }),
         json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}),
         json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
@@ -40,13 +43,14 @@ def _mcp_payload() -> str:
 def _run_from_non_plugin_cwd(
     server_name: str,
     env: dict[str, str] | None = None,
+    client_name: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     with tempfile.TemporaryDirectory() as tmpdir:
         return subprocess.run(
             [sys.executable, str(STARTER), server_name],
             cwd=tmpdir,
             env=env,
-            input=_mcp_payload(),
+            input=_mcp_payload(client_name),
             text=True,
             capture_output=True,
             timeout=5,
@@ -78,6 +82,68 @@ def test_stdio_schema_fallback_is_strict():
         "additionalProperties": False,
         "properties": {},
     }
+
+
+def test_state_server_initialization_adapts_to_mcp_client_info():
+    codex = _run_from_non_plugin_cwd("simflow_state", client_name="codex-cli")
+    claude = _run_from_non_plugin_cwd("simflow_state", client_name="claude-code")
+    generic = _run_from_non_plugin_cwd("simflow_state", client_name="other")
+
+    codex_result = json.loads(codex.stdout.splitlines()[0])["result"]
+    claude_result = json.loads(claude.stdout.splitlines()[0])["result"]
+    generic_result = json.loads(generic.stdout.splitlines()[0])["result"]
+    assert "$simflow" in codex_result["instructions"]
+    assert "/simflow:simflow" in claude_result["instructions"]
+    assert "$simflow" not in generic_result["instructions"]
+
+
+def test_non_state_server_does_not_duplicate_host_instructions():
+    result = _run_from_non_plugin_cwd("artifact_store", client_name="codex-cli")
+    initialize = json.loads(result.stdout.splitlines()[0])["result"]
+    assert "instructions" not in initialize
+
+
+def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():
+    from runtime.simflow_core.state import init_workflow
+
+    with tempfile.TemporaryDirectory() as project_root, tempfile.TemporaryDirectory() as cwd:
+        init_workflow("custom", "computation", project_root=project_root)
+        payload = "\n".join([
+            json.dumps({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "clientInfo": {"name": "codex-cli", "version": "test"},
+                },
+            }),
+            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}),
+            json.dumps({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "repair_state",
+                    "arguments": {"project_root": project_root, "mode": "apply"},
+                },
+            }),
+            json.dumps({"jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": {}}),
+            "",
+        ])
+        result = subprocess.run(
+            [sys.executable, str(STARTER), "simflow_state"],
+            cwd=cwd,
+            input=payload,
+            text=True,
+            capture_output=True,
+            timeout=5,
+        )
+
+    responses = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    tool_text = responses[1]["result"]["content"][0]["text"]
+    tool_result = json.loads(tool_text)
+    assert tool_result["code"] == "skill_engagement_contract_violation"
 
 
 def test_mcp_startup_prefers_repo_package_when_third_party_mcp_exists():

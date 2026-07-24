@@ -65,6 +65,8 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["record_stage_failure"]["required"] == ["project_root", "stage_name", "message"]
+    assert schemas["repair_state"]["required"] == ["project_root"]
+    assert schemas["repair_state"]["properties"]["mode"]["enum"] == ["audit", "apply"]
     assert schemas["write_state"]["additionalProperties"] is False
     assert schemas["workflow_status"]["additionalProperties"] is False
     assert schemas["evidence_graph"]["additionalProperties"] is False
@@ -73,6 +75,7 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["record_computation_evidence"]["additionalProperties"] is False
     assert schemas["record_analysis_evidence"]["additionalProperties"] is False
     assert schemas["record_stage_failure"]["additionalProperties"] is False
+    assert schemas["repair_state"]["additionalProperties"] is False
 
 
 def test_record_stage_failure_requires_engagement_then_records_complete_failure():
@@ -110,6 +113,50 @@ def test_record_stage_failure_requires_engagement_then_records_complete_failure(
         assert result["status"] == "error"
         assert result["failure_checkpoint_id"].startswith("ckpt_")
         assert read_state(project_root=tmpdir, state_file="workflow.json")["status"] == "failed"
+
+
+def test_repair_state_audit_is_read_only_and_apply_requires_engagement():
+    from runtime.simflow_core.state import init_workflow, write_state
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workflow = init_workflow("custom", "computation", project_root=tmpdir)
+        write_state([{
+            "artifact_id": "art_12345678",
+            "name": "result.dat",
+            "type": "output",
+            "version": "v1.0.0",
+            "stage": "computation",
+            "path": None,
+            "lineage": {"parent_artifacts": [], "parameters": {}, "software": None},
+            "metadata": {},
+            "checksum": None,
+            "created_at": workflow["created_at"],
+        }], project_root=tmpdir, state_file="artifacts.json")
+
+        audit = server.handle_request({
+            "tool": "repair_state",
+            "params": {"project_root": tmpdir, "mode": "audit"},
+        })
+        assert audit["status"] == "success"
+        assert not (Path(tmpdir) / ".simflow" / "state" / "mcp_engagement_log.jsonl").exists()
+
+        blocked = server.handle_request({
+            "tool": "repair_state",
+            "params": {"project_root": tmpdir, "mode": "apply"},
+        })
+        assert blocked["code"] == "skill_engagement_contract_violation"
+
+        server.handle_request({
+            "tool": "read_state",
+            "params": {"project_root": tmpdir, "file": "workflow.json"},
+        })
+        applied = server.handle_request({
+            "tool": "repair_state",
+            "params": {"project_root": tmpdir, "mode": "apply"},
+        })
+        assert applied["status"] == "success"
+        assert applied["data"]["changed"] is True
 
 
 def test_state_init_via_runtime():

@@ -21,6 +21,10 @@ SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
 language that triggers a SimFlow skill. In Claude Code, use namespaced skills
 such as `/simflow:simflow`.
 
+During MCP initialization, SimFlow uses standard client information to present
+the matching invocation syntax. This affects discovery guidance only; workflow
+state, safety, and evidence rules are identical across hosts.
+
 Legacy runtime CLI scripts have been removed from the packaged source. User
 work should enter through skills and, when needed, MCP/runtime helpers that
 write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
@@ -40,6 +44,12 @@ Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`
 must not be treated as approval. If the user explicitly accepts the risk,
 record that decision with `record_user_override` and preserve the original gate
 failure reference.
+
+If historical state is inconsistent, run `repair_state` in `audit` mode first.
+Apply mode re-audits immediately, backs up the full `.simflow/` tree, and only
+applies structural repairs above the confidence threshold. Scientific status,
+unknown provenance, checkpoint snapshots, jobs, and gates are not inferred or
+rewritten.
 
 ## Canonical Stages
 

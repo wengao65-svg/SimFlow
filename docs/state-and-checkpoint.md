@@ -93,6 +93,13 @@ Do not automatically restore the latest checkpoint by creation time: the newest
 checkpoint may be a diagnostic failure snapshot. A checkpoint marked
 `recoverable=false` is never restorable.
 
+For historical projects, `repair_state audit` reports stale summaries, missing
+lineage nodes, stage-output gaps, legacy checkpoint statuses, and safe path-case
+corrections without writing files. `repair_state apply` requires prior state
+engagement, creates `.simflow/backups/<timestamp>/`, preserves checkpoint
+snapshots, and writes a machine-readable report under
+`.simflow/reports/repair_state/`.
+
 ## State Schema
 
 Workflow state follows `schemas/state.schema.json`. Projects use canonical

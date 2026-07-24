@@ -76,6 +76,11 @@ Codex and Claude marketplace branches are the current user-facing distribution
 channels. PyPI is not the primary user install path until a package has been
 published and install-smoked.
 
+Host adaptation uses standard MCP `clientInfo` to tailor discovery and
+invocation guidance. SimFlow does not observe host transcripts or skill-load
+events, and it does not use host-specific hooks to alter workflow or safety
+semantics.
+
 ## Scientific Responsibility
 
 SimFlow records evidence, lineage, checkpoints, safety gates, and handoff

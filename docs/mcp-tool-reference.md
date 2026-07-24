@@ -15,6 +15,7 @@ same session before the write is accepted.
 | `simflow_state/orphan_compute_scanner` | Find unregistered calculation directories | Reports risky names such as `NoGate`, `Bypass`, and `SkipGate` |
 | `simflow_state/record_user_override` | Record an explicitly approved bypass | Requires approver context and a risk note |
 | `simflow_state/record_stage_failure` | Persist a stage failure | Writes sanitized log/report artifacts, failed state, fail verification, and a diagnostic checkpoint |
+| `simflow_state/repair_state` | Audit or repair inconsistent state | `audit` is read-only; `apply` requires engagement, confidence above 0.8, and creates a full backup |
 | `simflow_state/session_handoff` | Generate a re-entry summary | Writes `.simflow/reports/session_handoff_<timestamp>.md` |
 
 ## Artifacts
@@ -49,3 +50,10 @@ Protected writes return `skill_engagement_contract_violation` until
 call may bootstrap that read automatically. Protected writes never auto-grant
 their own prerequisite. The session timeout defaults to 30 minutes and is
 configured by `SIMFLOW_SESSION_TIMEOUT_MIN`.
+
+`repair_state` defaults to `audit`. Apply mode only repairs structural metadata
+with confidence at or above the requested threshold: workflow identity fields,
+lineage projections, stage declarations/outputs, known checkpoint status and
+recoverability, canonical live-path casing, and summary projection. It does not
+rewrite checkpoint snapshots, recompute scientific checksums, infer scientific
+completion, or fabricate missing lineage parents.

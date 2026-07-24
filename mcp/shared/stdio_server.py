@@ -8,6 +8,8 @@ import json
 import sys
 from typing import Callable, Dict, Optional
 
+from runtime.simflow_core.host_adaptation import build_initialize_instructions
+
 
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
@@ -62,14 +64,23 @@ def _list_tools(
     ]
 
 
-def _call_tool(tools: Dict[str, Callable], params: dict) -> dict:
+def _call_tool(
+    tools: Dict[str, Callable],
+    params: dict,
+    request_handler: Optional[Callable[[dict], dict]] = None,
+) -> dict:
     name = params.get("name")
     arguments = params.get("arguments", {})
     if not name:
         raise ValueError("tools/call requires params.name")
     if name not in tools:
         raise KeyError(f"Unknown tool: {name}")
-    result = tools[name](arguments if isinstance(arguments, dict) else {})
+    tool_arguments = arguments if isinstance(arguments, dict) else {}
+    result = (
+        request_handler({"tool": name, "params": tool_arguments})
+        if request_handler is not None
+        else tools[name](tool_arguments)
+    )
     is_error = isinstance(result, dict) and result.get("status") == "error"
     return {
         "content": [{"type": "text", "text": _json_text(result)}],
@@ -83,6 +94,7 @@ def run_mcp_server(
     descriptions: Optional[Dict[str, str]] = None,
     schemas: Optional[Dict[str, dict]] = None,
     version: str = "0.8.1",
+    request_handler: Optional[Callable[[dict], dict]] = None,
 ) -> None:
     """Run a JSON-RPC stdio MCP server.
 
@@ -110,7 +122,12 @@ def run_mcp_server(
                 if tool_name not in tools:
                     legacy_result = {"status": "error", "message": f"Unknown tool: {tool_name}"}
                 else:
-                    legacy_result = tools[tool_name](params if isinstance(params, dict) else {})
+                    tool_params = params if isinstance(params, dict) else {}
+                    legacy_result = (
+                        request_handler({"tool": tool_name, "params": tool_params})
+                        if request_handler is not None
+                        else tools[tool_name](tool_params)
+                    )
             except Exception as exc:
                 legacy_result = {"status": "error", "message": str(exc)}
             _write(legacy_result)
@@ -127,16 +144,22 @@ def run_mcp_server(
         try:
             if method == "initialize":
                 client_version = None
+                client_info = None
                 if isinstance(params, dict):
                     client_version = params.get("protocolVersion")
+                    client_info = params.get("clientInfo")
+                result = {
+                    "protocolVersion": client_version or DEFAULT_PROTOCOL_VERSION,
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": {"name": server_name, "version": version},
+                }
+                instructions = build_initialize_instructions(server_name, client_info)
+                if instructions:
+                    result["instructions"] = instructions
                 _write(
                     _success_response(
                         request_id,
-                        {
-                            "protocolVersion": client_version or DEFAULT_PROTOCOL_VERSION,
-                            "capabilities": {"tools": {"listChanged": False}},
-                            "serverInfo": {"name": server_name, "version": version},
-                        },
+                        result,
                     )
                 )
             elif method == "ping":
@@ -147,7 +170,14 @@ def run_mcp_server(
             elif method == "tools/list":
                 _write(_success_response(request_id, {"tools": _list_tools(tools, descriptions, schemas)}))
             elif method == "tools/call":
-                _write(_success_response(request_id, _call_tool(tools, params if isinstance(params, dict) else {})))
+                _write(_success_response(
+                    request_id,
+                    _call_tool(
+                        tools,
+                        params if isinstance(params, dict) else {},
+                        request_handler=request_handler,
+                    ),
+                ))
             elif method == "resources/list":
                 _write(_success_response(request_id, {"resources": []}))
             elif method == "prompts/list":
