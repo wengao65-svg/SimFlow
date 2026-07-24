@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased — v0.9.0-dev (Audit Remediation Phase 1)
+## Unreleased — v0.9.0-dev (Audit Remediation Phase 1 + Phase 2)
 
-Phase 1 of the audit-remediation development plan. Addresses 7 P0 blocking
+Phase 1 (P0 blocking fixes) + Phase 2 (P1 state automation + P2 anti-bypass).
 issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 (91 session transcripts + state files + code verification).
 
@@ -68,6 +68,72 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 - 2 existing tests updated for new mock-fallback behavior
 - 2 existing tests updated for engagement contract (added read_state calls)
 - Full suite: 823 passed, 7 skipped, 0 failed
+
+### Phase 2 — P1 State Automation + P2 Anti-Bypass
+
+#### P1.1+P1.5 — touch_workflow auto-refresh
+- New `touch_workflow()` helper refreshes workflow.json.updated_at,
+  summary.json.updated_at, and regenerates status_summary.md with live
+  counts (artifacts, checkpoints, gates, jobs) and stage statuses
+- Integrated into `update_stage()`, `create_checkpoint()`, `register_artifact()`
+- Fixes: S6->S14 cross-session amnesia (summary.json 4 days stale)
+
+#### P1.2 — Checkpoint auto-upsert stage
+- `create_checkpoint` auto-creates canonical stage records in stages.json
+  if they don't exist yet (e.g., computation stage referenced but never
+  declared via update_stage)
+- Fixes: PEE_NEP computation stage missing from stages.json despite 3
+  checkpoints, 4 gates, 2 jobs referencing it
+
+#### P1.3 — Snapshot completeness enforcement
+- `create_checkpoint` rejects empty or incomplete state_snapshot for
+  non-failure checkpoints (requires workflow.json + stages.json)
+- Failure checkpoints are exempt
+- Fixes: PEE_NEP ckpt_022-024 had no state_snapshot (unrecoverable)
+
+#### P1.4 — Stage_id validation
+- Rejects non-canonical undeclared stage_ids with clear error message
+- Canonical stages always accepted; custom stages must be declared via
+  `update_stage()` first
+- Failure checkpoints exempt (with UserWarning)
+- Fixes: PEE_NEP 7/24 checkpoints with ad-hoc stage_ids
+
+#### P2.1 — orphan_compute_scanner MCP tool
+- Scans project_root for compute directories not in jobs.json/artifacts.json
+- Detects VASP (OUTCAR), CP2K, GPUMD/NEP (nep.in+train.xyz), SLURM
+  (slurm-*.out), LAMMOS markers
+- Flags risky directory names (NoGate, Relaxed, Bypass, SkipGate)
+- Writes .simflow/reports/orphan_compute_audit.md
+
+#### P2.2 — Risky directory detection
+- orphan_compute_scanner flags directories with NoGate/Relaxed/Bypass/
+  SkipGate patterns
+- Detects LBS NoHighTGate bypass directory
+
+#### P2.3 — record_user_override MCP tool
+- Records user-approved gate bypasses in gates.json with
+  decision='user_override'
+- Required fields: gate_id, approver_context, risk_note
+- Appends to existing gates (does not overwrite)
+- Rejects duplicate gate_id
+
+#### P2.4 — record_submit_job gate enforcement
+- `record_submit_job` now requires gate_decision_id from approved gate
+- Verifies gate exists in gates.json
+- User overrides allowed via user_override=True + override_gate_id
+- Override gate must have decision='user_override' in gates.json
+
+#### P2.5 — Approval reviewer discipline contract
+- New docs/approval_reviewer_simflow_contract.md specification
+- Defines 6 signals reviewers should check (cargo-cult, state-write
+  without read, unregistered compute, risky dirs, stale state, missing
+  stages)
+- Includes reviewer rationale template
+
+### Phase 2 Test Coverage
+- 36 new tests across 5 test files
+- 3 existing tests updated for stage_id canonical naming
+- Full suite: 859 passed, 7 skipped, 0 failed
 
 ## Unreleased (previous)
 
