@@ -21,13 +21,13 @@ class TestCheckpoint:
     def setup_method(self):
         self.tmpdir = tempfile.mkdtemp()
         self.base_dir = self.tmpdir
-        init_workflow("dft", "literature", self.base_dir)
+        init_workflow("dft", "literature_review", self.base_dir)
 
     def teardown_method(self):
         shutil.rmtree(self.tmpdir)
 
     def test_create_checkpoint(self):
-        ckpt = create_checkpoint("wf_test1234", "literature", "After literature", self.base_dir)
+        ckpt = create_checkpoint("wf_test1234", "literature_review", "After literature", self.base_dir)
         assert ckpt["checkpoint_id"].startswith("ckpt_")
         assert ckpt["workflow_id"] == "wf_test1234"
         assert ckpt["status"] == "success"
@@ -58,27 +58,27 @@ class TestCheckpoint:
         )
 
     def test_list_checkpoints(self):
-        create_checkpoint("wf_test", "literature", "First", self.base_dir)
-        create_checkpoint("wf_test", "review", "Second", self.base_dir)
+        create_checkpoint("wf_test", "literature_review", "First", self.base_dir)
+        create_checkpoint("wf_test", "writing", "Second", self.base_dir)
         ckpts = list_checkpoints(self.base_dir)
         assert len(ckpts) == 2
 
     def test_restore_checkpoint(self):
-        create_checkpoint("wf_test", "literature", "Save point", self.base_dir)
+        create_checkpoint("wf_test", "literature_review", "Save point", self.base_dir)
         ckpts = list_checkpoints(self.base_dir)
         restored = restore_checkpoint(ckpts[0]["checkpoint_id"], self.base_dir)
         assert restored["checkpoint_id"] == ckpts[0]["checkpoint_id"]
         assert restored["simflow_result"]["activity"] == "restore_checkpoint"
 
     def test_get_latest_checkpoint(self):
-        create_checkpoint("wf_test", "literature", "First", self.base_dir)
-        create_checkpoint("wf_test", "review", "Second", self.base_dir)
+        create_checkpoint("wf_test", "literature_review", "First", self.base_dir)
+        create_checkpoint("wf_test", "writing", "Second", self.base_dir)
         latest = get_latest_checkpoint(self.base_dir)
-        assert latest["stage_id"] == "review"
+        assert latest["stage_id"] == "writing"
 
     def test_create_checkpoint_rejects_noncanonical_status(self):
         with pytest.raises(ValueError):
-            create_checkpoint("wf_test1234", "literature", "After literature", self.base_dir, status="warning")
+            create_checkpoint("wf_test1234", "literature_review", "After literature", self.base_dir, status="warning")
 
     def test_create_checkpoint_snapshots_stage_state_with_own_checkpoint_id(self):
         update_stage(

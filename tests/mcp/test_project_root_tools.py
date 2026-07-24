@@ -52,7 +52,7 @@ def test_checkpoint_store_uses_project_root_with_existing_omx():
         result = create.execute({
             "project_root": tmpdir,
             "workflow_id": "wf_test",
-            "stage_id": "input_generation",
+            "stage_id": "computation",
             "description": "checkpoint from project root",
         })
         listed = list_tool.execute({"project_root": tmpdir})
