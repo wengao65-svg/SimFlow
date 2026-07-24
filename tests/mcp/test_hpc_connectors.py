@@ -12,10 +12,35 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]  # tests/mcp/ -> simflow/
+HPC_DIR = ROOT / "mcp" / "servers" / "hpc"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
-sys.path.insert(0, str(ROOT / "mcp" / "servers" / "hpc"))
+sys.path.insert(0, str(HPC_DIR))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_hpc_modules():
+    """Purge cached 'connectors' and 'server' modules, re-prioritize hpc path."""
+    to_remove = [
+        k for k in list(sys.modules)
+        if k == "connectors" or k.startswith("connectors.") or k == "server"
+    ]
+    for k in to_remove:
+        del sys.modules[k]
+    hpc_dir_str = str(HPC_DIR)
+    if hpc_dir_str in sys.path:
+        sys.path.remove(hpc_dir_str)
+    sys.path.insert(0, hpc_dir_str)
+    yield
+    to_remove = [
+        k for k in list(sys.modules)
+        if k == "connectors" or k.startswith("connectors.") or k == "server"
+    ]
+    for k in to_remove:
+        del sys.modules[k]
 
 
 def test_local_connector_dry_run_accepts_three_args():

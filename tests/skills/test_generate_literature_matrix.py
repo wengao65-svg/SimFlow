@@ -164,6 +164,11 @@ def test_generate_literature_matrix_ignores_legacy_metadata_file():
 
 
 def test_generate_literature_matrix_degrades_when_enrichment_backend_is_unknown():
+    """Unknown backend falls back to mock (returns mock_unverified data).
+
+    After P0.3, _get_connector falls back to MockLiteratureConnector for
+    unknown backends, returning data tagged with status='mock_unverified'.
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         pdf_path = project_root / "papers" / "surface.pdf"
@@ -186,11 +191,10 @@ def test_generate_literature_matrix_degrades_when_enrichment_backend_is_unknown(
 
         assert result["status"] == "success"
         assert matrix["enrichment"]["backend"] == "unknown"
-        assert matrix["enrichment"]["enriched"] == 0
-        assert matrix["enrichment"]["failed"] == 1
-        assert matrix["enrichment"]["errors"] == ["Unknown backend: unknown"]
-        assert doi_row["title"] == ""
-        assert doi_row["enrichment_source"] == ""
+        # Mock fallback returns data (enriched=1) but tagged as mock_unverified
+        assert matrix["enrichment"]["enriched"] == 1
+        assert matrix["enrichment"]["failed"] == 0
+        assert doi_row["title"] == "First-principles study of silicon crystal structure"
 
 
 

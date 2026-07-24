@@ -15,10 +15,44 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-ROOT = Path(__file__).resolve().parents[2]  # tests/mcp/ -> simflow/
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+LIT_DIR = ROOT / "mcp" / "servers" / "literature"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
-sys.path.insert(0, str(ROOT / "mcp" / "servers" / "literature"))
+sys.path.insert(0, str(LIT_DIR))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_literature_modules():
+    """Ensure each test imports from the literature server, not cached modules.
+
+    When the full test suite runs, other MCP servers (structure, hpc) may have
+    already cached their 'connectors' and 'server' modules in sys.modules.
+    This fixture purges those caches and re-prioritizes the literature server
+    in sys.path before each test.
+    """
+    # Purge cached modules
+    to_remove = [
+        k for k in list(sys.modules)
+        if k == "connectors" or k.startswith("connectors.") or k == "server"
+    ]
+    for k in to_remove:
+        del sys.modules[k]
+    # Ensure literature server is at the FRONT of sys.path
+    lit_dir_str = str(LIT_DIR)
+    if lit_dir_str in sys.path:
+        sys.path.remove(lit_dir_str)
+    sys.path.insert(0, lit_dir_str)
+    yield
+    # Clean up after test
+    to_remove = [
+        k for k in list(sys.modules)
+        if k == "connectors" or k.startswith("connectors.") or k == "server"
+    ]
+    for k in to_remove:
+        del sys.modules[k]
 
 
 def test_mock_connector_tags_results_as_unverified():

@@ -68,6 +68,33 @@ def is_plugin_root(path: str | Path) -> bool:
     )
 
 
+def _normalize_path_case(resolved: Path) -> Path:
+    """Normalize path case to match the actual filesystem casing.
+
+    On case-insensitive filesystems (e.g. WSL /mnt/d/ DrvFs), Path.resolve()
+    preserves the input casing rather than the disk's actual casing. This
+    function uses os.path.realpath() to obtain the real disk casing and
+    returns it. On case-sensitive filesystems the result is identical to
+    the input.
+
+    Issues a UserWarning when the casing is corrected, so callers can log
+    the normalization for audit purposes.
+    """
+    try:
+        real = Path(os.path.realpath(str(resolved)))
+    except OSError:
+        return resolved
+    if str(real) != str(resolved) and real.exists():
+        import warnings
+        warnings.warn(
+            f"project_root casing normalized: {resolved} -> {real}",
+            UserWarning,
+            stacklevel=3,
+        )
+        return real
+    return resolved
+
+
 def resolve_project_root(
     project_root: Optional[str] = None,
     base_dir: Optional[str] = None,
@@ -78,11 +105,16 @@ def resolve_project_root(
 
     plugin_root is only for importing SimFlow code. project_root is the user's
     working project and is the only valid root for workflow state.
+
+    Path casing is normalized to match the actual filesystem on
+    case-insensitive mounts (e.g. WSL /mnt/d/), preventing state
+    inconsistencies like /mnt/d/li-o-b-si vs /mnt/d/Li-O-B-Si.
     """
     candidate = project_root if project_root is not None else base_dir
     if candidate is None:
         candidate = "."
     resolved = Path(candidate).expanduser().resolve()
+    resolved = _normalize_path_case(resolved)
     if reject_plugin_root and is_plugin_root(resolved):
         raise ProjectRootError(
             "Refusing to use the SimFlow plugin root/cache as project_root. "

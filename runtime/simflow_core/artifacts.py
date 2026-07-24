@@ -21,6 +21,41 @@ def _compute_checksum(file_path: str) -> str:
     return h.hexdigest()
 
 
+def _compute_directory_tree_hash(dir_path: Path) -> tuple[str, dict]:
+    """Compute a tree hash for a directory and collect file statistics.
+
+    Walks the directory recursively, sorts file paths, computes SHA256 for
+    each file, concatenates all hashes, and computes a final SHA256 of the
+    concatenation. Returns (tree_hash, stats_dict).
+
+    stats_dict contains:
+    - file_count: number of files
+    - total_size_bytes: total size of all files
+    - file_hashes: list of {path, sha256, size} for each file
+    """
+    file_entries = []
+    total_size = 0
+    for path in sorted(dir_path.rglob("*")):
+        if path.is_file():
+            sha = _compute_checksum(str(path))
+            size = path.stat().st_size
+            total_size += size
+            rel_path = str(path.relative_to(dir_path))
+            file_entries.append({"path": rel_path, "sha256": sha, "size": size})
+
+    h = hashlib.sha256()
+    for entry in file_entries:
+        h.update(entry["sha256"].encode("utf-8"))
+    tree_hash = h.hexdigest()
+
+    stats = {
+        "file_count": len(file_entries),
+        "total_size_bytes": total_size,
+        "file_hashes": file_entries,
+    }
+    return tree_hash, stats
+
+
 def _read_artifacts(base_dir: str = ".", project_root: Optional[str] = None) -> list:
     """Read the artifacts registry."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
@@ -66,12 +101,25 @@ def register_artifact(
     major = len(existing) + 1
     version = f"v{major}.0.0"
 
-    # Compute checksum if file exists
+    # Compute checksum if path exists (file or directory)
     checksum = None
+    artifact_metadata = metadata or {}
     if path:
         artifact_path = Path(path)
         full_path = artifact_path if artifact_path.is_absolute() else root / artifact_path
-        if full_path.exists():
+        if full_path.is_dir():
+            # Directory artifact: compute tree hash
+            tree_hash, dir_stats = _compute_directory_tree_hash(full_path)
+            checksum = tree_hash
+            artifact_metadata = {
+                **artifact_metadata,
+                "is_directory": True,
+                "file_count": dir_stats["file_count"],
+                "total_size_bytes": dir_stats["total_size_bytes"],
+                "tree_hash": tree_hash,
+            }
+        elif full_path.exists():
+            # File artifact: compute single-file checksum
             checksum = _compute_checksum(str(full_path))
 
     artifact = {
@@ -86,7 +134,7 @@ def register_artifact(
             "parameters": parameters or {},
             "software": software,
         },
-        "metadata": metadata or {},
+        "metadata": artifact_metadata,
         "checksum": checksum,
         "created_at": now,
     }
