@@ -26,6 +26,21 @@ work should enter through skills and, when needed, MCP/runtime helpers that
 write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
 records. Do not treat SimFlow as a command-line workflow executor.
 
+### Re-entering An Existing Project
+
+1. Call `simflow_state/read_state` or `workflow_status`; do not reinitialize.
+2. Run `orphan_compute_scanner` when calculations may exist outside state.
+3. Check stage/project readiness before writing new evidence.
+4. Register artifacts and lineage as work is produced.
+5. Create a successful checkpoint at a completed stage boundary.
+6. End with `session_handoff` so the next session receives current state,
+   warnings, checkpoints, and approval needs.
+
+Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`
+must not be treated as approval. If the user explicitly accepts the risk,
+record that decision with `record_user_override` and preserve the original gate
+failure reference.
+
 ## Canonical Stages
 
 | Stage | Purpose |

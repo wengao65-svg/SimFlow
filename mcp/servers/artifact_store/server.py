@@ -47,6 +47,7 @@ TOOL_SCHEMAS = {
     },
     "list": {
         "type": "object",
+        "required": ["project_root"],
         "properties": {
             "project_root": {"type": "string"},
             "stage": {"type": "string"},
@@ -55,7 +56,7 @@ TOOL_SCHEMAS = {
     },
     "get": {
         "type": "object",
-        "required": ["artifact_id"],
+        "required": ["project_root", "artifact_id"],
         "properties": {
             "project_root": {"type": "string"},
             "artifact_id": {"type": "string"},

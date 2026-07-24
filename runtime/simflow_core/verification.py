@@ -269,13 +269,20 @@ def record_stage_completion_verification(
     running formal verification checks.
     """
     now = _now_iso()
+    workflow = read_state(project_root=project_root, state_file="workflow.json") or {}
     entry = {
         "verification_id": f"verify_{stage_name}_{now.replace(':', '').replace('-', '')[:15]}",
         "stage": stage_name,
+        "workflow_id": workflow.get("workflow_id", "unknown"),
         "status": "pending",
         "checkpoint_id": checkpoint_id,
         "checks": [],
+        "warnings": [],
+        "failures": [],
+        "source_artifact_ids": [],
         "message": f"Stage '{stage_name}' marked complete. Formal verification pending.",
+        "generated_at": now,
+        "completed_at": None,
         "created_at": now,
     }
 
@@ -294,6 +301,48 @@ def record_stage_completion_verification(
     except (FileNotFoundError, json.JSONDecodeError):
         verifications = []
 
+    verifications.append(entry)
+    write_state(verifications, project_root=str(root), state_file="verification.json")
+    touch_workflow(str(root))
+    return entry
+
+
+def record_stage_failure_verification(
+    stage_name: str,
+    project_root: str,
+    *,
+    message: str,
+    failure_id: str,
+    checkpoint_id: Optional[str] = None,
+    source_artifact_ids: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """Record schema-complete verification evidence for a failed stage."""
+    now = _now_iso()
+    workflow = read_state(project_root=project_root, state_file="workflow.json") or {}
+    entry = {
+        "verification_id": f"verify_{failure_id}",
+        "stage": stage_name,
+        "workflow_id": workflow.get("workflow_id", "unknown"),
+        "status": "fail",
+        "checkpoint_id": checkpoint_id,
+        "failure_id": failure_id,
+        "checks": [{
+            "name": "stage_execution",
+            "status": "fail",
+            "message": message,
+            "details": {"failure_id": failure_id},
+            "checked_at": now,
+        }],
+        "warnings": [],
+        "failures": [message],
+        "source_artifact_ids": source_artifact_ids or [],
+        "message": message,
+        "generated_at": now,
+        "completed_at": now,
+        "created_at": now,
+    }
+    root = resolve_project_root(project_root=project_root)
+    verifications = get_verifications(project_root=str(root))
     verifications.append(entry)
     write_state(verifications, project_root=str(root), state_file="verification.json")
     touch_workflow(str(root))

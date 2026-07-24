@@ -64,6 +64,7 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["project_readiness"]["required"] == ["project_root"]
     assert schemas["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]
+    assert schemas["record_stage_failure"]["required"] == ["project_root", "stage_name", "message"]
     assert schemas["write_state"]["additionalProperties"] is False
     assert schemas["workflow_status"]["additionalProperties"] is False
     assert schemas["evidence_graph"]["additionalProperties"] is False
@@ -71,6 +72,44 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["project_readiness"]["additionalProperties"] is False
     assert schemas["record_computation_evidence"]["additionalProperties"] is False
     assert schemas["record_analysis_evidence"]["additionalProperties"] is False
+    assert schemas["record_stage_failure"]["additionalProperties"] is False
+
+
+def test_record_stage_failure_requires_engagement_then_records_complete_failure():
+    from runtime.simflow_core.state import init_workflow, read_state
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("custom", "computation", project_root=tmpdir)
+
+        blocked = server.handle_request({
+            "tool": "record_stage_failure",
+            "params": {
+                "project_root": tmpdir,
+                "stage_name": "computation",
+                "message": "MCP failure",
+            },
+        })
+        assert blocked["code"] == "skill_engagement_contract_violation"
+
+        read_result = server.handle_request({
+            "tool": "read_state",
+            "params": {"project_root": tmpdir, "file": "workflow.json"},
+        })
+        assert read_result["status"] == "success"
+
+        result = server.handle_request({
+            "tool": "record_stage_failure",
+            "params": {
+                "project_root": tmpdir,
+                "stage_name": "computation",
+                "message": "MCP failure",
+                "activity": "compute",
+            },
+        })
+        assert result["status"] == "error"
+        assert result["failure_checkpoint_id"].startswith("ckpt_")
+        assert read_state(project_root=tmpdir, state_file="workflow.json")["status"] == "failed"
 
 
 def test_state_init_via_runtime():

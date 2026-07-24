@@ -130,6 +130,7 @@ def create_checkpoint(
     status: str = "success",
     job_id: Optional[str] = None,
     project_root: Optional[str] = None,
+    failure_context: Optional[dict[str, Any]] = None,
 ) -> dict:
     """Create a workflow checkpoint.
 
@@ -197,7 +198,12 @@ def create_checkpoint(
     # P1.2: Auto-upsert stage into stages.json if canonical but not yet declared
     stage_record = updated_stages.get(stage_id)
     if isinstance(stage_record, dict):
-        stage_record["checkpoint_id"] = ckpt_id
+        if normalized_status == "failure":
+            stage_record["failure_checkpoint_id"] = ckpt_id
+        else:
+            stage_record["checkpoint_id"] = ckpt_id
+            if normalized_status == "success":
+                stage_record["last_success_checkpoint_id"] = ckpt_id
     elif is_canonical:
         # Canonical stage not yet declared — auto-create it
         updated_stages[stage_id] = {
@@ -206,7 +212,9 @@ def create_checkpoint(
             "agent": None,
             "inputs": [],
             "outputs": [],
-            "checkpoint_id": ckpt_id,
+            "checkpoint_id": ckpt_id if normalized_status != "failure" else None,
+            "failure_checkpoint_id": ckpt_id if normalized_status == "failure" else None,
+            "last_success_checkpoint_id": ckpt_id if normalized_status == "success" else None,
             "error_message": None,
             "started_at": now,
             "completed_at": None,
@@ -219,6 +227,9 @@ def create_checkpoint(
 
     # P1.3: Enforce state_snapshot completeness for non-failure checkpoints
     state_snapshot = _snapshot_state(root)
+    required_snapshot_files = {"workflow.json", "stages.json"}
+    missing_snapshot = required_snapshot_files - set(state_snapshot.keys())
+    recoverable = bool(state_snapshot) and not missing_snapshot
     if normalized_status != "failure":
         if not state_snapshot:
             raise ValueError(
@@ -226,8 +237,6 @@ def create_checkpoint(
                 "checkpoint without state to recover. Use status='failure' "
                 "for failure checkpoints that may have incomplete state."
             )
-        required_snapshot_files = {"workflow.json", "stages.json"}
-        missing_snapshot = required_snapshot_files - set(state_snapshot.keys())
         if missing_snapshot:
             raise ValueError(
                 f"state_snapshot is missing required files: {missing_snapshot}. "
@@ -247,6 +256,8 @@ def create_checkpoint(
         "state_snapshot": state_snapshot,
         "artifact_versions": artifact_versions,
         "lineage_snapshot": state_snapshot.get("lineage.json", {"links": []}),
+        "recoverable": recoverable,
+        "failure_context": failure_context if normalized_status == "failure" else None,
         "status": normalized_status,
         "created_at": now,
     }
@@ -369,6 +380,10 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
 
     with open(ckpt_file, "r", encoding="utf-8") as f:
         checkpoint = json.load(f)
+    if checkpoint.get("recoverable") is False:
+        raise ValueError(
+            f"Checkpoint {checkpoint_id} is diagnostic-only and cannot be restored"
+        )
 
     state_dir = root / STATE_DIR
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -397,9 +412,32 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
     return _attach_checkpoint_result(checkpoint, activity="restore_checkpoint", stage_id=checkpoint.get("stage_id"))
 
 
-def get_latest_checkpoint(base_dir: str = ".", project_root: Optional[str] = None) -> Optional[dict]:
-    """Get the most recent checkpoint."""
+def get_latest_checkpoint(
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+    *,
+    status: Optional[str] = None,
+    recoverable_only: bool = False,
+) -> Optional[dict]:
+    """Get the most recent checkpoint matching recovery filters."""
     checkpoints = list_checkpoints(base_dir, project_root=project_root)
+    if status is not None:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("status") == status]
+    if recoverable_only:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("recoverable", True)]
     if not checkpoints:
         return None
     return checkpoints[-1]
+
+
+def get_latest_recovery_checkpoint(
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> Optional[dict]:
+    """Return the latest successful recoverable checkpoint."""
+    return get_latest_checkpoint(
+        base_dir,
+        project_root=project_root,
+        status="success",
+        recoverable_only=True,
+    )

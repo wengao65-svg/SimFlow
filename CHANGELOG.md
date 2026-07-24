@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased — v0.9.0-dev (Audit Remediation Phase 1 + Phase 2)
+## Unreleased — v0.9.0-dev (Audit Remediation Phases 1-4)
 
-Phase 1 (P0 blocking fixes) + Phase 2 (P1 state automation + P2 anti-bypass).
+Phase 1-4 audit remediation across blocking fixes, state automation,
+anti-bypass, MCP engagement, artifact lineage, and failure recovery.
 issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 (91 session transcripts + state files + code verification).
 
@@ -46,8 +47,8 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 - Fixes: Li-O-B-Si 28 lowercase path fields in artifacts.json/lineage.json
 
 ### P0.6 — register_artifact accepts directory paths
-- New `_compute_directory_tree_hash()` walks directory, sorts files,
-  computes per-file SHA256, concatenates, hashes concatenation
+- New `_compute_directory_tree_hash()` walks directory, sorts files, and
+  computes a deterministic tree hash
 - Directory artifacts get metadata: `is_directory`, `file_count`,
   `total_size_bytes`, `tree_hash`
 - Empty directories produce valid hash (not None)
@@ -88,7 +89,8 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 #### P1.3 — Snapshot completeness enforcement
 - `create_checkpoint` rejects empty or incomplete state_snapshot for
   non-failure checkpoints (requires workflow.json + stages.json)
-- Failure checkpoints are exempt
+- Failure checkpoints may be diagnostic-only when canonical recovery state is
+  unavailable; diagnostic-only checkpoints cannot be restored
 - Fixes: PEE_NEP ckpt_022-024 had no state_snapshot (unrecoverable)
 
 #### P1.4 — Stage_id validation
@@ -101,7 +103,7 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 #### P2.1 — orphan_compute_scanner MCP tool
 - Scans project_root for compute directories not in jobs.json/artifacts.json
 - Detects VASP (OUTCAR), CP2K, GPUMD/NEP (nep.in+train.xyz), SLURM
-  (slurm-*.out), LAMMOS markers
+  (slurm-*.out), LAMMPS markers
 - Flags risky directory names (NoGate, Relaxed, Bypass, SkipGate)
 - Writes .simflow/reports/orphan_compute_audit.md
 
@@ -152,7 +154,7 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 - Written to .simflow/reports/session_handoff_<timestamp>.md
 
 #### P3.3 — Auto-verification on stage completion
-- update_stage(completed/failed) auto-creates a 'pending' verification
+- update_stage(completed) auto-creates a 'pending' verification
   record in verification.json
 - Ensures verification.json is never empty when stages are completed
 - Verification includes checkpoint_id reference when available
@@ -170,6 +172,52 @@ issues identified by deep audit of the PEE_NEP and Li-O-B-Si projects
 - 21 new tests across 3 test files
 - 1 existing test updated for verification timestamp accommodation
 - Full suite: 880 passed, 7 skipped, 0 failed
+
+### Phase 4 — P4 Artifact Lineage + P5 Failure Recovery + P6 Integration
+
+#### P4.1 — Transactional artifact registration
+- Artifact registration now updates `artifacts.json`, `lineage.json`, and the
+  producing stage's `outputs` in one rollback-protected transaction
+- Every artifact records its `workflow_id`; stage output IDs are deduplicated
+- Optional helper-run recording preserves its `record_only` contract and does
+  not mutate stage state
+
+#### P4.2 — Directory and evidence-graph provenance
+- Directory tree hashes now bind relative path, file size, and content digest
+  using `sha256-path-size-content-v1`
+- Evidence graph edges retain link IDs, parameters, and timestamps; nodes expose
+  software, parameters, and creation time
+- Unknown artifact queries return `not_found_artifact_ids`
+- Artifact Store read tools now require explicit `project_root`
+
+#### P5.1 — Centralized stage failure lifecycle
+- New `record_stage_failure()` core operation and
+  `simflow_state/record_stage_failure` MCP tool
+- Runner errors and exceptions automatically write sanitized logs and structured
+  error reports, register both as artifacts, mark workflow/stage summaries
+  failed, create fail verification evidence, and create a failure checkpoint
+- Failure results identify the latest successful checkpoint as the recovery
+  target; failure and successful checkpoint references are stored separately
+- Retrying a stage clears stale failure messages and report references
+
+#### P5.2 — Safe checkpoint recovery semantics
+- Checkpoints expose `recoverable` and optional structured `failure_context`
+- Diagnostic-only checkpoints are rejected by restore
+- Readiness only counts successful checkpoints as completed boundary evidence
+- `checkpoint_store/restore` now participates in MCP engagement enforcement
+
+#### P6.1 — Public documentation and integration coverage
+- Added `docs/mcp-tool-reference.md` with actual wire-level tool names,
+  engagement rules, state effects, and recovery behavior
+- Updated state/re-entry, OpenAlex fallback, credential, and MCP design docs
+- Added cross-server MCP lifecycle coverage from status/read engagement through
+  directory artifact registration, checkpoint, verification, and handoff
+
+### Phase 4 Test Coverage
+- 8 net new tests, including centralized failure and cross-server MCP lifecycle
+- Schema runtime fixtures validate new artifact, stage, checkpoint, lineage, and
+  verification fields
+- Full suite: 888 passed, 7 skipped, 0 failed
 
 ## Unreleased (previous)
 

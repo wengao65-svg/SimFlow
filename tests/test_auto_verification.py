@@ -56,8 +56,8 @@ def test_stage_in_progress_does_not_create_verification():
         assert verification == [] or verification == {}
 
 
-def test_stage_failed_also_creates_verification():
-    """update_stage(failed) also creates a verification record."""
+def test_plain_stage_failure_does_not_create_completion_verification():
+    """Failure lifecycle records a fail verification, not a completion record."""
     from runtime.simflow_core.state import init_workflow, update_stage, read_state
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -66,9 +66,7 @@ def test_stage_failed_also_creates_verification():
         update_stage("computation", "failed", project_root=tmpdir)
 
         verification = read_state(project_root=tmpdir, state_file="verification.json")
-        assert isinstance(verification, list)
-        assert len(verification) >= 1
-        assert verification[-1]["stage"] == "computation"
+        assert verification == [] or verification == {}
 
 
 def test_multiple_completions_create_multiple_records():

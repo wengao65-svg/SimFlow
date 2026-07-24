@@ -78,6 +78,10 @@ Existing servers may keep backward-compatible names during migration, but their
 behavior should converge on explicit project roots, strict schemas, and
 evidence-based recording.
 
+The names above describe architectural categories, not the current wire-level
+tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual
+`simflow_state/*`, `artifact_store/*`, and `checkpoint_store/*` surface.
+
 ## Credentials
 
 Credentials are read from environment variables or host-managed secret stores.

@@ -30,6 +30,7 @@ from tools.record_analysis_evidence import execute as record_analysis_evidence
 from tools.orphan_compute_scanner import execute as orphan_compute_scanner
 from tools.record_user_override import execute as record_user_override
 from tools.session_handoff import execute as session_handoff
+from tools.record_stage_failure import execute as record_stage_failure
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -47,6 +48,7 @@ TOOLS = {
     "orphan_compute_scanner": orphan_compute_scanner,
     "record_user_override": record_user_override,
     "session_handoff": session_handoff,
+    "record_stage_failure": record_stage_failure,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -64,6 +66,7 @@ TOOL_DESCRIPTIONS = {
     "orphan_compute_scanner": "Scan project root for compute directories not registered in SimFlow state.",
     "record_user_override": "Record a user-approved gate bypass/override decision in gates.json.",
     "session_handoff": "Generate a session-level handoff report with state, warnings, and next steps.",
+    "record_stage_failure": "Record an error report, failure artifacts, failed state, and failure checkpoint.",
 }
 
 TOOL_SCHEMAS = {
@@ -251,6 +254,23 @@ TOOL_SCHEMAS = {
         },
         "additionalProperties": False,
     },
+    "record_stage_failure": {
+        "type": "object",
+        "required": ["project_root", "stage_name", "message"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage_name": {"type": "string"},
+            "message": {"type": "string"},
+            "activity": {"type": "string"},
+            "reason_code": {"type": "string"},
+            "exception_type": {"type": "string"},
+            "traceback": {"type": "string"},
+            "job_id": {"type": "string"},
+            "partial_artifact_ids": {"type": "array", "items": {"type": "string"}},
+            "failure_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
 }
 
 
@@ -277,6 +297,7 @@ def handle_request(request: dict) -> dict:
             record_tool_call,
             get_engagement_status,
             EngagementViolation,
+            EXEMPT_TOOLS,
         )
         full_tool_name = f"simflow_state/{tool}"
 
@@ -284,7 +305,7 @@ def handle_request(request: dict) -> dict:
         # If no prior session exists and this is a read-only tool (not read_state
         # itself, not a state-write tool), auto-record read_state to bootstrap
         # the session. This satisfies the prerequisite for future state-write calls.
-        if tool not in ("read_state", "init_workflow"):
+        if full_tool_name in EXEMPT_TOOLS and tool not in ("read_state", "init_workflow"):
             status = get_engagement_status(project_root)
             if not status.get("has_session"):
                 # No prior engagement — auto-record read_state

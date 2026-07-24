@@ -11,6 +11,8 @@
 │   ├── checkpoints.json   # Checkpoint registry
 │   ├── jobs.json          # HPC job tracking
 │   ├── verification.json  # Gate verification state
+│   ├── lineage.json       # First-class artifact nodes and links
+│   ├── mcp_engagement_log.jsonl # Session-level MCP engagement evidence
 │   └── summary.json       # Project status summary
 ├── artifacts/
 │   ├── initial_structure.cif
@@ -34,6 +36,19 @@
 2. **Running**: Stage transitions update stage status
 3. **Completed**: Artifacts registered, checkpoint created
 4. **Recovery**: Load last checkpoint, resume from that stage
+
+Initialization is idempotent. Re-entering an existing project preserves its
+state. An explicit `force=true` request first copies the current tree to
+`.simflow/backups/<timestamp>/` before recreating canonical state files.
+
+Artifact registration is a single state transaction: `artifacts.json`,
+`lineage.json`, and the producing stage's `outputs` are updated together. Every
+new artifact records its `workflow_id`.
+
+Stage completion creates a pending verification record. Stage execution failure
+uses `record_stage_failure`, which writes sanitized log and error-report
+artifacts, marks workflow/stage summaries failed, creates a fail verification,
+and creates a failure checkpoint with a separate recovery checkpoint reference.
 
 ## Ownership Boundaries
 
@@ -69,10 +84,14 @@ SimFlow distinguishes `plugin_root` from `project_root`. `plugin_root` is the in
 
 ## Recovery Strategy
 
-1. Find the last completed stage checkpoint
+1. Find the latest successful, recoverable stage checkpoint
 2. Extract artifacts from checkpoint
 3. Update state to reflect recovered artifacts
 4. Resume workflow from the next stage
+
+Do not automatically restore the latest checkpoint by creation time: the newest
+checkpoint may be a diagnostic failure snapshot. A checkpoint marked
+`recoverable=false` is never restorable.
 
 ## State Schema
 

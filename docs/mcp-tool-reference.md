@@ -1,0 +1,51 @@
+# MCP Tool Reference
+
+SimFlow MCP tools use `<server>/<tool>` names. State-changing tools require an
+explicit `project_root`; most also require `simflow_state/read_state` in the
+same session before the write is accepted.
+
+## State And Recovery
+
+| Tool | Purpose | Important behavior |
+|---|---|---|
+| `simflow_state/read_state` | Read a canonical state file | Starts the 30-minute MCP engagement session |
+| `simflow_state/init_workflow` | Initialize `.simflow/` | Idempotent by default; `force=true` first backs up the existing tree |
+| `simflow_state/update_stage` | Change a stage status | Completion creates a pending verification record |
+| `simflow_state/workflow_status` | Read project status | Read-only; first call auto-satisfies the engagement prerequisite |
+| `simflow_state/orphan_compute_scanner` | Find unregistered calculation directories | Reports risky names such as `NoGate`, `Bypass`, and `SkipGate` |
+| `simflow_state/record_user_override` | Record an explicitly approved bypass | Requires approver context and a risk note |
+| `simflow_state/record_stage_failure` | Persist a stage failure | Writes sanitized log/report artifacts, failed state, fail verification, and a diagnostic checkpoint |
+| `simflow_state/session_handoff` | Generate a re-entry summary | Writes `.simflow/reports/session_handoff_<timestamp>.md` |
+
+## Artifacts
+
+| Tool | Purpose | Important behavior |
+|---|---|---|
+| `artifact_store/register` | Register a file, directory, or planned artifact | Atomically synchronizes artifact, lineage, and stage output state |
+| `artifact_store/list` | List registered artifacts | Read-only |
+| `artifact_store/get` | Read one artifact record | Read-only |
+
+Directory artifacts use `sha256-path-size-content-v1`: relative paths, sizes,
+and file content hashes all contribute to the tree hash. Registration records
+the current `workflow_id` and appends the artifact ID to the producing stage's
+`outputs` without duplication.
+
+## Checkpoints
+
+| Tool | Purpose | Important behavior |
+|---|---|---|
+| `checkpoint_store/create` | Create a state snapshot | Success/partial snapshots require workflow and stage state |
+| `checkpoint_store/list` | List checkpoints | Read-only |
+| `checkpoint_store/restore` | Restore a checkpoint | Diagnostic-only checkpoints are rejected |
+
+Failure checkpoints capture the failed state and error evidence. They are not
+the default recovery target. Recovery should use the most recent successful,
+recoverable checkpoint reported by `record_stage_failure` or session handoff.
+
+## Engagement Contract
+
+Protected writes return `skill_engagement_contract_violation` until
+`simflow_state/read_state` has been called. A first read-only status/readiness
+call may bootstrap that read automatically. Protected writes never auto-grant
+their own prerequisite. The session timeout defaults to 30 minutes and is
+configured by `SIMFLOW_SESSION_TIMEOUT_MIN`.

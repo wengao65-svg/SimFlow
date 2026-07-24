@@ -18,6 +18,8 @@ agent.
   rules.
 - [MCP Design](mcp-design.md): recording-tool boundaries and project-root
   requirements.
+- [MCP Tool Reference](mcp-tool-reference.md): actual server/tool names,
+  engagement prerequisites, and state effects.
 
 ## Operations And Safety
 
@@ -31,6 +33,8 @@ agent.
 - [Credentials Policy](credentials-policy.md): credential handling boundaries.
 - [Verification Gates](verification-gates.md): gate concepts and review
   discipline.
+- [Approval Reviewer Contract](approval_reviewer_simflow_contract.md):
+  anti-bypass review signals and evidence expectations.
 - [State And Checkpoint](state-and-checkpoint.md): `.simflow/` state and
   recovery.
 

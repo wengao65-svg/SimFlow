@@ -24,7 +24,7 @@ CANONICAL_STATE_FILES = {
     "artifacts.json": [],
     "checkpoints.json": [],
     "gates.json": [],
-    "lineage.json": {"links": []},
+    "lineage.json": {"artifacts": [], "links": []},
     "verification.json": [],
     "jobs.json": [],
     "summary.json": {"state_root": ".simflow"},
@@ -476,7 +476,11 @@ def update_stage(
             "inputs": [],
             "outputs": [],
             "checkpoint_id": None,
+            "failure_checkpoint_id": None,
+            "last_success_checkpoint_id": None,
             "error_message": None,
+            "error_report_artifact_id": None,
+            "failure_id": None,
             "started_at": None,
             "completed_at": None,
         }
@@ -484,6 +488,9 @@ def update_stage(
     if normalized_status == "in_progress":
         stages[stage_name]["started_at"] = now
         stages[stage_name]["completed_at"] = None
+        stages[stage_name]["error_message"] = None
+        stages[stage_name]["error_report_artifact_id"] = None
+        stages[stage_name]["failure_id"] = None
     elif normalized_status in TERMINAL_STAGE_STATUSES:
         stages[stage_name]["completed_at"] = now
     else:
@@ -491,6 +498,8 @@ def update_stage(
     for k, v in kwargs.items():
         if k in stages[stage_name]:
             stages[stage_name][k] = v
+    if normalized_status == "completed":
+        stages[stage_name]["error_message"] = None
     write_state(stages, project_root=str(root), state_file="stages.json")
     # Auto-refresh workflow.json/summary.json/status_summary.md
     touch_workflow(
@@ -498,7 +507,7 @@ def update_stage(
         current_stage=stage_name if normalized_status == "in_progress" else None,
     )
     # P3.3: Auto-create verification record when stage is marked completed
-    if normalized_status in TERMINAL_STAGE_STATUSES:
+    if normalized_status == "completed":
         try:
             from .verification import record_stage_completion_verification
             checkpoint_id = stages[stage_name].get("checkpoint_id")

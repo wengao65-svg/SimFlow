@@ -154,7 +154,9 @@ def _stage_checkpoint_present(stage: str, stage_state: dict[str, Any], checkpoin
     if checkpoint_id:
         return True
     return any(
-        isinstance(checkpoint, dict) and checkpoint.get("stage_id") == stage
+        isinstance(checkpoint, dict)
+        and checkpoint.get("stage_id") == stage
+        and checkpoint.get("status") == "success"
         for checkpoint in checkpoints
     )
 

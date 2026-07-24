@@ -8,6 +8,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 from runtime.simflow_core.artifacts import register_artifact, list_artifacts, get_artifact
@@ -30,6 +32,10 @@ class TestArtifact:
         assert art["artifact_id"].startswith("art_")
         assert art["name"] == "test.md"
         assert art["version"] == "v1.0.0"
+        assert art["workflow_id"].startswith("wf_")
+
+        stages = json.loads((Path(self.base_dir) / ".simflow" / "state" / "stages.json").read_text())
+        assert stages["proposal"]["outputs"] == [art["artifact_id"]]
 
     def test_register_open_artifact_type_and_metadata(self):
         path = Path(self.base_dir) / "custom-output.dat"
@@ -100,6 +106,38 @@ class TestArtifact:
         assert tree["parents"][0]["artifact_id"] == parent["artifact_id"]
         descendants = get_descendants(parent["artifact_id"], self.base_dir)
         assert descendants[0]["artifact_id"] == child["artifact_id"]
+
+    def test_registration_rolls_back_artifact_lineage_and_stage_together(self, monkeypatch):
+        from runtime.simflow_core import artifacts as artifact_module
+
+        parent = register_artifact("input.json", "input_manifest", "computation", self.base_dir)
+        state_dir = Path(self.base_dir) / ".simflow" / "state"
+        before = {
+            name: (state_dir / name).read_bytes()
+            for name in ("artifacts.json", "lineage.json", "stages.json")
+        }
+        real_replace = artifact_module.os.replace
+        calls = 0
+
+        def fail_second_replace(source, target):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("injected lineage write failure")
+            return real_replace(source, target)
+
+        monkeypatch.setattr(artifact_module.os, "replace", fail_second_replace)
+        with pytest.raises(OSError, match="injected lineage write failure"):
+            register_artifact(
+                "failed.json",
+                "output_manifest",
+                "computation",
+                self.base_dir,
+                parent_artifacts=[parent["artifact_id"]],
+            )
+
+        for name, content in before.items():
+            assert (state_dir / name).read_bytes() == content
 
 
 if __name__ == "__main__":

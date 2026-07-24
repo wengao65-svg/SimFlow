@@ -172,6 +172,26 @@ def test_register_artifact_directory_tree_hash_deterministic():
         assert art1["checksum"] == art2["checksum"], "tree hashes should match for identical content"
 
 
+def test_register_artifact_directory_tree_hash_binds_relative_paths():
+    """Identical bytes at different relative paths produce different tree hashes."""
+    from runtime.simflow_core.state import init_workflow
+    from runtime.simflow_core.artifacts import register_artifact
+
+    with tempfile.TemporaryDirectory() as tmpdir1, tempfile.TemporaryDirectory() as tmpdir2:
+        init_workflow("custom", "computation", project_root=tmpdir1)
+        init_workflow("custom", "computation", project_root=tmpdir2)
+        for root, filename in ((tmpdir1, "a.txt"), (tmpdir2, "renamed.txt")):
+            directory = Path(root) / "data"
+            directory.mkdir()
+            (directory / filename).write_text("same content\n", encoding="utf-8")
+
+        art1 = register_artifact("data", "dir", "computation", path="data", project_root=tmpdir1)
+        art2 = register_artifact("data", "dir", "computation", path="data", project_root=tmpdir2)
+
+        assert art1["checksum"] != art2["checksum"]
+        assert art1["metadata"]["tree_hash_algorithm"] == "sha256-path-size-content-v1"
+
+
 def test_register_artifact_empty_directory():
     """register_artifact handles empty directories without error."""
     from runtime.simflow_core.state import init_workflow

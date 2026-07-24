@@ -58,11 +58,13 @@ EXEMPT_TOOLS = frozenset({
 PROTECTED_TOOLS = {
     "artifact_store/register": ["simflow_state/read_state"],
     "checkpoint_store/create": ["simflow_state/read_state"],
+    "checkpoint_store/restore": ["simflow_state/read_state"],
     "simflow_state/write_state": ["simflow_state/read_state"],
     "simflow_state/update_stage": ["simflow_state/read_state"],
     "simflow_state/record_computation_evidence": ["simflow_state/read_state"],
     "simflow_state/record_analysis_evidence": ["simflow_state/read_state"],
     "simflow_state/record_user_override": ["simflow_state/read_state"],
+    "simflow_state/record_stage_failure": ["simflow_state/read_state"],
 }
 
 

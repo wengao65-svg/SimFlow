@@ -36,7 +36,19 @@
     "checkpoint_id": {
       "type": ["string", "null"]
     },
+    "failure_checkpoint_id": {
+      "type": ["string", "null"]
+    },
+    "last_success_checkpoint_id": {
+      "type": ["string", "null"]
+    },
     "error_message": {
+      "type": ["string", "null"]
+    },
+    "error_report_artifact_id": {
+      "type": ["string", "null"]
+    },
+    "failure_id": {
       "type": ["string", "null"]
     },
     "started_at": {

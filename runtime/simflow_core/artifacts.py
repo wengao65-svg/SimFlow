@@ -2,14 +2,24 @@
 
 import hashlib
 import json
+import os
+import tempfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .state import ensure_workflow_initialized, resolve_project_root, touch_workflow
+from .state import (
+    CANONICAL_ARTIFACT_STAGE_DIRS,
+    ensure_workflow_initialized,
+    read_state,
+    resolve_project_root,
+    touch_workflow,
+)
 
 ARTIFACTS_DIR = ".simflow/artifacts"
 STATE_FILE = ".simflow/state/artifacts.json"
+_ORIGINAL_OS_REPLACE = os.replace
 
 
 def _compute_checksum(file_path: str) -> str:
@@ -25,8 +35,8 @@ def _compute_directory_tree_hash(dir_path: Path) -> tuple[str, dict]:
     """Compute a tree hash for a directory and collect file statistics.
 
     Walks the directory recursively, sorts file paths, computes SHA256 for
-    each file, concatenates all hashes, and computes a final SHA256 of the
-    concatenation. Returns (tree_hash, stats_dict).
+    each file, and hashes its relative path, size, and content digest. Returns
+    (tree_hash, stats_dict).
 
     stats_dict contains:
     - file_count: number of files
@@ -45,7 +55,13 @@ def _compute_directory_tree_hash(dir_path: Path) -> tuple[str, dict]:
 
     h = hashlib.sha256()
     for entry in file_entries:
-        h.update(entry["sha256"].encode("utf-8"))
+        encoded = json.dumps(
+            [entry["path"], entry["size"], entry["sha256"]],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        h.update(len(encoded).to_bytes(8, "big"))
+        h.update(encoded)
     tree_hash = h.hexdigest()
 
     stats = {
@@ -76,6 +92,139 @@ def _write_artifacts(artifacts: list, base_dir: str = ".", project_root: Optiona
         json.dump(artifacts, f, indent=2, ensure_ascii=False)
 
 
+def _write_temp_json(target_path: Path, data: Any) -> Path:
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{target_path.stem}.",
+        suffix=".tmp",
+        dir=str(target_path.parent),
+    )
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, ensure_ascii=False)
+        return temp_path
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _restore_file(path: Path, previous: Optional[bytes]) -> None:
+    if previous is None:
+        path.unlink(missing_ok=True)
+        return
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.stem}.rollback.",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(previous)
+        _ORIGINAL_OS_REPLACE(str(temp_path), str(path))
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _write_registration_transaction(root: Path, updates: dict[str, Any]) -> None:
+    """Replace artifact-related state together and roll back partial writes."""
+    state_dir = root / ".simflow" / "state"
+    targets = {name: state_dir / name for name in updates}
+    previous = {
+        name: path.read_bytes() if path.exists() else None
+        for name, path in targets.items()
+    }
+    temps: dict[str, Path] = {}
+    try:
+        for name, data in updates.items():
+            temps[name] = _write_temp_json(targets[name], data)
+    except Exception:
+        for temp_path in temps.values():
+            temp_path.unlink(missing_ok=True)
+        raise
+    replaced: list[str] = []
+    try:
+        for name in ("artifacts.json", "lineage.json", "stages.json"):
+            os.replace(str(temps[name]), str(targets[name]))
+            replaced.append(name)
+    except Exception:
+        for temp_path in temps.values():
+            temp_path.unlink(missing_ok=True)
+        for name in reversed(replaced):
+            _restore_file(targets[name], previous[name])
+        raise
+
+
+def _updated_lineage_state(root: Path, artifact: dict, now: str) -> dict:
+    lineage_state = read_state(project_root=str(root), state_file="lineage.json")
+    if not isinstance(lineage_state, dict):
+        lineage_state = {}
+    nodes = list(lineage_state.get("artifacts", []))
+    links = list(lineage_state.get("links", []))
+    nodes.append({
+        "artifact_id": artifact["artifact_id"],
+        "workflow_id": artifact["workflow_id"],
+        "name": artifact.get("name"),
+        "type": artifact.get("type"),
+        "stage": artifact.get("stage"),
+        "version": artifact.get("version"),
+        "path": artifact.get("path"),
+        "checksum": artifact.get("checksum"),
+        "updated_at": now,
+    })
+    for parent_id in artifact.get("lineage", {}).get("parent_artifacts", []):
+        links.append({
+            "link_id": f"lin_{uuid.uuid4().hex[:8]}",
+            "child_artifact_id": artifact["artifact_id"],
+            "parent_artifact_id": parent_id,
+            "relationship": "derived_from",
+            "stage": artifact.get("stage"),
+            "parameters": artifact.get("lineage", {}).get("parameters", {}),
+            "created_at": now,
+        })
+    return {**lineage_state, "artifacts": nodes, "links": links}
+
+
+def _updated_stage_state(
+    root: Path,
+    stage: str,
+    artifact_id: str,
+    now: str,
+    *,
+    sync_stage_outputs: bool,
+) -> dict:
+    stages = read_state(project_root=str(root), state_file="stages.json")
+    if not isinstance(stages, dict):
+        stages = {}
+    if not sync_stage_outputs:
+        return stages
+    if stage not in stages:
+        stages[stage] = {
+            "stage_name": stage,
+            "status": "pending",
+            "agent": None,
+            "inputs": [],
+            "outputs": [],
+            "checkpoint_id": None,
+            "failure_checkpoint_id": None,
+            "last_success_checkpoint_id": None,
+            "error_message": None,
+            "error_report_artifact_id": None,
+            "started_at": None,
+            "completed_at": None,
+        }
+        if stage not in CANONICAL_ARTIFACT_STAGE_DIRS:
+            stages[stage]["custom_stage"] = True
+    outputs = list(stages[stage].get("outputs", []))
+    if artifact_id not in outputs:
+        outputs.append(artifact_id)
+    stages[stage]["outputs"] = outputs
+    stages[stage]["updated_at"] = now
+    return stages
+
+
 def register_artifact(
     name: str,
     artifact_type: str,
@@ -87,11 +236,11 @@ def register_artifact(
     software: Optional[str] = None,
     metadata: Optional[dict] = None,
     project_root: Optional[str] = None,
+    sync_stage_outputs: bool = True,
 ) -> dict:
     """Register a new artifact."""
-    import uuid
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    ensure_workflow_initialized(project_root=str(root))
+    workflow = ensure_workflow_initialized(project_root=str(root))
     artifacts = _read_artifacts(project_root=str(root))
     now = datetime.now(timezone.utc).isoformat()
     art_id = f"art_{uuid.uuid4().hex[:8]}"
@@ -117,6 +266,7 @@ def register_artifact(
                 "file_count": dir_stats["file_count"],
                 "total_size_bytes": dir_stats["total_size_bytes"],
                 "tree_hash": tree_hash,
+                "tree_hash_algorithm": "sha256-path-size-content-v1",
             }
         elif full_path.exists():
             # File artifact: compute single-file checksum
@@ -124,6 +274,7 @@ def register_artifact(
 
     artifact = {
         "artifact_id": art_id,
+        "workflow_id": workflow["workflow_id"],
         "name": name,
         "type": artifact_type,
         "version": version,
@@ -138,10 +289,17 @@ def register_artifact(
         "checksum": checksum,
         "created_at": now,
     }
-    artifacts.append(artifact)
-    _write_artifacts(artifacts, project_root=str(root))
-    from .lineage import record_artifact_lineage
-    record_artifact_lineage(artifact, project_root=str(root))
+    _write_registration_transaction(root, {
+        "artifacts.json": [*artifacts, artifact],
+        "lineage.json": _updated_lineage_state(root, artifact, now),
+        "stages.json": _updated_stage_state(
+            root,
+            stage,
+            art_id,
+            now,
+            sync_stage_outputs=sync_stage_outputs,
+        ),
+    })
     # Auto-refresh workflow.json/summary.json/status_summary.md
     touch_workflow(str(root))
     return artifact

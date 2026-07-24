@@ -120,14 +120,19 @@ def test_evidence_graph_filters_stage_and_artifact(tmp_path):
     artifact_graph = build_evidence_graph(str(tmp_path), artifact_id=child["artifact_id"])
     node_ids = {node["artifact_id"] for node in artifact_graph["nodes"]}
     assert node_ids == {parent["artifact_id"], child["artifact_id"]}
-    assert artifact_graph["links"] == [
-        {
-            "child_artifact_id": child["artifact_id"],
-            "parent_artifact_id": parent["artifact_id"],
-            "relationship": "derived_from",
-            "stage": "proposal",
-        }
-    ]
+    assert len(artifact_graph["links"]) == 1
+    link = artifact_graph["links"][0]
+    assert link["child_artifact_id"] == child["artifact_id"]
+    assert link["parent_artifact_id"] == parent["artifact_id"]
+    assert link["relationship"] == "derived_from"
+    assert link["stage"] == "proposal"
+    assert link["link_id"].startswith("lin_")
+    assert link["parameters"] == {}
+    assert link["created_at"]
+
+    missing = build_evidence_graph(str(tmp_path), artifact_id="art_notfound")
+    assert missing["nodes"] == []
+    assert missing["not_found_artifact_ids"] == ["art_notfound"]
 
 
 def test_evidence_graph_filters_helper_evidence_metadata(tmp_path):

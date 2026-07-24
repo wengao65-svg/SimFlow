@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import init_workflow, read_state, write_state
 from runtime.simflow_helpers.stages.executor import execute_stage
+from runtime.simflow_helpers.stages import executor as executor_module
 from runtime.simflow_helpers.project.intake import init_research
 from runtime.simflow_helpers.stages.pipeline import run_pipeline
 
@@ -142,6 +143,59 @@ def test_execute_stage_rejects_stage_not_in_workflow_definition():
         assert result["status"] == "error"
         assert result["message"] == "Unknown stage: literature_review"
         assert stages_state == {}
+
+
+def test_execute_stage_records_failure_lifecycle_for_runner_error(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("dft", "literature_review", tmpdir)
+        _write_metadata(tmpdir, "dft")
+
+        monkeypatch.setattr(
+            executor_module,
+            "_execute_runner",
+            lambda runner_spec, project_root, params: (
+                {"status": "error", "message": "synthetic runner failure", "code": "synthetic"},
+                runner_spec["script"],
+            ),
+        )
+        result = execute_stage(
+            str(Path(tmpdir) / ".simflow"),
+            "literature_review",
+            dry_run=False,
+        )
+
+        workflow = read_state(tmpdir, "workflow.json")
+        stages = read_state(tmpdir, "stages.json")
+        verifications = read_state(tmpdir, "verification.json")
+        artifacts = list_artifacts(project_root=tmpdir)
+
+        assert result["status"] == "error"
+        assert result["failure_id"].startswith("fail_")
+        assert result["failure_checkpoint_id"].startswith("ckpt_")
+        assert workflow["status"] == "failed"
+        assert stages["literature_review"]["failure_checkpoint_id"] == result["failure_checkpoint_id"]
+        assert verifications[-1]["status"] == "fail"
+        assert {artifact["type"] for artifact in artifacts} == {"failure_log", "error_report"}
+
+
+def test_execute_stage_records_failure_lifecycle_for_runner_exception(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        init_workflow("dft", "literature_review", tmpdir)
+        _write_metadata(tmpdir, "dft")
+
+        def raise_runner_error(runner_spec, project_root, params):
+            raise RuntimeError("synthetic exception")
+
+        monkeypatch.setattr(executor_module, "_execute_runner", raise_runner_error)
+        result = execute_stage(
+            str(Path(tmpdir) / ".simflow"),
+            "literature_review",
+            dry_run=False,
+        )
+
+        assert result["status"] == "error"
+        assert result["reason_code"] == "runner_exception"
+        assert (Path(tmpdir) / result["error_report"]).is_file()
 
 
 def test_execute_stage_execute_runs_modeling_runner_and_registers_artifacts():

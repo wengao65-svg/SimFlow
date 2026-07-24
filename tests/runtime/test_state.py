@@ -90,7 +90,7 @@ class TestState:
         assert read_state(self.base_dir, "artifacts.json") == []
         assert read_state(self.base_dir, "checkpoints.json") == []
         assert read_state(self.base_dir, "gates.json") == []
-        assert read_state(self.base_dir, "lineage.json") == {"links": []}
+        assert read_state(self.base_dir, "lineage.json") == {"artifacts": [], "links": []}
         assert read_state(self.base_dir, "metadata.json") == {}
         project = read_state(self.base_dir, "project.json")
         assert project["state_root"] == ".simflow"

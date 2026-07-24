@@ -5,7 +5,8 @@
 1. **Environment-only storage**: Credentials are read ONLY from environment variables
 2. **Never write credentials**: Not to files, artifacts, logs, or state
 3. **Never expose in errors**: Credential values never appear in error messages
-4. **Graceful fallback**: Missing credentials trigger dry-run/mock mode
+4. **Graceful fallback**: Missing optional credentials use an open connector or
+   a clearly marked unverified fallback; they never fabricate verified evidence
 5. **Sanitize logs**: `sanitize_for_logging()` strips potential tokens from output
 
 ## Supported Credentials
@@ -23,7 +24,7 @@
 | Service | With Credentials | Without Credentials |
 |---------|-----------------|---------------------|
 | Materials Project | Live API queries | Mock connector (sample data) |
-| Semantic Scholar | Live API queries | Mock connector (sample data) |
+| Semantic Scholar | Live API queries | OpenAlex; mock only as `mock_unverified` degraded fallback |
 | arXiv | Always available | Public API, no key needed |
 | Crossref | Always available | Public API, no key needed |
 | COD | Always available | Public API, no key needed |

@@ -37,7 +37,7 @@ TOOL_SCHEMAS = {
             "workflow_id": {"type": "string"},
             "stage_id": {"type": "string"},
             "description": {"type": "string"},
-            "status": {"type": "string"},
+            "status": {"type": "string", "enum": ["success", "partial", "failure"]},
             "job_id": {"type": "string"},
         },
         "additionalProperties": False,
