@@ -40,6 +40,12 @@
     "lineage_snapshot": {
       "type": "object"
     },
+    "recoverable": {
+      "type": "boolean"
+    },
+    "failure_context": {
+      "type": ["object", "null"]
+    },
     "status": {
       "type": "string",
       "enum": ["success", "partial", "failure"]

@@ -47,8 +47,13 @@ class SSHConnector(BaseHPCConnector):
         except Exception:
             return False
 
-    def dry_run(self, script_path: str) -> dict:
-        """Validate a script exists locally."""
+    def dry_run(self, script_path: str, manifest_path: str = "", base_dir: str = ".") -> dict:
+        """Validate a script exists locally.
+
+        Accepts the same signature as SlurmConnector.dry_run for connector
+        polymorphism. manifest_path and base_dir are accepted for signature
+        compatibility but SSH dry-run only validates the local script.
+        """
         issues = []
         if not self.host:
             issues.append("No SSH host configured (set SIMFLOW_SSH_HOST)")

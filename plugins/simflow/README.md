@@ -191,7 +191,9 @@ simflow/
 | `SIMFLOW_SSH_USER` | SSH username |
 | `SIMFLOW_SSH_KEY` | SSH key file path |
 
-Missing credentials gracefully fall back to mock/dry-run mode.
+Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
+are only a degraded fallback and are tagged `mock_unverified` with
+`usable_as_evidence=false`.
 
 ## Documentation
 

@@ -252,10 +252,13 @@ def _lineage_links(artifacts: list[dict[str, Any]], lineage_state: dict[str, Any
         if not child or not parent:
             continue
         links_by_key[(child, parent, relationship)] = {
+            "link_id": link.get("link_id"),
             "child_artifact_id": child,
             "parent_artifact_id": parent,
             "relationship": relationship,
             "stage": link.get("stage"),
+            "parameters": _as_dict(link.get("parameters")),
+            "created_at": link.get("created_at"),
         }
         if parent not in artifact_ids:
             missing_parents[(child, parent)] = {
@@ -276,6 +279,8 @@ def _lineage_links(artifacts: list[dict[str, Any]], lineage_state: dict[str, Any
                 "parent_artifact_id": parent,
                 "relationship": "derived_from",
                 "stage": artifact.get("stage"),
+                "parameters": _as_dict(lineage.get("parameters")),
+                "created_at": artifact.get("created_at"),
             })
             if parent not in artifact_ids:
                 missing_parents[(child, parent)] = {
@@ -407,6 +412,7 @@ def build_evidence_graph(
     graph_depth = _coerce_graph_depth(depth)
 
     selected_ids = {artifact.get("artifact_id") for artifact in artifacts}
+    known_artifact_ids = set(selected_ids)
     if stage:
         selected_ids = {artifact.get("artifact_id") for artifact in artifacts if artifact.get("stage") == stage}
     root_ids = set()
@@ -450,6 +456,9 @@ def build_evidence_graph(
             "version": artifact.get("version"),
             "path": artifact.get("path"),
             "checksum": artifact.get("checksum"),
+            "created_at": artifact.get("created_at"),
+            "software": _as_dict(artifact.get("lineage")).get("software"),
+            "parameters": _as_dict(artifact.get("lineage")).get("parameters", {}),
             "path_exists": None if path_status is None else path_status["exists"],
             "schema_version": evidence.get("schema_version"),
             "helper": evidence.get("helper"),
@@ -493,6 +502,9 @@ def build_evidence_graph(
         "nodes": nodes,
         "links": links,
         "missing_parents": filtered_missing,
+        "not_found_artifact_ids": (
+            [artifact_id] if artifact_id and artifact_id not in known_artifact_ids else []
+        ),
     }
 
 
@@ -510,6 +522,10 @@ def build_project_status(project_root: str) -> dict[str, Any]:
     risks = _risks(workflow, stage_progress, artifact_summary, state["checkpoints"], graph["missing_parents"])
 
     completed = [item for item in stage_progress if item.get("status") == "completed"]
+    recovery_checkpoints = [
+        checkpoint for checkpoint in state["checkpoints"]
+        if isinstance(checkpoint, dict) and checkpoint.get("status") == "success"
+    ]
     return {
         "status": "success",
         "project_root": str(root),
@@ -535,6 +551,7 @@ def build_project_status(project_root: str) -> dict[str, Any]:
         "checkpoints": {
             "count": len(state["checkpoints"]),
             "latest": state["checkpoints"][-1] if state["checkpoints"] else None,
+            "latest_recovery": recovery_checkpoints[-1] if recovery_checkpoints else None,
         },
         "gates": _gate_summary(state["gates"]),
         "verification": state["verification"],

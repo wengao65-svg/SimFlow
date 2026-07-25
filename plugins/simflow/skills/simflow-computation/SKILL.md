@@ -74,12 +74,21 @@ executor and does not replace domain skills or scheduler safety gates.
 - Dry-run report with script hash and input artifact hash.
 - Resource estimate.
 - Credential scan report.
+- Submit readiness summary (`submit_readiness_summary.md`) wrapping calculation
+  manifest, input validation, resource estimate, credential scan, dry-run report,
+  script/input hashes, and `hpc_submit` gate status into a user-facing artifact
+  with a matching `user_submit_readiness` payload.
 - Job record only when a real job is approved and submitted.
 
 ## Submit-Readiness Handoff
 
 - Preserve a `submit_readiness` payload containing project root, scheduler, job
   script path, dry-run evidence path, script hash, and input artifact hash.
+- Preserve a `user_submit_readiness` payload wrapping `status`,
+  `ready_for_approval`, `real_submit_allowed`, `approval_required`,
+  `failed_checks`, evidence references, hashes, and `next_actions` so the
+  host agent and user can inspect submit readiness without scanning internal
+  artifact paths.
 - Preserve a `submit_request_template` payload for MCP submit fields:
   `project_root`, `script_path`, `scheduler`, `dry_run_evidence`,
   `script_hash`, `input_artifact_hash`, and `gate_decision_id`.

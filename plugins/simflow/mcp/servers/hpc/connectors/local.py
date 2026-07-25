@@ -10,8 +10,13 @@ from .base import BaseHPCConnector
 class LocalConnector(BaseHPCConnector):
     """Connector for local shell execution."""
 
-    def dry_run(self, script_path: str) -> dict:
-        """Validate a job script without executing."""
+    def dry_run(self, script_path: str, manifest_path: str = "", base_dir: str = ".") -> dict:
+        """Validate a job script without executing.
+
+        Accepts the same signature as SlurmConnector.dry_run for connector
+        polymorphism. manifest_path and base_dir are accepted but not used
+        for local validation (no scheduler manifest to inspect).
+        """
         issues = []
         try:
             with open(script_path) as f:

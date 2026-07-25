@@ -10,10 +10,12 @@ from typing import Any, Optional
 
 from .result_contract import attach_simflow_result
 from .state import (
+    CANONICAL_ARTIFACT_STAGE_DIRS,
     CHECKPOINT_STATUSES,
     ensure_workflow_initialized,
     read_state,
     resolve_project_root,
+    touch_workflow,
 )
 
 CHECKPOINTS_DIR = ".simflow/checkpoints"
@@ -128,9 +130,18 @@ def create_checkpoint(
     status: str = "success",
     job_id: Optional[str] = None,
     project_root: Optional[str] = None,
+    failure_context: Optional[dict[str, Any]] = None,
 ) -> dict:
-    """Create a workflow checkpoint."""
+    """Create a workflow checkpoint.
+
+    P1.2: Auto-upserts the stage_id into stages.json if it's a canonical
+    stage that hasn't been declared yet.
+    P1.3: Enforces state_snapshot completeness for non-failure checkpoints.
+    P1.4: Validates stage_id against canonical stages + already-declared
+    custom stages. Failure checkpoints are exempt from stage_id validation.
+    """
     import re
+    import warnings
 
     normalized_status = str(status).strip().lower()
     if normalized_status not in CHECKPOINT_STATUSES:
@@ -141,6 +152,30 @@ def create_checkpoint(
     ckpt_dir = root / CHECKPOINTS_DIR
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
+    # P1.4: Validate stage_id
+    is_canonical = stage_id in CANONICAL_ARTIFACT_STAGE_DIRS
+    stages = read_state(project_root=str(root), state_file="stages.json")
+    if not isinstance(stages, dict):
+        stages = {}
+    stage_already_declared = stage_id in stages
+
+    if not is_canonical and not stage_already_declared:
+        if normalized_status != "failure":
+            raise ValueError(
+                f"stage_id '{stage_id}' is not a canonical stage "
+                f"({', '.join(sorted(CANONICAL_ARTIFACT_STAGE_DIRS))}) "
+                f"and was not declared via update_stage. "
+                f"Call update_stage('{stage_id}', 'in_progress') first, "
+                f"or use status='failure' for failure checkpoints."
+            )
+        else:
+            warnings.warn(
+                f"Checkpoint with non-canonical undeclared stage_id '{stage_id}' "
+                f"(allowed because status='failure')",
+                UserWarning,
+                stacklevel=2,
+            )
+
     # Generate checkpoint ID
     existing = list(ckpt_dir.glob("ckpt_*.json"))
     num = len(existing) + 1
@@ -148,9 +183,6 @@ def create_checkpoint(
     ckpt_id = f"ckpt_{num:03d}_{safe_stage}"
 
     now = datetime.now(timezone.utc).isoformat()
-    stages = read_state(project_root=str(root), state_file="stages.json")
-    if not isinstance(stages, dict):
-        stages = {}
     registry = _load_checkpoint_registry(root)
     registry_entry = _checkpoint_registry_entry(
         checkpoint_id=ckpt_id,
@@ -162,12 +194,55 @@ def create_checkpoint(
         job_id=job_id,
     )
     updated_stages = json.loads(json.dumps(stages))
+
+    # P1.2: Auto-upsert stage into stages.json if canonical but not yet declared
     stage_record = updated_stages.get(stage_id)
     if isinstance(stage_record, dict):
-        stage_record["checkpoint_id"] = ckpt_id
+        if normalized_status == "failure":
+            stage_record["failure_checkpoint_id"] = ckpt_id
+        else:
+            stage_record["checkpoint_id"] = ckpt_id
+            if normalized_status == "success":
+                stage_record["last_success_checkpoint_id"] = ckpt_id
+    elif is_canonical:
+        # Canonical stage not yet declared — auto-create it
+        updated_stages[stage_id] = {
+            "stage_name": stage_id,
+            "status": "in_progress",
+            "agent": None,
+            "inputs": [],
+            "outputs": [],
+            "checkpoint_id": ckpt_id if normalized_status != "failure" else None,
+            "failure_checkpoint_id": ckpt_id if normalized_status == "failure" else None,
+            "last_success_checkpoint_id": ckpt_id if normalized_status == "success" else None,
+            "error_message": None,
+            "started_at": now,
+            "completed_at": None,
+        }
+    elif stage_already_declared:
+        # Already handled above
+        pass
+
     updated_registry = [*registry, registry_entry]
 
+    # P1.3: Enforce state_snapshot completeness for non-failure checkpoints
     state_snapshot = _snapshot_state(root)
+    required_snapshot_files = {"workflow.json", "stages.json"}
+    missing_snapshot = required_snapshot_files - set(state_snapshot.keys())
+    recoverable = bool(state_snapshot) and not missing_snapshot
+    if normalized_status != "failure":
+        if not state_snapshot:
+            raise ValueError(
+                "state_snapshot is empty — cannot create a success/partial "
+                "checkpoint without state to recover. Use status='failure' "
+                "for failure checkpoints that may have incomplete state."
+            )
+        if missing_snapshot:
+            raise ValueError(
+                f"state_snapshot is missing required files: {missing_snapshot}. "
+                f"Cannot create a recoverable checkpoint without them."
+            )
+
     state_snapshot["stages.json"] = updated_stages
     state_snapshot["checkpoints.json"] = updated_registry
     artifact_versions = _artifact_versions_from_snapshot(state_snapshot)
@@ -181,6 +256,8 @@ def create_checkpoint(
         "state_snapshot": state_snapshot,
         "artifact_versions": artifact_versions,
         "lineage_snapshot": state_snapshot.get("lineage.json", {"links": []}),
+        "recoverable": recoverable,
+        "failure_context": failure_context if normalized_status == "failure" else None,
         "status": normalized_status,
         "created_at": now,
     }
@@ -197,6 +274,11 @@ def create_checkpoint(
         ckpt_file.unlink(missing_ok=True)
         _restore_checkpoint_state(root, stages=stages, registry=registry)
         raise
+
+    # P1.5: Auto-propagate checkpoint creation to workflow.json/summary.json
+    # so cross-session continuity works (fixes S6->S14 amnesia where
+    # summary.json.updated_at stayed 4 days behind checkpoint creation).
+    touch_workflow(str(root))
 
     return checkpoint
 
@@ -298,6 +380,10 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
 
     with open(ckpt_file, "r", encoding="utf-8") as f:
         checkpoint = json.load(f)
+    if checkpoint.get("recoverable") is False:
+        raise ValueError(
+            f"Checkpoint {checkpoint_id} is diagnostic-only and cannot be restored"
+        )
 
     state_dir = root / STATE_DIR
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -326,9 +412,32 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
     return _attach_checkpoint_result(checkpoint, activity="restore_checkpoint", stage_id=checkpoint.get("stage_id"))
 
 
-def get_latest_checkpoint(base_dir: str = ".", project_root: Optional[str] = None) -> Optional[dict]:
-    """Get the most recent checkpoint."""
+def get_latest_checkpoint(
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+    *,
+    status: Optional[str] = None,
+    recoverable_only: bool = False,
+) -> Optional[dict]:
+    """Get the most recent checkpoint matching recovery filters."""
     checkpoints = list_checkpoints(base_dir, project_root=project_root)
+    if status is not None:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("status") == status]
+    if recoverable_only:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("recoverable", True)]
     if not checkpoints:
         return None
     return checkpoints[-1]
+
+
+def get_latest_recovery_checkpoint(
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> Optional[dict]:
+    """Return the latest successful recoverable checkpoint."""
+    return get_latest_checkpoint(
+        base_dir,
+        project_root=project_root,
+        status="success",
+        recoverable_only=True,
+    )

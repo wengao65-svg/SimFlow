@@ -99,6 +99,7 @@ def _register_path_artifact(
         parameters={"helper_name": helper_name, "role": role},
         software=software,
         metadata=artifact_metadata,
+        sync_stage_outputs=False,
     )
 
 
@@ -231,6 +232,7 @@ def record_helper_run(
         },
         software=software,
         metadata=_merge_metadata({"helper_optional": True}, general_metadata),
+        sync_stage_outputs=False,
     )
 
     artifacts = [

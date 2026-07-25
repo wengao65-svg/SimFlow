@@ -21,10 +21,35 @@ SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
 language that triggers a SimFlow skill. In Claude Code, use namespaced skills
 such as `/simflow:simflow`.
 
+During MCP initialization, SimFlow uses standard client information to present
+the matching invocation syntax. This affects discovery guidance only; workflow
+state, safety, and evidence rules are identical across hosts.
+
 Legacy runtime CLI scripts have been removed from the packaged source. User
 work should enter through skills and, when needed, MCP/runtime helpers that
 write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
 records. Do not treat SimFlow as a command-line workflow executor.
+
+### Re-entering An Existing Project
+
+1. Call `simflow_state/read_state` or `workflow_status`; do not reinitialize.
+2. Run `orphan_compute_scanner` when calculations may exist outside state.
+3. Check stage/project readiness before writing new evidence.
+4. Register artifacts and lineage as work is produced.
+5. Create a successful checkpoint at a completed stage boundary.
+6. End with `session_handoff` so the next session receives current state,
+   warnings, checkpoints, and approval needs.
+
+Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`
+must not be treated as approval. If the user explicitly accepts the risk,
+record that decision with `record_user_override` and preserve the original gate
+failure reference.
+
+If historical state is inconsistent, run `repair_state` in `audit` mode first.
+Apply mode re-audits immediately, backs up the full `.simflow/` tree, and only
+applies structural repairs above the confidence threshold. Scientific status,
+unknown provenance, checkpoint snapshots, jobs, and gates are not inferred or
+rewritten.
 
 ## Canonical Stages
 

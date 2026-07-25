@@ -7,14 +7,16 @@ import argparse
 import importlib.util
 import json
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.failures import record_stage_failure
 from runtime.simflow_core.result_contract import attach_simflow_result
-from runtime.simflow_core.state import read_state, update_stage, write_state
+from runtime.simflow_core.state import read_state, touch_workflow, update_stage
 from runtime.simflow_core.utils import now_iso
 from runtime.simflow_helpers.stages.progress import (
     load_workflow_activities,
@@ -73,10 +75,8 @@ def _load_runner(script: str, function_name: str, stage_name: str):
 
 def _update_workflow_progress(project_root: Path, state: dict, stage_name: str, stages: list[str], status: str) -> None:
     """Persist workflow-level progress after stage execution."""
-    state["current_stage"] = stage_name
-    state["status"] = status if status == "failed" else ("completed" if stage_name == stages[-1] else "in_progress")
-    state["updated_at"] = now_iso()
-    write_state(state, project_root=str(project_root), state_file="workflow.json")
+    workflow_status = status if status == "failed" else ("completed" if stage_name == stages[-1] else "in_progress")
+    touch_workflow(str(project_root), current_stage=stage_name, status=workflow_status)
 
 
 def _artifact_ids(artifacts: list[dict[str, Any]]) -> list[str]:
@@ -203,7 +203,33 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
 
     for runner_spec in runner_specs:
         activity = runner_spec["activity"]
-        stage_result, script_path = _execute_runner(runner_spec, project_root, params)
+        try:
+            stage_result, script_path = _execute_runner(runner_spec, project_root, params)
+        except Exception as exc:
+            failure = record_stage_failure(
+                project_root=str(project_root),
+                stage_name=stage_name,
+                message=str(exc),
+                activity=activity,
+                reason_code="runner_exception",
+                exception_type=type(exc).__name__,
+                traceback_text=traceback.format_exc(),
+                partial_artifact_ids=_artifact_ids(aggregate_artifacts),
+            )
+            result["scripts"].append({
+                "script": runner_spec["script"],
+                "activity": activity,
+                "status": "failed",
+            })
+            result.update(failure)
+            result["completed_at"] = now_iso()
+            return _attach_stage_result(
+                result,
+                stage_name=stage_name,
+                legacy_status="error",
+                state_effect="stage_transition",
+                reason_code="runner_exception",
+            )
         success = stage_result.get("status") == "success"
         capability_warning = stage_result.get("status") == "capability_warning"
         needs_inputs = stage_result.get("status") == "needs_inputs"
@@ -229,12 +255,23 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
             )
         if not success:
             message = stage_result.get("message", f"Failed to execute activity: {activity}")
-            update_stage(stage_name, "failed", project_root=str(project_root), error_message=message)
-            _update_workflow_progress(project_root, state, stage_name, stages, "failed")
-            result["status"] = "error"
-            result["message"] = message
+            failure = record_stage_failure(
+                project_root=str(project_root),
+                stage_name=stage_name,
+                message=message,
+                activity=activity,
+                reason_code=_reason_code(stage_result.get("status", "error"), stage_result) or "runner_error",
+                partial_artifact_ids=_artifact_ids(aggregate_artifacts),
+            )
+            result.update(failure)
             result["completed_at"] = now_iso()
-            return _attach_stage_result(result, stage_name=stage_name, legacy_status=result["status"], state_effect="stage_transition")
+            return _attach_stage_result(
+                result,
+                stage_name=stage_name,
+                legacy_status="error",
+                state_effect="stage_transition",
+                reason_code=failure.get("reason_code"),
+            )
 
         artifacts = stage_result.get("artifacts", [])
         inputs = _stage_inputs(stage_result, artifacts)
