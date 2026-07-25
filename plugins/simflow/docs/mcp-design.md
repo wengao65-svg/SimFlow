@@ -78,8 +78,23 @@ Existing servers may keep backward-compatible names during migration, but their
 behavior should converge on explicit project roots, strict schemas, and
 evidence-based recording.
 
+The names above describe architectural categories, not the current wire-level
+tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual
+`simflow_state/*`, `artifact_store/*`, and `checkpoint_store/*` surface.
+
 ## Credentials
 
 Credentials are read from environment variables or host-managed secret stores.
 They must not be written to `.simflow/`, artifacts, reports, checkpoints, logs,
 or generated handoff packages.
+
+## Host Adaptation
+
+The shared MCP runtime reads standard `initialize.params.clientInfo` metadata.
+The `simflow_state` server returns discovery guidance adapted to Codex, Claude
+Code, or a generic MCP client. Only invocation syntax differs; project-root
+boundaries, engagement prerequisites, artifact/checkpoint semantics, and safety
+gates are host-invariant.
+
+Host adaptation does not depend on skill-load hooks, transcript access, cwd,
+plugin cache paths, or `.omx/`. Unknown clients receive generic guidance.

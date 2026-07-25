@@ -54,10 +54,19 @@ MOCK_PAPERS = [
 
 
 class MockLiteratureConnector(BaseLiteratureConnector):
-    """Mock connector returning preset literature data."""
+    """Mock connector returning preset literature data.
+
+    Results are explicitly marked as mock_unverified and must NOT be used
+    as evidence. This connector exists only as a last-resort fallback when
+    no real API is available and no network access is possible.
+    """
 
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
-        """Search mock papers by query string."""
+        """Search mock papers by query string.
+
+        Returns results with status='mock_unverified' and usable_as_evidence=False
+        so callers can distinguish mock data from real API results.
+        """
         query_lower = query.lower()
         results = []
         for paper in MOCK_PAPERS:
@@ -68,14 +77,26 @@ class MockLiteratureConnector(BaseLiteratureConnector):
                 + " " + " ".join(paper["tags"])
             ).lower()
             if query_lower in searchable or any(q in searchable for q in query_lower.split()):
-                results.append(paper)
+                # Tag the result so callers can identify mock data
+                mock_result = dict(paper)
+                mock_result["status"] = "mock_unverified"
+                mock_result["usable_as_evidence"] = False
+                mock_result["source"] = "mock"
+                results.append(mock_result)
             if len(results) >= max_results:
                 break
         return results
 
     def get_metadata(self, doi: str) -> Optional[dict]:
-        """Get metadata for a specific DOI."""
+        """Get metadata for a specific DOI.
+
+        Returns result with status='mock_unverified' if found in mock data.
+        """
         for paper in MOCK_PAPERS:
             if paper["doi"] == doi:
-                return paper
+                mock_result = dict(paper)
+                mock_result["status"] = "mock_unverified"
+                mock_result["usable_as_evidence"] = False
+                mock_result["source"] = "mock"
+                return mock_result
         return None

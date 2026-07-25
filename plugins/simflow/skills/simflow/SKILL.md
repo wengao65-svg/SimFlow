@@ -136,6 +136,19 @@ conceptual shape:
 
 This is a router output contract, not a mandatory runtime schema.
 
+## Optional End-To-End Research Workflow Script
+
+When a user wants to drive the full canonical chain
+`literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing`
+from a structured research intent, the optional
+`scripts/run_research_workflow.py` skill script initializes research via
+`runtime.simflow_helpers.project.intake`, runs the canonical pipeline with
+dry-run-first behavior, and emits a compact JSON summary at
+`.simflow/reports/research_workflow_summary.json` covering workflow id/status,
+completed stages, artifact counts by stage/type, checkpoint summary, computation
+dry-run status, `hpc_submit` gate status, handoff report paths, and next
+actions. It never submits local, remote, or HPC jobs.
+
 ## Safety Escalation
 
 Escalate to `simflow-safety-gates` whenever the request involves real local execution,
@@ -191,3 +204,31 @@ actions, never router actions.
 - Claim strength, production-readiness threshold, active-learning stop criteria,
   analysis method, or figure interpretation materially affects a scientific
   conclusion.
+
+## Required MCP Engagement
+
+This skill requires the following MCP tool engagement when loaded:
+
+- **Minimum engagement**: Call `simflow_state/read_state` before any state-write
+  tool (`artifact_store/register`, `checkpoint_store/create`, `update_stage`,
+  `record_*_evidence`, `write_state`).
+- **Task-shape-aware engagement**: All task shapes — including single-stage
+  compute tasks (GPUMD compile, VASP relax, NEP training) — must engage at least
+  one SimFlow MCP tool. The router must suggest MCP engagement for every task,
+  not only multi-stage research tasks.
+- **Engagement contract enforcement**: State-write MCP tools are hard-blocked
+  unless `read_state` was called in the same session (30-min timeout). Calling
+  any read-only tool (workflow_status, stage_readiness, etc.) auto-satisfies
+  this prerequisite.
+
+## Quick Start for Re-entering a Project
+
+When entering a project that already has a `.simflow/` directory:
+
+1. Call `simflow_state/read_state` (or `workflow_status`) to load current state
+2. Do NOT call `init_workflow` — it is idempotent and will just return existing
+   state without changes
+3. Call `simflow_state/session_handoff` for a compact state summary
+4. Call `simflow_state/orphan_compute_scanner` if you suspect unregistered compute
+5. Proceed with your task — state-write tools will work because read_state was
+   called in step 1

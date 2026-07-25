@@ -76,6 +76,24 @@
       "type": "boolean",
       "default": false,
       "description": "Whether execution requires user approval"
+    },
+    "required_mcp_tools": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "MCP tools that must be called when this skill is loaded. Used by the engagement contract (P0.7) to enforce skill-MCP hard-binding. At least one tool from this list must be called before state-write tools will be accepted.",
+      "default": ["simflow_state/read_state"]
+    },
+    "minimum_mcp_engagement": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 1,
+      "description": "Declarative routing guidance for minimum MCP engagement. Runtime enforcement applies to protected MCP writes and does not depend on observable skill-load events."
+    },
+    "task_shapes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Task shape patterns that trigger this skill. Used by the task-shape-aware router (P3.4) to suggest MCP engagement for all task types, including single-stage compute tasks.",
+      "default": []
     }
   }
 }

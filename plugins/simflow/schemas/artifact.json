@@ -9,6 +9,10 @@
       "type": "string",
       "pattern": "^art_[a-z0-9]{8}$"
     },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^wf_[a-z0-9]{8}$"
+    },
     "name": {
       "type": "string"
     },

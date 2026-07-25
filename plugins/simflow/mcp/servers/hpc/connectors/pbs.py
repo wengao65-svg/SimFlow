@@ -10,8 +10,12 @@ from .base import BaseHPCConnector
 class PBSConnector(BaseHPCConnector):
     """Connector for PBS/Torque job scheduler."""
 
-    def dry_run(self, script_path: str) -> dict:
-        """Validate a PBS job script without submitting."""
+    def dry_run(self, script_path: str, manifest_path: str = "", base_dir: str = ".") -> dict:
+        """Validate a PBS job script without submitting.
+
+        Accepts the same signature as SlurmConnector.dry_run for connector
+        polymorphism.
+        """
         issues = []
         try:
             with open(script_path) as f:
