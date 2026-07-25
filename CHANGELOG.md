@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — v0.9.0-dev (Audit Remediation Phases 1-4)
+## v0.9.0 (2026-07-25) — Audit Remediation Phases 1-5
 
 Phase 1-4 audit remediation across blocking fixes, state automation,
 anti-bypass, MCP engagement, artifact lineage, and failure recovery.
