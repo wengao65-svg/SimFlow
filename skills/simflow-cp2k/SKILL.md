@@ -68,6 +68,7 @@ description: Provide CP2K domain assistance for official-documentation lookup, i
 ## Recommended checks
 
 - Input set: CP2K input deck and referenced coordinate, restart, basis, potential, topology, or force-field files are present and mutually consistent for the requested task.
+- For MLP labeling datasets (N jobs feeding one MLP training set), additionally consult `simflow-mlp/references/mlp_dft_labeling_consistency.md` for the single-protocol contract and dataset-scope consistency requirements.
 - Structure: element symbols, atom counts, cell vectors or ABC values, periodicity, coordinate format, charge/multiplicity, and `KIND` coverage are explicit.
 - DFT setup: `FORCE_EVAL/METHOD`, `DFT`, `BASIS_SET_FILE_NAME`, `POTENTIAL_FILE_NAME`, `QS`, `MGRID`, `SCF`, `XC`, and all `KIND` basis/potential assignments are traceable to official docs or local libraries.
 - Grid and SCF: `CUTOFF`, `REL_CUTOFF`, `EPS_DEFAULT`, `EPS_SCF`, `MAX_SCF`, OT/diagonalization, mixing, smearing, and restart guesses match the system and accuracy goal.

@@ -76,6 +76,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 ## Recommended checks
 
 - Input set: `POSCAR`, `INCAR`, `KPOINTS`, and licensed local `POTCAR` metadata are present and mutually consistent for the requested task.
+- For MLP labeling datasets (N jobs feeding one MLP training set), additionally consult `simflow-mlp/references/mlp_dft_labeling_consistency.md` for the single-protocol contract and dataset-scope consistency requirements.
 - Structure: POSCAR species/counts, lattice, selective dynamics, surface vacuum, defect supercell, adsorption geometry, and charge/spin assumptions are explicit.
 - POTCAR: element order and ZVAL evidence are checked without copying, printing, snapshotting, or distributing POTCAR content.
 - KPOINTS: mesh density, Gamma/Monkhorst choice, line-mode paths for bands, and finite-size/k-point convergence are appropriate for the system.
