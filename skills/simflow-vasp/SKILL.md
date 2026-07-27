@@ -93,9 +93,15 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 - `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, dry-run plans, and helper-run evidence for common tasks without submitting jobs.
 - `scripts/validate_vasp_outputs.py`: Inspect VASP outputs for convergence and obvious warning/error evidence.
 - `scripts/troubleshoot_vasp.py`: Produce source-backed troubleshooting notes using official VASP/py4vasp documentation links.
-- `scripts/plot_band_structure.py`: Plot a band structure from `EIGENVAL` and optional line-mode `KPOINTS`, recording helper-run metadata when requested.
 
 These helpers are optional domain tools, not the only valid parser, builder, analysis path, or report format. User scripts, py4vasp, VASPKIT, pymatgen, ASE, notebooks, shell commands, or custom Python are acceptable when evidence, lineage, assumptions, and risks are recorded.
+
+Per the SimFlow domain-skill script boundary (see `skills/README.md`), this skill
+ships only `generate_*_inputs` / `validate_*` / `orchestrate_*` / `troubleshoot_*`
+helpers. Band-structure plotting (formerly `plot_band_structure.py`) now lives
+under `simflow-analysis-visualization/scripts/`, since figure construction is an
+analysis_visualization-stage concern; it still parses `EIGENVAL`/`KPOINTS` via
+the shared `VASPParser`.
 
 ## Checkpoint rules
 

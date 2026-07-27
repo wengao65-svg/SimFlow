@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Plot VASP band structure from EIGENVAL and KPOINTS files.
+"""Plot a band structure from VASP EIGENVAL and optional line-mode KPOINTS.
+
+This is the analysis_visualization-stage plotting helper. EIGENVAL parsing
+uses the shared ``VASPParser`` (runtime); KPOINTS line-mode label extraction is
+a small inline format adapter for the plot only. VASP-specific output INTAKE
+and validation belong to the ``simflow-vasp`` skill.
 
 Usage:
     python plot_band_structure.py --eigenval EIGENVAL --kpoints KPOINTS -o bands.png
@@ -252,7 +257,7 @@ def main():
         args=args,
         result=result,
         script_path=Path(__file__).resolve(),
-        helper_name="vasp_plot_band_structure",
+        helper_name="plot_band_structure",
         software="vasp",
         input_paths=result["input_files"],
         output_paths=[output],
