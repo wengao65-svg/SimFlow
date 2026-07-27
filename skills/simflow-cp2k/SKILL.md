@@ -64,6 +64,7 @@ description: Provide CP2K domain assistance for official-documentation lookup, i
 - `references/cp2k_troubleshooting.md`: Convergence, cutoff, MD drift, restart, missing basis/potential, and output parsing diagnosis.
 - `references/cp2k_local_examples_index.md`: Optional user-provided CP2K source-tree documentation, tests, benchmarks, and data-source navigation; not needed for ordinary setup review or execution-environment planning.
 - `references/cp2k_methods_index.md` and `references/cp2k_common_workflows.md`: Lightweight legacy indexes for the helper-supported common-task layer.
+- `references/cp2k_tools.md`: CP2K-specific tool routes (ASE CP2K calculator interface, CP2K bundled utilities, custom parsers). For general tools (ASE, pymatgen), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Recommended checks
 

@@ -59,6 +59,7 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
 - `references/lammps_md_workflows.md`: minimize, equilibration, production, transport, rerun, restart, smoke, and production workflows.
 - `references/lammps_output_intake.md`: LAMMPS log/dump/data/restart intake, `lammps_output_intake_manifest`, and analysis handoff.
 - `references/lammps_troubleshooting.md`: missing packages, lost atoms, dangerous builds, GPU/MPI, drift, and MLP runtime issues.
+- `references/lammps_tools.md`: LAMMPS-specific tools (LAMMPS Python interface, bundled tools, Pizza.py) with command patterns and provenance. For general tools (MDAnalysis, OVITO, pymatgen), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Output artifacts
 

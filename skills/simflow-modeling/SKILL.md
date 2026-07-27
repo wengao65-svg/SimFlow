@@ -14,7 +14,7 @@ description: Track model construction or transformation for computational simula
 ## 输入条件
 
 - 用户提供的模型文件、文献结构、数据库结构、手写参数、上一 checkpoint 或 proposal。
-- 可选：ASE、pymatgen、MDAnalysis、OVITO、VESTA、Open Babel 或用户指定工具偏好。
+- 可选：ASE、pymatgen、MDAnalysis、OVITO、VESTA、Open Babel、packmol 或用户指定工具偏好。
 - 用户提供的原始模型必须保留为 source artifact，不得被静默替换。
 
 ## 输出 Artifact

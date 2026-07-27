@@ -72,6 +72,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 - `references/vasp_calc_xas_core_spectroscopy.md`: XAS, supercell core-hole, BSE core excitations.
 - `references/vasp_calc_nmr_efg_response.md`: NMR shielding, electric-field gradients, hyperfine coupling, response calculations.
 - `references/vasp_calc_wannier_postprocessing.md`: Wannier orbitals, partial/band-decomposed charges, py4vasp/VASPKIT/custom post-processing.
+- `references/vasp_tools.md`: VASP-specific third-party tools (py4vasp, VASPKIT) with command patterns, prerequisite files, and SimFlow context. For general tools (ASE, pymatgen, packmol), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Recommended checks
 

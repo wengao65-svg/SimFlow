@@ -35,6 +35,7 @@ rather than in this distributable reference.
 - MDAnalysis: useful for trajectory selections, RDF, MSD, diffusion-style analysis, and trajectory conversion when topology and units are clear.
 - freud: optional particle and trajectory analysis library when available. Record skipped dependency when absent.
 - OVITO Python: optional atomistic visualization and trajectory analysis route when available. Record skipped dependency when absent.
+- packmol: useful for packing solvents, ligands, or complex mixtures around a fixed solute structure with geometric constraints. Commonly used in modeling-stage structure preparation before MD or AIMD. Record constraint tolerances, fixed atoms, and generated coordinate provenance.
 
 ## Electronic-structure post-processing
 
@@ -48,17 +49,18 @@ Load `community_postprocessing_tools.md` before using mature external suites as
 analysis evidence. These tools can save time, but they remain optional derived
 routes rather than required SimFlow parsers.
 
-- GPUMDkit: optional GPUMD/NEP conversion, analyzer, calculator, and plotting
-  suite for thermo, MSD, RDF, EMD/NEMD/HNEMD, PDOS, NEP training, prediction,
-  force-error, and Arrhenius-style outputs when supported by the installed
-  version.
-- VASPKIT: optional VASP post-processing suite for DOS, bands, projected bands,
-  charge density, potential, optical, transport, MD, Fermi-surface, and auto-plot
-  workflows. Keep POTCAR/input-generation tasks outside analysis unless the user
-  explicitly asks and safety gates are satisfied.
-- py4vasp, PyProcar, sumo, Phonopy, OVITO, and domain-local scripts: optional
-  community or project routes when their input requirements match the available
-  files.
+- GPUMDkit: engine-specific GPUMD/NEP community toolkit. See
+  `simflow-gpumd/references/gpumd_tools.md` for command families,
+  prerequisite files, and SimFlow context.
+- VASPKIT: engine-specific VASP post-processing suite. See
+  `simflow-vasp/references/vasp_tools.md` for task patterns, prerequisite
+  files, and SimFlow context.
+- py4vasp: engine-specific VASP Python library. See
+  `simflow-vasp/references/vasp_tools.md` for capabilities and SimFlow
+  context.
+- PyProcar, sumo, Phonopy, OVITO, and domain-local scripts: optional
+  community or project routes when their input requirements match the
+  available files.
 - Missing or unsuitable tools should be recorded as `skipped_optional_dependency`
   or `skipped_community_tool`, followed by a traceable fallback.
 
