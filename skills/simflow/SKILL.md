@@ -105,6 +105,29 @@ route-only answers that do not create artifacts or decisions.
 Always use the explicit user project root/current `project_root`. Never write
 project state into the plugin root, skill directory, MCP server cwd, tool installation directory, or `.omx/`.
 
+## Directory guidance
+
+When the host agent creates a new stage directory in a user project, follow
+the two-layer convention defined in `docs/user-project-layout.md`:
+
+- Top level: `phaseN_<canonical_stage>/` where `phase1`..`phase6` map 1:1
+  to the canonical stages `literature_review`..`writing`. Phase numbers are
+  fixed and must not be renumbered when a phase is skipped.
+- Second level: `stageN_<snake_case_descriptor>/` inside the phase.
+  Numbering is local to the phase. One `stageN_*` equals one logical
+  sub-activity; variants (temperature, method) belong as subdirectories,
+  not as same-prefixed siblings.
+- Prep and run must be separated: `dataset_prep/` vs `run_step1/`,
+  `run_step2/`. Iteration uses `vN_<desc>_<YYYYMMDD>/`, not bare integers.
+- Shared directories (`scripts/`, `reference/`, `config/`, `templates/`,
+  `tests/`, `docs/`, `archives/`, `legacy/`, `scratch/`) live at the project
+  root. Bare `stageN_*` at the project root is forbidden.
+- `.simflow/` lives only at `project_root`; never create a nested
+  `.simflow/` inside a phase directory.
+
+Route verification of an existing layout to `simflow-verify`'s Directory
+Hygiene Checks.
+
 ## Checkpoint rules
 
 - Do not create a checkpoint for route-only or conceptual responses that do not

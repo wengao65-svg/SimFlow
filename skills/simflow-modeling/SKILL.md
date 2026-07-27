@@ -23,6 +23,20 @@ description: Track model construction or transformation for computational simula
 - 模型 artifact 可以是任意合理格式，不限定为 POSCAR、CIF 或 model.json。
 - 验证证据应覆盖组成、周期性、坐标、最小距离、边界条件和用户指定约束。
 
+## 目录布局
+
+建模工作放在 `phase3_modeling/stageN_<descriptor>/` 下，遵循
+`docs/user-project-layout.md` 约定：
+
+- 一个 `stageN_*` 目录对应一个逻辑子活动（如 `stage1_initial_models/`、
+  `stage2_solvated_models/`、`stage3_supercell_build/`）。结构变体
+  （不同 REE 元素、不同超胞尺寸）作为子目录，不分裂成同前缀兄弟。
+- 原始用户提供的模型必须保留为 source artifact，转换后的版本作为子目录
+  或带版本号的目录，不要静默覆盖。
+- 处理脚本：通用版抽到项目根 `scripts/`，任务特定脚本随该 stage。
+- 不要在 stage 目录内创建嵌套的 `.simflow/`；项目根 `.simflow/` 是唯一
+  状态根。
+
 ## 状态写入规则
 
 - 写入 `.simflow/` 前必须显式解析 `project_root`。
