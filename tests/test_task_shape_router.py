@@ -94,7 +94,7 @@ def test_router_contract_declares_host_adaptation_without_skill_load_hooks():
     policy = contract["host_adaptation_policy"]
     assert policy["signal"] == "mcp_initialize_client_info"
     assert policy["skill_load_hooks_required"] is False
-    assert policy["supported_profiles"] == ["codex", "claude_code", "generic"]
+    assert policy["supported_profiles"] == ["codex", "claude_code", "opencode", "generic"]
     assert "engagement_prerequisites" in policy["host_invariant_behavior"]
 
 

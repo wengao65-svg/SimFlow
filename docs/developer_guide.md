@@ -3,7 +3,7 @@
 ## Architecture Overview
 
 SimFlow is a plugin-hosted workflow layer, not a standalone research executor.
-Codex, Claude Code, or another host agent performs the scientific work. SimFlow
+Codex, Claude Code, OpenCode, or another host agent performs the scientific work. SimFlow
 records evidence, state, lineage, checkpoints, gates, and handoff context.
 
 ```text
@@ -26,6 +26,7 @@ schemas/         JSON schemas
 tests/           unit, MCP, workflow, skill, and e2e tests
 docs/            design and user documentation
 scripts/         packaging, marketplace, scaffold, and validation scripts
+opencode/        dependency-free OpenCode plugin module
 ```
 
 New behavior should use `workflow/recipes/`, canonical stages, and helper
@@ -119,4 +120,6 @@ npm run validate:all
 ```
 
 If marketplace or distribution files change, also run the marketplace build and
-validation commands documented in the release workflow.
+validation commands documented in the release workflow. OpenCode changes must
+also pass the package build, built-package validator, and isolated OpenCode
+smoke test.

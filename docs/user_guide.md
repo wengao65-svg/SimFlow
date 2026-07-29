@@ -19,7 +19,9 @@ analysis scripts, plotting tools, and writing format.
 
 SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
 language that triggers a SimFlow skill. In Claude Code, use namespaced skills
-such as `/simflow:simflow`.
+such as `/simflow:simflow`. In OpenCode, ask the agent to use the `simflow`
+skill or a domain skill such as `simflow-vasp`; OpenCode loads them through its
+native skill tool.
 
 During MCP initialization, SimFlow uses standard client information to present
 the matching invocation syntax. This affects discovery guidance only; workflow

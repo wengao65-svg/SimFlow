@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simflow"
-version = "0.9.0"
-description = "Codex-native computational simulation domain workflow layer"
+version = "0.10.0"
+description = "Host-neutral computational simulation domain workflow layer"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"

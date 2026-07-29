@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.10.0 (2026-07-29) — OpenCode plugin distribution
+
+- Added the dependency-free OpenCode plugin adapter for stable OpenCode 1.18.x.
+- Added `opencode-simflow` npm package build, validation, isolated smoke, and
+  manual release automation.
+- OpenCode now discovers all canonical SimFlow skills and the seven existing
+  MCP servers without changing providers, permissions, or safety policy.
+- Added OpenCode-specific MCP `clientInfo` guidance and host-adaptation tests.
+- Updated installation, developer, limitation, and release documentation for
+  the third supported host distribution.
+
 ## v0.9.1 (2026-07-28) — Domain-skill analysis boundary remediation
 
 Domain skills owned analysis/plotting helpers that crossed into

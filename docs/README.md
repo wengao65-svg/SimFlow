@@ -10,6 +10,8 @@ agent.
 - [README](../README.md): product summary, install notes, and current structure.
 - [User Guide](user_guide.md): how to think about stages, recipes, evidence,
   and safety gates.
+- [OpenCode Quick Start](quickstart_opencode.md): install, update, local
+  development, MCP verification, and compatibility boundaries.
 - [Workflow Layer Design](workflow-layer-design.md): canonical stage and recipe
   semantics.
 - [MLP-MD Workflow Recipe](mlp-md-workflow.md): machine-learning-potential MD

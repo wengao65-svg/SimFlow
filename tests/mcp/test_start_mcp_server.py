@@ -87,13 +87,16 @@ def test_stdio_schema_fallback_is_strict():
 def test_state_server_initialization_adapts_to_mcp_client_info():
     codex = _run_from_non_plugin_cwd("simflow_state", client_name="codex-cli")
     claude = _run_from_non_plugin_cwd("simflow_state", client_name="claude-code")
+    opencode = _run_from_non_plugin_cwd("simflow_state", client_name="opencode")
     generic = _run_from_non_plugin_cwd("simflow_state", client_name="other")
 
     codex_result = json.loads(codex.stdout.splitlines()[0])["result"]
     claude_result = json.loads(claude.stdout.splitlines()[0])["result"]
+    opencode_result = json.loads(opencode.stdout.splitlines()[0])["result"]
     generic_result = json.loads(generic.stdout.splitlines()[0])["result"]
     assert "$simflow" in codex_result["instructions"]
     assert "/simflow:simflow" in claude_result["instructions"]
+    assert "skill tool" in opencode_result["instructions"]
     assert "$simflow" not in generic_result["instructions"]
 
 
