@@ -23,6 +23,18 @@ def _all_markdown(root: Path) -> str:
     return "\n".join(_read(path) for path in sorted(root.rglob("*.md")))
 
 
+def _markdown_section(text: str, heading: str) -> str:
+    heading_level = len(heading) - len(heading.lstrip("#"))
+    match = re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE)
+    assert match, heading
+
+    remainder = text[match.end() :]
+    next_heading = re.search(rf"^#{{1,{heading_level}}}\s+", remainder, re.MULTILINE)
+    if next_heading:
+        remainder = remainder[: next_heading.start()]
+    return remainder
+
+
 def test_mlp_uses_provider_defined_training_policy():
     skill = _read(MLP_SKILL / "SKILL.md")
     training = _read(MLP_SKILL / "references" / "mlp_training_validation.md")
@@ -44,7 +56,7 @@ def test_mlp_uses_provider_defined_training_policy():
     assert "does not prescribe a provider-independent training-phase sequence" in combined
 
 
-def test_nep_two_step_training_is_not_generic_mlp_methodology():
+def test_nep_two_step_training_is_scoped_provider_reference_guidance():
     mlp_text = _all_markdown(MLP_SKILL)
 
     assert not re.search(
@@ -59,14 +71,26 @@ def test_nep_two_step_training_is_not_generic_mlp_methodology():
         assert not re.search(prescription, mlp_text, re.IGNORECASE | re.DOTALL)
 
     community = _read(COMMUNITY_REFERENCE)
-    assert "NEP optional two-step training" in community
-    for label in [
-        "community-derived",
-        "NEP-specific",
-        "optional",
-        "version-sensitive implementation",
+    preamble = _markdown_section(community, "## Preamble")
+    for phrase in [
+        "reference suggestions",
+        "not SimFlow endorsements",
+        "not universal recipes",
+        "must be checked against the current version of the GPUMD/NEP official",
     ]:
-        assert label in community
+        assert phrase in preamble
+
+    two_step = _markdown_section(community, "### REC-TWOSTEP Two-step training")
+    for phrase in [
+        "NEP-specific",
+        "MACE / DeePMD / NequIP / Allegro",
+        "Source type",
+        "community experience",
+        "Confidence",
+        "Residual risk",
+        "Verify before use",
+    ]:
+        assert phrase in two_step
 
 
 def test_gpumd_distinguishes_fine_tune_restart_and_community_strategy():
@@ -177,24 +201,26 @@ def test_domain_assistant_helper_support_and_helper_evidence_are_separate_concep
         } <= supported
 
 
-def test_community_reference_is_cleaned_anonymized_and_version_separated():
+def test_community_reference_has_current_provenance_privacy_and_scope_contract():
     text = _read(COMMUNITY_REFERENCE)
+    preamble = _markdown_section(text, "## Preamble")
 
     for phrase in [
-        "Source:",
-        "Untracked local community material under",
-        ".simflow/community-gpumd-nep/",
-        "Status:",
-        "Community-derived, cleaned and checked",
-        "Not authoritative:",
-        "Stable methodology",
-        "Version-sensitive notes",
-        "Official-document consistency:",
-        "Source-code consistency:",
-        "Residual risk:",
-        "Recommended use:",
+        "Nature of this document",
+        "reference suggestions",
+        "not established facts",
+        "not SimFlow endorsements",
+        "not universal recipes",
+        "Verify before use",
+        "current version of the GPUMD/NEP official",
+        "Source types",
+        "community experience",
+        "Scope boundary",
+        "belong to `simflow-mlp`",
+        "Privacy",
+        "no personal identity",
     ]:
-        assert phrase in text
+        assert phrase in preamble
 
     assert not re.search(r"\b1[3-9]\d{9}\b", text)
     assert not re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.IGNORECASE)
@@ -203,7 +229,8 @@ def test_community_reference_is_cleaned_anonymized_and_version_separated():
         assert private_marker not in text
 
     assert "### Target-scale and target-property evidence" not in text
-    assert "General dataset, labeling, validation, active-learning, and production-MD" in text
+    assert "General dataset coverage design, validation design," in preamble
+    assert "production MLP-MD readiness criteria" in preamble
 
 
 def test_skill_reference_maps_resolve():
