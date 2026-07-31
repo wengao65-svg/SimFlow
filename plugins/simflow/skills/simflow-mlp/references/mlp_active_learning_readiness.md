@@ -5,6 +5,7 @@ Active-learning evidence should record:
 - Iteration id, candidate pool, selection/acquisition method, selected structures, label results, failed labels, dataset update, retraining, and validation changes.
 - Uncertainty or anomaly criteria, including thresholds and what action each threshold triggers.
 - Stop condition and residual risk.
+- The DFT label protocol inherited from the baseline dataset: all active-learning rounds must use the same frozen scientific-input fingerprint as the baseline. A protocol change requires establishing a new dataset/model lineage and retraining from scratch.
 
 Candidate selection should favor configurations that add target-domain
 coverage and remain physically interpretable enough to label. Do not treat a

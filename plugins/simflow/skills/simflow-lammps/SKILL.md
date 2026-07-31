@@ -59,6 +59,7 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
 - `references/lammps_md_workflows.md`: minimize, equilibration, production, transport, rerun, restart, smoke, and production workflows.
 - `references/lammps_output_intake.md`: LAMMPS log/dump/data/restart intake, `lammps_output_intake_manifest`, and analysis handoff.
 - `references/lammps_troubleshooting.md`: missing packages, lost atoms, dangerous builds, GPU/MPI, drift, and MLP runtime issues.
+- `references/lammps_tools.md`: LAMMPS-specific tools (LAMMPS Python interface, bundled tools, Pizza.py) with command patterns and provenance. For general tools (MDAnalysis, OVITO, pymatgen), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Output artifacts
 
@@ -101,13 +102,21 @@ semantics and hands analysis intent to `simflow-analysis-visualization`.
 - `scripts/generate_lammps_inputs.py`: narrow template helper for initial
   `minimize`, `nve`, `nvt`, and `npt` drafts; returns `needs_inputs` when
   `mlp_md` lacks model/type/package evidence.
-- `scripts/analyze_lammps_trajectory.py`: optional LAMMPS trajectory helper
-  route for the analysis_visualization stage. From the LAMMPS skill boundary,
-  it is a format/evidence adapter, not the final property-analysis standard.
+- `scripts/parse_lammps_outputs.py`: output INTAKE adapter. Parses `log.lammps`
+  thermo via the shared `LAMMPSParser` and scans dump/data headers for columns,
+  units style, atom ids, image flags, frame count, box bounds, and masses, then
+  emits a `lammps_output_intake_manifest` and handoff artifact. It does NOT
+  compute RDF, MSD, diffusion, or any property claim; those belong to
+  `simflow-analysis-visualization` (e.g. its `analyze_md_trajectory.py` helper).
 
 These helper scripts are optional routes, not the only valid path. Official LAMMPS
 examples, user-written scripts, Python, OVITO, Pizza.py, notebooks, or shell
 commands are acceptable when evidence, lineage, and risks are recorded.
+
+Per the SimFlow domain-skill script boundary (see `skills/README.md`), this
+skill ships only `inspect_*` / `generate_*_inputs` / `parse_*_outputs` helpers.
+Analysis and plotting helpers such as `analyze_*` or `plot_*` live under
+`simflow-analysis-visualization`, not here.
 
 ## Prohibited actions
 

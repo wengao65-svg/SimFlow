@@ -1,8 +1,8 @@
 # SimFlow Installation Guide
 
-SimFlow is distributed to users as Codex and Claude Code plugins. It is not a
-primary command-line workflow executor, and the source checkout is mainly for
-development, validation, and marketplace publishing.
+SimFlow is distributed to users as Codex, Claude Code, and OpenCode plugins. It
+is not a primary command-line workflow executor, and the source checkout is
+mainly for development, validation, and host-package publishing.
 
 ## System Requirements
 
@@ -82,6 +82,32 @@ Verify typical skill names:
 /simflow:simflow-writing
 ```
 
+## Install For OpenCode Users
+
+Install the published npm plugin globally:
+
+```bash
+opencode plugin opencode-simflow --global
+```
+
+Update or replace the installed package:
+
+```bash
+opencode plugin opencode-simflow --global --force
+```
+
+Verify the adapter without invoking a model:
+
+```bash
+opencode debug config
+opencode debug skill
+opencode mcp list
+```
+
+The supported baseline is stable OpenCode 1.18.9 through stable 1.x. See
+[OpenCode Quick Start](quickstart_opencode.md) for local development and
+configuration details.
+
 ## Developer Source Checkout
 
 Use the source checkout when developing SimFlow, validating release candidates,
@@ -109,6 +135,14 @@ Local Claude wrapper install:
 npm run build:claude-marketplace
 claude plugin marketplace add ./dist/claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
+```
+
+Local OpenCode package validation:
+
+```bash
+npm run build:opencode-plugin
+SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
+node scripts/smoke_opencode_plugin.js dist/opencode-plugin
 ```
 
 ## Optional Python Dependencies
@@ -149,6 +183,9 @@ SIMFLOW_MARKETPLACE_ROOT=dist/codex-marketplace npm run validate:plugin
 
 npm run build:claude-marketplace
 SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin
+
+npm run build:opencode-plugin
+SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
 ```
 
 Smoke-test MCP startup from the source checkout:
@@ -156,6 +193,7 @@ Smoke-test MCP startup from the source checkout:
 ```bash
 npm run validate:plugin
 npm run validate:claude-plugin
+npm run validate:opencode-plugin
 ```
 
 These validators initialize the configured SimFlow MCP servers over stdio and
@@ -168,6 +206,8 @@ Current source layout:
 ```text
 simflow/
 ├── skills/                    # Workflow-layer and domain helper skills
+├── .opencode/plugins/         # OpenCode source-checkout loader
+├── opencode/                  # OpenCode plugin module
 ├── workflow/                  # Stage, recipe, gate, and policy definitions
 ├── mcp/                       # MCP servers and connectors
 ├── runtime/
@@ -188,6 +228,7 @@ points.
 | Variable | Purpose |
 | --- | --- |
 | `MP_API_KEY` | Materials Project API key |
+| `SIMFLOW_PYTHON` | Python executable used by OpenCode MCP commands |
 | `S2_API_KEY` | Semantic Scholar API key |
 | `SIMFLOW_SSH_HOST` | SSH HPC host |
 | `SIMFLOW_SSH_USER` | SSH username |

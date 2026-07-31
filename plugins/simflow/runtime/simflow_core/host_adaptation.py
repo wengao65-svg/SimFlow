@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 
-HostKind = Literal["codex", "claude_code", "generic"]
+HostKind = Literal["codex", "claude_code", "opencode", "generic"]
 
 
 def detect_host(client_info: Mapping[str, Any] | None) -> HostKind:
@@ -16,6 +16,8 @@ def detect_host(client_info: Mapping[str, Any] | None) -> HostKind:
         return "codex"
     if "claude" in name or "anthropic" in name:
         return "claude_code"
+    if "opencode" in name:
+        return "opencode"
     return "generic"
 
 
@@ -30,6 +32,7 @@ def build_initialize_instructions(
     invocation = {
         "codex": "Use $simflow or a domain skill such as $simflow-vasp, or describe the task naturally.",
         "claude_code": "Use /simflow:simflow or a namespaced domain skill, or describe the task naturally.",
+        "opencode": "Use OpenCode's skill tool to load simflow or a domain skill such as simflow-vasp, or describe the task naturally.",
         "generic": "Describe the simulation task naturally and use the SimFlow MCP tools for tracked work.",
     }[host]
     invariants = (

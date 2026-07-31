@@ -4,7 +4,7 @@ A computational simulation workflow layer for traceable, safety-gated agentic
 research.
 
 SimFlow is not a centralized workflow executor. It does not decide the science
-for Codex, Claude Code, or another host agent. The host agent chooses the
+for Codex, Claude Code, OpenCode, or another host agent. The host agent chooses the
 literature sources, modeling tools, simulation engines, analysis code, and
 writing format. SimFlow records the process so computational research remains
 traceable, recoverable, reviewable, and safety-gated.
@@ -12,7 +12,7 @@ traceable, recoverable, reviewable, and safety-gated.
 ## Architecture
 
 ```
-Host Agent (Claude Code, Codex, or compatible agent)
+Host Agent (Claude Code, Codex, OpenCode, or compatible agent)
   -> SimFlow Skills          (intent-specific workflow guidance)
   -> SimFlow Workflow Layer  (research stages, recipes, gates, policies)
   -> MCP Servers             (state, artifacts, lineage, checkpoints, gates)
@@ -78,9 +78,10 @@ artifacts and handoff records.
 
 ## Quick Start
 
-Choose the plugin marketplace path for your host agent. Claude Code users
-install from the published `claude-marketplace` branch; Codex users install
-from the published `codex-marketplace` branch.
+Choose the distribution path for your host agent. Claude Code users install
+from the published `claude-marketplace` branch, Codex users install from the
+published `codex-marketplace` branch, and OpenCode users install the
+`opencode-simflow` npm plugin.
 
 ### Claude Code
 
@@ -152,6 +153,28 @@ SimFlow skills are invoked through Codex skill routing, for example `$simflow`, 
 See [Codex 快速上手](docs/quickstart_codex.md) for local wrapper debugging,
 validation, and Codex-specific marketplace details.
 
+### OpenCode
+
+Install SimFlow globally for OpenCode:
+
+```bash
+opencode plugin opencode-simflow --global
+```
+
+Update an existing installation:
+
+```bash
+opencode plugin opencode-simflow --global --force
+```
+
+The plugin adds the canonical SimFlow skills and seven MCP servers without
+changing OpenCode permissions or provider configuration. Ask OpenCode to use
+the `simflow` skill, a domain skill such as `simflow-vasp`, or describe the
+simulation task naturally.
+
+See [OpenCode Quick Start](docs/quickstart_opencode.md) for local development,
+validation, conflict handling, and Python interpreter details.
+
 Developer checkout and maintainer build details are covered in the
 [Installation Guide](docs/installation.md).
 
@@ -159,6 +182,8 @@ Developer checkout and maintainer build details are covered in the
 
 ```
 simflow/
+├── .opencode/plugins/         # OpenCode project-local loader
+├── opencode/                  # Canonical OpenCode plugin module
 ├── skills/                    # Workflow-layer skills and Domain Assistants
 ├── workflow/                  # Stage, recipe, gate, policy definitions
 │   ├── stages/                # Research intent contracts
@@ -190,6 +215,7 @@ simflow/
 | `SIMFLOW_SSH_HOST` | SSH HPC host |
 | `SIMFLOW_SSH_USER` | SSH username |
 | `SIMFLOW_SSH_KEY` | SSH key file path |
+| `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 
 Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
 are only a degraded fallback and are tagged `mock_unverified` with
@@ -199,6 +225,7 @@ are only a degraded fallback and are tagged `mock_unverified` with
 
 - [Claude Code Quick Start](docs/quickstart_claude.md)
 - [Codex 快速上手](docs/quickstart_codex.md)
+- [OpenCode Quick Start](docs/quickstart_opencode.md)
 - [Installation Guide](docs/installation.md)
 - [User Guide](docs/user_guide.md)
 - [Technical Design](docs/technical-design.md)

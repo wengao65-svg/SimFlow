@@ -1,9 +1,11 @@
 # Community Post-Processing Tools
 
 Use this reference when a mature community tool may already implement the
-requested post-processing or plotting workflow. Examples include GPUMDkit,
-VASPKIT-style optional tools, py4vasp, PyProcar, Phonopy, sumo, OVITO, and
-project-local scripts maintained by a research community.
+requested post-processing or plotting workflow. Examples include py4vasp,
+PyProcar, Phonopy, sumo, OVITO, and project-local scripts maintained by a
+research community. Engine-specific community tools such as GPUMDkit and
+VASPKIT have dedicated route references in their domain skills (see
+"Engine-specific community routes" below).
 
 These tools are optional routes. They are useful when they directly support the
 raw outputs and standard analysis requested by the user, but they do not replace
@@ -50,64 +52,19 @@ nonstandard parsing, unusual fitting windows, stricter uncertainty analysis,
 publication-specific styling, cross-tool validation, or a minimal dependency
 surface.
 
-## GPUMDkit route
+## Engine-specific community routes
 
-GPUMDkit is a community toolkit for GPUMD and NEP workflows. It provides
-interactive and command-line modes for conversion, analysis, calculation, and
-visualization.
+Detailed command families, prerequisite files, and SimFlow context for
+engine-specific community tools live with their domain skills:
 
-Common command families:
+- GPUMDkit route: see `simflow-gpumd/references/gpumd_tools.md`.
+- VASPKIT-style route: see `simflow-vasp/references/vasp_tools.md`.
 
-- Conversion examples: `gpumdkit.sh -out2xyz`, `gpumdkit.sh -lmp2exyz`, and
-  related format-conversion commands.
-- Analyzer examples: `gpumdkit.sh -range`, `gpumdkit.sh -min_dist_pbc`,
-  `gpumdkit.sh -analyze_comp`, and outlier or composition checks.
-- Calculator examples: `gpumdkit.sh -calc ...` routes for supported derived
-  quantities.
-- Plot examples: `gpumdkit.sh -plt thermo`, `msd`, `rdf`, `emd`, `nemd`,
-  `hnemd`, `pdos`, `train`, `prediction`, force-error plots, and Arrhenius-style
-  plots when supported by the installed version.
-
-Record GPUMD inputs such as `run.in`, model or potential identifiers, thermo
-and trajectory outputs, output cadence, units, conversion scripts, generated
-`PLOT.in` or plotting config files, and all generated tables or figures.
-
-Useful references:
-
-- https://github.com/zhyan0603/GPUMDkit
-- https://zhyan0603.github.io/GPUMDkit/htmls/plot_scripts.html
-- https://gpumd.org/gpumd/output_files/index.html
-
-## VASPKIT-style route
-
-VASPKIT is a mature VASP post-processing suite with interactive, batch, and
-command-style use patterns. It is useful for common VASP post-processing such as
-DOS, band structures, projected bands, charge density, potential, optical,
-transport, MD, Fermi-surface, and auto-plot workflows.
-
-Common command patterns:
-
-- `vaspkit -task <task_id>` when the installed version supports the selected
-  task directly.
-- `echo ... | vaspkit` for scripted interactive selections.
-- `vaspkit < cmd.in` or a documented `cmd.in`/batch mode when a workflow needs
-  reproducible multi-step selections.
-
-Before using VASPKIT, confirm required VASP files are present for the requested
-task, such as `vasprun.xml`, `OUTCAR`, `EIGENVAL`, `PROCAR`, `DOSCAR`, `CHGCAR`,
-`LOCPOT`, `KPOINTS`, or structure files. Record local configuration assumptions
-such as `~/.vaspkit`, task id, command log, generated data files, generated plot
-scripts, and version when practical.
-
-Keep POTCAR-related or input-generation tasks out of the analysis layer unless
-the user explicitly asks and the safety gate is satisfied. Never copy, print,
-snapshot, or redistribute POTCAR contents.
-
-Useful references:
-
-- https://vaspkit.com/
-- https://vaspkit.com/features.html
-- https://vaspkit.com/installation.html
+The adapter protocol above still applies when invoking these tools: capture
+command, version, inputs, outputs, environment, citations, and license notes.
+Keep POTCAR-related or input-generation tasks out of the analysis layer
+unless the user explicitly asks and the safety gate is satisfied. Never
+copy, print, snapshot, or redistribute POTCAR contents.
 
 ## Citation, license, and reproducibility notes
 

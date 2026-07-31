@@ -91,6 +91,7 @@ helper or redefine its GPUMD/NEP domain ownership.
   NEP/GPUMD methodology, version-sensitive notes, and unresolved claims.
 - `references/gpumd_task_checklists.md`: Task-oriented review checklists.
 - `references/gpumd_troubleshooting.md`: Failure and uncertainty diagnosis.
+- `references/gpumd_tools.md`: GPUMD/NEP-specific third-party tools (GPUMDkit, neptrain, neptrainkit, calorine) with command families, provenance, and SimFlow context. For general tools (ASE, pymatgen), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Optional helper scripts
 

@@ -25,6 +25,10 @@ Produce or request a `lammps_output_intake_manifest` with:
 - recommended analysis family such as MD structure, diffusion/transport, mechanical/elastic, or visualization.
 - limitations that must be resolved before final scientific claims.
 
+The optional `scripts/parse_lammps_outputs.py` helper produces this manifest by
+parsing `log.lammps` thermo and scanning dump/data headers. It records
+LAMMPS-specific output semantics only; it does not compute property claims.
+
 ## Boundary
 
 `simflow-lammps` may flag that output is insufficient for a proposed analysis,

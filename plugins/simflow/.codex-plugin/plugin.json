@@ -1,6 +1,6 @@
 {
   "name": "simflow",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Codex-native computational simulation domain workflow layer",
   "author": {
     "name": "wengao65-svg",
