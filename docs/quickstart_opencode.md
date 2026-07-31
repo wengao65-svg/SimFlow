@@ -104,5 +104,6 @@ npm run publish:opencode-plugin -- --dry-run
 ```
 
 Real npm publication requires the manual OpenCode release workflow, an
-authorized `NPM_TOKEN`, completed release gates, and explicit approval. It is
+authorized repository Actions secret named `SIMFLOW`, completed release gates,
+and explicit approval. It is
 not triggered by ordinary pushes to `main`.

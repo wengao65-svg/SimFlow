@@ -79,6 +79,8 @@ def test_distribution_publish_workflows_cover_supported_hosts():
     assert "npm run build:opencode-plugin" in opencode_text
     assert "SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin" in opencode_text
     assert "npm run publish:opencode-plugin -- --no-build" in opencode_text
+    assert "NODE_AUTH_TOKEN: ${{ secrets.SIMFLOW }}" in opencode_text
+    assert "secrets.NPM_TOKEN" not in opencode_text
 
 
 def test_main_ci_runs_isolated_opencode_smoke():
