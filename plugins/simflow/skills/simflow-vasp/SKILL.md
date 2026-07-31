@@ -72,10 +72,12 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 - `references/vasp_calc_xas_core_spectroscopy.md`: XAS, supercell core-hole, BSE core excitations.
 - `references/vasp_calc_nmr_efg_response.md`: NMR shielding, electric-field gradients, hyperfine coupling, response calculations.
 - `references/vasp_calc_wannier_postprocessing.md`: Wannier orbitals, partial/band-decomposed charges, py4vasp/VASPKIT/custom post-processing.
+- `references/vasp_tools.md`: VASP-specific third-party tools (py4vasp, VASPKIT) with command patterns, prerequisite files, and SimFlow context. For general tools (ASE, pymatgen, packmol), see `simflow-analysis-visualization/references/tooling_index.md`.
 
 ## Recommended checks
 
 - Input set: `POSCAR`, `INCAR`, `KPOINTS`, and licensed local `POTCAR` metadata are present and mutually consistent for the requested task.
+- For MLP labeling datasets (N jobs feeding one MLP training set), additionally consult `simflow-mlp/references/mlp_dft_labeling_consistency.md` for the single-protocol contract and dataset-scope consistency requirements.
 - Structure: POSCAR species/counts, lattice, selective dynamics, surface vacuum, defect supercell, adsorption geometry, and charge/spin assumptions are explicit.
 - POTCAR: element order and ZVAL evidence are checked without copying, printing, snapshotting, or distributing POTCAR content.
 - KPOINTS: mesh density, Gamma/Monkhorst choice, line-mode paths for bands, and finite-size/k-point convergence are appropriate for the system.
@@ -91,9 +93,15 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 - `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, dry-run plans, and helper-run evidence for common tasks without submitting jobs.
 - `scripts/validate_vasp_outputs.py`: Inspect VASP outputs for convergence and obvious warning/error evidence.
 - `scripts/troubleshoot_vasp.py`: Produce source-backed troubleshooting notes using official VASP/py4vasp documentation links.
-- `scripts/plot_band_structure.py`: Plot a band structure from `EIGENVAL` and optional line-mode `KPOINTS`, recording helper-run metadata when requested.
 
 These helpers are optional domain tools, not the only valid parser, builder, analysis path, or report format. User scripts, py4vasp, VASPKIT, pymatgen, ASE, notebooks, shell commands, or custom Python are acceptable when evidence, lineage, assumptions, and risks are recorded.
+
+Per the SimFlow domain-skill script boundary (see `skills/README.md`), this skill
+ships only `generate_*_inputs` / `validate_*` / `orchestrate_*` / `troubleshoot_*`
+helpers. Band-structure plotting (formerly `plot_band_structure.py`) now lives
+under `simflow-analysis-visualization/scripts/`, since figure construction is an
+analysis_visualization-stage concern; it still parses `EIGENVAL`/`KPOINTS` via
+the shared `VASPParser`.
 
 ## Checkpoint rules
 

@@ -13,14 +13,17 @@
     "abinit",
     "allegro",
     "ase",
+    "calorine",
     "custom",
     "deepmd",
     "dpgen",
     "gromacs",
     "mace",
+    "neptrain",
     "neptrainkit",
     "nequip",
     "openmm",
+    "packmol",
     "phonopy",
     "python",
     "quantum_espresso"
@@ -34,7 +37,8 @@
     "deepmd-kit": "deepmd",
     "deepmd_kit": "deepmd",
     "nep_train_kit": "neptrainkit",
-    "nep-train-kit": "neptrainkit"
+    "nep-train-kit": "neptrainkit",
+    "nep_train": "neptrain"
   },
   "capability_support": {
     "gpumd": {
