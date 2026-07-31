@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.0 (2026-07-29) — OpenCode plugin distribution
+## v0.10.0 (2026-07-31) — OpenCode plugin distribution
 
 - Added the dependency-free OpenCode plugin adapter for stable OpenCode 1.18.x.
 - Added `opencode-simflow` npm package build, validation, isolated smoke, and

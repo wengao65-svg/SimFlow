@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -86,6 +87,35 @@ def test_main_ci_runs_isolated_opencode_smoke():
     assert "opencode-ai@1.18.9" in workflow
     assert "npm run build:opencode-plugin" in workflow
     assert "node scripts/smoke_opencode_plugin.js dist/opencode-plugin" in workflow
+
+
+def test_opencode_smoke_accepts_supported_stable_1x_versions():
+    versions = [
+        "1.18.8",
+        "1.18.9",
+        "1.18.10",
+        "1.19.0",
+        "1.99.0+build.1",
+        "2.0.0",
+        "1.19.0-beta.1",
+        "not-a-version",
+    ]
+    script = """
+const { isSupportedOpenCodeVersion } = require('./scripts/smoke_opencode_plugin.js');
+const versions = JSON.parse(process.argv[1]);
+process.stdout.write(JSON.stringify(versions.map(isSupportedOpenCodeVersion)));
+"""
+
+    result = subprocess.run(
+        ["node", "-e", script, json.dumps(versions)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == [False, True, True, True, True, False, False, False]
 
 
 def _write_minimal_plugin(root: Path, version: str, skills: set[str]) -> None:

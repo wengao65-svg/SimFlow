@@ -57,6 +57,13 @@ function runNpm(args, options = {}) {
   return run(command, commandArgs, options);
 }
 
+function isSupportedOpenCodeVersion(value) {
+  const match = String(value).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!match) return false;
+  const [, major, minor, patch] = match.map(Number);
+  return major === 1 && (minor > 18 || (minor === 18 && patch >= 9));
+}
+
 function main() {
   if (!fs.existsSync(path.join(PACKAGE_ROOT, 'package.json'))) {
     throw new Error(`OpenCode package is missing: ${PACKAGE_ROOT}`);
@@ -103,8 +110,8 @@ function main() {
     };
 
     const version = run(OPENCODE, ['--version'], { cwd: project, env: isolatedEnv }).trim();
-    if (version !== '1.18.9') {
-      throw new Error(`Expected OpenCode 1.18.9 for smoke test, found ${version}`);
+    if (!isSupportedOpenCodeVersion(version)) {
+      throw new Error(`Expected stable OpenCode >=1.18.9 <2 for smoke test, found ${version}`);
     }
 
     const configOutput = run(OPENCODE, ['debug', 'config'], { cwd: project, env: isolatedEnv });
@@ -134,9 +141,13 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.stack || error.message);
-  process.exit(1);
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.stack || error.message);
+    process.exit(1);
+  }
 }
+
+module.exports = { isSupportedOpenCodeVersion };
