@@ -1,5 +1,70 @@
 # Changelog
 
+## v0.10.0 (2026-07-29) — OpenCode plugin distribution
+
+- Added the dependency-free OpenCode plugin adapter for stable OpenCode 1.18.x.
+- Added `opencode-simflow` npm package build, validation, isolated smoke, and
+  manual release automation.
+- OpenCode now discovers all canonical SimFlow skills and the seven existing
+  MCP servers without changing providers, permissions, or safety policy.
+- Added OpenCode-specific MCP `clientInfo` guidance and host-adaptation tests.
+- Updated installation, developer, limitation, and release documentation for
+  the third supported host distribution.
+
+## v0.9.1 (2026-07-28) — Domain-skill analysis boundary remediation
+
+Domain skills owned analysis/plotting helpers that crossed into
+`simflow-analysis-visualization` territory. The LAMMPS skill shipped
+`analyze_lammps_trajectory.py` (RDF/MSD/diffusion) and the VASP skill shipped
+`plot_band_structure.py` (matplotlib rendering), both contradicting their own
+declared boundaries. This release returns property analysis and figure
+construction to the analysis_visualization stage and establishes an explicit
+script-allowlist rule.
+
+### LAMMPS — remove analysis helper, add intake adapter
+- Deleted `skills/simflow-lammps/scripts/analyze_lammps_trajectory.py` and
+  `tests/skills/test_lammps_analyze_trajectory.py`. RDF/MSD/diffusion no longer
+  live under a domain skill.
+- New `skills/simflow-lammps/scripts/parse_lammps_outputs.py`: output INTAKE
+  adapter mirroring `parse_cp2k_outputs.py`. Parses `log.lammps` thermo via the
+  shared `LAMMPSParser` and scans dump/data headers for columns, units style,
+  atom ids, image flags, frame count, box bounds, and masses; emits a
+  `lammps_output_intake_manifest` and handoff artifact. Computes no property
+  claims.
+- Updated `SKILL.md` and `references/lammps_output_intake.md` to describe the
+  new intake adapter and the analysis-stage boundary.
+
+### analysis_visualization — strengthened MD trajectory helper
+- `skills/simflow-analysis-visualization/scripts/analyze_md_trajectory.py`
+  rewritten: single load-once `Universe` (was reloading per analysis);
+  migrated `build_analysis_quality_manifest`; `--equilibration-start` now
+  actually slices RDF/MSD (was recorded but ignored); units-aware diffusion
+  conversion (cm²/s emitted only when `--timestep-units ps`, null otherwise to
+  avoid silent lj/si unit errors); `--topology-format`/`--trajectory-format`
+  pass-through (fixes LAMMPS data+dump loading); `EinsteinMSD` FFT fallback to
+  `fft=False` when `tidynamics` is unavailable; unified schema key
+  `diffusion_coefficient_*`.
+- Added `--topology-format`/`--trajectory-format` CLI args.
+
+### VASP — move plotting to analysis_visualization
+- Moved `skills/simflow-vasp/scripts/plot_band_structure.py` to
+  `skills/simflow-analysis-visualization/scripts/plot_band_structure.py`.
+  EIGENVAL parsing still uses the shared `VASPParser`; KPOINTS line-mode label
+  extraction remains inline format glue. VASP skill now ships only
+  `generate_*_inputs` / `validate_*` / `orchestrate_*` / `troubleshoot_*`.
+- Updated `skills/simflow-vasp/SKILL.md` to drop the plotting reference and
+  point to the analysis_visualization stage.
+
+### Boundary rule + tests
+- `skills/README.md` now documents the domain-skill script allowlist: domain
+  skills ship `inspect_*` / `validate_*` / `generate_*_inputs` / `parse_*_outputs`
+  / `orchestrate_*` / `troubleshoot_*` / `prepare_*_handoff` / `build_*_manifest`
+  only; `analyze_*` / `plot_*` / `audit_figure_*` belong to
+  `simflow-analysis-visualization`.
+- Tests added: `tests/skills/test_parse_lammps_outputs.py`,
+  `tests/skills/test_plot_band_structure.py`; `test_analyze_md_trajectory.py`
+  expanded to cover the migrated/ strengthened logic.
+
 ## v0.9.0 (2026-07-25) — Audit Remediation Phases 1-5
 
 Phase 1-4 audit remediation across blocking fixes, state automation,

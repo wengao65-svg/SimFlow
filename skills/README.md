@@ -43,3 +43,22 @@ an output contract, not a Skill category.
 When adding new skills, keep hard requirements limited to safety and
 traceability. Prefer guidance, recommended evidence, and handoff notes over
 fixed parser, builder, software, or report-file requirements.
+
+## Domain-skill script boundary
+
+Engine/domain skills (`simflow-vasp`, `simflow-cp2k`, `simflow-lammps`,
+`simflow-gpumd`, `simflow-mlp`) own software-specific INTAKE, INPUT, VALIDATION,
+ORCHESTRATION, and HANDOFF helpers only. Their script directories should contain
+only names matching the patterns `inspect_*`, `validate_*`, `generate_*_inputs`,
+`parse_*_outputs`, `orchestrate_*`, `troubleshoot_*`, `prepare_*_handoff`, and
+`build_*_manifest`.
+
+Property analysis and figure construction belong to the analysis_visualization
+stage. Scripts named `analyze_*`, `plot_*`, `audit_figure_*`, or any helper that
+computes RDF, MSD, diffusion, transport coefficients, elastic constants, DOS,
+bands, or other derived observables must live under
+`simflow-analysis-visualization/scripts/`, not under a domain skill. A domain
+skill may ship a `parse_*_outputs` adapter that records software-specific output
+semantics (columns, units, image flags, frame counts) and emits an intake
+manifest, but it must not choose final fit windows, binning, integration limits,
+or scientific claims.

@@ -116,6 +116,7 @@ function validatePublicMetadata() {
     '.codex-plugin/plugin.json',
     '.claude-plugin/plugin.json',
     '.claude-plugin/marketplace.json',
+    'opencode/simflow.mjs',
   ];
   const findings = [];
   for (const target of targets) {
@@ -350,6 +351,7 @@ function validateReleaseNotesCommand() {
   ].join('\n');
   check('release notes command emits markdown with recent commits', output.includes('# SimFlow Release Notes') && output.includes('## Commits'), output);
   check('release notes generator script exists', fs.existsSync(notesScript));
+  check('release notes require OpenCode install smoke', notesScriptContent.includes('Codex, Claude, and OpenCode'));
   check('release notes policy sends install-smoke detail to .simflow', notesScriptContent.includes('.simflow/'));
 }
 
@@ -364,11 +366,18 @@ function validateWorkflowAutomation() {
 
   const pluginValidator = fs.readFileSync(path.join(ROOT, 'scripts', 'validate_plugin.js'), 'utf-8');
   const claudeValidator = fs.readFileSync(path.join(ROOT, 'scripts', 'validate_claude_plugin.js'), 'utf-8');
+  const opencodeValidator = fs.readFileSync(path.join(ROOT, 'scripts', 'validate_opencode_plugin.js'), 'utf-8');
   for (const skillName of ['simflow-gpumd', 'simflow-mlp']) {
     check(`Codex wrapper validator requires ${skillName}`, pluginValidator.includes(`'${skillName}'`));
     check(`Claude wrapper validator requires ${skillName}`, claudeValidator.includes(`'${skillName}'`));
+    check(`OpenCode package validator requires ${skillName}`, opencodeValidator.includes(`'${skillName}'`));
     check(`source skill exists for ${skillName}`, fs.existsSync(path.join(ROOT, 'skills', skillName, 'SKILL.md')));
   }
+
+  const hostAdaptation = fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_core', 'host_adaptation.py'), 'utf-8');
+  check('host adaptation recognizes OpenCode clientInfo', hostAdaptation.includes('"opencode"'));
+  check('OpenCode source adapter exists', fs.existsSync(path.join(ROOT, '.opencode', 'plugins', 'simflow.js')));
+  check('OpenCode canonical plugin module exists', fs.existsSync(path.join(ROOT, 'opencode', 'simflow.mjs')));
 
   const capabilities = readJson('workflow/toolchains/capabilities.json');
   check('toolchain capability contract marks GPUMD helper-supported', capabilities.helper_supported_software.includes('gpumd'));
@@ -564,7 +573,7 @@ function validateMarketplaceVersionGuard() {
 }
 
 function validateMarketplaceWrappers() {
-  console.log('\n--- Marketplace Wrappers ---');
+  console.log('\n--- Host Distributions ---');
   if (SKIP_WRAPPERS) {
     ok('wrapper build validation skipped by explicit local option');
     return;
@@ -582,6 +591,13 @@ function validateMarketplaceWrappers() {
     'npm',
     ['run', 'validate:claude-plugin'],
     { env: { SIMFLOW_CLAUDE_MARKETPLACE_ROOT: 'dist/claude-marketplace' } },
+  );
+  runCheck('OpenCode npm package builds', 'npm', ['run', 'build:opencode-plugin']);
+  runCheck(
+    'OpenCode npm package validates',
+    'npm',
+    ['run', 'validate:opencode-plugin'],
+    { env: { SIMFLOW_OPENCODE_PLUGIN_ROOT: 'dist/opencode-plugin' } },
   );
 }
 

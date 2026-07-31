@@ -1,8 +1,8 @@
 # SimFlow Release Acceptance Checklist
 
 Use this checklist before announcing, tagging, or publishing a SimFlow release.
-It covers the source checkout and the generated Codex and Claude marketplace
-wrappers.
+It covers the source checkout, generated Codex and Claude marketplace wrappers,
+and the OpenCode npm package.
 
 ## 1. Source Tree Gate
 
@@ -22,7 +22,7 @@ Expected result:
 - `git status --short` is clean except for intentionally ignored local runtime
   state.
 - The full Python test suite passes.
-- Codex plugin, Claude plugin, skills, and schemas validate with zero errors.
+- Codex, Claude, and OpenCode plugins, skills, and schemas validate with zero errors.
 - Skill script contract audit reports `OK` for all packaged helper scripts.
 
 ## 2. Restricted Artifact Gate
@@ -83,7 +83,7 @@ Expected result:
 - No placeholder `github.com/simflow` repository metadata.
 - Public metadata points to `https://github.com/wengao65-svg/SimFlow`.
 
-## 5. Marketplace Wrapper Gate
+## 5. Host Distribution Gate
 
 For the full automated release gate from a clean tree, run:
 
@@ -105,14 +105,24 @@ npm run build:claude-marketplace
 SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin
 ```
 
+Build, validate, and smoke-test the OpenCode package:
+
+```bash
+npm run build:opencode-plugin
+SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
+node scripts/smoke_opencode_plugin.js dist/opencode-plugin
+```
+
 Expected result:
 
-- Both wrappers are real directories, not symlinks.
-- Both wrappers include skills, MCP servers, runtime, workflow, schemas,
+- Both marketplace wrappers and the OpenCode package are real directories, not symlinks.
+- All three distributions include skills, MCP servers, runtime, workflow, schemas,
   templates, docs, `scripts/start_mcp_server.py`, README, and LICENSE.
-- Both wrappers exclude tests, caches, `.simflow/`, `.omx/`, `dist/`, legacy
+- All three distributions exclude tests, caches, `.simflow/`, `.omx/`, `dist/`, legacy
   removed source paths, and restricted VASP artifacts.
 - MCP stdio initialization and `tools/list` pass for all configured servers.
+- The OpenCode smoke uses an isolated HOME/XDG environment and discovers all
+  bundled skills and MCP servers without invoking a model.
 
 ## 6. Release Notes Gate
 
@@ -170,6 +180,15 @@ Inside Claude Code:
 /simflow:simflow-writing
 ```
 
+OpenCode user path after the npm package is published:
+
+```bash
+opencode plugin opencode-simflow --global
+opencode debug config
+opencode debug skill
+opencode mcp list
+```
+
 Expected result:
 
 - Plugin install succeeds.
@@ -177,6 +196,8 @@ Expected result:
   `simflow_state`, `artifact_store`, `checkpoint_store`, `literature`,
   `structure`, `hpc`, and `parsers`.
 - Skill routing works through the host agent.
+- OpenCode reports stable version 1.18.9 or a later stable 1.x release and does
+  not require V2 beta APIs.
 - Real local, remote, or HPC submission remains blocked without dry-run
   evidence, matching hashes, credential scan, and explicit approval.
 - Results are recorded in `.simflow/reports/release_smoke_<version>.md` with a
@@ -192,5 +213,7 @@ Expected result:
 - Do not move `workflow-layer-refactor-v1` unless the task explicitly requires
   rewriting that stable ref.
 - Do not publish marketplace branches from an unvalidated source checkout.
+- Do not publish `opencode-simflow` without explicit approval and an authorized
+  npm release credential.
 - If restricted scientific artifacts are found in Git history, stop ordinary
   release work and run a controlled history cleanup before pushing.

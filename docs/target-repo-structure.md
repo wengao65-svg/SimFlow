@@ -9,6 +9,8 @@ executor design and does not define a fixed DFT/AIMD/MD DAG.
 simflow/
   AGENTS.md
   README.md
+  .opencode/plugins/
+  opencode/
   skills/
   workflow/
     stages/
@@ -35,6 +37,10 @@ validation, scaffolding, and developer utilities. In a user project,
 can be referenced by computation-stage dry-run/readiness evidence. One-off
 calculation scripts should stay with the calculation directory or be passed
 explicitly as `job_script`/`submit_script`.
+
+`.opencode/plugins/simflow.js` is the project-local OpenCode loader.
+`opencode/simflow.mjs` is the dependency-free canonical plugin module copied
+into the generated `opencode-simflow` npm package.
 
 ## Skills
 

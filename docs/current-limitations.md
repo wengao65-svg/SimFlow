@@ -72,9 +72,11 @@ run real calculations.
 
 ## Distribution Boundary
 
-Codex and Claude marketplace branches are the current user-facing distribution
-channels. PyPI is not the primary user install path until a package has been
-published and install-smoked.
+Codex and Claude marketplace branches and the `opencode-simflow` npm package
+are the user-facing host distribution channels. The OpenCode adapter targets
+stable OpenCode `1.18.9 <= version < 2`; the V2 beta plugin API is outside the
+current compatibility contract. PyPI is not the primary user install path
+until a package has been published and install-smoked.
 
 Host adaptation uses standard MCP `clientInfo` to tailor discovery and
 invocation guidance. SimFlow does not observe host transcripts or skill-load

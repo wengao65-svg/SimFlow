@@ -7,8 +7,10 @@ Common toolchain roles:
 - Sampling: AIMD, classical MD, GPUMD, LAMMPS, ASE, custom scripts.
 - Labeling: VASP, CP2K, other DFT engines, user-provided labels.
 - Training: GPUMD/NEP, DeePMD, MACE, NequIP, Allegro, custom frameworks.
+  Community assistants: neptrain, neptrainkit (NEP), DP-GEN (DeePMD family).
 - Validation MD: GPUMD, LAMMPS, ASE, custom scripts.
-- Analysis: Python, notebooks, NEPTrainKit, GPUMDkit, custom scripts.
+- Inference / prediction: calorine (NEP ONNX inference), custom Python.
+- Analysis: Python, notebooks, NEPTrainKit, GPUMDkit, calorine, custom scripts.
 
 Record actual tools, support levels, commands, versions, environment, and lineage without turning this into an executor DAG.
 

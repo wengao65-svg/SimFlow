@@ -42,4 +42,8 @@ jobs:
       - name: Validate plugin structure
         run: |
           npm install
+          npm install --global opencode-ai@1.18.9
           npm run validate:all
+          npm run build:opencode-plugin
+          SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
+          node scripts/smoke_opencode_plugin.js dist/opencode-plugin

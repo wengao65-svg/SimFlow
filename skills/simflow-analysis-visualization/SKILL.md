@@ -25,6 +25,25 @@ description: Use when a user asks to analyze simulation outputs, write analysis 
 - Interpretation notes that distinguish measured/calculated results from speculation.
 - Figure lineage linking each visual to source data and script artifacts.
 
+## Directory layout
+
+Analysis placement follows `docs/user-project-layout.md` and depends on
+the scope of the analysis:
+
+- **Single-stage analysis** — nest inside the source stage as
+  `<stage>/analysis/`. Do not create a `_analysis`-suffixed sibling
+  (`stage3_aimd/analysis/`, not `stage3_aimd_analysis/` next to
+  `stage3_aimd/`).
+- **Cross-stage analysis** — place under
+  `phase5_analysis_visualization/stageN_<topic>/` (e.g.
+  `phase5_analysis_visualization/stage1_nep_version_similarity/` for a
+  NEPv2-vs-NEPv3 comparison). Do not place cross-stage analysis at the
+  project root.
+- Scripts that drive analysis: reusable ones go to `scripts/`, one-off
+  task scripts stay with the analysis directory.
+- Do not create a nested `.simflow/` inside an analysis directory; the
+  project-root `.simflow/` is the only state root.
+
 ## Status write rules
 
 - Register analysis scripts, commands, inputs, outputs, figures, and captions as artifacts under `project_root`.

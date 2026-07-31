@@ -48,7 +48,7 @@ function main() {
     '## Release Gates',
     '',
     '- Run `npm run validate:release` from a clean source tree.',
-    '- Run manual Codex and Claude install smoke checks from `docs/release-checklist.md` before announcing.',
+    '- Run manual Codex, Claude, and OpenCode install smoke checks from `docs/release-checklist.md` before announcing.',
     '- Record detailed install-smoke evidence under `.simflow/` and summarize only pass, block, or warning status here.',
     '- Stop release work if restricted scientific artifacts are found in source, wrapper, or history checks.',
     '',

@@ -1,0 +1,49 @@
+name: Publish OpenCode Plugin
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          npm install
+          npm install --global opencode-ai@1.18.9
+
+      - name: Run tests and source validation
+        run: |
+          python -m pytest tests/ -q
+          npm run validate:all
+
+      - name: Build and validate OpenCode package
+        run: |
+          npm run build:opencode-plugin
+          SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
+          node scripts/smoke_opencode_plugin.js dist/opencode-plugin
+
+      - name: Publish OpenCode package
+        run: npm run publish:opencode-plugin -- --no-build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

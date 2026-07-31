@@ -22,7 +22,7 @@ evidence, and limitations. `simflow-mlp` does not prescribe a provider-independe
 
 ## Trigger conditions
 
-- User mentions MLP, machine-learning potential, interatomic potential training, active learning, dataset split, DFT labels, force/energy/stress metrics, extrapolation, anomaly detection, model validation, foundation potential, or production MLP-MD readiness.
+- User mentions MLP, machine-learning potential, interatomic potential training, active learning, dataset split, DFT labels, force/energy/stress metrics, extrapolation, anomaly detection, model validation, foundation potential, production MLP-MD readiness, label protocol, label-protocol consistency, label-protocol drift, scientific input hash, or protocol fingerprint.
 - A proposal, computation, analysis_visualization, writing, or handoff task needs cross-tool MLP evidence standards.
 - User asks to audit dataset lineage, training evidence, validation sufficiency, active-learning rounds, or long MLP-MD readiness.
 
@@ -66,7 +66,7 @@ evidence, and limitations. `simflow-mlp` does not prescribe a provider-independe
 ## Working procedure
 
 1. Classify the request as dataset/labeling audit, training evidence review, validation metrics summary, active-learning readiness, production MLP-MD readiness, writing, or handoff.
-2. Load `references/mlp_scope_and_toolchains.md` for boundaries, `references/mlp_dataset_and_labeling.md` for data provenance, `references/mlp_training_validation.md` for training and metric checks, and `references/mlp_active_learning_readiness.md` for loop/readiness checks as needed.
+2. Load `references/mlp_scope_and_toolchains.md` for boundaries, `references/mlp_dataset_and_labeling.md` for data provenance, `references/mlp_training_validation.md` for training and metric checks, `references/mlp_active_learning_readiness.md` for loop/readiness checks, and `references/mlp_dft_labeling_consistency.md` for DFT label-protocol consistency as needed. When a task involves DFT label generation, label-protocol audit, or active-learning label inheritance, load `references/mlp_dft_labeling_consistency.md`; engine-specific execution details (INCAR/POSCAR/POTCAR, CP2K input, dry-run, parallelism strategy) are owned by the corresponding engine skill.
 3. Identify the actual trainer, MD provider, and training mode before
    interpreting optimization, scheduler, loss, restart, fine-tuning, or
    checkpoint evidence.
@@ -78,6 +78,7 @@ evidence, and limitations. `simflow-mlp` does not prescribe a provider-independe
 
 - `references/mlp_scope_and_toolchains.md`: Cross-tool scope and helper boundaries.
 - `references/mlp_dataset_and_labeling.md`: Dataset, labels, splits, and provenance checks.
+- `references/mlp_dft_labeling_consistency.md`: Engine-agnostic DFT label-protocol consistency contract for MLP labeling datasets.
 - `references/mlp_training_validation.md`: Training evidence, metrics, validation regimes, and limitations.
 - `references/mlp_active_learning_readiness.md`: Active-learning and production MLP-MD readiness checks.
 - `references/mlp_evidence_handoff.md`: Handoff package expectations.

@@ -80,6 +80,29 @@ executor and does not replace domain skills or scheduler safety gates.
   with a matching `user_submit_readiness` payload.
 - Job record only when a real job is approved and submitted.
 
+## Directory layout
+
+Computation work lives under `phase4_computation/stageN_<descriptor>/`
+following `docs/user-project-layout.md`. When the host agent creates or
+extends a computation stage, observe:
+
+- One `stageN_*` directory per logical sub-activity. Temperature, pressure,
+  and method variants belong as subdirectories of one stage, not as
+  same-prefixed siblings (`stage3_aimd/300K/`, `stage3_aimd/500K/`, not
+  `stage3_300K/` next to `stage3_500K/`).
+- Separate dataset preparation from training runs: nest `dataset_prep/`
+  vs `run_step1/`, `run_step2/` inside a single stage directory. Do not
+  use a `_Training` suffix on a sibling to mean "the actual run".
+- Encode iteration as `vN_<desc>_<YYYYMMDD>/`, not as bare integers that
+  look like temperatures or years.
+- Reusable submit scripts live under `scripts/submit/` (see
+  `docs/user_guide.md`); task-specific scripts stay with the calculation.
+- Each run directory should carry at minimum `README.md`,
+  `protocol.json`, `input_manifest.tsv`, `output_check_summary.tsv`,
+  `run_status.tsv`, the driver script, and `static_validation.json`.
+- Do not create a nested `.simflow/` inside a stage directory; the
+  project-root `.simflow/` is the only state root.
+
 ## Submit-Readiness Handoff
 
 - Preserve a `submit_readiness` payload containing project root, scheduler, job

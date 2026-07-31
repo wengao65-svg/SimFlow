@@ -30,6 +30,8 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "Restricted Artifact Scan" in result.stdout
     assert "Workflow Automation" in result.stdout
     assert "Marketplace Version Guard" in result.stdout
+    assert "OpenCode source adapter exists" in result.stdout
+    assert "OpenCode canonical plugin module exists" in result.stdout
     assert "safe dry-run example does not write job records" in result.stdout
     assert "LAMMPS safe dry-run example does not write job records" in result.stdout
     assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
@@ -55,21 +57,35 @@ def test_release_notes_command_emits_markdown():
     assert "## Commits" in result.stdout
 
 
-def test_marketplace_publish_workflows_cover_codex_and_claude():
+def test_distribution_publish_workflows_cover_supported_hosts():
     codex = ROOT / ".github" / "workflows" / "publish-codex-marketplace.yml"
     claude = ROOT / ".github" / "workflows" / "publish-claude-marketplace.yml"
+    opencode = ROOT / ".github" / "workflows" / "publish-opencode-plugin.yml"
 
     assert codex.exists()
     assert claude.exists()
+    assert opencode.exists()
 
     codex_text = codex.read_text()
     claude_text = claude.read_text()
+    opencode_text = opencode.read_text()
 
     assert "npm run build:codex-marketplace" in codex_text
     assert "npm run publish:codex-marketplace -- --no-build" in codex_text
     assert "npm run build:claude-marketplace" in claude_text
     assert "SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin" in claude_text
     assert "npm run publish:claude-marketplace -- --no-build" in claude_text
+    assert "npm run build:opencode-plugin" in opencode_text
+    assert "SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin" in opencode_text
+    assert "npm run publish:opencode-plugin -- --no-build" in opencode_text
+
+
+def test_main_ci_runs_isolated_opencode_smoke():
+    workflow = (ROOT / ".github" / "workflows" / "test.yml").read_text()
+
+    assert "opencode-ai@1.18.9" in workflow
+    assert "npm run build:opencode-plugin" in workflow
+    assert "node scripts/smoke_opencode_plugin.js dist/opencode-plugin" in workflow
 
 
 def _write_minimal_plugin(root: Path, version: str, skills: set[str]) -> None:

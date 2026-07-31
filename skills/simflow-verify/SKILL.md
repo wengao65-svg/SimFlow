@@ -46,3 +46,74 @@ description: Verify workflow state, artifacts, and readiness checks in SimFlow.
 - 验证结果为 warning 时
 - 验证规则不明确时
 - 验证会触发真实执行、远程访问、destructive operation 或 licensed/proprietary file handling 时
+
+## Directory Hygiene Checks
+
+When verifying a project, the host agent should perform the following
+text-level directory hygiene checks against the contract defined in
+`docs/user-project-layout.md`. These are advisory checks reported in the
+verification output; they do not block stage transitions unless the user
+or the gate explicitly requires a clean layout.
+
+1. **Root allowlist check.** Confirm the project root contains only:
+   `README.md`, `workflow.md`, `.gitignore`, `.git/`, `.simflow/`, the six
+   `phaseN_*` directories (only those in active use), and the nine shared
+   directories (`scripts/`, `reference/`, `config/`, `templates/`,
+   `tests/`, `docs/`, `archives/`, `legacy/`, `scratch/`). Flag any other
+   top-level entry — for example `POTCAR.*`, `*.tar.gz`, `*.zip`, `*.pb`,
+   `*.xyz` bulk structures, `train.pid`, `*.py`, `*.sh`, `*.log`,
+   `*.tsv`, `*.bak.*`, `driver.*`, `submit_*.{sh,log}`,
+   `*_hpc_submit_plan_*.md`, `workflow.md.bak_*`.
+
+2. **Top-level `stageN_*` prohibition.** Flag any `stageN_*` directory
+   sitting directly at the project root. Such directories must live inside
+   a `phaseN_*` parent. (Counter-example: a root-level `stage3_aimd/` is a
+   violation; it should be `phase4_computation/stage3_aimd/`.)
+
+3. **Top-level descriptive-experiment prohibition.** Flag any top-level
+   directory whose name is not in the phase allowlist or the shared
+   allowlist. (Counter-examples: root-level `NEP_Training_*`,
+   `DFT_DataSets_*`, `MD_Test_*`, `vasp_label_jobs_*` are violations;
+   they belong under `phase4_computation/stageN_*/`.)
+
+4. **No nested `.simflow/`.** Flag any `.simflow/` directory found inside
+   a `phaseN_*/stageN_*/` subtree. `.simflow/` may exist only at
+   `project_root`. (Counter-example: `phase4_computation/stageN_*/.simflow/`
+   is a violation.)
+
+5. **Analysis placement check.** Flag any `_analysis`-suffixed sibling
+   directory next to its source stage. Single-stage analysis must nest as
+   `<stage>/analysis/`, not sit as `<stage>_analysis/`. Cross-stage
+   analysis belongs under `phase5_analysis_visualization/stageN_<topic>/`.
+   (Counter-example: `stage3_aimd_analysis/` next to `stage3_aimd/` is a
+   violation.)
+
+6. **Prep/run prefix overload check.** Flag any directory pair that uses
+   the same prefix for both dataset-prep and run, distinguishing only by
+   a `_Training` suffix or no suffix at all. Prep and run must be
+   separated as `dataset_prep/` vs `run_step1/` / `run_step2/` inside a
+   single stage directory. (Counter-example: `NEP_Training_LBS_Transport_DFT_2050/`
+   prep next to `NEP_Training_LBS_Transport_DFT_2050_Training/` run is a
+   violation.)
+
+7. **`.simflow/artifacts/` stage-name allowlist.** Flag any
+   `.simflow/artifacts/<name>/` directory whose `<name>` is not in
+   {`literature_review`, `proposal`, `modeling`, `computation`,
+   `analysis_visualization`, `writing`, `figures`, `security`}.
+   Specifically flag the non-canonical duplicates `compute/`,
+   `analysis/`, `literature/`, `models/`.
+
+8. **Scattered gate markers.** Flag any `APPROVE_*` file found inside a
+   `phaseN_*/stageN_*/` tree. Gate decisions belong in
+   `.simflow/state/gates.json`.
+
+9. **Bare-integer iteration check.** Flag any directory whose name is
+   a bare integer (e.g. `2050`, `2100`, `2120`) that does not carry a
+   description or date. Iteration should be encoded as
+   `vN_<desc>_<YYYYMMDD>/`.
+
+10. **Tests duplication check.** Flag `test_*.py` files found under
+    `scripts/`. `tests/` is the single test location.
+
+Reporting: list each violation with its path and the rule number it
+violates. Do not auto-fix; report for the host agent and user to resolve.
