@@ -301,12 +301,12 @@ def test_hpc_tools_list_exposes_transfer_tools():
         assert schema["properties"]["paths"]["minItems"] == 1
         assert schema["properties"]["scheduler"]["enum"] == ["ssh"]
         assert schema["properties"]["target"]["additionalProperties"] is False
+        assert schema["properties"]["target"]["required"] == ["host"]
 
 
-def test_ssh_submit_requires_verified_transfer_manifest(monkeypatch):
+def test_ssh_submit_requires_verified_transfer_manifest():
     """SSH submit cannot fall back to copying only a standalone script."""
     server = _load_server()
-    monkeypatch.setenv("SIMFLOW_SSH_HOST", "example.com")
     with tempfile.TemporaryDirectory() as tmpdir:
         script = _make_local_script(tmpdir)
         init_workflow("custom", "computation", project_root=tmpdir)
@@ -354,11 +354,32 @@ def test_ssh_submit_approval_must_bind_target_and_remote_workdir():
     assert set(result["missing_bindings"]) == {"target", "remote_workdir"}
 
 
-def test_ssh_status_requires_per_call_target(monkeypatch):
+def test_ssh_status_requires_per_call_target():
     server = _load_server()
-    monkeypatch.setenv("SIMFLOW_SSH_HOST", "example.com")
-    monkeypatch.setenv("SIMFLOW_SSH_USER", "simflow")
     result = server.handle_request({"tool": "status", "params": {"job_id": "123", "scheduler": "ssh"}})
+    assert result["status"] == "error"
+    assert result["code"] == "target_required"
+
+
+def test_ssh_dry_run_accepts_alias_target():
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        result = server.handle_request(
+            {
+                "tool": "dry_run",
+                "params": {"script_path": script, "scheduler": "ssh", "target": {"host": "hpc"}},
+            }
+        )
+    assert result["status"] == "success"
+    assert result["data"]["target"] == {"host": "hpc"}
+
+
+def test_ssh_dry_run_requires_target():
+    server = _load_server()
+    result = server.handle_request(
+        {"tool": "dry_run", "params": {"script_path": "/tmp/job.sh", "scheduler": "ssh"}}
+    )
     assert result["status"] == "error"
     assert result["code"] == "target_required"
 

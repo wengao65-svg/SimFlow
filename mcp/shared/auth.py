@@ -46,9 +46,10 @@ def require_api_key(service: str) -> str:
 
 
 def check_ssh_access() -> bool:
-    """Check if SSH access is available."""
-    ssh_key = os.path.expanduser("~/.ssh/id_rsa")
-    return os.path.exists(ssh_key)
+    """Check whether an SSH client is available without probing credentials."""
+    import shutil
+
+    return shutil.which("ssh") is not None
 
 
 def check_hpc_submit_allowed() -> bool:

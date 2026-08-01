@@ -65,8 +65,12 @@ approval. Examples and CI should stay dry-run-only.
 
 Remote file transfer is MCP-mediated through `hpc/upload` and `hpc/download`.
 Transfers require a separate `hpc_transfer` approval and a verified SHA-256
-manifest. Direct Agent `scp`/`ssh` is an exceptional override, not the normal
-tracked workflow.
+manifest. Direct Agent `scp`/`ssh` is outside the tracked workflow. Hosts that
+require SSH credential isolation must deny Agent shell access to `.ssh`,
+MCP-only agent sockets, and direct remote networking while allowing the HPC
+MCP's separate permission domain to perform approved operations. SimFlow cannot
+claim credential isolation when Agent and MCP processes have identical host
+filesystem and environment permissions.
 
 ## Licensed And Large Scientific Artifacts
 

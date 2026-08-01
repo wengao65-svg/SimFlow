@@ -107,6 +107,16 @@ def test_runtime_literature_helpers_do_not_import_removed_mcp_servers():
     assert offenders == []
 
 
+def test_runtime_and_mcp_do_not_probe_ssh_private_keys():
+    offenders = []
+    for path in _python_files(["runtime", "mcp"]):
+        text = path.read_text(encoding="utf-8")
+        if ".ssh/id_rsa" in text or "SIMFLOW_SSH_KEY" in text:
+            offenders.append(str(path.relative_to(REPO_ROOT)))
+
+    assert offenders == []
+
+
 def test_engagement_contract_uses_only_current_mcp_namespaces():
     from runtime.simflow_core.engagement import EXEMPT_TOOLS, PROTECTED_TOOLS
 

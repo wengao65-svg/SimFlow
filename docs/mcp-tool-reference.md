@@ -42,7 +42,13 @@ inside `project_root`; remote directories must be absolute POSIX paths without
 Both tools expand requested directories, write a transfer manifest, and verify
 `sha256-path-size-content-v1` before returning `verified`. Partial transfers and
 hash mismatches return an error while preserving a `transfer_manifest`
-computation artifact. Credentials remain environment-only.
+computation artifact. SSH authentication remains host-managed and no key path
+is accepted by the MCP target schema.
+
+The SSH target requires `host` and accepts optional `user` and `port`. For
+`{"host":"hpc"}`, OpenSSH resolves the alias configuration. For
+`{"host":"192.168.5.69","user":"zxy"}`, SimFlow constructs the direct
+destination without forcing port 22.
 
 An SSH submit must reference the verified upload manifest through
 `transfer_manifest` and use the matching `remote_workdir`; it no longer copies

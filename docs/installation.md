@@ -230,16 +230,14 @@ points.
 | `MP_API_KEY` | Materials Project API key |
 | `SIMFLOW_PYTHON` | Python executable used by OpenCode MCP commands |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_SSH_HOST` | SSH HPC host |
-| `SIMFLOW_SSH_USER` | SSH username |
-| `SIMFLOW_SSH_KEY` | SSH key file path |
 | `SIMFLOW_HPC_HOST` | Optional HPC host alias for helper scripts |
 | `SIMFLOW_HPC_BASE` | Optional remote working directory |
 | `SIMFLOW_PARTITION` | Optional scheduler partition |
 | `SIMFLOW_NTASKS` | Optional MPI task count |
 
-Credentials may be read from the environment but must not be written to
-`.simflow/`, artifacts, reports, checkpoints, logs, or handoff packages.
+SSH MCP targets are supplied per call. Authentication remains in OpenSSH
+configuration or a host-managed agent and must not be written to `.simflow/`,
+artifacts, reports, checkpoints, logs, or handoff packages.
 
 ## Troubleshooting
 

@@ -25,11 +25,12 @@ Remote file transfer is an explicit MCP boundary: use `hpc/upload` and
 manifest. The host agent should not implement routine remote transfer with
 direct `scp` or `ssh` calls.
 
-SSH operations receive a per-call `target` containing only `host`, `user`, and
-an optional `port`. Upload, download, submit, and SSH status calls require this
-target. It is included in approval bindings and transfer fingerprints so one
-MCP process can safely address multiple hosts. Passwords, private-key content,
-and key paths are not accepted in the target payload.
+SSH operations receive a per-call `target` containing a required `host` and
+optional `user` and `port`. The host may be an OpenSSH alias, hostname, or IP.
+Omitted fields are not replaced with defaults, so OpenSSH configuration remains
+effective. Upload, download, submit, and SSH status calls require this target.
+It is included in approval bindings and transfer fingerprints. Passwords,
+private-key content, key paths, and arbitrary SSH options are rejected.
 
 ## Project Root Boundary
 
@@ -97,9 +98,10 @@ the `simflow_state/*` and `hpc/*` surface.
 
 ## Credentials
 
-Credentials are read from environment variables or host-managed secret stores.
-They must not be written to `.simflow/`, artifacts, reports, checkpoints, logs,
-or generated handoff packages.
+SSH authentication is delegated to the host OpenSSH client or a host-managed
+agent. SimFlow does not read SSH configuration or inspect private-key files.
+Credentials must not be written to `.simflow/`, artifacts, reports,
+checkpoints, logs, or generated handoff packages.
 
 ## Host Adaptation
 

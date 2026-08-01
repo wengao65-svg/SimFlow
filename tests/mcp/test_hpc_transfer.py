@@ -189,3 +189,24 @@ def test_upload_rejects_secret_fields_in_target(tmp_path):
     )
     assert result["status"] == "error"
     assert result["code"] == "transfer_validation_error"
+
+
+def test_alias_target_is_valid_and_port_omission_changes_fingerprint():
+    server = _load_server()
+    alias_target = {"host": "hpc"}
+    explicit_port = {"host": "hpc", "port": 22}
+
+    assert server.normalize_target(alias_target) == alias_target
+    assert server.request_fingerprint("upload", "/scratch/job", ["input.txt"], alias_target) != server.request_fingerprint(
+        "upload", "/scratch/job", ["input.txt"], explicit_port
+    )
+
+
+def test_target_rejects_key_paths_and_ssh_options():
+    server = _load_server()
+    for field in ("key_file", "identity_file", "private_key", "ssh_options"):
+        try:
+            server.normalize_target({"host": "hpc", field: "forbidden"})
+        except server.TransferValidationError:
+            continue
+        raise AssertionError(f"target unexpectedly accepted {field}")

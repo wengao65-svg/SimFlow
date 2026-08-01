@@ -52,9 +52,8 @@ def _get_connector(scheduler: str = "auto", target: dict | None = None):
 
     Auto-detection order:
     1. SIMFLOW_SLURM_HOST set -> SlurmConnector
-    2. SIMFLOW_SSH_HOST set -> SSHConnector (workstation mode, no scheduler)
-    3. SIMFLOW_SSH_WORKSTATION_MODE=1 -> SSHConnector explicitly
-    4. Fallback -> LocalConnector
+    2. Per-call target -> SSHConnector
+    3. Fallback -> LocalConnector
     """
     if target is not None:
         normalized = normalize_target(target)
@@ -66,13 +65,10 @@ def _get_connector(scheduler: str = "auto", target: dict | None = None):
         import os as _os
         if _os.environ.get("SIMFLOW_SLURM_HOST"):
             return SlurmConnector()
-        if _os.environ.get("SIMFLOW_SSH_HOST") or _os.environ.get("SIMFLOW_SSH_WORKSTATION_MODE"):
-            try:
-                return SSHConnector()
-            except Exception:
-                pass
         # Default fallback: local shell
         return LocalConnector()
+    if scheduler == "ssh":
+        return None
     cls = _CONNECTORS.get(scheduler)
     if cls is None:
         return None
@@ -90,6 +86,8 @@ def handle_dry_run(params: dict) -> dict:
     scheduler = params.get("scheduler", "auto")
     if not script_path:
         return {"status": "error", "message": "script_path is required"}
+    if scheduler == "ssh" and not params.get("target"):
+        return {"status": "error", "message": "target is required for SSH dry-run", "code": "target_required"}
 
     try:
         connector = _get_connector(scheduler, params.get("target"))
@@ -134,6 +132,8 @@ def handle_status(params: dict) -> dict:
     scheduler = params.get("scheduler", "auto")
     if not job_id:
         return {"status": "error", "message": "job_id is required"}
+    if scheduler == "ssh" and not params.get("target"):
+        return {"status": "error", "message": "target is required for SSH status", "code": "target_required"}
 
     try:
         connector = _get_connector(scheduler, params.get("target"))
@@ -141,9 +141,6 @@ def handle_status(params: dict) -> dict:
         return {"status": "error", "message": str(exc), "code": "invalid_target"}
     if connector is None:
         return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-
-    if isinstance(connector, SSHConnector) and not params.get("target"):
-        return {"status": "error", "message": "target is required for SSH status", "code": "target_required"}
 
     result = connector.status(job_id)
     return result
@@ -172,14 +169,14 @@ def handle_submit(params: dict) -> dict:
         return {"status": "error", "message": "input_artifact_hash is required"}
 
     target = params.get("target")
+    if scheduler == "ssh" and not target:
+        return {"status": "error", "message": "target is required for SSH submit", "code": "target_required"}
     try:
         connector = _get_connector(scheduler, target)
     except TransferValidationError as exc:
         return {"status": "error", "message": str(exc), "code": "invalid_target"}
     if connector is None:
         return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-    if isinstance(connector, SSHConnector) and not target:
-        return {"status": "error", "message": "target is required for SSH submit", "code": "target_required"}
     if isinstance(connector, SSHConnector) and not params.get("transfer_manifest"):
         return {
             "status": "error",
@@ -315,7 +312,7 @@ def _write_transfer_report(project_root: str, report: dict) -> tuple[str, dict]:
         metadata={
             "evidence_keys": ["transfer_manifest"],
             "transfer_status": report["status"],
-            "host": report.get("host"),
+            "target_schema": report.get("target_schema"),
             "target": report.get("target"),
             "gate_decision_id": report.get("gate_decision_id"),
         },
@@ -363,7 +360,7 @@ def _handle_transfer(params: dict, direction: str) -> dict:
         "local_dir": str(local_root.relative_to(Path(project_root).resolve())),
         "remote_dir": remote_dir,
         "paths_requested": safe_paths,
-        "host": target["host"],
+        "target_schema": "ssh-target-v2",
         "target": target,
         "gate_decision_id": approval.get("gate_decision_id"),
         "transfer_request_hash": approval.get("transfer_request_hash"),
@@ -459,7 +456,7 @@ TOOL_DESCRIPTIONS = {
 
 SSH_TARGET_SCHEMA = {
     "type": "object",
-    "required": ["host", "user"],
+    "required": ["host"],
     "properties": {
         "host": {"type": "string", "minLength": 1, "maxLength": 253},
         "user": {"type": "string", "minLength": 1, "maxLength": 32},

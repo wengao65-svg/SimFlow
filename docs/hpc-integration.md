@@ -104,8 +104,13 @@ All connectors should share the same approval semantics:
 
 ## Credential Security
 
-- SSH and service credentials are read from environment variables or host secret
-  mechanisms only.
+- SSH targets contain only a host or alias plus optional user and port.
+- Passwords, private keys, key paths, and arbitrary SSH options are rejected.
+- SimFlow does not parse `.ssh/config` or inspect private-key files. OpenSSH or
+  a host-managed SSH agent owns authentication.
+- A host that needs Agent/MCP credential isolation must deny the Agent access
+  to `.ssh` and MCP-only `SSH_AUTH_SOCK` values while granting the HPC MCP a
+  separate permission boundary.
 - Credentials must not be copied into job scripts, artifacts, logs,
   checkpoints, or reports.
 - Credential scans should be recorded before approval.

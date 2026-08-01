@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.14.0 (2026-08-01) — SSH target and credential boundary hardening
+
+- Made SSH target `user` and `port` optional so aliases, hostnames, and direct
+  IP targets can rely on OpenSSH configuration without forcing user or port 22.
+- Removed SSH host/user/key environment auto-configuration and rejected key
+  paths, private keys, passwords, and arbitrary SSH options in MCP targets.
+- Removed private-key file probing from MCP/runtime environment detection and
+  delegated authentication to host-managed OpenSSH or SSH agents.
+- Added SSH diagnostic redaction, versioned transfer fingerprints, and target
+  metadata that does not expose resolved authentication configuration.
+- Documented the host sandbox boundary required to isolate Agent shell access
+  from `.ssh` and MCP-only SSH agent sockets.
+
 ## v0.13.0 (2026-08-01) — Compatibility shim removal
 
 - Removed the legacy `artifact_store` and `checkpoint_store` MCP server

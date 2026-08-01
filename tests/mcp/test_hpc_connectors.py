@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Tests for HPC connector signature alignment and SSH workstation auto-detection.
+"""Tests for HPC connector alignment and structured SSH targets.
 
-Covers P0.2:
-- LocalConnector.dry_run() signature mismatch (took 2 positional args, got 4)
-- Auto-detection defaults to SlurmConnector, ignoring SSH workstation mode
+Covers connector polymorphism, target construction, and credential boundaries.
 """
 
 import os
@@ -90,9 +88,8 @@ def test_ssh_connector_dry_run_accepts_three_args():
 
 def test_auto_detection_defaults_to_local_without_env():
     """Auto-detection returns LocalConnector when no SSH/SLURM env is set."""
-    # Clear relevant env vars
     env_backup = {}
-    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_USER", "SIMFLOW_SSH_KEY", "SIMFLOW_SSH_WORKSTATION_MODE"):
+    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_USER", "SIMFLOW_SSH_KEY"):
         env_backup[key] = os.environ.pop(key, None)
 
     try:
@@ -106,56 +103,34 @@ def test_auto_detection_defaults_to_local_without_env():
                 os.environ[key] = val
 
 
-def test_auto_detection_returns_ssh_when_ssh_host_set():
-    """Auto-detection returns SSHConnector when SIMFLOW_SSH_HOST is set."""
+def test_auto_detection_ignores_removed_ssh_environment():
+    """Removed SSH environment variables cannot silently select a remote target."""
     env_backup = {}
-    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_WORKSTATION_MODE"):
+    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_USER", "SIMFLOW_SSH_KEY"):
         env_backup[key] = os.environ.pop(key, None)
 
     os.environ["SIMFLOW_SSH_HOST"] = "192.168.5.6"
     os.environ["SIMFLOW_SSH_USER"] = "abinitio"
+    os.environ["SIMFLOW_SSH_KEY"] = "/home/user/.ssh/hpc_key"
 
     try:
         from server import _get_connector
         connector = _get_connector("auto")
-        from connectors.ssh import SSHConnector
-        assert isinstance(connector, SSHConnector), f"expected SSHConnector, got {type(connector)}"
-        assert connector.host == "192.168.5.6"
-        assert connector.user == "abinitio"
+        from connectors.local import LocalConnector
+        assert isinstance(connector, LocalConnector)
     finally:
         os.environ.pop("SIMFLOW_SSH_HOST", None)
         os.environ.pop("SIMFLOW_SSH_USER", None)
-        for key, val in env_backup.items():
-            if val is not None:
-                os.environ[key] = val
-
-
-def test_auto_detection_returns_ssh_when_workstation_mode_set():
-    """Auto-detection returns SSHConnector when SIMFLOW_SSH_WORKSTATION_MODE=1."""
-    env_backup = {}
-    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_WORKSTATION_MODE"):
-        env_backup[key] = os.environ.pop(key, None)
-
-    os.environ["SIMFLOW_SSH_WORKSTATION_MODE"] = "1"
-    os.environ["SIMFLOW_SSH_HOST"] = "workstation.example.com"
-
-    try:
-        from server import _get_connector
-        connector = _get_connector("auto")
-        from connectors.ssh import SSHConnector
-        assert isinstance(connector, SSHConnector)
-    finally:
-        os.environ.pop("SIMFLOW_SSH_WORKSTATION_MODE", None)
-        os.environ.pop("SIMFLOW_SSH_HOST", None)
+        os.environ.pop("SIMFLOW_SSH_KEY", None)
         for key, val in env_backup.items():
             if val is not None:
                 os.environ[key] = val
 
 
 def test_auto_detection_slurm_takes_precedence_over_ssh():
-    """When both SLURM and SSH env vars are set, SLURM takes precedence."""
+    """SLURM environment selection remains supported."""
     env_backup = {}
-    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST", "SIMFLOW_SSH_WORKSTATION_MODE"):
+    for key in ("SIMFLOW_SLURM_HOST", "SIMFLOW_SSH_HOST"):
         env_backup[key] = os.environ.pop(key, None)
 
     os.environ["SIMFLOW_SLURM_HOST"] = "hpc.cluster.example.com"
@@ -183,19 +158,13 @@ def test_explicit_scheduler_local():
 
 
 def test_explicit_scheduler_ssh():
-    """Explicit scheduler='ssh' returns SSHConnector when env configured."""
-    env_backup = os.environ.pop("SIMFLOW_SSH_HOST", None)
-    os.environ["SIMFLOW_SSH_HOST"] = "test.example.com"
-    try:
-        from server import _get_connector
-        connector = _get_connector("ssh")
-        from connectors.ssh import SSHConnector
-        assert isinstance(connector, SSHConnector)
-    finally:
-        if env_backup is not None:
-            os.environ["SIMFLOW_SSH_HOST"] = env_backup
-        else:
-            os.environ.pop("SIMFLOW_SSH_HOST", None)
+    """Explicit SSH requires a per-call structured target."""
+    from server import _get_connector
+    assert _get_connector("ssh") is None
+    connector = _get_connector("ssh", {"host": "hpc"})
+    from connectors.ssh import SSHConnector
+    assert isinstance(connector, SSHConnector)
+    assert connector.target == {"host": "hpc"}
 
 
 def test_unknown_scheduler_is_rejected():
@@ -226,6 +195,40 @@ def test_ssh_connector_commands_include_user_and_port():
         "scp", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
         "-P", "2222", "src", "dst",
     ]
+
+
+def test_ssh_alias_uses_openssh_configuration_without_overrides():
+    from connectors.ssh import SSHConnector
+
+    connector = SSHConnector(host="hpc")
+    assert connector.target == {"host": "hpc"}
+    assert connector._ssh_cmd("true") == [
+        "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "hpc", "true",
+    ]
+    assert connector._scp_cmd("src", "hpc:/scratch/job") == [
+        "scp", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "src", "hpc:/scratch/job",
+    ]
+
+
+def test_ssh_direct_ip_without_port_does_not_force_port_22():
+    from connectors.ssh import SSHConnector
+
+    connector = SSHConnector(host="192.168.5.69", user="zxy")
+    assert connector.target == {"host": "192.168.5.69", "user": "zxy"}
+    assert connector._ssh_cmd("true")[-2:] == ["zxy@192.168.5.69", "true"]
+    assert "-p" not in connector._ssh_cmd("true")
+
+
+def test_ssh_diagnostics_redact_credential_paths():
+    from connectors.ssh import SSHConnector
+
+    message = SSHConnector._safe_error(
+        "Load key /home/researcher/.ssh/private_hpc: bad permissions IdentityFile ~/.ssh/other",
+        "failed",
+    )
+    assert "/home/researcher/.ssh" not in message
+    assert "~/.ssh/other" not in message
+    assert "<ssh-credential-path>" in message
 
 
 def test_ssh_connector_brackets_ipv6_targets():

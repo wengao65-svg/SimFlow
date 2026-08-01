@@ -210,17 +210,17 @@ simflow/
 |----------|---------|
 | `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_SSH_KEY` | SSH key file path |
 | `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 
 Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
 are only a degraded fallback and are tagged `mock_unverified` with
 `usable_as_evidence=false`.
 
-SSH-backed HPC calls pass `host`, `user`, and optional `port` in the per-call
-`target` object. Passwords and private-key contents are not accepted in MCP
-payloads; authentication remains in SSH agent/config or process-level key
-configuration.
+SSH-backed HPC calls pass a required `host` plus optional `user` and `port` in
+the per-call `target` object. A bare host may be an OpenSSH alias, hostname, or
+IP address. Omitted user and port values are left for OpenSSH configuration to
+resolve. Passwords, private keys, key paths, and arbitrary SSH options are not
+accepted in MCP payloads; authentication remains host-managed.
 
 ## Documentation
 

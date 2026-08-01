@@ -23,35 +23,51 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by package imports
 class SSHConnector(BaseHPCConnector):
     """Connector for SSH-based remote execution."""
 
-    def __init__(self, host: str = None, user: str = None, port: int = 22, key_file: str = None):
-        self.host = host or os.environ.get("SIMFLOW_SSH_HOST")
-        self.user = user or os.environ.get("SIMFLOW_SSH_USER")
+    def __init__(self, host: str, user: str | None = None, port: int | None = None):
+        self.host = host
+        self.user = user
         self.port = port
-        self.key_file = key_file or os.environ.get("SIMFLOW_SSH_KEY")
 
     @property
     def target(self) -> dict:
-        return normalize_target({"host": self.host, "user": self.user, "port": self.port})
+        target = {"host": self.host}
+        if self.user is not None:
+            target["user"] = self.user
+        if self.port is not None:
+            target["port"] = self.port
+        return normalize_target(target)
 
     def _remote_target(self) -> str:
         host = f"[{self.host}]" if ":" in self.host else self.host
-        return "{}@{}".format(self.user, host)
+        return "{}@{}".format(self.user, host) if self.user else host
+
+    @staticmethod
+    def _safe_error(value: object, fallback: str) -> str:
+        """Return bounded SSH diagnostics without credential-path details."""
+        text = str(value or "").strip()
+        if not text:
+            return fallback
+        text = re.sub(
+            r"(?i)(?:[A-Za-z]:)?[^\s\"']*[/\\]\.ssh[/\\][^\s\"']+",
+            "<ssh-credential-path>",
+            text,
+        )
+        text = re.sub(r"(?i)IdentityFile\s+\S+", "IdentityFile <redacted>", text)
+        return text[:1000]
 
     def _ssh_cmd(self, remote_cmd: str) -> list:
         """Build SSH command."""
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
-        cmd.extend(["-p", str(self.port)])
-        if self.key_file:
-            cmd.extend(["-i", self.key_file])
+        if self.port is not None:
+            cmd.extend(["-p", str(self.port)])
         cmd.extend([self._remote_target(), remote_cmd])
         return cmd
 
     def _scp_cmd(self, src: str, dst: str) -> list:
         """Build SCP command."""
         cmd = ["scp", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
-        cmd.extend(["-P", str(self.port)])
-        if self.key_file:
-            cmd.extend(["-i", self.key_file])
+        if self.port is not None:
+            cmd.extend(["-P", str(self.port)])
         cmd.extend([src, dst])
         return cmd
 
@@ -71,7 +87,7 @@ class SSHConnector(BaseHPCConnector):
         command = "mkdir -p -- " + " ".join(shlex.quote(item) for item in sorted(directories))
         proc = subprocess.run(self._ssh_cmd(command), capture_output=True, text=True, timeout=30)
         if proc.returncode != 0:
-            return {"status": "error", "message": proc.stderr.strip() or "remote directory creation failed"}
+            return {"status": "error", "message": self._safe_error(proc.stderr, "remote directory creation failed")}
         return {"status": "success"}
 
     def list_remote_files(self, remote_dir: str, paths: list[str]) -> dict:
@@ -94,7 +110,7 @@ class SSHConnector(BaseHPCConnector):
             timeout=60,
         )
         if proc.returncode != 0:
-            return {"status": "error", "message": proc.stderr.strip() or "remote listing failed"}
+            return {"status": "error", "message": self._safe_error(proc.stderr, "remote listing failed")}
         files = []
         missing = []
         for line in proc.stdout.splitlines():
@@ -124,7 +140,7 @@ class SSHConnector(BaseHPCConnector):
             timeout=120,
         )
         if proc.returncode != 0:
-            return {"status": "error", "message": proc.stderr.strip() or "remote hash verification failed"}
+            return {"status": "error", "message": self._safe_error(proc.stderr, "remote hash verification failed")}
         entries = []
         for line in proc.stdout.splitlines():
             parts = line.split("\t")
@@ -151,7 +167,7 @@ class SSHConnector(BaseHPCConnector):
         """
         issues = []
         if not self.host:
-            issues.append("No SSH host configured (set SIMFLOW_SSH_HOST)")
+            issues.append("No SSH target host provided")
 
         try:
             if not os.path.exists(script_path):
@@ -163,7 +179,7 @@ class SSHConnector(BaseHPCConnector):
             "valid": len(issues) == 0,
             "issues": issues,
             "scheduler": "ssh",
-            "host": self.host,
+            "target": self.target,
             "script": script_path,
         }
         if Path(script_path).exists():
@@ -266,7 +282,7 @@ class SSHConnector(BaseHPCConnector):
                             "status": "success",
                             "job_id": job_id,
                             "scheduler": "slurm",
-                            "host": self.host,
+                            "target": self.target,
                             "gate_decision_id": auth["gate_decision_id"],
                             "script_hash": auth["script_hash"],
                         }
@@ -275,11 +291,11 @@ class SSHConnector(BaseHPCConnector):
                         "status": "success",
                         "job_id": proc.stdout.strip(),
                         "scheduler": "slurm",
-                        "host": self.host,
+                        "target": self.target,
                         "gate_decision_id": auth["gate_decision_id"],
                         "script_hash": auth["script_hash"],
                     }
-                return {"success": False, "errors": [proc.stderr.strip()]}
+                return {"success": False, "errors": [self._safe_error(proc.stderr, "remote sbatch failed")]}
             else:
                 # Fallback to nohup bash
                 exec_cmd = self._ssh_cmd("nohup bash " + shlex.quote(remote_path) + " & echo $!")
@@ -291,16 +307,16 @@ class SSHConnector(BaseHPCConnector):
                         "status": "success",
                         "job_id": pid,
                         "scheduler": "ssh",
-                        "host": self.host,
+                        "target": self.target,
                         "gate_decision_id": auth["gate_decision_id"],
                         "script_hash": auth["script_hash"],
                     }
-                return {"success": False, "errors": [proc.stderr.strip()]}
+                return {"success": False, "errors": [self._safe_error(proc.stderr, "remote launch failed")]}
 
         except subprocess.TimeoutExpired:
             return {"success": False, "errors": ["SSH operation timed out"]}
         except Exception as e:
-            return {"success": False, "errors": [str(e)]}
+            return {"success": False, "errors": [self._safe_error(e, "SSH operation failed")]}
 
     def status(self, job_id: str) -> dict:
         """Check remote job status.
@@ -363,7 +379,7 @@ class SSHConnector(BaseHPCConnector):
             status = "running" if "running" in proc.stdout else "completed"
             return {
                 "status": "success",
-                "data": {"job_id": job_id, "state": status, "scheduler": "ssh", "host": self.host},
+                "data": {"job_id": job_id, "state": status, "scheduler": "ssh", "target": self.target},
             }
         except Exception:
             return {"status": "success", "data": {"job_id": job_id, "state": "unknown"}}
@@ -390,7 +406,7 @@ class SSHConnector(BaseHPCConnector):
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             return {"success": proc.returncode == 0, "job_id": job_id}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": self._safe_error(e, "SSH cancel failed")}
 
     def upload_files(self, local_dir: str, remote_dir: str, files: list[str]) -> dict:
         """Upload files to remote host via SCP."""
@@ -411,13 +427,13 @@ class SSHConnector(BaseHPCConnector):
                 cmd = self._scp_cmd(local_path, remote_path)
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 if proc.returncode != 0:
-                    errors.append(f"Failed to upload {fname}: {proc.stderr.strip()}")
+                    errors.append(f"Failed to upload {fname}: {self._safe_error(proc.stderr, 'SCP upload failed')}")
                 else:
                     uploaded.append(fname)
             except subprocess.TimeoutExpired:
                 errors.append(f"Timeout uploading {fname}")
             except Exception as e:
-                errors.append(f"Error uploading {fname}: {e}")
+                errors.append(f"Error uploading {fname}: {self._safe_error(e, 'SCP upload failed')}")
 
         if errors:
             return {"status": "error", "errors": errors, "uploaded_files": uploaded}
@@ -441,13 +457,13 @@ class SSHConnector(BaseHPCConnector):
                 cmd = self._scp_cmd(remote_path, local_path)
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if proc.returncode != 0:
-                    errors.append(f"Failed to download {fname}: {proc.stderr.strip()}")
+                    errors.append(f"Failed to download {fname}: {self._safe_error(proc.stderr, 'SCP download failed')}")
                 else:
                     downloaded.append(fname)
             except subprocess.TimeoutExpired:
                 errors.append(f"Timeout downloading {fname}")
             except Exception as e:
-                errors.append(f"Error downloading {fname}: {e}")
+                errors.append(f"Error downloading {fname}: {self._safe_error(e, 'SCP download failed')}")
 
         if errors:
             return {"status": "error", "errors": errors, "downloaded_files": downloaded}

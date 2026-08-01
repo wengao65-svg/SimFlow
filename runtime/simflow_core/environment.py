@@ -19,13 +19,12 @@ def detect_python() -> dict:
 
 
 def detect_ssh() -> dict:
-    """Detect SSH availability."""
+    """Detect the SSH client without inspecting user credential storage."""
     ssh_bin = shutil.which("ssh")
-    ssh_key = os.path.expanduser("~/.ssh/id_rsa")
     return {
         "available": ssh_bin is not None,
         "path": ssh_bin,
-        "has_key": os.path.exists(ssh_key),
+        "credential_status": "host_managed_uninspected",
     }
 
 
