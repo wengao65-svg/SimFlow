@@ -86,6 +86,25 @@ def test_removed_source_surfaces_are_not_tracked():
     }
 
 
+def test_removed_mcp_server_directories_are_absent():
+    for relative_path in [
+        "mcp/servers/literature",
+        "mcp/servers/structure",
+        "mcp/servers/parsers",
+    ]:
+        assert not (REPO_ROOT / relative_path).exists()
+
+
+def test_runtime_literature_helpers_do_not_import_removed_mcp_servers():
+    offenders = []
+    for path in _python_files(["runtime/simflow_helpers/literature", "runtime/simflow_core"]):
+        text = path.read_text(encoding="utf-8")
+        if "mcp.servers.literature" in text or "mcp/servers/literature" in text:
+            offenders.append(str(path.relative_to(REPO_ROOT)))
+
+    assert offenders == []
+
+
 def test_runtime_lib_directory_has_no_python_sources_if_cache_remains():
     runtime_lib = REPO_ROOT / "runtime" / "lib"
     if not runtime_lib.exists():

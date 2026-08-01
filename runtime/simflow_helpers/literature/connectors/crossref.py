@@ -7,8 +7,8 @@ from typing import Optional
 from urllib.error import HTTPError, URLError
 
 from .base import BaseLiteratureConnector
-from mcp.shared.retry import retry_with_backoff, RetryableError
-from mcp.shared.cache import TTLCache
+from ..cache import TTLCache
+from ..retry import RetryableError, retry_with_backoff
 
 CROSSREF_API = "https://api.crossref.org"
 

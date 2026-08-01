@@ -12,7 +12,7 @@ const PACKAGE_ROOT = path.resolve(process.argv[2] || path.join(ROOT, 'dist', 'op
 const OPENCODE = process.env.SIMFLOW_OPENCODE_BIN || 'opencode';
 const SERVER_NAMES = [
   'simflow_state', 'artifact_store', 'checkpoint_store',
-  'literature', 'structure', 'hpc', 'parsers',
+  'hpc',
 ];
 const SKILL_NAMES = [
   'simflow', 'simflow-literature-review', 'simflow-proposal', 'simflow-modeling',

@@ -14,6 +14,7 @@ from runtime.simflow_core.state import init_workflow
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVER_DIR = ROOT / "mcp" / "servers" / "hpc"
+TARGET = {"host": "fake-hpc", "user": "simflow", "port": 2222}
 
 
 def _load_server():
@@ -30,7 +31,7 @@ def _load_server():
 def _engage_and_approve(project_root: Path, server, direction: str, remote_dir: str, paths: list[str]):
     init_workflow("custom", "computation", project_root=str(project_root))
     record_tool_call("simflow_state/read_state", str(project_root))
-    fingerprint = server.request_fingerprint(direction, remote_dir, paths)
+    fingerprint = server.request_fingerprint(direction, remote_dir, paths, TARGET)
     decision = record_gate_decision(
         "hpc_transfer",
         "approved",
@@ -38,6 +39,7 @@ def _engage_and_approve(project_root: Path, server, direction: str, remote_dir: 
             "direction": direction,
             "remote_dir": remote_dir,
             "paths": paths,
+            "target": TARGET,
             "transfer_request_hash": fingerprint,
             "reason": "pytest transfer approval",
         },
@@ -87,6 +89,7 @@ def test_upload_requires_approval(tmp_path):
                 "local_dir": "inputs",
                 "remote_dir": "/scratch/job",
                 "paths": ["nested/input.txt"],
+                "target": TARGET,
             },
         }
     )
@@ -101,7 +104,7 @@ def test_upload_registers_verified_manifest(tmp_path, monkeypatch):
     local_file.parent.mkdir(parents=True)
     local_file.write_text("input\n", encoding="utf-8")
     _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
-    monkeypatch.setattr(server, "_get_connector", lambda scheduler: _FakeConnector(local_file))
+    monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: _FakeConnector(local_file))
 
     result = server.handle_request(
         {
@@ -111,6 +114,7 @@ def test_upload_registers_verified_manifest(tmp_path, monkeypatch):
                 "local_dir": "inputs",
                 "remote_dir": "/scratch/job",
                 "paths": ["nested/input.txt"],
+                "target": TARGET,
                 "gate_decision_id": server.get_gate_decisions("hpc_transfer", project_root=str(tmp_path))[-1]["decision_id"],
             },
         }
@@ -121,6 +125,7 @@ def test_upload_registers_verified_manifest(tmp_path, monkeypatch):
     report = json.loads((tmp_path / result["data"]["manifest_path"]).read_text(encoding="utf-8"))
     assert report["source_manifest"]["manifest_sha256"]
     assert report["remote_manifest"]["files"] == report["source_manifest"]["files"]
+    assert report["target"] == TARGET
 
 
 def test_upload_rejects_path_escape_before_approval(tmp_path):
@@ -135,6 +140,50 @@ def test_upload_rejects_path_escape_before_approval(tmp_path):
                 "local_dir": "inputs",
                 "remote_dir": "/scratch/job",
                 "paths": ["../secret.txt"],
+                "target": TARGET,
+            },
+        }
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "transfer_validation_error"
+
+
+def test_upload_rejects_target_mismatch(tmp_path):
+    server = _load_server()
+    local_file = tmp_path / "inputs" / "nested" / "input.txt"
+    local_file.parent.mkdir(parents=True)
+    local_file.write_text("input\n", encoding="utf-8")
+    decision = _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
+    result = server.handle_request(
+        {
+            "tool": "upload",
+            "params": {
+                "project_root": str(tmp_path),
+                "local_dir": "inputs",
+                "remote_dir": "/scratch/job",
+                "paths": ["nested/input.txt"],
+                "target": {"host": "other-hpc", "user": "simflow", "port": 2222},
+                "gate_decision_id": decision["decision_id"],
+            },
+        }
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "transfer_approval_mismatch"
+
+
+def test_upload_rejects_secret_fields_in_target(tmp_path):
+    server = _load_server()
+    init_workflow("custom", "computation", project_root=str(tmp_path))
+    record_tool_call("simflow_state/read_state", str(tmp_path))
+    result = server.handle_request(
+        {
+            "tool": "upload",
+            "params": {
+                "project_root": str(tmp_path),
+                "local_dir": "inputs",
+                "remote_dir": "/scratch/job",
+                "paths": ["input.txt"],
+                "target": {**TARGET, "password": "forbidden"},
             },
         }
     )

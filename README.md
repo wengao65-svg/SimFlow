@@ -167,7 +167,7 @@ Update an existing installation:
 opencode plugin opencode-simflow --global --force
 ```
 
-The plugin adds the canonical SimFlow skills and seven MCP servers without
+The plugin adds the canonical SimFlow skills and four MCP servers without
 changing OpenCode permissions or provider configuration. Ask OpenCode to use
 the `simflow` skill, a domain skill such as `simflow-vasp`, or describe the
 simulation task naturally.
@@ -191,11 +191,11 @@ simflow/
 │   └── gates/                 # Verification and approval gates
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
-│   │   ├── literature/        # arXiv, Crossref, Semantic Scholar
-│   │   ├── structure/         # Materials Project, COD
+│   │   ├── simflow_state/     # Workflow state management
+│   │   ├── artifact_store/    # Artifact metadata and lineage
+│   │   ├── checkpoint_store/  # Checkpoint management
 │   │   ├── hpc/               # SLURM, PBS, SSH, Local
-│   │   └── state/             # Workflow state management
-│   └── shared/                # Retry, cache, credentials, transport
+│   └── shared/                # MCP transport and shared protocol helpers
 ├── runtime/                   # Core runtime and optional helpers
 │   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade
 │   └── simflow_helpers/       # Optional helper implementations
@@ -212,14 +212,17 @@ simflow/
 |----------|---------|
 | `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_SSH_HOST` | SSH HPC host |
-| `SIMFLOW_SSH_USER` | SSH username |
 | `SIMFLOW_SSH_KEY` | SSH key file path |
 | `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 
 Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
 are only a degraded fallback and are tagged `mock_unverified` with
 `usable_as_evidence=false`.
+
+SSH-backed HPC calls pass `host`, `user`, and optional `port` in the per-call
+`target` object. Passwords and private-key contents are not accepted in MCP
+payloads; authentication remains in SSH agent/config or process-level key
+configuration.
 
 ## Documentation
 

@@ -182,14 +182,21 @@ function validateSupportMatrix() {
   check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
   check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
 
-  const parserServer = fs.readFileSync(path.join(ROOT, 'mcp', 'servers', 'parsers', 'server.py'), 'utf-8');
+  const removedMcpServers = ['literature', 'structure', 'parsers'].filter(name => (
+    fs.existsSync(path.join(ROOT, 'mcp', 'servers', name))
+  ));
   check(
-    'parser MCP does not import unsupported QE/Gaussian parser helpers',
-    !/QEParser|GaussianParser|qe_parser|gaussian_parser/.test(parserServer),
+    'legacy literature, structure, and parser MCP server directories are absent',
+    removedMcpServers.length === 0,
+    removedMcpServers.join('\n'),
+  );
+  const analysisScript = fs.readFileSync(
+    path.join(ROOT, 'skills', 'simflow-analysis-visualization', 'scripts', 'analyze_dft_results.py'),
+    'utf-8',
   );
   check(
-    'parser MCP exposes unsupported placeholders as blocked provenance states',
-    parserServer.includes('UNSUPPORTED_PLACEHOLDERS') && parserServer.includes('unsupported_placeholder'),
+    'runtime analysis parser boundary excludes unsupported QE/Gaussian helpers',
+    !/QEParser|GaussianParser|qe_parser|gaussian_parser/.test(analysisScript),
   );
   const unsupportedSourceFiles = [
     'runtime/simflow_helpers/engines/qe.py',
@@ -517,17 +524,22 @@ function validateWorkflowAutomation() {
     'spec = importlib.util.spec_from_file_location("hpc_release_smoke", server_dir / "server.py")',
     'server = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(server)',
+    'from runtime.simflow_core.engagement import record_tool_call',
     'tmp = tempfile.TemporaryDirectory()',
     'project = Path(tmp.name)',
     'script = project / "job.sh"',
     'script.write_text("#!/bin/bash\\necho should-not-run\\n", encoding="utf-8")',
     'digest = hashlib.sha256(script.read_bytes()).hexdigest()',
-    'result = server.handle_request({"tool": "submit", "params": {"project_root": str(project), "script_path": str(script), "scheduler": "local", "approval_token": "release-smoke-token", "dry_run_evidence": "compute/dry_run_report.json", "script_hash": digest, "input_artifact_hash": "input-hash"}})',
+    'request = {"tool": "submit", "params": {"project_root": str(project), "script_path": str(script), "scheduler": "local", "approval_token": "release-smoke-token", "dry_run_evidence": "compute/dry_run_report.json", "script_hash": digest, "input_artifact_hash": "input-hash"}}',
+    'blocked = server.handle_request(request)',
+    'assert blocked.get("code") == "skill_engagement_contract_violation", blocked',
+    'record_tool_call("simflow_state/read_state", str(project))',
+    'result = server.handle_request(request)',
     'tmp.cleanup()',
     'assert result.get("status") == "error", result',
     'assert result.get("code") == "missing_workflow_state", result',
   ].join('; ');
-  runCheck('hpc.submit blocks before execution when workflow state is absent', 'python', ['-c', hpcSubmitSmoke]);
+  runCheck('hpc.submit enforces engagement and workflow state before execution', 'python', ['-c', hpcSubmitSmoke]);
 }
 
 function gitShow(ref, relativePath) {

@@ -106,10 +106,7 @@ def test_claude_mcp_config_uses_plugin_root_substitution():
         "simflow_state",
         "artifact_store",
         "checkpoint_store",
-        "literature",
-        "structure",
         "hpc",
-        "parsers",
     }
     for name, server in servers.items():
         assert server["command"] == "python3"

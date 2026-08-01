@@ -15,31 +15,41 @@ from pathlib import Path
 
 from .base import BaseHPCConnector
 try:  # Supports both MCP script loading and package-based test imports.
-    from transfer import remote_manifest, validate_remote_dir
+    from transfer import normalize_target, remote_manifest, validate_remote_dir
 except ModuleNotFoundError:  # pragma: no cover - exercised by package imports
-    from ..transfer import remote_manifest, validate_remote_dir
+    from ..transfer import normalize_target, remote_manifest, validate_remote_dir
 
 
 class SSHConnector(BaseHPCConnector):
     """Connector for SSH-based remote execution."""
 
-    def __init__(self, host: str = None, user: str = None, key_file: str = None):
+    def __init__(self, host: str = None, user: str = None, port: int = 22, key_file: str = None):
         self.host = host or os.environ.get("SIMFLOW_SSH_HOST")
         self.user = user or os.environ.get("SIMFLOW_SSH_USER")
+        self.port = port
         self.key_file = key_file or os.environ.get("SIMFLOW_SSH_KEY")
+
+    @property
+    def target(self) -> dict:
+        return normalize_target({"host": self.host, "user": self.user, "port": self.port})
+
+    def _remote_target(self) -> str:
+        host = f"[{self.host}]" if ":" in self.host else self.host
+        return "{}@{}".format(self.user, host)
 
     def _ssh_cmd(self, remote_cmd: str) -> list:
         """Build SSH command."""
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+        cmd.extend(["-p", str(self.port)])
         if self.key_file:
             cmd.extend(["-i", self.key_file])
-        target = "{}@{}".format(self.user, self.host) if self.user else self.host
-        cmd.extend([target, remote_cmd])
+        cmd.extend([self._remote_target(), remote_cmd])
         return cmd
 
     def _scp_cmd(self, src: str, dst: str) -> list:
         """Build SCP command."""
         cmd = ["scp", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+        cmd.extend(["-P", str(self.port)])
         if self.key_file:
             cmd.extend(["-i", self.key_file])
         cmd.extend([src, dst])
@@ -172,6 +182,7 @@ class SSHConnector(BaseHPCConnector):
         input_artifact_hash: str | None = None,
         transfer_manifest: str | None = None,
         remote_workdir: str | None = None,
+        target: dict | None = None,
         approved: bool | None = None,
     ) -> dict:
         """Submit a job via SSH.
@@ -188,6 +199,7 @@ class SSHConnector(BaseHPCConnector):
             dry_run_evidence=dry_run_evidence,
             script_hash=script_hash,
             input_artifact_hash=input_artifact_hash,
+            approval_bindings={"target": target, "remote_workdir": remote_workdir},
             approved=approved,
         )
         if auth["status"] != "success":
@@ -210,6 +222,8 @@ class SSHConnector(BaseHPCConnector):
             return {"status": "error", "message": "Transfer manifest is not verified", "code": "transfer_manifest_unverified"}
         if transfer.get("direction") != "upload":
             return {"status": "error", "message": "SSH submit requires an upload transfer manifest", "code": "transfer_manifest_direction"}
+        if transfer.get("target") != self.target:
+            return {"status": "error", "message": "SSH target does not match transfer manifest", "code": "transfer_manifest_target_mismatch"}
         workdir = remote_workdir or transfer.get("remote_dir")
         if not workdir:
             return {"status": "error", "message": "remote_workdir is required for SSH submit", "code": "remote_workdir_required"}
@@ -392,7 +406,7 @@ class SSHConnector(BaseHPCConnector):
         uploaded = []
         for fname in files:
             local_path = os.path.join(local_dir, fname)
-            remote_path = "{}:{}".format(self.host, posixpath.join(remote_dir, fname))
+            remote_path = "{}:{}".format(self._remote_target(), posixpath.join(remote_dir, fname))
             try:
                 cmd = self._scp_cmd(local_path, remote_path)
                 proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -420,7 +434,7 @@ class SSHConnector(BaseHPCConnector):
         errors = []
         downloaded = []
         for fname in files:
-            remote_path = "{}:{}".format(self.host, posixpath.join(remote_dir, fname))
+            remote_path = "{}:{}".format(self._remote_target(), posixpath.join(remote_dir, fname))
             local_path = os.path.join(local_dir, fname)
             Path(local_path).parent.mkdir(parents=True, exist_ok=True)
             try:

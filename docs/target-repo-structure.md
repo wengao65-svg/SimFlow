@@ -123,10 +123,7 @@ MCP servers provide recording and bounded helper tools:
 simflow_state
 artifact_store
 checkpoint_store
-literature
-structure
 hpc
-parsers
 ```
 
 MCP tools must keep `project_root` separate from plugin root. Write tools should

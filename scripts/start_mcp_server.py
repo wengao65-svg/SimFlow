@@ -17,10 +17,7 @@ SERVER_PATHS = {
     "simflow_state": "mcp/servers/simflow_state/server.py",
     "artifact_store": "mcp/servers/artifact_store/server.py",
     "checkpoint_store": "mcp/servers/checkpoint_store/server.py",
-    "literature": "mcp/servers/literature/server.py",
-    "structure": "mcp/servers/structure/server.py",
     "hpc": "mcp/servers/hpc/server.py",
-    "parsers": "mcp/servers/parsers/server.py",
 }
 
 

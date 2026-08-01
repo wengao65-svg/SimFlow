@@ -64,4 +64,4 @@ Verify these skill invocations:
 /simflow:simflow-writing
 ```
 
-Verify the installed plugin exposes the seven SimFlow MCP servers and that real HPC submission still requires explicit approval.
+Verify the installed plugin exposes the four SimFlow MCP servers and that real HPC submission still requires explicit approval.

@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.11.0 (2026-08-01) — MCP surface consolidation
+
+- Reduced the public SimFlow MCP surface from seven servers to four:
+  `simflow_state`, `artifact_store`, `checkpoint_store`, and `hpc`.
+- Moved literature connector selection, caching, retry, and metadata enrichment
+  into `runtime/simflow_helpers/literature`; removed the literature MCP server.
+- Removed the structure and parser MCP servers. Structure construction and
+  output parsing remain owned by skills and runtime helpers.
+- Added per-call SSH `target` binding for HPC upload, download, submit, and
+  status operations, including host, user, and port validation without secret
+  material in MCP payloads.
+- Bound SSH targets and remote work directories to transfer fingerprints,
+  transfer approvals, verified manifests, and `hpc_submit` gate decisions.
+- Added engagement protection for `hpc/submit` and normalized failed dry-run
+  validation to a top-level error response.
+- Synchronized Codex, Claude Code, and OpenCode MCP configuration and
+  validation around the four-server surface.
+
 ## v0.10.0 (2026-07-31) — OpenCode plugin distribution
 
 - Added the dependency-free OpenCode plugin adapter for stable OpenCode 1.18.x.

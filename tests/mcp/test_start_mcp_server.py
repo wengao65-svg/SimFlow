@@ -15,10 +15,7 @@ SERVERS = [
     "simflow_state",
     "artifact_store",
     "checkpoint_store",
-    "literature",
-    "structure",
     "hpc",
-    "parsers",
 ]
 
 

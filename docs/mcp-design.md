@@ -25,6 +25,12 @@ Remote file transfer is an explicit MCP boundary: use `hpc/upload` and
 manifest. The host agent should not implement routine remote transfer with
 direct `scp` or `ssh` calls.
 
+SSH operations receive a per-call `target` containing only `host`, `user`, and
+an optional `port`. Upload, download, submit, and SSH status calls require this
+target. It is included in approval bindings and transfer fingerprints so one
+MCP process can safely address multiple hosts. Passwords, private-key content,
+and key paths are not accepted in the target payload.
+
 ## Project Root Boundary
 
 Every write operation must receive `project_root` explicitly. MCP servers often
@@ -80,9 +86,9 @@ The high-level target surface is:
 - `simflow.gate.record_decision`
 - `simflow.handoff.summarize`
 
-Existing servers may keep backward-compatible names during migration, but their
-behavior should converge on explicit project roots, strict schemas, and
-evidence-based recording.
+The current wire-level server surface is `simflow_state`, `artifact_store`,
+`checkpoint_store`, and `hpc`. Literature enrichment, structure operations,
+and parser helpers are runtime/skill capabilities rather than MCP servers.
 
 The names above describe architectural categories, not the current wire-level
 tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual

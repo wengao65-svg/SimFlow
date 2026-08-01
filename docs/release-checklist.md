@@ -192,9 +192,8 @@ opencode mcp list
 Expected result:
 
 - Plugin install succeeds.
-- All seven MCP servers initialize:
-  `simflow_state`, `artifact_store`, `checkpoint_store`, `literature`,
-  `structure`, `hpc`, and `parsers`.
+- All four MCP servers initialize:
+  `simflow_state`, `artifact_store`, `checkpoint_store`, and `hpc`.
 - Skill routing works through the host agent.
 - OpenCode reports stable version 1.18.9 or a later stable 1.x release and does
   not require V2 beta APIs.

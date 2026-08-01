@@ -38,7 +38,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes evidence intake tools" in result.stdout
-    assert "hpc.submit blocks before execution when workflow state is absent" in result.stdout
+    assert "hpc.submit enforces engagement and workflow state before execution" in result.stdout
     assert "wrapper build validation skipped" in result.stdout
     assert "Errors: 0" in result.stdout
 

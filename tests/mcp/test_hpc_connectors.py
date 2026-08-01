@@ -214,6 +214,27 @@ def test_ssh_job_id_rejects_shell_metacharacters():
     assert result["code"] == "invalid_job_id"
 
 
+def test_ssh_connector_commands_include_user_and_port():
+    from connectors.ssh import SSHConnector
+
+    connector = SSHConnector(host="example.com", user="simflow", port=2222)
+    assert connector._ssh_cmd("true") == [
+        "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+        "-p", "2222", "simflow@example.com", "true",
+    ]
+    assert connector._scp_cmd("src", "dst") == [
+        "scp", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+        "-P", "2222", "src", "dst",
+    ]
+
+
+def test_ssh_connector_brackets_ipv6_targets():
+    from connectors.ssh import SSHConnector
+
+    connector = SSHConnector(host="2001:db8::1", user="simflow")
+    assert connector._remote_target() == "simflow@[2001:db8::1]"
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))

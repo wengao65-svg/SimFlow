@@ -48,8 +48,6 @@ EXEMPT_TOOLS = frozenset({
     "checkpoint_store/list",
     "hpc/dry_run",
     "hpc/status",
-    "literature/search",
-    "literature/get_metadata",
 })
 
 # Tools that REQUIRE prerequisites (state-write tools)
@@ -67,6 +65,7 @@ PROTECTED_TOOLS = {
     "simflow_state/repair_state.apply": ["simflow_state/read_state"],
     "hpc/upload": ["simflow_state/read_state"],
     "hpc/download": ["simflow_state/read_state"],
+    "hpc/submit": ["simflow_state/read_state"],
 }
 
 

@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.engagement import record_tool_call
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import init_workflow, read_state
 
@@ -36,6 +37,7 @@ def _write_json(path: Path, payload: dict):
 def _authorized_submit_params(project_root: str, script_path: str) -> dict:
     root = Path(project_root)
     init_workflow("custom", "computation", project_root=project_root)
+    record_tool_call("simflow_state/read_state", project_root)
     input_hash = "input-manifest-sha256"
     script_hash = _sha256_file(script_path)
     artifacts = root / ".simflow" / "artifacts"
@@ -100,6 +102,7 @@ def _make_test_script(tmpdir):
         f.write("#SBATCH --error=job.err\n")
         f.write("\n")
         f.write("mpirun -np 4 echo hello\n")
+    os.chmod(script, 0o755)
     return script
 
 
@@ -118,7 +121,7 @@ def test_dry_run():
     server = _load_server()
     with tempfile.TemporaryDirectory() as tmpdir:
         script = _make_test_script(tmpdir)
-        request = {"tool": "dry_run", "params": {"script_path": script}}
+        request = {"tool": "dry_run", "params": {"script_path": script, "scheduler": "local"}}
         result = server.handle_request(request)
         assert result["status"] == "success"
         assert "data" in result
@@ -191,6 +194,8 @@ def test_local_submit_requires_approval_reference():
     server = _load_server()
     with tempfile.TemporaryDirectory() as tmpdir:
         script = _make_local_script(tmpdir)
+        init_workflow("custom", "computation", project_root=tmpdir)
+        record_tool_call("simflow_state/read_state", tmpdir)
         request = {
             "tool": "submit",
             "params": {
@@ -292,9 +297,10 @@ def test_hpc_tools_list_exposes_transfer_tools():
         assert name in schemas
         schema = schemas[name]
         assert schema["additionalProperties"] is False
-        assert set(schema["required"]) == {"project_root", "local_dir", "remote_dir", "paths"}
+        assert set(schema["required"]) == {"project_root", "local_dir", "remote_dir", "paths", "target"}
         assert schema["properties"]["paths"]["minItems"] == 1
         assert schema["properties"]["scheduler"]["enum"] == ["ssh"]
+        assert schema["properties"]["target"]["additionalProperties"] is False
 
 
 def test_ssh_submit_requires_verified_transfer_manifest(monkeypatch):
@@ -303,6 +309,8 @@ def test_ssh_submit_requires_verified_transfer_manifest(monkeypatch):
     monkeypatch.setenv("SIMFLOW_SSH_HOST", "example.com")
     with tempfile.TemporaryDirectory() as tmpdir:
         script = _make_local_script(tmpdir)
+        init_workflow("custom", "computation", project_root=tmpdir)
+        record_tool_call("simflow_state/read_state", tmpdir)
         result = server.handle_request(
             {
                 "tool": "submit",
@@ -314,11 +322,54 @@ def test_ssh_submit_requires_verified_transfer_manifest(monkeypatch):
                     "dry_run_evidence": "compute/dry_run_report.json",
                     "script_hash": _sha256_file(script),
                     "input_artifact_hash": "input-hash",
+                    "target": {"host": "example.com", "user": "simflow", "port": 22},
+                    "remote_workdir": "/scratch/job",
                 },
             }
         )
     assert result["status"] == "error"
     assert result["code"] == "transfer_manifest_required"
+
+
+def test_ssh_submit_approval_must_bind_target_and_remote_workdir():
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        params = _authorized_submit_params(tmpdir, script)
+        result = server.handle_request(
+            {
+                "tool": "submit",
+                "params": {
+                    "script_path": script,
+                    "scheduler": "ssh",
+                    "target": {"host": "example.com", "user": "simflow", "port": 22},
+                    "remote_workdir": "/scratch/job",
+                    "transfer_manifest": "compute/transfers/upload.json",
+                    **params,
+                },
+            }
+        )
+    assert result["status"] == "error"
+    assert result["code"] == "gate_decision_missing_submit_binding"
+    assert set(result["missing_bindings"]) == {"target", "remote_workdir"}
+
+
+def test_ssh_status_requires_per_call_target(monkeypatch):
+    server = _load_server()
+    monkeypatch.setenv("SIMFLOW_SSH_HOST", "example.com")
+    monkeypatch.setenv("SIMFLOW_SSH_USER", "simflow")
+    result = server.handle_request({"tool": "status", "params": {"job_id": "123", "scheduler": "ssh"}})
+    assert result["status"] == "error"
+    assert result["code"] == "target_required"
+
+
+def test_dry_run_propagates_validation_failure():
+    server = _load_server()
+    result = server.handle_request(
+        {"tool": "dry_run", "params": {"script_path": "/nonexistent/path.sh", "scheduler": "local"}}
+    )
+    assert result["status"] == "error"
+    assert result["data"]["valid"] is False
 
 
 if __name__ == "__main__":
