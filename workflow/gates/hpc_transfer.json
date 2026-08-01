@@ -1,0 +1,18 @@
+{
+  "name": "hpc_transfer",
+  "description": "Remote HPC file transfer approval gate.",
+  "type": "approval",
+  "conditions": [
+    {
+      "id": "approval_present",
+      "evidence": "state/gates.json",
+      "path": "$.hpc_transfer.latest_decision",
+      "op": "eq",
+      "value": "approved"
+    }
+  ],
+  "actions_on_approve": ["transfer_files", "record_transfer_manifest"],
+  "actions_on_reject": ["report_rejection_reason"],
+  "auto_approve": false,
+  "timeout_minutes": 60
+}

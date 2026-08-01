@@ -281,6 +281,46 @@ def test_hpc_tools_list_exposes_submit_approval_schema():
     assert "gate_decision_id" in submit["properties"]
 
 
+def test_hpc_tools_list_exposes_transfer_tools():
+    """Upload/download are public MCP tools with explicit project boundaries."""
+    from mcp.shared.stdio_server import _list_tools
+
+    server = _load_server()
+    listed = _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)
+    schemas = {tool["name"]: tool["inputSchema"] for tool in listed}
+    for name in ("upload", "download"):
+        assert name in schemas
+        schema = schemas[name]
+        assert schema["additionalProperties"] is False
+        assert set(schema["required"]) == {"project_root", "local_dir", "remote_dir", "paths"}
+        assert schema["properties"]["paths"]["minItems"] == 1
+        assert schema["properties"]["scheduler"]["enum"] == ["ssh"]
+
+
+def test_ssh_submit_requires_verified_transfer_manifest(monkeypatch):
+    """SSH submit cannot fall back to copying only a standalone script."""
+    server = _load_server()
+    monkeypatch.setenv("SIMFLOW_SSH_HOST", "example.com")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        result = server.handle_request(
+            {
+                "tool": "submit",
+                "params": {
+                    "project_root": tmpdir,
+                    "script_path": script,
+                    "scheduler": "ssh",
+                    "approval_token": "token",
+                    "dry_run_evidence": "compute/dry_run_report.json",
+                    "script_hash": _sha256_file(script),
+                    "input_artifact_hash": "input-hash",
+                },
+            }
+        )
+    assert result["status"] == "error"
+    assert result["code"] == "transfer_manifest_required"
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

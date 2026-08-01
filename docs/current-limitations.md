@@ -63,6 +63,11 @@ Real local, remote, or HPC execution is blocked unless SimFlow has dry-run
 evidence, credential scan evidence, matching script/input hashes, and explicit
 approval. Examples and CI should stay dry-run-only.
 
+Remote file transfer is MCP-mediated through `hpc/upload` and `hpc/download`.
+Transfers require a separate `hpc_transfer` approval and a verified SHA-256
+manifest. Direct Agent `scp`/`ssh` is an exceptional override, not the normal
+tracked workflow.
+
 ## Licensed And Large Scientific Artifacts
 
 The repository must not contain real VASP `POTCAR`, `WAVECAR`, `CHGCAR`,

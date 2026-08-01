@@ -198,12 +198,20 @@ def test_explicit_scheduler_ssh():
             os.environ.pop("SIMFLOW_SSH_HOST", None)
 
 
-def test_unknown_scheduler_falls_back_to_local():
-    """Unknown scheduler string falls back to LocalConnector."""
+def test_unknown_scheduler_is_rejected():
+    """Unknown scheduler strings do not silently execute locally."""
     from server import _get_connector
     connector = _get_connector("nonexistent_scheduler")
-    from connectors.local import LocalConnector
-    assert isinstance(connector, LocalConnector)
+    assert connector is None
+
+
+def test_ssh_job_id_rejects_shell_metacharacters():
+    from connectors.ssh import SSHConnector
+
+    connector = SSHConnector(host="example.com", user="test")
+    result = connector.status("123; touch /tmp/bad")
+    assert result["status"] == "error"
+    assert result["code"] == "invalid_job_id"
 
 
 if __name__ == "__main__":

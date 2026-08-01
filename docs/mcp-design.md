@@ -13,11 +13,17 @@ Recommended MCP responsibilities:
 - create and list checkpoints
 - evaluate and record safety gate decisions
 - summarize handoff status
-- run bounded helper operations such as dry-run validation
+- run bounded helper operations such as dry-run validation and approved HPC
+  file transfer
 
 Avoid tools that claim to choose the best science for the user, such as
 `choose_software`, `classify_vasp_task` as an authority, or
 `generate_full_workflow` as a mandatory executor.
+
+Remote file transfer is an explicit MCP boundary: use `hpc/upload` and
+`hpc/download` with an approved `hpc_transfer` decision and verified SHA-256
+manifest. The host agent should not implement routine remote transfer with
+direct `scp` or `ssh` calls.
 
 ## Project Root Boundary
 

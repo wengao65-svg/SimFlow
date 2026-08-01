@@ -31,6 +31,23 @@ and file content hashes all contribute to the tree hash. Registration records
 the current `workflow_id` and appends the artifact ID to the producing stage's
 `outputs` without duplication.
 
+## HPC Transfers
+
+`hpc/upload` and `hpc/download` are the supported remote transfer path. They
+require an explicit `project_root`, `scheduler: "ssh"`, an approved
+`hpc_transfer` decision, and non-empty relative `paths`. Local paths must stay
+inside `project_root`; remote directories must be absolute POSIX paths without
+`..` components.
+
+Both tools expand requested directories, write a transfer manifest, and verify
+`sha256-path-size-content-v1` before returning `verified`. Partial transfers and
+hash mismatches return an error while preserving a `transfer_manifest`
+computation artifact. Credentials remain environment-only.
+
+An SSH submit must reference the verified upload manifest through
+`transfer_manifest` and use the matching `remote_workdir`; it no longer copies
+only the script to `/tmp`.
+
 ## Checkpoints
 
 | Tool | Purpose | Important behavior |

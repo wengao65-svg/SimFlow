@@ -65,6 +65,8 @@ PROTECTED_TOOLS = {
     "simflow_state/record_user_override": ["simflow_state/read_state"],
     "simflow_state/record_stage_failure": ["simflow_state/read_state"],
     "simflow_state/repair_state.apply": ["simflow_state/read_state"],
+    "hpc/upload": ["simflow_state/read_state"],
+    "hpc/download": ["simflow_state/read_state"],
 }
 
 
