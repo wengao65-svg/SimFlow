@@ -4,8 +4,6 @@ import { fileURLToPath } from "node:url"
 
 export const SERVER_NAMES = [
   "simflow_state",
-  "artifact_store",
-  "checkpoint_store",
   "hpc",
 ]
 

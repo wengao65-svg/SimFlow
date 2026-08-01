@@ -38,9 +38,8 @@ def test_mcp_engagement_artifact_checkpoint_verification_handoff(tmp_path):
     })
     assert status["status"] == "success"
 
-    artifact_server = _load_server("artifact_store")
-    artifact_result = artifact_server.handle_request({
-        "tool": "register",
+    artifact_result = state_server.handle_request({
+        "tool": "register_artifact",
         "params": {
             "project_root": str(tmp_path),
             "name": "outputs",
@@ -52,9 +51,8 @@ def test_mcp_engagement_artifact_checkpoint_verification_handoff(tmp_path):
     assert artifact_result["status"] == "success"
     artifact_id = artifact_result["data"]["artifact_id"]
 
-    checkpoint_server = _load_server("checkpoint_store")
-    checkpoint_result = checkpoint_server.handle_request({
-        "tool": "create",
+    checkpoint_result = state_server.handle_request({
+        "tool": "create_checkpoint",
         "params": {
             "project_root": str(tmp_path),
             "workflow_id": workflow["workflow_id"],

@@ -167,7 +167,7 @@ Update an existing installation:
 opencode plugin opencode-simflow --global --force
 ```
 
-The plugin adds the canonical SimFlow skills and four MCP servers without
+The plugin adds the canonical SimFlow skills and two MCP servers without
 changing OpenCode permissions or provider configuration. Ask OpenCode to use
 the `simflow` skill, a domain skill such as `simflow-vasp`, or describe the
 simulation task naturally.
@@ -192,9 +192,9 @@ simflow/
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
 │   │   ├── simflow_state/     # Workflow state management
-│   │   ├── artifact_store/    # Artifact metadata and lineage
-│   │   ├── checkpoint_store/  # Checkpoint management
 │   │   ├── hpc/               # SLURM, PBS, SSH, Local
+│   │   ├── artifact_store/    # v0.12 compatibility shim
+│   │   └── checkpoint_store/  # v0.12 compatibility shim
 │   └── shared/                # MCP transport and shared protocol helpers
 ├── runtime/                   # Core runtime and optional helpers
 │   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade

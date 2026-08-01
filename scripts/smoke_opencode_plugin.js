@@ -11,8 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PACKAGE_ROOT = path.resolve(process.argv[2] || path.join(ROOT, 'dist', 'opencode-plugin'));
 const OPENCODE = process.env.SIMFLOW_OPENCODE_BIN || 'opencode';
 const SERVER_NAMES = [
-  'simflow_state', 'artifact_store', 'checkpoint_store',
-  'hpc',
+  'simflow_state', 'hpc',
 ];
 const SKILL_NAMES = [
   'simflow', 'simflow-literature-review', 'simflow-proposal', 'simflow-modeling',

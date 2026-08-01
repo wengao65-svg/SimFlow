@@ -9,24 +9,6 @@
       "cwd": "${CLAUDE_PLUGIN_ROOT}",
       "description": "Workflow state management"
     },
-    "artifact_store": {
-      "command": "python3",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/scripts/start_mcp_server.py",
-        "artifact_store"
-      ],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}",
-      "description": "Artifact storage and retrieval"
-    },
-    "checkpoint_store": {
-      "command": "python3",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/scripts/start_mcp_server.py",
-        "checkpoint_store"
-      ],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}",
-      "description": "Checkpoint management"
-    },
     "hpc": {
       "command": "python3",
       "args": [

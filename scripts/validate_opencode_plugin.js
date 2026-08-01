@@ -12,8 +12,7 @@ const BUILT_ROOT = process.env.SIMFLOW_OPENCODE_PLUGIN_ROOT
   ? path.resolve(process.env.SIMFLOW_OPENCODE_PLUGIN_ROOT)
   : null;
 const SERVER_NAMES = [
-  'simflow_state', 'artifact_store', 'checkpoint_store',
-  'hpc',
+  'simflow_state', 'hpc',
 ];
 const PACKAGED_SKILLS = [
   'simflow',
@@ -140,7 +139,7 @@ async function validatePluginConfig(label, pluginRoot, entry) {
   await hooks.config(config);
   const expectedSkills = path.join(pluginRoot, 'skills');
   check(`${label} injects canonical skills path`, config.skills?.paths?.includes(expectedSkills));
-  check(`${label} injects exactly 4 MCP servers`, Object.keys(config.mcp || {}).length === SERVER_NAMES.length);
+  check(`${label} injects exactly 2 MCP servers`, Object.keys(config.mcp || {}).length === SERVER_NAMES.length);
   for (const name of SERVER_NAMES) {
     const server = config.mcp?.[name];
     check(`${label} registers ${name}`, server?.type === 'local');

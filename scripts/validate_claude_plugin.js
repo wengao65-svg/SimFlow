@@ -44,8 +44,6 @@ const REQUIRED_DIRS = [
 
 const SERVER_NAMES = [
   'simflow_state',
-  'artifact_store',
-  'checkpoint_store',
   'hpc',
 ];
 
@@ -244,7 +242,7 @@ function validateClaudeMcpConfig(label, pluginRoot, mcpPath) {
     check(`${label} has top-level mcpServers`, isPlainObject(mcp.mcpServers));
     const servers = mcp.mcpServers || {};
     const names = Object.keys(servers);
-    check(`${label} registers exactly 4 SimFlow servers`, names.length === SERVER_NAMES.length);
+    check(`${label} registers exactly 2 SimFlow servers`, names.length === SERVER_NAMES.length);
     SERVER_NAMES.forEach(name => {
       const server = servers[name];
       check(`${label} registers ${name}`, isPlainObject(server));

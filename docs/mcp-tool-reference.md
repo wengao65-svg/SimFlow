@@ -22,9 +22,9 @@ same session before the write is accepted.
 
 | Tool | Purpose | Important behavior |
 |---|---|---|
-| `artifact_store/register` | Register a file, directory, or planned artifact | Atomically synchronizes artifact, lineage, and stage output state |
-| `artifact_store/list` | List registered artifacts | Read-only |
-| `artifact_store/get` | Read one artifact record | Read-only |
+| `simflow_state/register_artifact` | Register a file, directory, or planned artifact | Atomically synchronizes artifact, lineage, and stage output state |
+| `simflow_state/list_artifacts` | List registered artifacts | Read-only |
+| `simflow_state/get_artifact` | Read one artifact record | Read-only |
 
 Directory artifacts use `sha256-path-size-content-v1`: relative paths, sizes,
 and file content hashes all contribute to the tree hash. Registration records
@@ -52,9 +52,12 @@ only the script to `/tmp`.
 
 | Tool | Purpose | Important behavior |
 |---|---|---|
-| `checkpoint_store/create` | Create a state snapshot | Success/partial snapshots require workflow and stage state |
-| `checkpoint_store/list` | List checkpoints | Read-only |
-| `checkpoint_store/restore` | Restore a checkpoint | Diagnostic-only checkpoints are rejected |
+| `simflow_state/create_checkpoint` | Create a state snapshot | Success/partial snapshots require workflow and stage state |
+| `simflow_state/list_checkpoints` | List checkpoints | Read-only |
+| `simflow_state/restore_checkpoint` | Restore a checkpoint | Diagnostic-only checkpoints are rejected |
+
+The pre-v0.12 `artifact_store/*` and `checkpoint_store/*` servers remain only
+as compatibility shims in v0.12 and are not registered by host configurations.
 
 Failure checkpoints capture the failed state and error evidence. They are not
 the default recovery target. Recovery should use the most recent successful,

@@ -13,10 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 STARTER = ROOT / "scripts" / "start_mcp_server.py"
 SERVERS = [
     "simflow_state",
-    "artifact_store",
-    "checkpoint_store",
     "hpc",
 ]
+COMPATIBILITY_SERVERS = ["artifact_store", "checkpoint_store"]
 
 
 def _mcp_payload(client_name: str | None = None) -> str:
@@ -68,6 +67,15 @@ def test_all_mcp_servers_initialize_from_non_plugin_cwd():
             assert schema["type"] == "object"
             assert schema["additionalProperties"] is False
             assert "properties" in schema
+
+
+def test_v012_compatibility_servers_still_initialize_but_are_not_public():
+    for server_name in COMPATIBILITY_SERVERS:
+        result = _run_from_non_plugin_cwd(server_name)
+        assert result.returncode == 0, result.stderr
+        lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+        assert lines[0]["result"]["serverInfo"]["name"] == server_name
+        assert lines[1]["result"]["tools"]
 
 
 def test_stdio_schema_fallback_is_strict():

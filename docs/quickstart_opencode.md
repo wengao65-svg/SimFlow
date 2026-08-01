@@ -47,8 +47,6 @@ The plugin exposes the canonical SimFlow skills and these MCP server names:
 
 ```text
 simflow_state
-artifact_store
-checkpoint_store
 hpc
 ```
 
@@ -71,7 +69,7 @@ The value is passed as a command-array element, not through a shell.
 ## Existing MCP Names
 
 User configuration wins when an OpenCode configuration already defines one of
-the four SimFlow MCP names. The plugin preserves the existing entry and writes
+the two SimFlow MCP names. The plugin preserves the existing entry and writes
 a warning containing only the conflicting server name. Resolve the collision
 in `opencode.json` before relying on that SimFlow server.
 

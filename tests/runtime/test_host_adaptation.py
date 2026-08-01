@@ -30,4 +30,4 @@ def test_initialize_instructions_adapt_syntax_but_preserve_invariants():
 
 
 def test_non_state_servers_do_not_duplicate_host_guidance():
-    assert build_initialize_instructions("artifact_store", {"name": "codex"}) is None
+    assert build_initialize_instructions("hpc", {"name": "codex"}) is None

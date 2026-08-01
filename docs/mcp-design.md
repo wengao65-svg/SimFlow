@@ -86,13 +86,14 @@ The high-level target surface is:
 - `simflow.gate.record_decision`
 - `simflow.handoff.summarize`
 
-The current wire-level server surface is `simflow_state`, `artifact_store`,
-`checkpoint_store`, and `hpc`. Literature enrichment, structure operations,
-and parser helpers are runtime/skill capabilities rather than MCP servers.
+The current wire-level server surface is `simflow_state` and `hpc`.
+Artifact and checkpoint tools are consolidated into `simflow_state`.
+Literature enrichment, structure operations, and parser helpers are
+runtime/skill capabilities rather than MCP servers.
 
 The names above describe architectural categories, not the current wire-level
 tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual
-`simflow_state/*`, `artifact_store/*`, and `checkpoint_store/*` surface.
+the `simflow_state/*` and `hpc/*` surface.
 
 ## Credentials
 

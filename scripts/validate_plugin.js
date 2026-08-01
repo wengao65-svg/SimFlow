@@ -277,7 +277,7 @@ function validateMcpConfig(label, pluginRoot, mcpPath) {
     const servers = getMcpServers(mcp);
     check(`${label} uses supported server map format`, isPlainObject(servers));
     const serverNames = Object.keys(servers || {});
-    check(`${label} registers exactly 4 SimFlow servers`, serverNames.length === 4);
+    check(`${label} registers exactly 2 SimFlow servers`, serverNames.length === 2);
     serverNames.forEach(name => {
       const server = servers[name];
       check(`${label} ${name} uses python3 command`, server?.command === 'python3');

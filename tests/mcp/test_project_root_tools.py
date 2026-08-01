@@ -16,9 +16,9 @@ def _load_tool(name: str, relative_path: str):
     return module
 
 
-def test_artifact_store_uses_project_root_with_existing_omx():
-    register = _load_tool("artifact_register_tool", "mcp/servers/artifact_store/tools/register.py")
-    list_tool = _load_tool("artifact_list_tool", "mcp/servers/artifact_store/tools/list.py")
+def test_artifact_tools_use_project_root_with_existing_omx():
+    register = _load_tool("artifact_register_tool", "mcp/servers/simflow_state/tools/register_artifact.py")
+    list_tool = _load_tool("artifact_list_tool", "mcp/servers/simflow_state/tools/list_artifacts.py")
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         (root / ".omx").mkdir()
@@ -40,9 +40,9 @@ def test_artifact_store_uses_project_root_with_existing_omx():
         assert (root / ".omx").is_dir()
 
 
-def test_checkpoint_store_uses_project_root_with_existing_omx():
-    create = _load_tool("checkpoint_create_tool", "mcp/servers/checkpoint_store/tools/create.py")
-    list_tool = _load_tool("checkpoint_list_tool", "mcp/servers/checkpoint_store/tools/list.py")
+def test_checkpoint_tools_use_project_root_with_existing_omx():
+    create = _load_tool("checkpoint_create_tool", "mcp/servers/simflow_state/tools/create_checkpoint.py")
+    list_tool = _load_tool("checkpoint_list_tool", "mcp/servers/simflow_state/tools/list_checkpoints.py")
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         (root / ".omx").mkdir()
@@ -65,8 +65,8 @@ def test_checkpoint_store_uses_project_root_with_existing_omx():
 
 
 def test_mcp_tools_reject_plugin_root_default():
-    artifact_list = _load_tool("artifact_list_default_tool", "mcp/servers/artifact_store/tools/list.py")
-    checkpoint_list = _load_tool("checkpoint_list_default_tool", "mcp/servers/checkpoint_store/tools/list.py")
+    artifact_list = _load_tool("artifact_list_default_tool", "mcp/servers/simflow_state/tools/list_artifacts.py")
+    checkpoint_list = _load_tool("checkpoint_list_default_tool", "mcp/servers/simflow_state/tools/list_checkpoints.py")
 
     assert artifact_list.execute({})["status"] == "error"
     assert checkpoint_list.execute({})["status"] == "error"
@@ -74,8 +74,8 @@ def test_mcp_tools_reject_plugin_root_default():
 
 
 def test_mcp_tools_reject_explicit_plugin_root():
-    artifact_list = _load_tool("artifact_list_plugin_root_tool", "mcp/servers/artifact_store/tools/list.py")
-    checkpoint_list = _load_tool("checkpoint_list_plugin_root_tool", "mcp/servers/checkpoint_store/tools/list.py")
+    artifact_list = _load_tool("artifact_list_plugin_root_tool", "mcp/servers/simflow_state/tools/list_artifacts.py")
+    checkpoint_list = _load_tool("checkpoint_list_plugin_root_tool", "mcp/servers/simflow_state/tools/list_checkpoints.py")
 
     assert artifact_list.execute({"project_root": str(ROOT)})["status"] == "error"
     assert checkpoint_list.execute({"project_root": str(ROOT)})["status"] == "error"
@@ -85,9 +85,9 @@ def test_mcp_write_tools_reject_missing_project_root():
     init = _load_tool("state_init_missing_project_root_tool", "mcp/servers/simflow_state/tools/init_workflow.py")
     write = _load_tool("state_write_missing_project_root_tool", "mcp/servers/simflow_state/tools/write_state.py")
     update = _load_tool("state_update_missing_project_root_tool", "mcp/servers/simflow_state/tools/update_stage.py")
-    register = _load_tool("artifact_register_missing_project_root_tool", "mcp/servers/artifact_store/tools/register.py")
-    create = _load_tool("checkpoint_create_missing_project_root_tool", "mcp/servers/checkpoint_store/tools/create.py")
-    restore = _load_tool("checkpoint_restore_missing_project_root_tool", "mcp/servers/checkpoint_store/tools/restore.py")
+    register = _load_tool("artifact_register_missing_project_root_tool", "mcp/servers/simflow_state/tools/register_artifact.py")
+    create = _load_tool("checkpoint_create_missing_project_root_tool", "mcp/servers/simflow_state/tools/create_checkpoint.py")
+    restore = _load_tool("checkpoint_restore_missing_project_root_tool", "mcp/servers/simflow_state/tools/restore_checkpoint.py")
 
     calls = [
         init.execute({"workflow_type": "custom", "entry_point": "literature_review"}),
@@ -122,9 +122,9 @@ def test_mcp_write_tools_reject_explicit_plugin_root():
     init = _load_tool("state_init_plugin_root_tool", "mcp/servers/simflow_state/tools/init_workflow.py")
     write = _load_tool("state_write_plugin_root_tool", "mcp/servers/simflow_state/tools/write_state.py")
     update = _load_tool("state_update_plugin_root_tool", "mcp/servers/simflow_state/tools/update_stage.py")
-    register = _load_tool("artifact_register_plugin_root_tool", "mcp/servers/artifact_store/tools/register.py")
-    create = _load_tool("checkpoint_create_plugin_root_tool", "mcp/servers/checkpoint_store/tools/create.py")
-    restore = _load_tool("checkpoint_restore_plugin_root_tool", "mcp/servers/checkpoint_store/tools/restore.py")
+    register = _load_tool("artifact_register_plugin_root_tool", "mcp/servers/simflow_state/tools/register_artifact.py")
+    create = _load_tool("checkpoint_create_plugin_root_tool", "mcp/servers/simflow_state/tools/create_checkpoint.py")
+    restore = _load_tool("checkpoint_restore_plugin_root_tool", "mcp/servers/simflow_state/tools/restore_checkpoint.py")
 
     calls = [
         init.execute({"project_root": str(ROOT), "workflow_type": "custom"}),

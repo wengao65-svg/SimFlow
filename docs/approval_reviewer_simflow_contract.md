@@ -20,20 +20,19 @@ flagged workflow discipline violations.
 ### 1. Skill-Load vs MCP-Call Gap (Cargo-Cult Detection)
 
 **Signal**: Agent loaded SimFlow SKILL.md files (via `sed`/`exec_command`)
-but did not call any SimFlow MCP tools (`simflow_state/*`, `artifact_store/*`,
-`checkpoint_store/*`).
+but did not call any SimFlow MCP tools (`simflow_state/*` or `hpc/*`).
 
 **Action**: Flag as `workflow_discipline_warning` in the reviewer rationale.
 The agent is treating SimFlow skills as documentation rather than workflow
 contracts.
 
 **Detection**: Check if the transcript contains `SKILL.md` reads but no
-`mcp__simflow_state` / `mcp__artifact_store` / `mcp__checkpoint_store` calls.
+`mcp__simflow_state` / `mcp__hpc` calls.
 
 ### 2. State-Write Without State-Read
 
-**Signal**: Agent called `artifact_store/register` or
-`checkpoint_store/create` without first calling `simflow_state/read_state`
+**Signal**: Agent called `simflow_state/register_artifact` or
+`simflow_state/create_checkpoint` without first calling `simflow_state/read_state`
 in the same session.
 
 **Action**: This is now hard-blocked by the engagement contract (P0.7).

@@ -5,6 +5,7 @@ Tools: read_state, write_state, init_workflow, update_stage,
 workflow_status, evidence_graph, handoff_summary, stage_readiness,
 project_readiness, record_computation_evidence, record_analysis_evidence,
 orphan_compute_scanner
+and consolidated artifact/checkpoint storage tools
 """
 
 import json
@@ -32,6 +33,12 @@ from tools.record_user_override import execute as record_user_override
 from tools.session_handoff import execute as session_handoff
 from tools.record_stage_failure import execute as record_stage_failure
 from tools.repair_state import execute as repair_state
+from tools.register_artifact import execute as register_artifact
+from tools.list_artifacts import execute as list_artifacts
+from tools.get_artifact import execute as get_artifact
+from tools.create_checkpoint import execute as create_checkpoint
+from tools.list_checkpoints import execute as list_checkpoints
+from tools.restore_checkpoint import execute as restore_checkpoint
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -51,6 +58,12 @@ TOOLS = {
     "session_handoff": session_handoff,
     "record_stage_failure": record_stage_failure,
     "repair_state": repair_state,
+    "register_artifact": register_artifact,
+    "list_artifacts": list_artifacts,
+    "get_artifact": get_artifact,
+    "create_checkpoint": create_checkpoint,
+    "list_checkpoints": list_checkpoints,
+    "restore_checkpoint": restore_checkpoint,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -70,6 +83,12 @@ TOOL_DESCRIPTIONS = {
     "session_handoff": "Generate a session-level handoff report with state, warnings, and next steps.",
     "record_stage_failure": "Record an error report, failure artifacts, failed state, and failure checkpoint.",
     "repair_state": "Audit state inconsistencies or apply backed-up repairs above a confidence threshold.",
+    "register_artifact": "Register a SimFlow artifact with metadata and lineage.",
+    "list_artifacts": "List registered SimFlow artifacts.",
+    "get_artifact": "Fetch one registered SimFlow artifact by identifier.",
+    "create_checkpoint": "Create a SimFlow checkpoint for a workflow stage.",
+    "list_checkpoints": "List SimFlow checkpoints.",
+    "restore_checkpoint": "Restore workflow state from a SimFlow checkpoint.",
 }
 
 TOOL_SCHEMAS = {
@@ -281,6 +300,68 @@ TOOL_SCHEMAS = {
             "project_root": {"type": "string"},
             "mode": {"type": "string", "enum": ["audit", "apply"], "default": "audit"},
             "min_confidence": {"type": "number", "exclusiveMinimum": 0.8, "default": 0.81},
+        },
+        "additionalProperties": False,
+    },
+    "register_artifact": {
+        "type": "object",
+        "required": ["project_root", "name", "type", "stage"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "stage": {"type": "string"},
+            "path": {"type": "string"},
+            "parent_artifacts": {"type": "array", "items": {"type": "string"}},
+            "parameters": {"type": "object"},
+            "software": {"type": "string"},
+            "metadata": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "list_artifacts": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "stage": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "get_artifact": {
+        "type": "object",
+        "required": ["project_root", "artifact_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "artifact_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "create_checkpoint": {
+        "type": "object",
+        "required": ["project_root", "workflow_id", "stage_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "workflow_id": {"type": "string"},
+            "stage_id": {"type": "string"},
+            "description": {"type": "string"},
+            "status": {"type": "string", "enum": ["success", "partial", "failure"]},
+            "job_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "list_checkpoints": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {"project_root": {"type": "string"}},
+        "additionalProperties": False,
+    },
+    "restore_checkpoint": {
+        "type": "object",
+        "required": ["project_root", "checkpoint_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "checkpoint_id": {"type": "string"},
         },
         "additionalProperties": False,
     },

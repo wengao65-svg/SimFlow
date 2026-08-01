@@ -92,7 +92,7 @@ def test_session_timeout_resets_prerequisites():
 
         # read_state is too old, should be blocked
         with pytest.raises(EngagementViolation):
-            check_prerequisites("artifact_store/register", tmpdir)
+            check_prerequisites("simflow_state/register_artifact", tmpdir)
 
 
 def test_engagement_log_is_file_backed():
@@ -180,29 +180,15 @@ def _load_state_server():
 
 
 def test_mcp_register_blocked_without_read_state():
-    """artifact_store/register is blocked without prior read_state."""
-    ARTIFACT_DIR = ROOT / "mcp" / "servers" / "artifact_store"
-    sys.path.insert(0, str(ARTIFACT_DIR))
-
-    # Purge cached modules to avoid cross-server collisions
-    for k in [k for k in sys.modules if k == "server" or k == "tools" or k.startswith("tools.")]:
-        del sys.modules[k]
-    sys.path.insert(0, str(ARTIFACT_DIR))
-
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "artifact_server_test_engagement",
-        str(ARTIFACT_DIR / "server.py"),
-    )
-    artifact_server = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(artifact_server)
+    """simflow_state/register_artifact is blocked without prior read_state."""
+    state_server = _load_state_server()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         _init_workflow(tmpdir)
 
         # Try to register without read_state
-        result = artifact_server.handle_request({
-            "tool": "register",
+        result = state_server.handle_request({
+            "tool": "register_artifact",
             "params": {
                 "project_root": tmpdir,
                 "name": "test.txt",
@@ -217,7 +203,7 @@ def test_mcp_register_blocked_without_read_state():
 
 
 def test_mcp_register_allowed_after_read_state():
-    """artifact_store/register succeeds after read_state was called."""
+    """simflow_state/register_artifact succeeds after read_state was called."""
     # First call read_state via simflow_state server
     for k in [k for k in sys.modules if k == "server" or k == "tools" or k.startswith("tools.")]:
         del sys.modules[k]
@@ -239,30 +225,12 @@ def test_mcp_register_allowed_after_read_state():
         })
         assert read_result["status"] == "success"
 
-        # Now load artifact_store server and register
-        for k in [k for k in sys.modules if k == "server" or k == "tools" or k.startswith("tools.")]:
-            del sys.modules[k]
-
-        ARTIFACT_DIR = ROOT / "mcp" / "servers" / "artifact_store"
-        ARTIFACT_DIR_STR = str(ARTIFACT_DIR)
-        if ARTIFACT_DIR_STR in sys.path:
-            sys.path.remove(ARTIFACT_DIR_STR)
-        sys.path.insert(0, ARTIFACT_DIR_STR)
-
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "artifact_server_test_engagement2",
-            str(ARTIFACT_DIR / "server.py"),
-        )
-        artifact_server = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(artifact_server)
-
         # Create a test file
         test_file = Path(tmpdir) / "test.txt"
         test_file.write_text("content", encoding="utf-8")
 
-        result = artifact_server.handle_request({
-            "tool": "register",
+        result = state_server.handle_request({
+            "tool": "register_artifact",
             "params": {
                 "project_root": tmpdir,
                 "name": "test.txt",

@@ -104,8 +104,6 @@ def test_claude_mcp_config_uses_plugin_root_substitution():
 
     assert set(servers) == {
         "simflow_state",
-        "artifact_store",
-        "checkpoint_store",
         "hpc",
     }
     for name, server in servers.items():

@@ -8,24 +8,6 @@
     "cwd": ".",
     "description": "Workflow state management"
   },
-  "artifact_store": {
-    "command": "python3",
-    "args": [
-      "./scripts/start_mcp_server.py",
-      "artifact_store"
-    ],
-    "cwd": ".",
-    "description": "Artifact storage and retrieval"
-  },
-  "checkpoint_store": {
-    "command": "python3",
-    "args": [
-      "./scripts/start_mcp_server.py",
-      "checkpoint_store"
-    ],
-    "cwd": ".",
-    "description": "Checkpoint management"
-  },
   "hpc": {
     "command": "python3",
     "args": [

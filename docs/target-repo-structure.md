@@ -121,8 +121,6 @@ MCP servers provide recording and bounded helper tools:
 
 ```text
 simflow_state
-artifact_store
-checkpoint_store
 hpc
 ```
 

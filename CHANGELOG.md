@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.12.0 (2026-08-01) — State-store consolidation
+
+- Reduced the public MCP surface from four servers to two: `simflow_state`
+  and `hpc`.
+- Moved artifact registration/list/get and checkpoint create/list/restore tools
+  into `simflow_state` with explicit canonical tool names.
+- Preserved the old `artifact_store` and `checkpoint_store` servers as
+  unconfigured compatibility shims for one release cycle.
+- Kept runtime artifact/checkpoint APIs and persisted `.simflow/` formats
+  unchanged.
+- Updated engagement enforcement, host configurations, tests, and user-facing
+  tool references for the consolidated state server.
+
 ## v0.11.0 (2026-08-01) — MCP surface consolidation
 
 - Reduced the public SimFlow MCP surface from seven servers to four:

@@ -1,6 +1,6 @@
 {
   "name": "simflow",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Host-neutral computational simulation domain workflow layer",
   "private": true,
   "scripts": {
