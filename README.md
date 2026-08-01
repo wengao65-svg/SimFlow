@@ -192,9 +192,7 @@ simflow/
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
 │   │   ├── simflow_state/     # Workflow state management
-│   │   ├── hpc/               # SLURM, PBS, SSH, Local
-│   │   ├── artifact_store/    # v0.12 compatibility shim
-│   │   └── checkpoint_store/  # v0.12 compatibility shim
+│   │   └── hpc/               # SLURM, PBS, SSH, Local
 │   └── shared/                # MCP transport and shared protocol helpers
 ├── runtime/                   # Core runtime and optional helpers
 │   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade

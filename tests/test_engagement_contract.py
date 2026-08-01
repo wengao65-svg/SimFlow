@@ -170,6 +170,10 @@ MCP_STATE_DIR = ROOT / "mcp" / "servers" / "simflow_state"
 def _load_state_server():
     """Load the simflow_state server module fresh."""
     import importlib.util
+    state_dir = str(MCP_STATE_DIR)
+    if state_dir in sys.path:
+        sys.path.remove(state_dir)
+    sys.path.insert(0, state_dir)
     spec = importlib.util.spec_from_file_location(
         "simflow_state_server_test_engagement",
         str(MCP_STATE_DIR / "server.py"),

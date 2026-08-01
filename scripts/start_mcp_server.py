@@ -15,8 +15,6 @@ from pathlib import Path
 
 SERVER_PATHS = {
     "simflow_state": "mcp/servers/simflow_state/server.py",
-    "artifact_store": "mcp/servers/artifact_store/server.py",
-    "checkpoint_store": "mcp/servers/checkpoint_store/server.py",
     "hpc": "mcp/servers/hpc/server.py",
 }
 

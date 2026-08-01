@@ -43,9 +43,6 @@ EXEMPT_TOOLS = frozenset({
     "simflow_state/project_readiness",
     "simflow_state/orphan_compute_scanner",
     "simflow_state/repair_state.audit",
-    "artifact_store/list",
-    "artifact_store/get",
-    "checkpoint_store/list",
     "simflow_state/list_artifacts",
     "simflow_state/get_artifact",
     "simflow_state/list_checkpoints",
@@ -56,9 +53,6 @@ EXEMPT_TOOLS = frozenset({
 # Tools that REQUIRE prerequisites (state-write tools)
 # repair_state uses mode-aware names: audit is exempt, apply is protected.
 PROTECTED_TOOLS = {
-    "artifact_store/register": ["simflow_state/read_state"],
-    "checkpoint_store/create": ["simflow_state/read_state"],
-    "checkpoint_store/restore": ["simflow_state/read_state"],
     "simflow_state/register_artifact": ["simflow_state/read_state"],
     "simflow_state/create_checkpoint": ["simflow_state/read_state"],
     "simflow_state/restore_checkpoint": ["simflow_state/read_state"],

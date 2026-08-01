@@ -56,9 +56,6 @@ only the script to `/tmp`.
 | `simflow_state/list_checkpoints` | List checkpoints | Read-only |
 | `simflow_state/restore_checkpoint` | Restore a checkpoint | Diagnostic-only checkpoints are rejected |
 
-The pre-v0.12 `artifact_store/*` and `checkpoint_store/*` servers remain only
-as compatibility shims in v0.12 and are not registered by host configurations.
-
 Failure checkpoints capture the failed state and error evidence. They are not
 the default recovery target. Recovery should use the most recent successful,
 recoverable checkpoint reported by `record_stage_failure` or session handoff.

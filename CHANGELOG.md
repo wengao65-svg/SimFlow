@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.13.0 (2026-08-01) — Compatibility shim removal
+
+- Removed the legacy `artifact_store` and `checkpoint_store` MCP server
+  directories and startup mappings.
+- Removed their legacy engagement namespace entries; all artifact and
+  checkpoint operations now use canonical `simflow_state/*` tool names.
+- Added regression checks that reject removed server names and prevent the
+  compatibility directories from returning in source or release builds.
+- Kept the two-server public surface and persisted `.simflow/` data formats
+  unchanged.
+
 ## v0.12.0 (2026-08-01) — State-store consolidation
 
 - Reduced the public MCP surface from four servers to two: `simflow_state`

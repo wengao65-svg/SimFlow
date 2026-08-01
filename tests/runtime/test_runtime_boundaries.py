@@ -91,6 +91,8 @@ def test_removed_mcp_server_directories_are_absent():
         "mcp/servers/literature",
         "mcp/servers/structure",
         "mcp/servers/parsers",
+        "mcp/servers/artifact_store",
+        "mcp/servers/checkpoint_store",
     ]:
         assert not (REPO_ROOT / relative_path).exists()
 
@@ -103,6 +105,14 @@ def test_runtime_literature_helpers_do_not_import_removed_mcp_servers():
             offenders.append(str(path.relative_to(REPO_ROOT)))
 
     assert offenders == []
+
+
+def test_engagement_contract_uses_only_current_mcp_namespaces():
+    from runtime.simflow_core.engagement import EXEMPT_TOOLS, PROTECTED_TOOLS
+
+    names = set(EXEMPT_TOOLS) | set(PROTECTED_TOOLS)
+    assert not any(name.startswith("artifact_store/") for name in names)
+    assert not any(name.startswith("checkpoint_store/") for name in names)
 
 
 def test_runtime_lib_directory_has_no_python_sources_if_cache_remains():

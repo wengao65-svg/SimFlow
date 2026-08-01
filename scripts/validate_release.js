@@ -182,11 +182,11 @@ function validateSupportMatrix() {
   check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
   check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
 
-  const removedMcpServers = ['literature', 'structure', 'parsers'].filter(name => (
+  const removedMcpServers = ['literature', 'structure', 'parsers', 'artifact_store', 'checkpoint_store'].filter(name => (
     fs.existsSync(path.join(ROOT, 'mcp', 'servers', name))
   ));
   check(
-    'legacy literature, structure, and parser MCP server directories are absent',
+    'removed MCP server directories are absent',
     removedMcpServers.length === 0,
     removedMcpServers.join('\n'),
   );

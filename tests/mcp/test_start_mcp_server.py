@@ -15,7 +15,6 @@ SERVERS = [
     "simflow_state",
     "hpc",
 ]
-COMPATIBILITY_SERVERS = ["artifact_store", "checkpoint_store"]
 
 
 def _mcp_payload(client_name: str | None = None) -> str:
@@ -69,15 +68,6 @@ def test_all_mcp_servers_initialize_from_non_plugin_cwd():
             assert "properties" in schema
 
 
-def test_v012_compatibility_servers_still_initialize_but_are_not_public():
-    for server_name in COMPATIBILITY_SERVERS:
-        result = _run_from_non_plugin_cwd(server_name)
-        assert result.returncode == 0, result.stderr
-        lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-        assert lines[0]["result"]["serverInfo"]["name"] == server_name
-        assert lines[1]["result"]["tools"]
-
-
 def test_stdio_schema_fallback_is_strict():
     from mcp.shared.stdio_server import _list_tools
 
@@ -106,9 +96,17 @@ def test_state_server_initialization_adapts_to_mcp_client_info():
 
 
 def test_non_state_server_does_not_duplicate_host_instructions():
-    result = _run_from_non_plugin_cwd("artifact_store", client_name="codex-cli")
+    result = _run_from_non_plugin_cwd("hpc", client_name="codex-cli")
     initialize = json.loads(result.stdout.splitlines()[0])["result"]
     assert "instructions" not in initialize
+
+
+def test_removed_storage_server_names_are_rejected():
+    for server_name in ("artifact_store", "checkpoint_store"):
+        result = _run_from_non_plugin_cwd(server_name)
+        assert result.returncode != 0
+        assert result.stdout == ""
+        assert "Unknown SimFlow MCP server" in result.stderr
 
 
 def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():
