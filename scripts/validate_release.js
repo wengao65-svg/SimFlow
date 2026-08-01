@@ -7,7 +7,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { compareSemver, diffSkillNames } = require('./marketplace_version_guard');
+const {
+  compareSemver,
+  diffSkillNames,
+  resolveGitBranchRef,
+} = require('./marketplace_version_guard');
 
 const ROOT = path.resolve(__dirname, '..');
 const args = new Set(process.argv.slice(2));
@@ -548,8 +552,9 @@ function validateMarketplaceVersionGuard() {
     ['Claude', 'claude-marketplace', 'plugins/simflow/.claude-plugin/plugin.json'],
   ]) {
     try {
-      const previousVersion = JSON.parse(gitShow(branch, manifestPath)).version;
-      const previousSkills = gitListTree(branch, 'plugins/simflow/skills')
+      const branchRef = resolveGitBranchRef(branch, ROOT);
+      const previousVersion = JSON.parse(gitShow(branchRef, manifestPath)).version;
+      const previousSkills = gitListTree(branchRef, 'plugins/simflow/skills')
         .filter(file => file.endsWith('/SKILL.md'))
         .map(file => file.split('/').at(-2))
         .sort();
@@ -561,13 +566,13 @@ function validateMarketplaceVersionGuard() {
         !skillsChanged || versionIncreased,
         [
           `current version: ${currentVersion}`,
-          `previous ${branch} version: ${previousVersion}`,
+          `previous ${branchRef} version: ${previousVersion}`,
           diff.added.length ? `added skills: ${diff.added.join(', ')}` : null,
           diff.removed.length ? `removed skills: ${diff.removed.join(', ')}` : null,
         ].filter(Boolean).join('\n'),
       );
     } catch (error) {
-      fail(`${label} marketplace packaged skill/version guard can inspect ${branch}`, error.message);
+      fail(`${label} marketplace packaged skill/version guard can inspect ${branch} or origin/${branch}`, error.message);
     }
   }
 }

@@ -86,6 +86,7 @@ def test_distribution_publish_workflows_cover_supported_hosts():
 def test_main_ci_runs_isolated_opencode_smoke():
     workflow = (ROOT / ".github" / "workflows" / "test.yml").read_text()
 
+    assert workflow.count("fetch-depth: 0") == 2
     assert "opencode-ai@1.18.9" in workflow
     assert "npm run build:opencode-plugin" in workflow
     assert "node scripts/smoke_opencode_plugin.js dist/opencode-plugin" in workflow
@@ -118,6 +119,43 @@ process.stdout.write(JSON.stringify(versions.map(isSupportedOpenCodeVersion)));
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == [False, True, True, True, True, False, False, False]
+
+
+def test_marketplace_ref_resolution_falls_back_to_origin(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "SimFlow Test"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@simflow.local"], cwd=repo, check=True)
+    (repo / "README.md").write_text("fixture\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "fixture"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/codex-marketplace", "HEAD"],
+        cwd=repo,
+        check=True,
+    )
+
+    script = """
+const { resolveGitBranchRef } = require(process.argv[1]);
+process.stdout.write(resolveGitBranchRef('codex-marketplace', process.argv[2]));
+"""
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(ROOT / "scripts" / "marketplace_version_guard.js"),
+            str(repo),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == "refs/remotes/origin/codex-marketplace"
 
 
 def _write_minimal_plugin(root: Path, version: str, skills: set[str]) -> None:

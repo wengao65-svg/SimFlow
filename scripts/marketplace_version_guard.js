@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -63,6 +64,26 @@ function diffSkillNames(currentSkills, previousSkills) {
   };
 }
 
+function resolveGitBranchRef(branch, cwd, remote = 'origin') {
+  const candidates = [
+    `refs/heads/${branch}`,
+    `refs/remotes/${remote}/${branch}`,
+  ];
+  for (const candidate of candidates) {
+    const result = spawnSync(
+      'git',
+      ['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`],
+      { cwd, encoding: 'utf-8', stdio: 'pipe' },
+    );
+    if (result.status === 0) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    `Unable to resolve ${branch}; checked ${candidates.join(' and ')}`,
+  );
+}
+
 function evaluateMarketplaceVersionGuard(current, previous) {
   const diff = diffSkillNames(current.skills, previous.skills);
   const skillsChanged = diff.added.length > 0 || diff.removed.length > 0;
@@ -97,5 +118,6 @@ module.exports = {
   evaluateMarketplaceVersionGuard,
   guardRoots,
   pluginVersionFromRoot,
+  resolveGitBranchRef,
   skillNamesFromRoot,
 };

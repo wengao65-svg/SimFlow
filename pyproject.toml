@@ -30,6 +30,7 @@ structure = ["pymatgen>=2023.0", "ase>=3.22"]
 all = ["pymatgen>=2023.0", "MDAnalysis>=2.5", "ase>=3.22"]
 dev = [
     "pytest>=7.0",
+    "tomli>=2.0; python_version < '3.11'",
     "pymatgen>=2023.0",
     "MDAnalysis>=2.5",
     "ase>=3.22",

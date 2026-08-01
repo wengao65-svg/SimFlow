@@ -1,10 +1,14 @@
 import subprocess
 import tempfile
 import json
-import tomllib
 from pathlib import Path
 
 import pytest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 from runtime.simflow_core.state import init_workflow
 from runtime.simflow_core.validation import load_stage_config
