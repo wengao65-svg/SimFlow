@@ -64,5 +64,7 @@ safe_text = sanitize_for_logging("Using key ABC123...longtoken...XYZ")
 - Rotate keys periodically
 - Never commit `.env` files to version control
 - Never pass SSH key paths, private-key contents, or passwords through MCP parameters
-- Deny Agent shell access to `.ssh` and MCP-only SSH agent sockets when the host supports separate permission domains
+- Run `scripts/start_hpc_broker.py` in the permission domain that owns SSH credentials
+- Give the Agent-facing plugin only `SIMFLOW_HPC_BROKER_SOCKET`, not the broker's SSH agent socket
+- Deny Agent shell access to `.ssh` and direct access to the broker socket outside MCP policy
 - Use `check_all_credentials()` to verify setup before running workflows

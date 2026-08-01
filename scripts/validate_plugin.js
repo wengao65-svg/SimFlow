@@ -30,6 +30,7 @@ const REQUIRED_FILES = [
   'package.json',
   'README.md',
   'scripts/start_mcp_server.py',
+  'scripts/start_hpc_broker.py',
 ];
 
 const REQUIRED_DIRS = [
@@ -353,6 +354,7 @@ function validatePluginRoot(label, pluginRoot) {
   check(`${label} has runtime directory`, fs.existsSync(path.join(pluginRoot, 'runtime')));
   check(`${label} has workflow recipes`, fs.existsSync(path.join(pluginRoot, 'workflow', 'recipes')));
   check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
+  check(`${label} has scripts/start_hpc_broker.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_hpc_broker.py')));
   PACKAGED_SKILLS.forEach(skillName => {
     check(`${label} has packaged skill ${skillName}`, fs.existsSync(path.join(pluginRoot, 'skills', skillName, 'SKILL.md')));
   });

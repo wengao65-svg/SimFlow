@@ -99,9 +99,16 @@ the `simflow_state/*` and `hpc/*` surface.
 ## Credentials
 
 SSH authentication is delegated to the host OpenSSH client or a host-managed
-agent. SimFlow does not read SSH configuration or inspect private-key files.
-Credentials must not be written to `.simflow/`, artifacts, reports,
-checkpoints, logs, or generated handoff packages.
+agent through an internal Unix-socket broker. The Agent-facing `hpc` MCP does
+not inherit `SSH_AUTH_SOCK` and never invokes the direct SSH connector. SimFlow
+does not read SSH configuration or inspect private-key files. Credentials must
+not be written to `.simflow/`, artifacts, reports, checkpoints, logs, or
+generated handoff packages.
+
+The broker accepts only versioned structured requests for status, cancellation,
+transfer verification, upload/download, and approved submit. It has no generic
+remote-shell operation. The socket is owner-only, peers are UID-checked, and
+local file operations are confined to `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`.
 
 ## Host Adaptation
 

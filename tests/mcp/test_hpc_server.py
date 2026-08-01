@@ -361,6 +361,16 @@ def test_ssh_status_requires_per_call_target():
     assert result["code"] == "target_required"
 
 
+def test_ssh_status_fails_closed_without_broker(monkeypatch):
+    server = _load_server()
+    monkeypatch.delenv("SIMFLOW_HPC_BROKER_SOCKET", raising=False)
+    result = server.handle_request(
+        {"tool": "status", "params": {"job_id": "123", "scheduler": "ssh", "target": {"host": "hpc"}}}
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "hpc_broker_unavailable"
+
+
 def test_ssh_dry_run_accepts_alias_target():
     server = _load_server()
     with tempfile.TemporaryDirectory() as tmpdir:

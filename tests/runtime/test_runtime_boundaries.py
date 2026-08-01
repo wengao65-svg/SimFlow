@@ -117,6 +117,13 @@ def test_runtime_and_mcp_do_not_probe_ssh_private_keys():
     assert offenders == []
 
 
+def test_agent_facing_hpc_server_does_not_import_direct_ssh_connector():
+    text = (REPO_ROOT / "mcp" / "servers" / "hpc" / "server.py").read_text(encoding="utf-8")
+    assert "connectors.ssh" not in text
+    assert "SSHConnector" not in text
+    assert "SSHBrokerClient" in text
+
+
 def test_engagement_contract_uses_only_current_mcp_namespaces():
     from runtime.simflow_core.engagement import EXEMPT_TOOLS, PROTECTED_TOOLS
 

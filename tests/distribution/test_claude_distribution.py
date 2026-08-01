@@ -139,6 +139,7 @@ def test_claude_marketplace_wrapper_builds_expected_shape(tmp_path):
     assert (plugin_root / ".claude-plugin" / "plugin.json").is_file()
     assert (plugin_root / ".claude.mcp.json").is_file()
     assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
+    assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
     assert (plugin_root / "skills" / "simflow" / "SKILL.md").is_file()
     assert (plugin_root / "mcp").is_dir()
     assert (plugin_root / "runtime").is_dir()
@@ -171,6 +172,7 @@ def test_codex_marketplace_wrapper_builds_canonical_surface(tmp_path):
     assert (plugin_root / ".codex-plugin" / "plugin.json").is_file()
     assert (plugin_root / ".mcp.json").is_file()
     assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
+    assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
     assert_canonical_package_surface(plugin_root)
 
 

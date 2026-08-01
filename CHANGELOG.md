@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.15.0 (2026-08-01) — Isolated SSH credential broker
+
+- Routed all real SSH status, transfer, cancellation, and submission operations
+  through an internal Unix-socket credential broker while keeping the public
+  MCP surface at `simflow_state` and `hpc`.
+- Added owner-only socket permissions, peer UID verification, fixed operation
+  dispatch, request size limits, and allowed-root enforcement for local files.
+- Removed `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from the Agent-facing HPC MCP
+  process; only the separately launched broker needs OpenSSH credentials.
+- Kept SSH dry-run local and broker-independent, while real remote operations
+  fail closed when the broker is missing or unsafe.
+- Added source and distribution packaging for `scripts/start_hpc_broker.py` and
+  regression tests for socket permissions, arbitrary-operation rejection,
+  path confinement, peer verification, and broker failure behavior.
+
 ## v0.14.0 (2026-08-01) — SSH target and credential boundary hardening
 
 - Made SSH target `user` and `port` optional so aliases, hostnames, and direct

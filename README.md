@@ -222,6 +222,12 @@ IP address. Omitted user and port values are left for OpenSSH configuration to
 resolve. Passwords, private keys, key paths, and arbitrary SSH options are not
 accepted in MCP payloads; authentication remains host-managed.
 
+Real SSH operations use the internal credential broker. Start it in a
+host-managed permission domain with `SIMFLOW_HPC_BROKER_SOCKET` and
+`SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`, then expose only the socket path to the
+Agent-facing plugin process. SSH dry-run remains available without the broker;
+status, transfer, cancellation, and submission fail closed when it is absent.
+
 ## Documentation
 
 - [Claude Code Quick Start](docs/quickstart_claude.md)

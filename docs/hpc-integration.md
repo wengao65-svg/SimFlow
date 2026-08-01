@@ -109,10 +109,32 @@ All connectors should share the same approval semantics:
 - SimFlow does not parse `.ssh/config` or inspect private-key files. OpenSSH or
   a host-managed SSH agent owns authentication.
 - A host that needs Agent/MCP credential isolation must deny the Agent access
-  to `.ssh` and MCP-only `SSH_AUTH_SOCK` values while granting the HPC MCP a
-  separate permission boundary.
+  to `.ssh`, broker credentials, and the broker socket outside MCP policy.
+- The Agent-facing HPC MCP removes inherited `SSH_AUTH_SOCK` and
+  `SSH_AGENT_PID`. A separately launched broker owns OpenSSH authentication.
 - Credentials must not be copied into job scripts, artifacts, logs,
   checkpoints, or reports.
+
+### Credential Broker
+
+Configure and start the broker before real SSH operations:
+
+```bash
+export SIMFLOW_HPC_BROKER_SOCKET="${XDG_RUNTIME_DIR:-/tmp}/simflow-hpc/broker.sock"
+export SIMFLOW_HPC_BROKER_ALLOWED_ROOTS="/path/to/project-a:/path/to/project-b"
+python3 scripts/start_hpc_broker.py
+```
+
+Start the broker from the environment that owns the required OpenSSH config or
+SSH agent. Start the Agent host without that `SSH_AUTH_SOCK`, while preserving
+`SIMFLOW_HPC_BROKER_SOCKET` for the plugin. The broker socket is created with
+mode `0600`, checks the peer UID, rejects arbitrary operations, and refuses
+local transfer or submit paths outside the configured roots.
+
+SSH dry-run validates local scripts without the broker. Status, cancellation,
+upload, download, remote manifest verification, and submission return
+`hpc_broker_unavailable` or another fail-closed broker error when isolation is
+not configured correctly.
 - Credential scans should be recorded before approval.
 - Proprietary or licensed files must be identified and handled only with
   user-approved boundaries.

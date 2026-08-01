@@ -63,6 +63,7 @@ def test_opencode_package_builds_canonical_surface(tmp_path):
     skills = {path.parent.name for path in (output / "skills").glob("*/SKILL.md")}
     assert skills == PACKAGED_SKILLS
     assert (output / "scripts" / "start_mcp_server.py").is_file()
+    assert (output / "scripts" / "start_hpc_broker.py").is_file()
     assert (output / "runtime" / "simflow_core").is_dir()
     assert (output / "mcp" / "servers").is_dir()
 

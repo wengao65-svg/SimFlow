@@ -16,6 +16,7 @@ const REQUIRED_ENTRIES = [
   ['templates', 'templates'],
   ['workflow', 'workflow'],
   ['scripts/start_mcp_server.py', 'scripts/start_mcp_server.py'],
+  ['scripts/start_hpc_broker.py', 'scripts/start_hpc_broker.py'],
   ['docs/quickstart_opencode.md', 'docs/quickstart_opencode.md'],
   ['docs/state-and-checkpoint.md', 'docs/state-and-checkpoint.md'],
   ['docs/installation.md', 'docs/installation.md'],

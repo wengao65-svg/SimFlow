@@ -51,6 +51,11 @@ def main(argv: list[str]) -> int:
     _prepend_sys_path(plugin_root)
 
     env = os.environ.copy()
+    if server_name == "hpc":
+        # The Agent-facing MCP talks to the broker and does not inherit SSH
+        # signing capability. The separately launched broker owns that socket.
+        env.pop("SSH_AUTH_SOCK", None)
+        env.pop("SSH_AGENT_PID", None)
     python_path_entries = [str(plugin_root), str(plugin_root / "runtime")]
     existing_pythonpath = env.get("PYTHONPATH")
     if existing_pythonpath:

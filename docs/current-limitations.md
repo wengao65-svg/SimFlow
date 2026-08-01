@@ -68,9 +68,10 @@ Transfers require a separate `hpc_transfer` approval and a verified SHA-256
 manifest. Direct Agent `scp`/`ssh` is outside the tracked workflow. Hosts that
 require SSH credential isolation must deny Agent shell access to `.ssh`,
 MCP-only agent sockets, and direct remote networking while allowing the HPC
-MCP's separate permission domain to perform approved operations. SimFlow cannot
-claim credential isolation when Agent and MCP processes have identical host
-filesystem and environment permissions.
+broker's separate permission domain to perform approved operations. The public
+HPC MCP removes inherited SSH agent variables and communicates only with the
+broker, but the host must still prevent the Agent from directly reading `.ssh`
+or connecting to the broker socket outside MCP policy.
 
 ## Licensed And Large Scientific Artifacts
 

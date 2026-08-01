@@ -32,6 +32,7 @@ const REQUIRED_ENTRIES = [
   { source: 'templates', target: 'templates' },
   { source: 'workflow', target: 'workflow' },
   { source: 'scripts/start_mcp_server.py', target: 'scripts/start_mcp_server.py' },
+  { source: 'scripts/start_hpc_broker.py', target: 'scripts/start_hpc_broker.py' },
   { source: 'docs/quickstart_codex.md', target: 'docs/quickstart_codex.md' },
   { source: 'docs/state-and-checkpoint.md', target: 'docs/state-and-checkpoint.md' },
   { source: 'docs/installation.md', target: 'docs/installation.md' },
@@ -256,6 +257,9 @@ function build() {
   }
   if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_mcp_server.py'))) {
     throw new Error('Built plugin is missing scripts/start_mcp_server.py');
+  }
+  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_hpc_broker.py'))) {
+    throw new Error('Built plugin is missing scripts/start_hpc_broker.py');
   }
   if (fs.existsSync(path.join(PLUGIN_ROOT, 'tests'))) {
     throw new Error('Built plugin must not contain tests');

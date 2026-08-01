@@ -50,6 +50,12 @@ The SSH target requires `host` and accepts optional `user` and `port`. For
 `{"host":"192.168.5.69","user":"zxy"}`, SimFlow constructs the direct
 destination without forcing port 22.
 
+Real SSH operations require the internal broker configured by
+`SIMFLOW_HPC_BROKER_SOCKET`. The broker is started separately with
+`scripts/start_hpc_broker.py` and confines local files to
+`SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`. A missing, non-socket, wrong-owner, or
+overly permissive broker path returns a fail-closed error.
+
 An SSH submit must reference the verified upload manifest through
 `transfer_manifest` and use the matching `remote_workdir`; it no longer copies
 only the script to `/tmp`.

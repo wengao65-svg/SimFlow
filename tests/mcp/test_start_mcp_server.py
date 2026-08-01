@@ -6,7 +6,10 @@ import os
 import subprocess
 import sys
 import tempfile
+import importlib.util
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -107,6 +110,30 @@ def test_removed_storage_server_names_are_rejected():
         assert result.returncode != 0
         assert result.stdout == ""
         assert "Unknown SimFlow MCP server" in result.stderr
+
+
+def test_hpc_startup_does_not_inherit_ssh_agent_socket(monkeypatch):
+    spec = importlib.util.spec_from_file_location("simflow_mcp_starter", STARTER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    captured = {}
+
+    def fake_execvpe(executable, argv, env):
+        captured["env"] = env
+        raise RuntimeError("captured")
+
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/tmp/agent.sock")
+    monkeypatch.setenv("SSH_AGENT_PID", "123")
+    monkeypatch.setattr(module.os, "execvpe", fake_execvpe)
+    previous_cwd = Path.cwd()
+    try:
+        with pytest.raises(RuntimeError, match="captured"):
+            module.main([str(STARTER), "hpc"])
+    finally:
+        os.chdir(previous_cwd)
+
+    assert "SSH_AUTH_SOCK" not in captured["env"]
+    assert "SSH_AGENT_PID" not in captured["env"]
 
 
 def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():

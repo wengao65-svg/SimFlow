@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from connectors.slurm import SlurmConnector
 from connectors.pbs import PBSConnector
 from connectors.local import LocalConnector
-from connectors.ssh import SSHConnector
+from broker import SSHBrokerClient
 from mcp.shared.transport import dispatch_request, run_server
 from runtime.simflow_core.artifacts import register_artifact
 from runtime.simflow_core.engagement import EngagementViolation, check_prerequisites, record_tool_call
@@ -41,7 +41,7 @@ _CONNECTORS = {
     "slurm": SlurmConnector,
     "pbs": PBSConnector,
     "local": LocalConnector,
-    "ssh": SSHConnector,
+    "ssh": SSHBrokerClient,
 }
 
 _default = None
@@ -52,14 +52,14 @@ def _get_connector(scheduler: str = "auto", target: dict | None = None):
 
     Auto-detection order:
     1. SIMFLOW_SLURM_HOST set -> SlurmConnector
-    2. Per-call target -> SSHConnector
+    2. Per-call target -> SSHBrokerClient
     3. Fallback -> LocalConnector
     """
     if target is not None:
         normalized = normalize_target(target)
         if scheduler not in ("auto", "ssh"):
             return None
-        return SSHConnector(**normalized)
+        return SSHBrokerClient(**normalized)
     if scheduler == "auto":
         # Lazy-import os to avoid global side effects at module load
         import os as _os
@@ -177,7 +177,7 @@ def handle_submit(params: dict) -> dict:
         return {"status": "error", "message": str(exc), "code": "invalid_target"}
     if connector is None:
         return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-    if isinstance(connector, SSHConnector) and not params.get("transfer_manifest"):
+    if isinstance(connector, SSHBrokerClient) and not params.get("transfer_manifest"):
         return {
             "status": "error",
             "message": "SSH submit requires a verified transfer_manifest from hpc/upload",
@@ -192,7 +192,7 @@ def handle_submit(params: dict) -> dict:
         "script_hash": params.get("script_hash"),
         "input_artifact_hash": params.get("input_artifact_hash"),
     }
-    if isinstance(connector, SSHConnector):
+    if isinstance(connector, SSHBrokerClient):
         try:
             remote_workdir = validate_remote_dir(params.get("remote_workdir", ""))
         except TransferValidationError as exc:

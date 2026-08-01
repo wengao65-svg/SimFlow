@@ -232,12 +232,22 @@ points.
 | `S2_API_KEY` | Semantic Scholar API key |
 | `SIMFLOW_HPC_HOST` | Optional HPC host alias for helper scripts |
 | `SIMFLOW_HPC_BASE` | Optional remote working directory |
+| `SIMFLOW_HPC_BROKER_SOCKET` | Unix socket for isolated SSH operations |
+| `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS` | Path-separated project roots accessible to the broker |
+| `SIMFLOW_HPC_BROKER_ALLOWED_UID` | Optional permitted MCP peer UID; defaults to broker UID |
+| `SIMFLOW_HPC_BROKER_UID` | Optional expected broker process UID; defaults to MCP UID |
+| `SIMFLOW_HPC_BROKER_TIMEOUT` | Optional broker client timeout in seconds |
 | `SIMFLOW_PARTITION` | Optional scheduler partition |
 | `SIMFLOW_NTASKS` | Optional MPI task count |
 
 SSH MCP targets are supplied per call. Authentication remains in OpenSSH
 configuration or a host-managed agent and must not be written to `.simflow/`,
 artifacts, reports, checkpoints, logs, or handoff packages.
+
+For real SSH operations, launch `python3 scripts/start_hpc_broker.py` from a
+host-managed environment containing the required OpenSSH/agent access. The
+Agent-facing host needs the broker socket variable but should not inherit the
+broker's `SSH_AUTH_SOCK`.
 
 ## Troubleshooting
 

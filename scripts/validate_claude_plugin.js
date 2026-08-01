@@ -24,6 +24,7 @@ const REQUIRED_FILES = [
   '.claude-plugin/marketplace.json',
   '.claude.mcp.json',
   'scripts/start_mcp_server.py',
+  'scripts/start_hpc_broker.py',
   'skills/simflow/SKILL.md',
   'AGENTS.md',
   'README.md',
@@ -371,6 +372,7 @@ function validatePluginRoot(label, pluginRoot) {
   check(`${label} has runtime/simflow_helpers`, fs.existsSync(path.join(pluginRoot, 'runtime', 'simflow_helpers')));
   check(`${label} has workflow recipes`, fs.existsSync(path.join(pluginRoot, 'workflow', 'recipes')));
   check(`${label} has scripts/start_mcp_server.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_mcp_server.py')));
+  check(`${label} has scripts/start_hpc_broker.py`, fs.existsSync(path.join(pluginRoot, 'scripts', 'start_hpc_broker.py')));
   check(`${label} excludes tests`, !fs.existsSync(path.join(pluginRoot, 'tests')));
   check(`${label} excludes .simflow`, !fs.existsSync(path.join(pluginRoot, '.simflow')));
   check(`${label} excludes .omx`, !fs.existsSync(path.join(pluginRoot, '.omx')));

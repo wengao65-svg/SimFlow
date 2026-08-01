@@ -162,8 +162,8 @@ def test_explicit_scheduler_ssh():
     from server import _get_connector
     assert _get_connector("ssh") is None
     connector = _get_connector("ssh", {"host": "hpc"})
-    from connectors.ssh import SSHConnector
-    assert isinstance(connector, SSHConnector)
+    from broker import SSHBrokerClient
+    assert isinstance(connector, SSHBrokerClient)
     assert connector.target == {"host": "hpc"}
 
 
