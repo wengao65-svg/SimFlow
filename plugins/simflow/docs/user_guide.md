@@ -206,9 +206,7 @@ job-record handling.
 | --- | --- |
 | `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_SSH_HOST` | SSH HPC host |
-| `SIMFLOW_SSH_USER` | SSH username |
-| `SIMFLOW_SSH_KEY` | SSH key file path |
 
-Credentials may be read from the environment but must not be stored in
-`.simflow/`, artifacts, reports, checkpoints, logs, or handoff packages.
+SSH host, user, and port are supplied per call. SSH authentication is managed
+by OpenSSH or a host-managed agent and must not be stored in `.simflow/`,
+artifacts, reports, checkpoints, logs, or handoff packages.

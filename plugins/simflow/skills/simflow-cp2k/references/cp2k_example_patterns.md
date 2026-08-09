@@ -130,6 +130,17 @@ Handoff content should include:
 
 Do not submit local, remote, or HPC jobs from this skill without the SimFlow approval gate.
 
+For remote execution, use this MCP sequence after the calculation package and
+dry-run evidence are ready:
+
+1. Record an approved `hpc_transfer` decision bound to the requested paths and remote directory.
+2. Call `hpc/upload` and wait for a `verified` transfer manifest.
+3. Call `hpc/submit` with that manifest and the matching `remote_workdir`.
+4. Poll with `hpc/status`, then retrieve declared outputs with `hpc/download`.
+
+Direct Agent `scp`/`ssh` is an explicit override path only and is not the
+supported tracked workflow.
+
 ## Output review pattern
 
 For returned results, inspect:

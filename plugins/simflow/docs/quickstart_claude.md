@@ -124,11 +124,6 @@ Natural-language routing also works when Claude Code selects the installed SimFl
 The Claude adapter uses `.claude.mcp.json`, which points to the existing SimFlow MCP startup wrapper through `${CLAUDE_PLUGIN_ROOT}`. It should expose:
 
 - `simflow_state`
-- `artifact_store`
-- `checkpoint_store`
-- `literature`
-- `structure`
 - `hpc`
-- `parsers`
 
 Real HPC submission remains blocked unless the existing SimFlow approval gate is explicitly passed.

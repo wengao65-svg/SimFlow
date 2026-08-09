@@ -233,7 +233,7 @@ actions, never router actions.
 This skill requires the following MCP tool engagement when loaded:
 
 - **Minimum engagement**: Call `simflow_state/read_state` before any state-write
-  tool (`artifact_store/register`, `checkpoint_store/create`, `update_stage`,
+  tool (`simflow_state/register_artifact`, `simflow_state/create_checkpoint`, `update_stage`,
   `record_*_evidence`, `write_state`).
 - **Task-shape-aware engagement**: All task shapes — including single-stage
   compute tasks (GPUMD compile, VASP relax, NEP training) — must engage at least

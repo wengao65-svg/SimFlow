@@ -126,6 +126,17 @@ extends a computation stage, observe:
 - If the job script or input hash changes after approval, require a new dry-run
   and approval.
 
+## Remote Transfer Handoff
+
+- Use `hpc/upload` for SSH uploads and `hpc/download` for result retrieval.
+- Do not use direct Agent `scp`/`ssh` for routine transfer work. Transfers
+  require an approved `hpc_transfer` decision and verified SHA-256 manifest.
+- Pass the verified upload manifest and matching remote work directory to
+  `hpc/submit`; SSH submission is blocked when the script is absent from the
+  manifest.
+- Preserve transfer manifests, per-file hashes, partial failures, and download
+  verification as computation artifacts.
+
 ## Status Semantics
 
 - `planned`, `waiting`, `blocked`, `dry_run_complete`, `submitted`,

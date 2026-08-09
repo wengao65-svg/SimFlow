@@ -8,8 +8,8 @@ from urllib.error import HTTPError, URLError
 from xml.etree import ElementTree
 
 from .base import BaseLiteratureConnector
-from mcp.shared.retry import retry_with_backoff, RetryableError
-from mcp.shared.cache import TTLCache
+from ..cache import TTLCache
+from ..retry import RetryableError, retry_with_backoff
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 

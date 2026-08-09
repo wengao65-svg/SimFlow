@@ -43,21 +43,19 @@ EXEMPT_TOOLS = frozenset({
     "simflow_state/project_readiness",
     "simflow_state/orphan_compute_scanner",
     "simflow_state/repair_state.audit",
-    "artifact_store/list",
-    "artifact_store/get",
-    "checkpoint_store/list",
+    "simflow_state/list_artifacts",
+    "simflow_state/get_artifact",
+    "simflow_state/list_checkpoints",
     "hpc/dry_run",
     "hpc/status",
-    "literature/search",
-    "literature/get_metadata",
 })
 
 # Tools that REQUIRE prerequisites (state-write tools)
 # repair_state uses mode-aware names: audit is exempt, apply is protected.
 PROTECTED_TOOLS = {
-    "artifact_store/register": ["simflow_state/read_state"],
-    "checkpoint_store/create": ["simflow_state/read_state"],
-    "checkpoint_store/restore": ["simflow_state/read_state"],
+    "simflow_state/register_artifact": ["simflow_state/read_state"],
+    "simflow_state/create_checkpoint": ["simflow_state/read_state"],
+    "simflow_state/restore_checkpoint": ["simflow_state/read_state"],
     "simflow_state/write_state": ["simflow_state/read_state"],
     "simflow_state/update_stage": ["simflow_state/read_state"],
     "simflow_state/record_computation_evidence": ["simflow_state/read_state"],
@@ -65,6 +63,9 @@ PROTECTED_TOOLS = {
     "simflow_state/record_user_override": ["simflow_state/read_state"],
     "simflow_state/record_stage_failure": ["simflow_state/read_state"],
     "simflow_state/repair_state.apply": ["simflow_state/read_state"],
+    "hpc/upload": ["simflow_state/read_state"],
+    "hpc/download": ["simflow_state/read_state"],
+    "hpc/submit": ["simflow_state/read_state"],
 }
 
 

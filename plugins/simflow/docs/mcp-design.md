@@ -13,11 +13,24 @@ Recommended MCP responsibilities:
 - create and list checkpoints
 - evaluate and record safety gate decisions
 - summarize handoff status
-- run bounded helper operations such as dry-run validation
+- run bounded helper operations such as dry-run validation and approved HPC
+  file transfer
 
 Avoid tools that claim to choose the best science for the user, such as
 `choose_software`, `classify_vasp_task` as an authority, or
 `generate_full_workflow` as a mandatory executor.
+
+Remote file transfer is an explicit MCP boundary: use `hpc/upload` and
+`hpc/download` with an approved `hpc_transfer` decision and verified SHA-256
+manifest. The host agent should not implement routine remote transfer with
+direct `scp` or `ssh` calls.
+
+SSH operations receive a per-call `target` containing a required `host` and
+optional `user` and `port`. The host may be an OpenSSH alias, hostname, or IP.
+Omitted fields are not replaced with defaults, so OpenSSH configuration remains
+effective. Upload, download, submit, and SSH status calls require this target.
+It is included in approval bindings and transfer fingerprints. Passwords,
+private-key content, key paths, and arbitrary SSH options are rejected.
 
 ## Project Root Boundary
 
@@ -74,19 +87,28 @@ The high-level target surface is:
 - `simflow.gate.record_decision`
 - `simflow.handoff.summarize`
 
-Existing servers may keep backward-compatible names during migration, but their
-behavior should converge on explicit project roots, strict schemas, and
-evidence-based recording.
+The current wire-level server surface is `simflow_state` and `hpc`.
+Artifact and checkpoint tools are consolidated into `simflow_state`.
+Literature enrichment, structure operations, and parser helpers are
+runtime/skill capabilities rather than MCP servers.
 
 The names above describe architectural categories, not the current wire-level
 tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual
-`simflow_state/*`, `artifact_store/*`, and `checkpoint_store/*` surface.
+the `simflow_state/*` and `hpc/*` surface.
 
 ## Credentials
 
-Credentials are read from environment variables or host-managed secret stores.
-They must not be written to `.simflow/`, artifacts, reports, checkpoints, logs,
-or generated handoff packages.
+SSH authentication is delegated to the host OpenSSH client or a host-managed
+agent through an internal Unix-socket broker. The Agent-facing `hpc` MCP does
+not inherit `SSH_AUTH_SOCK` and never invokes the direct SSH connector. SimFlow
+does not read SSH configuration or inspect private-key files. Credentials must
+not be written to `.simflow/`, artifacts, reports, checkpoints, logs, or
+generated handoff packages.
+
+The broker accepts only versioned structured requests for status, cancellation,
+transfer verification, upload/download, and approved submit. It has no generic
+remote-shell operation. The socket is owner-only, peers are UID-checked, and
+local file operations are confined to `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`.
 
 ## Host Adaptation
 

@@ -2,7 +2,7 @@
 
 ## Security Rules
 
-1. **Environment-only storage**: Credentials are read ONLY from environment variables
+1. **Host-managed storage**: SSH credentials remain in OpenSSH or a host-managed agent
 2. **Never write credentials**: Not to files, artifacts, logs, or state
 3. **Never expose in errors**: Credential values never appear in error messages
 4. **Graceful fallback**: Missing optional credentials use an open connector or
@@ -15,9 +15,6 @@
 |---------------------|---------|----------|---------|
 | `MP_API_KEY` | Materials Project | No | Structure database access |
 | `S2_API_KEY` | Semantic Scholar | No | Literature search |
-| `SIMFLOW_SSH_HOST` | SSH HPC | No | Remote job submission host |
-| `SIMFLOW_SSH_USER` | SSH HPC | No | SSH username |
-| `SIMFLOW_SSH_KEY` | SSH HPC | No | SSH private key file path |
 
 ## Fallback Behavior
 
@@ -28,7 +25,7 @@
 | arXiv | Always available | Public API, no key needed |
 | Crossref | Always available | Public API, no key needed |
 | COD | Always available | Public API, no key needed |
-| SSH HPC | Remote execution | Dry-run validation only |
+| SSH HPC | Host OpenSSH/agent authenticates approved MCP operations | Remote operations fail |
 | SLURM | Direct submission | Script generation only |
 | Local | Always available | Subprocess execution |
 
@@ -38,9 +35,6 @@
 # In shell profile (~/.bashrc, ~/.zshrc)
 export MP_API_KEY="your-api-key-here"
 export S2_API_KEY="your-api-key-here"
-export SIMFLOW_SSH_HOST="hpc.university.edu"
-export SIMFLOW_SSH_USER="researcher"
-export SIMFLOW_SSH_KEY="$HOME/.ssh/hpc_key"
 
 # Or in .env file (NOT committed to version control)
 # .env is automatically loaded if present
@@ -69,4 +63,8 @@ safe_text = sanitize_for_logging("Using key ABC123...longtoken...XYZ")
 - Use project-specific API keys, not personal ones
 - Rotate keys periodically
 - Never commit `.env` files to version control
+- Never pass SSH key paths, private-key contents, or passwords through MCP parameters
+- Run `scripts/start_hpc_broker.py` in the permission domain that owns SSH credentials
+- Give the Agent-facing plugin only `SIMFLOW_HPC_BROKER_SOCKET`, not the broker's SSH agent socket
+- Deny Agent shell access to `.ssh` and direct access to the broker socket outside MCP policy
 - Use `check_all_credentials()` to verify setup before running workflows
