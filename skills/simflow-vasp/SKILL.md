@@ -3,6 +3,10 @@ name: simflow-vasp
 description: Provide VASP domain assistance for official-documentation lookup, input preparation, validation, dry-run planning, troubleshooting, output parsing, analysis/visualization, and artifact recording. Use when Codex works with VASP, INCAR, POSCAR, POTCAR metadata, KPOINTS, OUTCAR, OSZICAR, vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, NEB, phonons, AIMD, SOC, hybrid functionals, DFT+U, GW/BSE/RPA, defects, surfaces, adsorption, py4vasp, VASPKIT, or VASP-related SimFlow handoff.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
 # SimFlow VASP
 
 `simflow-vasp` is a domain assistant. It helps the host agent use VASP official documentation, local evidence, SimFlow state, optional helper scripts, and conservative scientific checks. It is not a central workflow executor and does not define the full VASP capability surface.

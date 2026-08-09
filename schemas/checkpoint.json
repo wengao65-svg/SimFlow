@@ -28,6 +28,15 @@
     "job_id": {
       "type": ["string", "null"]
     },
+    "experiment_id": {
+      "type": ["string", "null"]
+    },
+    "iteration_id": {
+      "type": ["string", "null"]
+    },
+    "activity_id": {
+      "type": ["string", "null"]
+    },
     "description": {
       "type": "string"
     },

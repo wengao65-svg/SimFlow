@@ -16,6 +16,7 @@ from pathlib import Path
 from runtime.simflow_core.gates import record_gate_decision
 from runtime.simflow_core.engagement import record_tool_call
 from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.experiment_memory import begin_experiment, create_session_context, start_activity
 from runtime.simflow_core.state import init_workflow, read_state
 
 SERVER_DIR = Path(__file__).resolve().parents[2] / "mcp" / "servers" / "hpc"
@@ -70,6 +71,31 @@ def _authorized_submit_params(project_root: str, script_path: str) -> dict:
         "dry_run_evidence": "compute/dry_run_report.json",
         "script_hash": script_hash,
         "input_artifact_hash": input_hash,
+    }
+
+
+def _ledger_activity_context(project_root: str) -> dict:
+    context = create_session_context(project_root, working_directory=project_root)
+    experiment = begin_experiment(
+        project_root,
+        session_context_id=context["session_context_id"],
+        title="HPC ledger test",
+        objective="Verify HPC writes bind to an active experiment activity",
+        stage="computation",
+        root_path=".",
+    )
+    activity = start_activity(
+        project_root,
+        session_context_id=context["session_context_id"],
+        experiment_id=experiment["experiment_id"],
+        objective="Submit approved local test job",
+        activity_type="computation",
+        stage="computation",
+    )
+    return {
+        "session_context_id": context["session_context_id"],
+        "experiment_id": experiment["experiment_id"],
+        "activity_id": activity["activity_id"],
     }
 
 
@@ -254,6 +280,46 @@ def test_local_submit_with_gate_decision_executes():
     print("  local submit approved execution OK")
 
 
+def test_ledger_enabled_submit_requires_active_context():
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        params = _authorized_submit_params(tmpdir, script)
+        _ledger_activity_context(tmpdir)
+        result = server.handle_request({
+            "tool": "submit",
+            "params": {"script_path": script, "scheduler": "local", **params},
+        })
+
+    assert result["status"] == "error"
+    assert result["code"] == "experiment_context_required"
+    assert set(result["missing"]) == {"session_context_id", "experiment_id", "activity_id"}
+
+
+def test_ledger_enabled_submit_records_experiment_links():
+    server = _load_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = _make_local_script(tmpdir)
+        params = _authorized_submit_params(tmpdir, script)
+        context = _ledger_activity_context(tmpdir)
+        result = server.handle_request({
+            "tool": "submit",
+            "params": {"script_path": script, "scheduler": "local", **params, **context},
+        })
+
+        assert result["status"] == "success"
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        job_artifact = next(
+            artifact for artifact in artifacts
+            if artifact["artifact_id"] == result["job_record_artifact_id"]
+        )
+        jobs = read_state(project_root=tmpdir, state_file="jobs.json")
+        assert job_artifact["experiment_id"] == context["experiment_id"]
+        assert job_artifact["activity_id"] == context["activity_id"]
+        assert jobs[-1]["experiment_id"] == context["experiment_id"]
+        assert jobs[-1]["activity_id"] == context["activity_id"]
+
+
 def test_connector_registry():
     """Test that all expected schedulers are registered."""
     server = _load_server()
@@ -284,6 +350,11 @@ def test_hpc_tools_list_exposes_submit_approval_schema():
     }
     assert "approval_token" in submit["properties"]
     assert "gate_decision_id" in submit["properties"]
+    for field in ("session_context_id", "experiment_id", "iteration_id", "activity_id"):
+        assert field in submit["properties"]
+    for name in ("dry_run", "status"):
+        for field in ("session_context_id", "experiment_id", "iteration_id", "activity_id"):
+            assert field not in schemas[name]["properties"]
 
 
 def test_hpc_tools_list_exposes_transfer_tools():
@@ -302,6 +373,8 @@ def test_hpc_tools_list_exposes_transfer_tools():
         assert schema["properties"]["scheduler"]["enum"] == ["ssh"]
         assert schema["properties"]["target"]["additionalProperties"] is False
         assert schema["properties"]["target"]["required"] == ["host"]
+        for field in ("session_context_id", "experiment_id", "iteration_id", "activity_id"):
+            assert field in schema["properties"]
 
 
 def test_ssh_submit_requires_verified_transfer_manifest():

@@ -14,6 +14,13 @@
 │   ├── lineage.json       # First-class artifact nodes and links
 │   ├── mcp_engagement_log.jsonl # Session-level MCP engagement evidence
 │   └── summary.json       # Project status summary
+├── memory/
+│   ├── ledger.json        # Forward-only memory activation and history boundary
+│   ├── experiments.json   # Current experiment projections
+│   ├── iterations.json    # Iteration and acceptance state
+│   ├── activity_events.jsonl # Append-only experimental operation history
+│   ├── session_contexts.jsonl # Re-entry contexts, without transcript content
+│   └── session_handoffs.jsonl # Compact session transfer records
 ├── artifacts/
 │   ├── initial_structure.cif
 │   ├── relaxed_structure.cif
@@ -36,6 +43,26 @@
 2. **Running**: Stage transitions update stage status
 3. **Completed**: Artifacts registered, checkpoint created
 4. **Recovery**: Load last checkpoint, resume from that stage
+
+## Forward-Only Experiment Memory
+
+New tracked work uses `.simflow/memory/` as the durable cross-session
+experimental notebook. It is intentionally forward-only: enabling it does not
+import host transcripts, infer experiments from legacy artifacts, or treat old
+workflow summaries as a recovery point.
+
+Every project session starts with `simflow_state/project_reentry`. New work then
+creates an experiment and, for iterative work, an iteration with explicit
+acceptance criteria. Each mutation, computation, analysis, transfer, or state
+change is bracketed by `start_activity` and `finish_activity`. The activity
+record preserves software, method, script hashes, redacted command, inputs,
+outputs, result, failure, recovery location, and next action.
+
+`experiments.json` and `iterations.json` are current projections;
+`activity_events.jsonl` is the append-only operation history. Checkpoint restore
+never rolls these memory files back. Legacy `.simflow/state/` remains queryable
+but does not determine experiment selection or continuation once the ledger is
+enabled.
 
 Initialization is idempotent. Re-entering an existing project preserves its
 state. An explicit `force=true` request first copies the current tree to
@@ -92,6 +119,11 @@ SimFlow distinguishes `plugin_root` from `project_root`. `plugin_root` is the in
 Do not automatically restore the latest checkpoint by creation time: the newest
 checkpoint may be a diagnostic failure snapshot. A checkpoint marked
 `recoverable=false` is never restorable.
+
+Failure checkpoints are always diagnostic and non-recoverable. Experiment
+handoff reports the latest event checkpoint and the latest successful recovery
+checkpoint separately. New checkpoints record `experiment_id`, optional
+`iteration_id`, and `activity_id` when experiment memory is active.
 
 For historical projects, `repair_state audit` reports stale summaries, missing
 lineage nodes, stage-output gaps, legacy checkpoint statuses, and safe path-case

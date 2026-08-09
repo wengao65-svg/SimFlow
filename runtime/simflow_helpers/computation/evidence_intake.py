@@ -145,6 +145,11 @@ def record_computation_evidence(
     workflow_dir: str,
     params: dict[str, Any] | None = None,
     dry_run: bool = False,
+    *,
+    session_context_id: str | None = None,
+    experiment_id: str | None = None,
+    iteration_id: str | None = None,
+    activity_id: str | None = None,
 ) -> dict[str, Any]:
     """Record user-provided computation evidence as generic stage artifacts."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
@@ -204,6 +209,10 @@ def record_computation_evidence(
             for entry in entries
         ],
         "parent_artifact_ids": parent_artifacts,
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
     }
 
     if dry_run:
@@ -237,6 +246,9 @@ def record_computation_evidence(
             },
             software=software,
             metadata=metadata,
+            experiment_id=experiment_id,
+            iteration_id=iteration_id,
+            activity_id=activity_id,
         ))
 
     manifest["artifact_ids"] = [artifact["artifact_id"] for artifact in artifacts]
@@ -255,6 +267,9 @@ def record_computation_evidence(
             "evidence_keys": ["evidence_intake_manifest"],
             "actual_tool_used": actual_tool_used,
         },
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
     artifacts.append(manifest_artifact)
 
@@ -275,6 +290,9 @@ def record_computation_evidence(
             "User-provided computation evidence intake complete",
             project_root=str(project_root),
             job_id="user_provided_computation_evidence",
+            experiment_id=experiment_id,
+            iteration_id=iteration_id,
+            activity_id=activity_id,
         )
         _update_workflow_after_completion(project_root)
         readiness = build_stage_readiness(str(project_root), stage="computation")

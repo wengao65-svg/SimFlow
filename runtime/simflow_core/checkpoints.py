@@ -32,12 +32,18 @@ def _checkpoint_registry_entry(
     status: str,
     created_at: str,
     job_id: Optional[str],
+    experiment_id: Optional[str],
+    iteration_id: Optional[str],
+    activity_id: Optional[str],
 ) -> dict[str, Any]:
     return {
         "checkpoint_id": checkpoint_id,
         "workflow_id": workflow_id,
         "stage_id": stage_id,
         "job_id": job_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
         "description": description,
         "status": status,
         "path": str(Path(CHECKPOINTS_DIR) / f"{checkpoint_id}.json"),
@@ -131,6 +137,9 @@ def create_checkpoint(
     job_id: Optional[str] = None,
     project_root: Optional[str] = None,
     failure_context: Optional[dict[str, Any]] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict:
     """Create a workflow checkpoint.
 
@@ -192,6 +201,9 @@ def create_checkpoint(
         status=normalized_status,
         created_at=now,
         job_id=job_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
     updated_stages = json.loads(json.dumps(stages))
 
@@ -229,7 +241,7 @@ def create_checkpoint(
     state_snapshot = _snapshot_state(root)
     required_snapshot_files = {"workflow.json", "stages.json"}
     missing_snapshot = required_snapshot_files - set(state_snapshot.keys())
-    recoverable = bool(state_snapshot) and not missing_snapshot
+    recoverable = normalized_status != "failure" and bool(state_snapshot) and not missing_snapshot
     if normalized_status != "failure":
         if not state_snapshot:
             raise ValueError(
@@ -252,6 +264,9 @@ def create_checkpoint(
         "workflow_id": workflow_id,
         "stage_id": stage_id,
         "job_id": job_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
         "description": description,
         "state_snapshot": state_snapshot,
         "artifact_versions": artifact_versions,
@@ -380,7 +395,7 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
 
     with open(ckpt_file, "r", encoding="utf-8") as f:
         checkpoint = json.load(f)
-    if checkpoint.get("recoverable") is False:
+    if checkpoint.get("status") == "failure" or checkpoint.get("recoverable") is False:
         raise ValueError(
             f"Checkpoint {checkpoint_id} is diagnostic-only and cannot be restored"
         )
@@ -418,6 +433,8 @@ def get_latest_checkpoint(
     *,
     status: Optional[str] = None,
     recoverable_only: bool = False,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
 ) -> Optional[dict]:
     """Get the most recent checkpoint matching recovery filters."""
     checkpoints = list_checkpoints(base_dir, project_root=project_root)
@@ -425,6 +442,10 @@ def get_latest_checkpoint(
         checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("status") == status]
     if recoverable_only:
         checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("recoverable", True)]
+    if experiment_id is not None:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("experiment_id") == experiment_id]
+    if iteration_id is not None:
+        checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("iteration_id") == iteration_id]
     if not checkpoints:
         return None
     return checkpoints[-1]
@@ -433,6 +454,9 @@ def get_latest_checkpoint(
 def get_latest_recovery_checkpoint(
     base_dir: str = ".",
     project_root: Optional[str] = None,
+    *,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
 ) -> Optional[dict]:
     """Return the latest successful recoverable checkpoint."""
     return get_latest_checkpoint(
@@ -440,4 +464,6 @@ def get_latest_recovery_checkpoint(
         project_root=project_root,
         status="success",
         recoverable_only=True,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
     )

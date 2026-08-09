@@ -237,6 +237,9 @@ def register_artifact(
     metadata: Optional[dict] = None,
     project_root: Optional[str] = None,
     sync_stage_outputs: bool = True,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict:
     """Register a new artifact."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
@@ -279,6 +282,9 @@ def register_artifact(
         "type": artifact_type,
         "version": version,
         "stage": stage,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
         "path": path,
         "lineage": {
             "parent_artifacts": parent_artifacts or [],

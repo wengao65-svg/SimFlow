@@ -3,6 +3,10 @@ name: simflow-gaussian
 description: Reserved Gaussian placeholder; current SimFlow product does not support Gaussian workflows.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
 # SimFlow Gaussian
 
 ## Trigger conditions

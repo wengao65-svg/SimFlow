@@ -4,15 +4,26 @@ SimFlow MCP tools use `<server>/<tool>` names. State-changing tools require an
 explicit `project_root`; most also require `simflow_state/read_state` in the
 same session before the write is accepted.
 
+For forward-only experiment memory, start every project session with
+`simflow_state/project_reentry`. SimFlow stores structured experimental
+summaries and operation events, not host conversation transcripts.
+
 ## State And Recovery
 
 | Tool | Purpose | Important behavior |
 |---|---|---|
 | `simflow_state/read_state` | Read a canonical state file | Starts the 30-minute MCP engagement session |
+| `simflow_state/project_reentry` | Open a project session context | Returns active experiments, current iteration, interrupted work, recovery point, and next action |
+| `simflow_state/begin_experiment` | Start forward-only experiment tracking | Creates an empty new history boundary; does not import legacy state |
+| `simflow_state/begin_iteration` | Start an experiment loop | Requires explicit acceptance criteria |
+| `simflow_state/start_activity` | Record work before it begins | Stores method, software, scripts, redacted command, inputs, and expected outputs |
+| `simflow_state/finish_activity` | Record activity outcome | Stores outputs, artifacts, jobs, failure, recovery point, and next action |
+| `simflow_state/evaluate_iteration` | Decide whether a loop continues | Records criterion results and accepted/rejected/failed status |
+| `simflow_state/experiment_timeline` | Query experiment history | Read-only and paginated; default limit is 50 activities |
 | `simflow_state/init_workflow` | Initialize `.simflow/` | Idempotent by default; `force=true` first backs up the existing tree |
 | `simflow_state/update_stage` | Change a stage status | Completion creates a pending verification record |
 | `simflow_state/workflow_status` | Read project status | Read-only; first call auto-satisfies the engagement prerequisite |
-| `simflow_state/orphan_compute_scanner` | Find unregistered calculation directories | Reports risky names such as `NoGate`, `Bypass`, and `SkipGate` |
+| `simflow_state/orphan_compute_scanner` | Find unregistered calculation directories | Ledger-enabled projects require an experiment or bounded scan root; report writing is opt-in |
 | `simflow_state/record_user_override` | Record an explicitly approved bypass | Requires approver context and a risk note |
 | `simflow_state/record_stage_failure` | Persist a stage failure | Writes sanitized log/report artifacts, failed state, fail verification, and a diagnostic checkpoint |
 | `simflow_state/repair_state` | Audit or repair inconsistent state | `audit` is read-only; `apply` requires engagement, confidence above 0.8, and creates a full backup |
@@ -79,6 +90,11 @@ Protected writes return `skill_engagement_contract_violation` until
 call may bootstrap that read automatically. Protected writes never auto-grant
 their own prerequisite. The session timeout defaults to 30 minutes and is
 configured by `SIMFLOW_SESSION_TIMEOUT_MIN`.
+
+After `begin_experiment` enables the ledger, existing state-write, evidence,
+gate, checkpoint, restore, and artifact tools additionally require a valid
+`session_context_id`, `experiment_id`, and active `activity_id`. This prevents
+new work from being recorded outside the experiment that explains it.
 
 `repair_state` defaults to `audit`. Apply mode only repairs structural metadata
 with confidence at or above the requested threshold: workflow identity fields,

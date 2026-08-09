@@ -95,6 +95,24 @@ def _normalize_path_case(resolved: Path) -> Path:
     return resolved
 
 
+def _canonical_registered_ancestor(resolved: Path) -> Path:
+    """Return the outermost registered SimFlow project containing resolved."""
+    registered = []
+    for candidate in (resolved, *resolved.parents):
+        project_file = candidate / STATE_DIR / "project.json"
+        if not project_file.is_file():
+            continue
+        try:
+            payload = json.loads(project_file.read_text(encoding="utf-8"))
+            declared = Path(payload.get("project_root", "")).expanduser().resolve()
+            declared = _normalize_path_case(declared)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError):
+            continue
+        if declared == candidate:
+            registered.append(candidate)
+    return registered[-1] if registered else resolved
+
+
 def resolve_project_root(
     project_root: Optional[str] = None,
     base_dir: Optional[str] = None,
@@ -115,6 +133,15 @@ def resolve_project_root(
         candidate = "."
     resolved = Path(candidate).expanduser().resolve()
     resolved = _normalize_path_case(resolved)
+    canonical = _canonical_registered_ancestor(resolved)
+    if canonical != resolved:
+        import warnings
+        warnings.warn(
+            f"nested project_root redirected to canonical SimFlow root: {resolved} -> {canonical}",
+            UserWarning,
+            stacklevel=2,
+        )
+        resolved = canonical
     if reject_plugin_root and is_plugin_root(resolved):
         raise ProjectRootError(
             "Refusing to use the SimFlow plugin root/cache as project_root. "

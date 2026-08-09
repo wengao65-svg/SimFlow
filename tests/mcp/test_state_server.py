@@ -62,6 +62,14 @@ def test_tools_list_exposes_real_input_schema():
     assert schemas["handoff_summary"]["required"] == ["project_root"]
     assert schemas["stage_readiness"]["required"] == ["project_root"]
     assert schemas["project_readiness"]["required"] == ["project_root"]
+    assert schemas["project_reentry"]["required"] == ["project_root"]
+    assert schemas["begin_experiment"]["required"] == [
+        "project_root", "session_context_id", "title", "objective", "stage", "root_path"
+    ]
+    assert schemas["start_activity"]["required"] == [
+        "project_root", "session_context_id", "experiment_id", "objective", "activity_type", "stage"
+    ]
+    assert schemas["experiment_timeline"]["properties"]["limit"]["maximum"] == 200
     assert schemas["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]
     assert schemas["record_stage_failure"]["required"] == ["project_root", "stage_name", "message"]
@@ -113,6 +121,151 @@ def test_record_stage_failure_requires_engagement_then_records_complete_failure(
         assert result["status"] == "error"
         assert result["failure_checkpoint_id"].startswith("ckpt_")
         assert read_state(project_root=tmpdir, state_file="workflow.json")["status"] == "failed"
+
+
+def test_ledger_enabled_writes_require_active_experiment_context():
+    from runtime.simflow_core.artifacts import get_artifact
+    from runtime.simflow_core.state import init_workflow
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "run").mkdir()
+        init_workflow("custom", "computation", project_root=tmpdir)
+
+        reentry = server.handle_request({
+            "tool": "project_reentry",
+            "params": {"project_root": tmpdir, "working_directory": tmpdir},
+        })
+        context_id = reentry["data"]["session_context_id"]
+        experiment_result = server.handle_request({
+            "tool": "begin_experiment",
+            "params": {
+                "project_root": tmpdir,
+                "session_context_id": context_id,
+                "title": "tracked",
+                "objective": "tracked work",
+                "stage": "computation",
+                "root_path": "run",
+            },
+        })
+        experiment_id = experiment_result["data"]["experiment_id"]
+
+        blocked = server.handle_request({
+            "tool": "register_artifact",
+            "params": {"project_root": tmpdir, "name": "result", "type": "output", "stage": "computation"},
+        })
+        assert blocked["code"] == "experiment_context_required"
+
+        activity_result = server.handle_request({
+            "tool": "start_activity",
+            "params": {
+                "project_root": tmpdir,
+                "session_context_id": context_id,
+                "experiment_id": experiment_id,
+                "objective": "produce result",
+                "activity_type": "computation",
+                "stage": "computation",
+            },
+        })
+        activity_id = activity_result["data"]["activity_id"]
+        registered = server.handle_request({
+            "tool": "register_artifact",
+            "params": {
+                "project_root": tmpdir,
+                "session_context_id": context_id,
+                "experiment_id": experiment_id,
+                "activity_id": activity_id,
+                "name": "result",
+                "type": "output",
+                "stage": "computation",
+            },
+        })
+
+        assert registered["status"] == "success"
+        artifact = get_artifact(registered["data"]["artifact_id"], project_root=tmpdir)
+        assert artifact["experiment_id"] == experiment_id
+        assert artifact["activity_id"] == activity_id
+
+
+def test_ledger_enabled_evidence_intake_propagates_activity_links():
+    from runtime.simflow_core.artifacts import list_artifacts
+    from runtime.simflow_core.state import init_workflow, write_state
+
+    server = _load_state_server()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        init_workflow("custom", "computation", project_root=tmpdir)
+        write_state(
+            {
+                "workflow_type": "custom",
+                "entry_point": "computation",
+                "current_stage": "computation",
+                "research_goal": "track evidence intake",
+                "software": "custom",
+            },
+            project_root=tmpdir,
+            state_file="metadata.json",
+        )
+        compute_path = root / "compute.json"
+        analysis_path = root / "analysis.json"
+        compute_path.write_text("{}\n", encoding="utf-8")
+        analysis_path.write_text("{}\n", encoding="utf-8")
+
+        reentry = server.handle_request({
+            "tool": "project_reentry",
+            "params": {"project_root": tmpdir, "working_directory": tmpdir},
+        })
+        context_id = reentry["data"]["session_context_id"]
+        experiment = server.handle_request({
+            "tool": "begin_experiment",
+            "params": {
+                "project_root": tmpdir,
+                "session_context_id": context_id,
+                "title": "evidence linkage",
+                "objective": "keep generated evidence attached to the experiment",
+                "stage": "computation",
+                "root_path": ".",
+            },
+        })["data"]
+
+        linked = []
+        for stage, tool, evidence in (
+            ("computation", "record_computation_evidence", {"calculation_manifest": "compute.json"}),
+            ("analysis_visualization", "record_analysis_evidence", {"analysis_outputs": "analysis.json"}),
+        ):
+            activity = server.handle_request({
+                "tool": "start_activity",
+                "params": {
+                    "project_root": tmpdir,
+                    "session_context_id": context_id,
+                    "experiment_id": experiment["experiment_id"],
+                    "objective": f"record {stage} evidence",
+                    "activity_type": "evidence_intake",
+                    "stage": stage,
+                },
+            })["data"]
+            result = server.handle_request({
+                "tool": tool,
+                "params": {
+                    "project_root": tmpdir,
+                    "session_context_id": context_id,
+                    "experiment_id": experiment["experiment_id"],
+                    "activity_id": activity["activity_id"],
+                    "evidence_params": {"software": "custom", "evidence": evidence},
+                },
+            })
+            assert result["status"] == "success"
+            assert result["data"]["manifest"]["session_context_id"] == context_id
+            linked.extend(result["data"]["artifacts"])
+
+        assert linked
+        assert all(item["experiment_id"] == experiment["experiment_id"] for item in linked)
+        activity_ids = {item["activity_id"] for item in linked}
+        assert len(activity_ids) == 2
+        stored = list_artifacts(project_root=tmpdir)
+        linked_ids = {item["artifact_id"] for item in linked}
+        assert all(item["experiment_id"] == experiment["experiment_id"] for item in stored if item["artifact_id"] in linked_ids)
 
 
 def test_repair_state_audit_is_read_only_and_apply_requires_engagement():

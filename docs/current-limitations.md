@@ -93,6 +93,12 @@ invocation guidance. SimFlow does not observe host transcripts or skill-load
 events, and it does not use host-specific hooks to alter workflow or safety
 semantics.
 
+Cross-session continuity is therefore guaranteed at the SimFlow MCP and skill
+contract boundary, not for arbitrary host shell commands that bypass SimFlow.
+The forward-only experiment ledger records structured summaries, activities,
+iterations, failures, and recovery points. It deliberately does not parse or
+import raw Codex, Claude Code, or OpenCode conversations.
+
 ## Scientific Responsibility
 
 SimFlow records evidence, lineage, checkpoints, safety gates, and handoff

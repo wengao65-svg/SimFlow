@@ -46,7 +46,8 @@ def test_router_contract_has_task_shape_engagement_policy():
     assert "task_shape_engagement_policy" in contract
     policy = contract["task_shape_engagement_policy"]
     assert policy["all_task_shapes_require_engagement"] is True
-    assert policy["engagement_floor"] == "simflow_state/read_state"
+    assert policy["engagement_floor"] == "simflow_state/project_reentry"
+    assert policy["state_write_prerequisite"] == "simflow_state/read_state"
 
 
 def test_router_contract_has_single_stage_compute_pattern():
@@ -81,8 +82,9 @@ def test_router_skill_has_quick_start_section():
     """simflow/SKILL.md includes Quick Start for Re-entering a Project section."""
     skill = (ROOT / "skills" / "simflow" / "SKILL.md").read_text(encoding="utf-8")
     assert "## Quick Start for Re-entering a Project" in skill
-    assert "read_state" in skill
-    assert "init_workflow" in skill
+    assert "project_reentry" in skill
+    assert "begin_experiment" in skill
+    assert "start_activity" in skill
     assert "session_handoff" in skill
     assert "orphan_compute_scanner" in skill
 

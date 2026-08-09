@@ -45,6 +45,9 @@ def record_stage_failure(
     job_id: Optional[str] = None,
     partial_artifact_ids: Optional[list[str]] = None,
     failure_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Persist a complete, recoverable stage-failure evidence bundle."""
     root = resolve_project_root(project_root=project_root)
@@ -81,6 +84,9 @@ def record_stage_failure(
         parent_artifacts=partial_ids,
         metadata={"failure_id": failure_id, "reason_code": reason_code},
         project_root=str(root),
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
 
     report_rel = Path(".simflow") / "reports" / "errors" / f"{failure_id}.json"
@@ -98,6 +104,9 @@ def record_stage_failure(
         "partial_artifact_ids": partial_ids,
         "log_path": str(log_rel),
         "created_at": now,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
     }
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     report_artifact = register_artifact(
@@ -108,9 +117,26 @@ def record_stage_failure(
         parent_artifacts=[*partial_ids, log_artifact["artifact_id"]],
         metadata={"failure_id": failure_id, "reason_code": report["reason_code"]},
         project_root=str(root),
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
 
-    recovery = get_latest_recovery_checkpoint(project_root=str(root))
+    recovery = None
+    if experiment_id:
+        if iteration_id:
+            recovery = get_latest_recovery_checkpoint(
+                project_root=str(root),
+                experiment_id=experiment_id,
+                iteration_id=iteration_id,
+            )
+        if recovery is None:
+            recovery = get_latest_recovery_checkpoint(
+                project_root=str(root),
+                experiment_id=experiment_id,
+            )
+    else:
+        recovery = get_latest_recovery_checkpoint(project_root=str(root))
     recovery_checkpoint_id = recovery.get("checkpoint_id") if recovery else None
     update_stage(
         stage_name,
@@ -141,6 +167,9 @@ def record_stage_failure(
         job_id=job_id,
         failure_context=failure_context,
         project_root=str(root),
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
     verification = record_stage_failure_verification(
         stage_name,

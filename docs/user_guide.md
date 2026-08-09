@@ -34,12 +34,13 @@ records. Do not treat SimFlow as a command-line workflow executor.
 
 ### Re-entering An Existing Project
 
-1. Call `simflow_state/read_state` or `workflow_status`; do not reinitialize.
-2. Run `orphan_compute_scanner` when calculations may exist outside state.
-3. Check stage/project readiness before writing new evidence.
-4. Register artifacts and lineage as work is produced.
-5. Create a successful checkpoint at a completed stage boundary.
-6. End with `session_handoff` so the next session receives current state,
+1. Call `simflow_state/project_reentry` with the canonical project root; do not read host transcript logs.
+2. Select an existing experiment or call `begin_experiment` for new forward-only tracking.
+3. For iterative work, call `begin_iteration` with explicit acceptance criteria.
+4. Call `start_activity` before project changes or execution and `finish_activity` afterward.
+5. Register artifacts, jobs, gates, checkpoints, and lineage with the returned experiment/activity context.
+6. Run the bounded `orphan_compute_scanner` only when the ledger and experiment files disagree.
+7. End with `session_handoff` so the next session receives current state,
    warnings, checkpoints, and approval needs.
 
 Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`

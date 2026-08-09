@@ -141,7 +141,7 @@ def test_scanner_skips_simflow_dirs():
 
 
 def test_scanner_writes_report_file():
-    """Scanner writes orphan_compute_audit.md report."""
+    """Scanner writes orphan_compute_audit.md only when explicitly requested."""
     execute = _import_scanner()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -150,9 +150,12 @@ def test_scanner_writes_report_file():
         vasp_dir.mkdir(parents=True)
         (vasp_dir / "OUTCAR").write_text("output\n", encoding="utf-8")
 
-        execute({"project_root": tmpdir})
-
         report_path = Path(tmpdir) / ".simflow" / "reports" / "orphan_compute_audit.md"
+        execute({"project_root": tmpdir})
+        assert not report_path.exists()
+
+        execute({"project_root": tmpdir, "write_report": True})
+
         assert report_path.exists()
         content = report_path.read_text(encoding="utf-8")
         assert "Orphan Compute" in content

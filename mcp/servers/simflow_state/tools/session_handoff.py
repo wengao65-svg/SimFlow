@@ -41,6 +41,49 @@ def execute(params: dict) -> dict:
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}
 
+    from runtime.simflow_core.experiment_memory import (
+        is_ledger_enabled,
+        session_handoff as write_experiment_handoff,
+    )
+
+    if is_ledger_enabled(str(root)):
+        session_context_id = params.get("session_context_id")
+        if not session_context_id:
+            return {
+                "status": "error",
+                "message": "session_context_id is required when the experiment ledger is enabled",
+            }
+        try:
+            handoff = write_experiment_handoff(
+                str(root),
+                session_context_id=session_context_id,
+                experiment_id=params.get("experiment_id"),
+                note=params.get("note"),
+            )
+        except ValueError as error:
+            return {"status": "error", "message": str(error)}
+        report_content = "\n".join([
+            f"# Experiment Session Handoff — {handoff['handoff_id']}",
+            "",
+            f"- Experiment ID: {handoff.get('experiment_id') or 'unselected'}",
+            f"- Current iteration: {handoff.get('current_iteration_id') or 'none'}",
+            f"- Latest completed activity: {handoff.get('latest_completed_activity_id') or 'none'}",
+            f"- Latest failure activity: {handoff.get('latest_failure_activity_id') or 'none'}",
+            f"- Latest event checkpoint: {handoff.get('latest_event_checkpoint_id') or 'none'}",
+            f"- Latest successful recovery checkpoint: {handoff.get('latest_recovery_checkpoint_id') or 'none'}",
+            f"- Interrupted activities: {', '.join(item for item in handoff.get('interrupted_activity_ids', []) if item) or 'none'}",
+            f"- Next action: {handoff.get('next_action') or 'unspecified'}",
+            f"- Note: {handoff.get('note') or 'none'}",
+            "",
+        ])
+        report_file = f"session_handoff_{handoff['handoff_id']}.md"
+        write_report(report_content, project_root=str(root), report_file=report_file)
+        return {
+            "status": "success",
+            "project_root": str(root),
+            "data": {**handoff, "report_path": f".simflow/reports/{report_file}"},
+        }
+
     ensure_simflow_dir(project_root=str(root))
     now = datetime.now(timezone.utc).isoformat()
     timestamp_short = now.replace(":", "").replace("-", "")[:15]
@@ -68,9 +111,12 @@ def execute(params: dict) -> dict:
         pass
 
     # Latest checkpoint
-    latest_ckpt = None
-    if checkpoint_list:
-        latest_ckpt = checkpoint_list[-1] if isinstance(checkpoint_list[-1], dict) else None
+    latest_event_ckpt = checkpoint_list[-1] if checkpoint_list and isinstance(checkpoint_list[-1], dict) else None
+    recovery_candidates = [
+        checkpoint for checkpoint in checkpoint_list
+        if isinstance(checkpoint, dict) and checkpoint.get("status") == "success"
+    ]
+    latest_ckpt = recovery_candidates[-1] if recovery_candidates else None
 
     # Detect stale state
     warnings = []
@@ -199,6 +245,7 @@ def execute(params: dict) -> dict:
             "workflow_id": wf.get("workflow_id", "unknown"),
             "current_stage": wf.get("current_stage", "unknown"),
             "latest_checkpoint": latest_ckpt.get("checkpoint_id") if latest_ckpt else None,
+            "latest_event_checkpoint": latest_event_ckpt.get("checkpoint_id") if latest_event_ckpt else None,
             "artifact_count": artifact_count,
             "checkpoint_count": len(checkpoint_list),
             "gate_count": gate_count,

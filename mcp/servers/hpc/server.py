@@ -222,6 +222,9 @@ def handle_submit(params: dict) -> dict:
             script_hash=result.get("script_hash") or params.get("script_hash"),
             input_artifact_hash=params.get("input_artifact_hash"),
             submit_result=result,
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
         )
         if record["status"] == "success":
             result["job_record_artifact_id"] = record["artifact"]["artifact_id"]
@@ -290,7 +293,7 @@ def _transfer_decision(params: dict, direction: str, remote_dir: str, paths: lis
     return {"status": "success", "gate_decision_id": matching.get("decision_id"), "transfer_request_hash": fingerprint}
 
 
-def _write_transfer_report(project_root: str, report: dict) -> tuple[str, dict]:
+def _write_transfer_report(project_root: str, report: dict, params: dict) -> tuple[str, dict]:
     transfer_id = report["transfer_id"]
     root = Path(project_root).resolve()
     report_path = root / ".simflow" / "reports" / "compute" / "transfers" / f"{transfer_id}.json"
@@ -316,6 +319,9 @@ def _write_transfer_report(project_root: str, report: dict) -> tuple[str, dict]:
             "target": report.get("target"),
             "gate_decision_id": report.get("gate_decision_id"),
         },
+        experiment_id=params.get("experiment_id"),
+        iteration_id=params.get("iteration_id"),
+        activity_id=params.get("activity_id"),
     )
     return str(report_path.relative_to(root)), artifact
 
@@ -365,6 +371,9 @@ def _handle_transfer(params: dict, direction: str) -> dict:
         "gate_decision_id": approval.get("gate_decision_id"),
         "transfer_request_hash": approval.get("transfer_request_hash"),
         "parent_artifacts": params.get("parent_artifacts", []),
+        "experiment_id": params.get("experiment_id"),
+        "iteration_id": params.get("iteration_id"),
+        "activity_id": params.get("activity_id"),
     }
     try:
         if direction == "upload":
@@ -415,7 +424,7 @@ def _handle_transfer(params: dict, direction: str) -> dict:
         report["status"] = "failed"
         report["error"] = str(exc)
 
-    report_path, artifact = _write_transfer_report(project_root, report)
+    report_path, artifact = _write_transfer_report(project_root, report, params)
     return {
         "status": "success" if report["status"] == "verified" else "error",
         "data": {
@@ -515,6 +524,10 @@ TOOL_SCHEMAS = {
             "transfer_manifest": {"type": "string"},
             "remote_workdir": {"type": "string"},
             "target": SSH_TARGET_SCHEMA,
+            "session_context_id": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "iteration_id": {"type": "string"},
+            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -531,6 +544,10 @@ TOOL_SCHEMAS = {
             "gate_decision_id": {"type": "string"},
             "parent_artifacts": {"type": "array", "items": {"type": "string"}},
             "target": SSH_TARGET_SCHEMA,
+            "session_context_id": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "iteration_id": {"type": "string"},
+            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -547,6 +564,10 @@ TOOL_SCHEMAS = {
             "gate_decision_id": {"type": "string"},
             "parent_artifacts": {"type": "array", "items": {"type": "string"}},
             "target": SSH_TARGET_SCHEMA,
+            "session_context_id": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "iteration_id": {"type": "string"},
+            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -561,6 +582,28 @@ def handle_request(request: dict) -> dict:
         project_root = params.get("project_root")
         if not project_root:
             return {"status": "error", "message": "project_root is required", "code": "project_root_required"}
+        from runtime.simflow_core.experiment_memory import is_ledger_enabled, validate_activity_binding
+        if is_ledger_enabled(project_root):
+            missing_context = [
+                field for field in ("session_context_id", "experiment_id", "activity_id")
+                if not params.get(field)
+            ]
+            if missing_context:
+                return {
+                    "status": "error",
+                    "code": "experiment_context_required",
+                    "message": "Ledger-enabled HPC writes require project_reentry and an active experiment activity.",
+                    "missing": missing_context,
+                }
+            try:
+                validate_activity_binding(
+                    project_root,
+                    session_context_id=params["session_context_id"],
+                    experiment_id=params["experiment_id"],
+                    activity_id=params["activity_id"],
+                )
+            except ValueError as error:
+                return {"status": "error", "code": "invalid_experiment_context", "message": str(error)}
         try:
             check_prerequisites(f"hpc/{tool}", project_root)
         except EngagementViolation as violation:

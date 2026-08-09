@@ -42,6 +42,9 @@ def record_submit_job(
     submit_result: dict[str, Any] | None = None,
     user_override: bool = False,
     override_gate_id: str | None = None,
+    experiment_id: str | None = None,
+    iteration_id: str | None = None,
+    activity_id: str | None = None,
 ) -> dict[str, Any]:
     """Write and register a real-submit job record.
 
@@ -117,6 +120,9 @@ def record_submit_job(
         "job_id": str(job_id),
         "workflow_id": workflow.get("workflow_id", "unknown"),
         "stage": "computation",
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
         "status": status,
         "dry_run": False,
         "scheduler": scheduler,
@@ -158,6 +164,9 @@ def record_submit_job(
             "real_submit": True,
             "execution_truth": job_record["execution_truth"],
         },
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
 
     jobs = read_state(project_root=str(root), state_file="jobs.json")
