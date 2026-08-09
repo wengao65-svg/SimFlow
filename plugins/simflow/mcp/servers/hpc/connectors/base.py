@@ -133,6 +133,7 @@ class BaseHPCConnector(ABC):
         dry_run_evidence: Optional[str] = None,
         script_hash: Optional[str] = None,
         input_artifact_hash: Optional[str] = None,
+        approval_bindings: Optional[dict] = None,
         approved: Optional[bool] = None,
     ) -> dict:
         """Validate approval, dry-run evidence, and hashes before real execution."""
@@ -289,6 +290,19 @@ class BaseHPCConnector(ABC):
             name for name, value in decision_bindings.items()
             if value in (None, "")
         ]
+        expected_bindings = {
+            "dry_run_evidence": dry_run_evidence,
+            "script_hash": script_hash,
+            "input_artifact_hash": input_artifact_hash,
+        }
+        approval_bindings = approval_bindings or {}
+        for name, value in approval_bindings.items():
+            decision_bindings[name] = decision_conditions.get(name)
+            expected_bindings[name] = value
+        missing_bindings.extend(
+            name for name in approval_bindings
+            if decision_bindings.get(name) in (None, "") and name not in missing_bindings
+        )
         if missing_bindings:
             return self._approval_error(
                 "Approved hpc_submit gate decision does not bind the submitted evidence and hashes.",
@@ -296,12 +310,6 @@ class BaseHPCConnector(ABC):
                 gate_decision_id=matching_decision.get("decision_id"),
                 missing_bindings=missing_bindings,
             )
-
-        expected_bindings = {
-            "dry_run_evidence": dry_run_evidence,
-            "script_hash": script_hash,
-            "input_artifact_hash": input_artifact_hash,
-        }
         mismatched_bindings = {
             name: {
                 "approved": decision_bindings[name],

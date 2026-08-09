@@ -132,12 +132,7 @@ After installing the plugin, run:
 Expected blocking result: Codex initializes and lists these SimFlow MCP servers:
 
 - `simflow_state`
-- `artifact_store`
-- `checkpoint_store`
-- `literature`
-- `structure`
 - `hpc`
-- `parsers`
 
 If `/mcp` does not list them, run `npm run validate:plugin` from the source repository to check the manifest, marketplace path rules, and JSON-RPC stdio initialization.
 

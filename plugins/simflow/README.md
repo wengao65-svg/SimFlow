@@ -167,7 +167,7 @@ Update an existing installation:
 opencode plugin opencode-simflow --global --force
 ```
 
-The plugin adds the canonical SimFlow skills and seven MCP servers without
+The plugin adds the canonical SimFlow skills and two MCP servers without
 changing OpenCode permissions or provider configuration. Ask OpenCode to use
 the `simflow` skill, a domain skill such as `simflow-vasp`, or describe the
 simulation task naturally.
@@ -191,11 +191,9 @@ simflow/
 │   └── gates/                 # Verification and approval gates
 ├── mcp/                       # MCP servers and connectors
 │   ├── servers/
-│   │   ├── literature/        # arXiv, Crossref, Semantic Scholar
-│   │   ├── structure/         # Materials Project, COD
-│   │   ├── hpc/               # SLURM, PBS, SSH, Local
-│   │   └── state/             # Workflow state management
-│   └── shared/                # Retry, cache, credentials, transport
+│   │   ├── simflow_state/     # Workflow state management
+│   │   └── hpc/               # SLURM, PBS, SSH, Local
+│   └── shared/                # MCP transport and shared protocol helpers
 ├── runtime/                   # Core runtime and optional helpers
 │   ├── simflow_core/          # State, artifact, checkpoint, gates, workflow facade
 │   └── simflow_helpers/       # Optional helper implementations
@@ -212,14 +210,23 @@ simflow/
 |----------|---------|
 | `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_SSH_HOST` | SSH HPC host |
-| `SIMFLOW_SSH_USER` | SSH username |
-| `SIMFLOW_SSH_KEY` | SSH key file path |
 | `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 
 Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
 are only a degraded fallback and are tagged `mock_unverified` with
 `usable_as_evidence=false`.
+
+SSH-backed HPC calls pass a required `host` plus optional `user` and `port` in
+the per-call `target` object. A bare host may be an OpenSSH alias, hostname, or
+IP address. Omitted user and port values are left for OpenSSH configuration to
+resolve. Passwords, private keys, key paths, and arbitrary SSH options are not
+accepted in MCP payloads; authentication remains host-managed.
+
+Real SSH operations use the internal credential broker. Start it in a
+host-managed permission domain with `SIMFLOW_HPC_BROKER_SOCKET` and
+`SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`, then expose only the socket path to the
+Agent-facing plugin process. SSH dry-run remains available without the broker;
+status, transfer, cancellation, and submission fail closed when it is absent.
 
 ## Documentation
 

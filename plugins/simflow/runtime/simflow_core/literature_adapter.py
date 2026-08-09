@@ -1,29 +1,10 @@
-"""Optional literature enrichment adapter backed by MCP connectors."""
+"""Optional literature metadata enrichment adapter."""
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 from typing import Any
-import sys
 
-ROOT = Path(__file__).resolve().parents[2]
-SERVER_DIR = ROOT / "mcp" / "servers" / "literature"
-
-if str(SERVER_DIR) not in sys.path:
-    sys.path.insert(0, str(SERVER_DIR))
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-_SERVER_SPEC = importlib.util.spec_from_file_location("simflow_literature_server", SERVER_DIR / "server.py")
-_SERVER_MODULE = importlib.util.module_from_spec(_SERVER_SPEC)
-assert _SERVER_SPEC.loader is not None
-_SERVER_SPEC.loader.exec_module(_SERVER_MODULE)
-_get_connector = _SERVER_MODULE._get_connector
-for _module_name in [name for name in list(sys.modules) if name.startswith("connectors")]:
-    del sys.modules[_module_name]
-
-
+from runtime.simflow_helpers.literature import get_connector
 
 def enrich_research_sources(research_sources: dict | None, backend: str = "auto") -> dict[str, Any]:
     """Optionally enrich DOI sources without making offline workflows depend on MCP availability."""
@@ -50,7 +31,7 @@ def enrich_research_sources(research_sources: dict | None, backend: str = "auto"
             "errors": [],
         }
 
-    connector = _get_connector(backend)
+    connector = get_connector(backend)
     if connector is None:
         return {
             "backend": backend,

@@ -23,21 +23,6 @@ CREDENTIAL_ENV_VARS = {
         "required": False,
         "description": "Semantic Scholar API key for literature search",
     },
-    "SIMFLOW_SSH_HOST": {
-        "service": "SSH HPC",
-        "required": False,
-        "description": "SSH host for remote job submission",
-    },
-    "SIMFLOW_SSH_USER": {
-        "service": "SSH HPC",
-        "required": False,
-        "description": "SSH username",
-    },
-    "SIMFLOW_SSH_KEY": {
-        "service": "SSH HPC",
-        "required": False,
-        "description": "Path to SSH private key file",
-    },
     "SIMFLOW_VASP_POTCAR_PATH": {
         "service": "VASP POTCAR",
         "required": False,
@@ -93,20 +78,6 @@ def require_api_key(service: str) -> str:
             "API key for {} not found. Set {} environment variable.".format(service, env_var)
         )
     return key
-
-
-def check_ssh_credentials() -> dict:
-    """Check SSH credentials availability.
-
-    Returns:
-        Dict with host, user, key_file availability
-    """
-    return {
-        "host": bool(os.environ.get("SIMFLOW_SSH_HOST")),
-        "user": bool(os.environ.get("SIMFLOW_SSH_USER")),
-        "key_file": bool(os.environ.get("SIMFLOW_SSH_KEY")),
-        "ready": bool(os.environ.get("SIMFLOW_SSH_HOST")),
-    }
 
 
 def check_potcar_config() -> dict:
