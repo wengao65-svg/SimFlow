@@ -15,12 +15,15 @@
 │   ├── mcp_engagement_log.jsonl # Session-level MCP engagement evidence
 │   └── summary.json       # Project status summary
 ├── memory/
-│   ├── ledger.json        # Forward-only memory activation and history boundary
-│   ├── experiments.json   # Current experiment projections
-│   ├── iterations.json    # Iteration and acceptance state
-│   ├── activity_events.jsonl # Append-only experimental operation history
-│   ├── session_contexts.jsonl # Re-entry contexts, without transcript content
-│   └── session_handoffs.jsonl # Compact session transfer records
+│   ├── ledger.sqlite3     # Canonical transactional experiment ledger
+│   ├── ledger.json        # Derived activation/history-boundary view
+│   ├── experiments.json   # Derived experiment projection
+│   ├── iterations.json    # Derived iteration and acceptance projection
+│   ├── activity_events.jsonl # Derived activity projection
+│   ├── events.jsonl       # Derived immutable event-DAG view
+│   ├── summary.json       # Derived compact ledger summary
+│   ├── session_contexts.jsonl # Derived re-entry contexts, without transcripts
+│   └── session_handoffs.jsonl # Derived compact session transfer records
 ├── artifacts/
 │   ├── initial_structure.cif
 │   ├── relaxed_structure.cif
@@ -46,8 +49,9 @@
 
 ## Forward-Only Experiment Memory
 
-New tracked work uses `.simflow/memory/` as the durable cross-session
-experimental notebook. It is intentionally forward-only: enabling it does not
+New tracked work uses `.simflow/memory/ledger.sqlite3` as the canonical,
+transactional cross-session experimental notebook and immutable provenance
+DAG. It is intentionally forward-only: enabling it does not
 import host transcripts, infer experiments from legacy artifacts, or treat old
 workflow summaries as a recovery point.
 
@@ -58,11 +62,18 @@ change is bracketed by `start_activity` and `finish_activity`. The activity
 record preserves software, method, script hashes, redacted command, inputs,
 outputs, result, failure, recovery location, and next action.
 
-`experiments.json` and `iterations.json` are current projections;
-`activity_events.jsonl` is the append-only operation history. Checkpoint restore
-never rolls these memory files back. Legacy `.simflow/state/` remains queryable
-but does not determine experiment selection or continuation once the ledger is
-enabled.
+JSON, JSONL, and per-experiment Markdown notebooks are derived views and can be
+rebuilt from SQLite. Event payloads are hash-linked to parent events, and SQLite
+triggers reject event/reference update or deletion. Checkpoint restore never
+rolls the ledger back. Legacy `.simflow/state/` remains queryable but does not
+determine experiment selection or continuation once the ledger is enabled.
+
+Once enabled, core state, report, artifact, checkpoint, gate, job, and MCP/HPC
+writes fail closed unless they carry a valid open session and active activity.
+Child processes inherit this binding through `SIMFLOW_SESSION_CONTEXT_ID`,
+`SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and
+`SIMFLOW_ACTIVITY_ID`. Existing pre-ledger records may be referenced explicitly
+with `provenance: pre_ledger_baseline`; this does not import transcript history.
 
 Initialization is idempotent. Re-entering an existing project preserves its
 state. An explicit `force=true` request first copies the current tree to

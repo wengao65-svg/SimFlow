@@ -6,7 +6,8 @@ same session before the write is accepted.
 
 For forward-only experiment memory, start every project session with
 `simflow_state/project_reentry`. SimFlow stores structured experimental
-summaries and operation events, not host conversation transcripts.
+summaries and operation events in canonical SQLite, not host conversation
+transcripts. JSON, JSONL, and Markdown notebook files are rebuildable exports.
 
 ## State And Recovery
 
@@ -20,6 +21,12 @@ summaries and operation events, not host conversation transcripts.
 | `simflow_state/finish_activity` | Record activity outcome | Stores outputs, artifacts, jobs, failure, recovery point, and next action |
 | `simflow_state/evaluate_iteration` | Decide whether a loop continues | Records criterion results and accepted/rejected/failed status |
 | `simflow_state/experiment_timeline` | Query experiment history | Read-only and paginated; default limit is 50 activities |
+| `simflow_state/fork_experiment` | Branch an experiment | Records explicit parent experiment provenance |
+| `simflow_state/resume_experiment` | Resume paused work | Preserves prior events and appends a resume event |
+| `simflow_state/compare_experiments` | Compare branches | Summarizes metrics, failures, recovery points, status, and parents |
+| `simflow_state/verify_experiment_ledger` | Verify ledger integrity | Checks SQLite, event hashes, and registered references |
+| `simflow_state/rebuild_experiment_exports` | Rebuild derived views | Requires an active activity; SQLite remains authoritative |
+| `simflow_state/migrate_experiment_ledger` | Migrate structured v1 records | Requires explicit confirmation and never imports host transcripts |
 | `simflow_state/init_workflow` | Initialize `.simflow/` | Idempotent by default; `force=true` first backs up the existing tree |
 | `simflow_state/update_stage` | Change a stage status | Completion creates a pending verification record |
 | `simflow_state/workflow_status` | Read project status | Read-only; first call auto-satisfies the engagement prerequisite |
@@ -28,6 +35,11 @@ summaries and operation events, not host conversation transcripts.
 | `simflow_state/record_stage_failure` | Persist a stage failure | Writes sanitized log/report artifacts, failed state, fail verification, and a diagnostic checkpoint |
 | `simflow_state/repair_state` | Audit or repair inconsistent state | `audit` is read-only; `apply` requires engagement, confidence above 0.8, and creates a full backup |
 | `simflow_state/session_handoff` | Generate a re-entry summary | Writes `.simflow/reports/session_handoff_<timestamp>.md` |
+
+When the ledger is enabled, linked write tools require
+`session_context_id`, `experiment_id`, and `activity_id`; `iteration_id` is
+included when applicable. The same validation exists in the core runtime, so
+calling Python helpers directly does not bypass the ledger.
 
 ## Artifacts
 

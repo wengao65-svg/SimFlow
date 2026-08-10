@@ -39,8 +39,10 @@ records. Do not treat SimFlow as a command-line workflow executor.
 3. For iterative work, call `begin_iteration` with explicit acceptance criteria.
 4. Call `start_activity` before project changes or execution and `finish_activity` afterward.
 5. Register artifacts, jobs, gates, checkpoints, and lineage with the returned experiment/activity context.
-6. Run the bounded `orphan_compute_scanner` only when the ledger and experiment files disagree.
-7. End with `session_handoff` so the next session receives current state,
+6. Use `fork_experiment` for alternatives, `compare_experiments` for branch comparison, and `verify_experiment_ledger` when integrity must be checked.
+7. Treat `.simflow/memory/ledger.sqlite3` as authoritative; rebuild JSON/JSONL/Markdown exports instead of editing them.
+8. Run the bounded `orphan_compute_scanner` only when the ledger and experiment files disagree.
+9. End with `session_handoff` so the next session receives current state,
    warnings, checkpoints, and approval needs.
 
 Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`

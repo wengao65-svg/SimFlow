@@ -47,6 +47,12 @@ from tools.evaluate_iteration import execute as evaluate_iteration
 from tools.start_activity import execute as start_activity
 from tools.finish_activity import execute as finish_activity
 from tools.experiment_timeline import execute as experiment_timeline
+from tools.fork_experiment import execute as fork_experiment
+from tools.resume_experiment import execute as resume_experiment
+from tools.compare_experiments import execute as compare_experiments
+from tools.verify_experiment_ledger import execute as verify_experiment_ledger
+from tools.rebuild_experiment_exports import execute as rebuild_experiment_exports
+from tools.migrate_experiment_ledger import execute as migrate_experiment_ledger
 from mcp.shared.stdio_server import run_mcp_server
 
 TOOLS = {
@@ -80,6 +86,12 @@ TOOLS = {
     "start_activity": start_activity,
     "finish_activity": finish_activity,
     "experiment_timeline": experiment_timeline,
+    "fork_experiment": fork_experiment,
+    "resume_experiment": resume_experiment,
+    "compare_experiments": compare_experiments,
+    "verify_experiment_ledger": verify_experiment_ledger,
+    "rebuild_experiment_exports": rebuild_experiment_exports,
+    "migrate_experiment_ledger": migrate_experiment_ledger,
 }
 
 TOOL_DESCRIPTIONS = {
@@ -113,6 +125,12 @@ TOOL_DESCRIPTIONS = {
     "start_activity": "Record intent, method, scripts, command, inputs, and expected outputs before work starts.",
     "finish_activity": "Record activity outputs, outcome, failure, recovery point, and next action.",
     "experiment_timeline": "Query a paginated structured experiment history without reading host transcripts.",
+    "fork_experiment": "Create a new experiment branch with explicit provenance parents.",
+    "resume_experiment": "Resume a paused experiment without rewriting prior history.",
+    "compare_experiments": "Compare status, metrics, failures, recovery points, and lineage across experiment branches.",
+    "verify_experiment_ledger": "Verify SQLite integrity, immutable event hashes, and registered references.",
+    "rebuild_experiment_exports": "Rebuild derived JSON, JSONL, and Markdown views from canonical SQLite state.",
+    "migrate_experiment_ledger": "Explicitly migrate structured v1 ledger files without importing host transcripts.",
 }
 
 TOOL_SCHEMAS = {
@@ -415,7 +433,12 @@ TOOL_SCHEMAS = {
             "root_path": {"type": "string"},
             "recipe": {"type": "string"},
             "acceptance_criteria": {"type": "array", "items": {"type": ["string", "object"]}},
-            "next_action": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
+            "scientific_question": {"type": "string"},
+            "hypothesis": {"type": "string"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "parent_experiment_ids": {"type": "array", "items": {"type": "string"}},
+            "baseline_refs": {"type": "array", "items": {"type": "object"}},
         },
         "additionalProperties": False,
     },
@@ -428,7 +451,7 @@ TOOL_SCHEMAS = {
             "experiment_id": {"type": "string"},
             "status": {"type": "string", "enum": ["paused", "completed", "failed", "abandoned"]},
             "conclusion": {"type": "string"},
-            "next_action": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
         },
         "additionalProperties": False,
     },
@@ -443,7 +466,7 @@ TOOL_SCHEMAS = {
             "acceptance_criteria": {"type": "array", "items": {"type": ["string", "object"]}},
             "parent_iteration_id": {"type": "string"},
             "inputs": {"type": "array"},
-            "next_action": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
         },
         "additionalProperties": False,
     },
@@ -455,10 +478,10 @@ TOOL_SCHEMAS = {
             "session_context_id": {"type": "string"},
             "experiment_id": {"type": "string"},
             "iteration_id": {"type": "string"},
-            "status": {"type": "string", "enum": ["planned", "running", "evaluating", "accepted", "rejected", "failed", "paused", "superseded"]},
+            "status": {"type": "string", "enum": ["evaluating", "accepted", "rejected", "failed", "paused", "superseded"]},
             "criterion_results": {"type": "array", "items": {"type": "object"}},
             "decision": {"type": "string"},
-            "next_action": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
             "recovery": {"type": "object"},
         },
         "additionalProperties": False,
@@ -483,6 +506,8 @@ TOOL_SCHEMAS = {
             "parameters": {"type": "object"},
             "expected_outputs": {"type": "array"},
             "gate_ids": {"type": "array", "items": {"type": "string"}},
+            "random_seeds": {"type": "array"},
+            "environment_ref": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -503,7 +528,7 @@ TOOL_SCHEMAS = {
             "metrics": {"type": "object"},
             "failure": {"type": "object"},
             "restart_from": {"type": "object"},
-            "next_action": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
         },
         "additionalProperties": False,
     },
@@ -520,6 +545,76 @@ TOOL_SCHEMAS = {
         },
         "additionalProperties": False,
     },
+    "fork_experiment": {
+        "type": "object",
+        "required": ["project_root", "session_context_id", "parent_experiment_id", "title", "objective", "root_path"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "session_context_id": {"type": "string"},
+            "parent_experiment_id": {"type": "string"},
+            "title": {"type": "string"},
+            "objective": {"type": "string"},
+            "root_path": {"type": "string"},
+            "scientific_question": {"type": "string"},
+            "hypothesis": {"type": "string"},
+            "stage": {"type": "string"},
+            "recipe": {"type": "string"},
+            "acceptance_criteria": {"type": "array", "items": {"type": ["string", "object"]}},
+            "baseline_refs": {"type": "array", "items": {"type": "object"}},
+            "next_action": {"type": ["string", "object"]},
+        },
+        "additionalProperties": False,
+    },
+    "resume_experiment": {
+        "type": "object",
+        "required": ["project_root", "session_context_id", "experiment_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "session_context_id": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "next_action": {"type": ["string", "object"]},
+        },
+        "additionalProperties": False,
+    },
+    "compare_experiments": {
+        "type": "object",
+        "required": ["project_root", "experiment_ids"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "experiment_ids": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 10},
+        },
+        "additionalProperties": False,
+    },
+    "verify_experiment_ledger": {
+        "type": "object",
+        "required": ["project_root"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "verify_references": {"type": "boolean", "default": True},
+        },
+        "additionalProperties": False,
+    },
+    "rebuild_experiment_exports": {
+        "type": "object",
+        "required": ["project_root", "session_context_id", "experiment_id", "activity_id"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "session_context_id": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "iteration_id": {"type": "string"},
+            "activity_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "migrate_experiment_ledger": {
+        "type": "object",
+        "required": ["project_root", "confirm"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "confirm": {"type": "boolean"},
+        },
+        "additionalProperties": False,
+    },
 }
 
 
@@ -527,6 +622,7 @@ _LEDGER_LINKED_WRITES = {
     "write_state", "update_stage", "record_computation_evidence", "record_analysis_evidence",
     "record_user_override", "record_stage_failure", "register_artifact", "create_checkpoint",
     "restore_checkpoint",
+    "rebuild_experiment_exports",
 }
 
 for _tool_name in _LEDGER_LINKED_WRITES:
@@ -559,6 +655,7 @@ def handle_request(request: dict) -> dict:
     params = request.get("params", {})
     if tool not in TOOLS:
         return {"status": "error", "message": f"Unknown tool: {tool}"}
+    write_context = None
 
     # Skill-engagement contract: check prerequisites for protected tools
     project_root = params.get("project_root")
@@ -577,7 +674,7 @@ def handle_request(request: dict) -> dict:
 
         from runtime.simflow_core.experiment_memory import (
             is_ledger_enabled,
-            validate_activity_binding,
+            require_write_context,
             validate_session_context,
         )
 
@@ -598,11 +695,12 @@ def handle_request(request: dict) -> dict:
                         "missing": missing_context,
                     }
                 try:
-                    validate_activity_binding(
+                    write_context = require_write_context(
                         project_root,
                         session_context_id=params["session_context_id"],
                         experiment_id=params["experiment_id"],
                         activity_id=params["activity_id"],
+                        iteration_id=params.get("iteration_id"),
                     )
                 except ValueError as error:
                     return {"status": "error", "code": "invalid_experiment_context", "message": str(error)}
@@ -641,7 +739,9 @@ def handle_request(request: dict) -> dict:
             record_tool_call(full_tool_name, project_root)
 
     try:
-        return TOOLS[tool](params)
+        from runtime.simflow_core.experiment_memory import experiment_write_scope
+        with experiment_write_scope(write_context):
+            return TOOLS[tool](params)
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

@@ -237,13 +237,29 @@ def register_artifact(
     metadata: Optional[dict] = None,
     project_root: Optional[str] = None,
     sync_stage_outputs: bool = True,
+    session_context_id: Optional[str] = None,
     experiment_id: Optional[str] = None,
     iteration_id: Optional[str] = None,
     activity_id: Optional[str] = None,
 ) -> dict:
     """Register a new artifact."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    workflow = ensure_workflow_initialized(project_root=str(root))
+    from .experiment_memory import experiment_write_scope, record_linked_write, require_write_context
+
+    context = require_write_context(
+        str(root),
+        session_context_id=session_context_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
+    )
+    if context:
+        session_context_id = context.session_context_id
+        experiment_id = context.experiment_id
+        iteration_id = context.iteration_id
+        activity_id = context.activity_id
+    with experiment_write_scope(context):
+        workflow = ensure_workflow_initialized(project_root=str(root))
     artifacts = _read_artifacts(project_root=str(root))
     now = datetime.now(timezone.utc).isoformat()
     art_id = f"art_{uuid.uuid4().hex[:8]}"
@@ -307,7 +323,23 @@ def register_artifact(
         ),
     })
     # Auto-refresh workflow.json/summary.json/status_summary.md
-    touch_workflow(str(root))
+    context_kwargs = {
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
+    }
+    touch_workflow(str(root), **context_kwargs)
+    record_linked_write(
+        str(root),
+        kind="artifact",
+        target_id=art_id,
+        path=path,
+        sha256=checksum,
+        role="artifact_output",
+        metadata={"name": name, "type": artifact_type, "stage": stage, "version": version},
+        **context_kwargs,
+    )
     return artifact
 
 

@@ -20,6 +20,7 @@ def execute(params: dict) -> dict:
             project_root=project_root,
             status=params.get("status", "success"),
             job_id=params.get("job_id"),
+            session_context_id=params.get("session_context_id"),
             experiment_id=params.get("experiment_id"),
             iteration_id=params.get("iteration_id"),
             activity_id=params.get("activity_id"),

@@ -12,7 +12,14 @@ def execute(params: dict) -> dict:
     if not checkpoint_id:
         return {"status": "error", "message": "checkpoint_id is required"}
     try:
-        checkpoint = restore_checkpoint(checkpoint_id, project_root=project_root)
+        checkpoint = restore_checkpoint(
+            checkpoint_id,
+            project_root=project_root,
+            session_context_id=params.get("session_context_id"),
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
+        )
     except (FileNotFoundError, ProjectRootError) as error:
         return {"status": "error", "message": str(error)}
     return {"status": "success", "project_root": project_root, "data": checkpoint}

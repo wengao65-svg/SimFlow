@@ -23,6 +23,7 @@ def execute(params: dict) -> dict:
         job_id=params.get("job_id"),
         partial_artifact_ids=params.get("partial_artifact_ids"),
         failure_id=params.get("failure_id"),
+        session_context_id=params.get("session_context_id"),
         experiment_id=params.get("experiment_id"),
         iteration_id=params.get("iteration_id"),
         activity_id=params.get("activity_id"),

@@ -204,6 +204,19 @@ def record_analysis_evidence(
         manifest["planned_outputs"] = [".simflow/reports/analysis/analysis_evidence_intake_manifest.json"]
         return {"status": "dry_run_complete", "manifest": manifest, "planned_artifacts": manifest["accepted_evidence"]}
 
+    from runtime.simflow_core.experiment_memory import require_write_context
+    ledger_context = require_write_context(
+        str(project_root), session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
+    if ledger_context:
+        session_context_id = ledger_context.session_context_id
+        experiment_id = ledger_context.experiment_id
+        iteration_id = ledger_context.iteration_id
+        activity_id = ledger_context.activity_id
+    context = {"session_context_id": session_context_id, "experiment_id": experiment_id,
+               "iteration_id": iteration_id, "activity_id": activity_id}
+
     artifacts = []
     for entry in entries:
         metadata = {
@@ -227,6 +240,7 @@ def record_analysis_evidence(
             },
             software=software,
             metadata=metadata,
+            session_context_id=session_context_id,
             experiment_id=experiment_id,
             iteration_id=iteration_id,
             activity_id=activity_id,
@@ -248,6 +262,7 @@ def record_analysis_evidence(
             "evidence_keys": ["analysis_evidence_intake_manifest"],
             "actual_tool_used": actual_tool_used,
         },
+        session_context_id=session_context_id,
         experiment_id=experiment_id,
         iteration_id=iteration_id,
         activity_id=activity_id,
@@ -264,6 +279,7 @@ def record_analysis_evidence(
             project_root=str(project_root),
             inputs=parent_artifacts,
             outputs=output_ids,
+            **context,
         )
         checkpoint = create_checkpoint(
             state.get("workflow_id", "unknown"),
@@ -271,6 +287,7 @@ def record_analysis_evidence(
             "User-provided analysis evidence intake complete",
             project_root=str(project_root),
             job_id="user_provided_analysis_evidence",
+            session_context_id=session_context_id,
             experiment_id=experiment_id,
             iteration_id=iteration_id,
             activity_id=activity_id,

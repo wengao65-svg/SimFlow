@@ -22,6 +22,8 @@ def execute(params: dict) -> dict:
             parameters=params.get("parameters"),
             expected_outputs=params.get("expected_outputs"),
             gate_ids=params.get("gate_ids"),
+            random_seeds=params.get("random_seeds"),
+            environment_ref=params.get("environment_ref"),
         )
     except (KeyError, ValueError) as error:
         return {"status": "error", "message": str(error)}

@@ -13,5 +13,12 @@ def execute(params: dict) -> dict:
     if mode == "audit":
         return {"status": "success", "data": audit_state(project_root, min_confidence=threshold)}
     if mode == "apply":
-        return {"status": "success", "data": apply_state_repair(project_root, min_confidence=threshold)}
+        return {"status": "success", "data": apply_state_repair(
+            project_root,
+            min_confidence=threshold,
+            session_context_id=params.get("session_context_id"),
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
+        )}
     return {"status": "error", "message": "mode must be 'audit' or 'apply'"}

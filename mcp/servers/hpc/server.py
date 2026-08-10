@@ -578,11 +578,12 @@ def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
     tool = request.get("tool")
     params = request.get("params", {})
+    write_context = None
     if tool in {"upload", "download", "submit"}:
         project_root = params.get("project_root")
         if not project_root:
             return {"status": "error", "message": "project_root is required", "code": "project_root_required"}
-        from runtime.simflow_core.experiment_memory import is_ledger_enabled, validate_activity_binding
+        from runtime.simflow_core.experiment_memory import is_ledger_enabled, require_write_context
         if is_ledger_enabled(project_root):
             missing_context = [
                 field for field in ("session_context_id", "experiment_id", "activity_id")
@@ -596,11 +597,12 @@ def handle_request(request: dict) -> dict:
                     "missing": missing_context,
                 }
             try:
-                validate_activity_binding(
+                write_context = require_write_context(
                     project_root,
                     session_context_id=params["session_context_id"],
                     experiment_id=params["experiment_id"],
                     activity_id=params["activity_id"],
+                    iteration_id=params.get("iteration_id"),
                 )
             except ValueError as error:
                 return {"status": "error", "code": "invalid_experiment_context", "message": str(error)}
@@ -614,7 +616,9 @@ def handle_request(request: dict) -> dict:
                 "required_prerequisites": violation.missing,
             }
         record_tool_call(f"hpc/{tool}", project_root)
-    return dispatch_request(request, TOOLS)
+    from runtime.simflow_core.experiment_memory import experiment_write_scope
+    with experiment_write_scope(write_context):
+        return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":

@@ -137,6 +137,7 @@ def create_checkpoint(
     job_id: Optional[str] = None,
     project_root: Optional[str] = None,
     failure_context: Optional[dict[str, Any]] = None,
+    session_context_id: Optional[str] = None,
     experiment_id: Optional[str] = None,
     iteration_id: Optional[str] = None,
     activity_id: Optional[str] = None,
@@ -157,7 +158,22 @@ def create_checkpoint(
         raise ValueError(f"Unsupported checkpoint status: {status}")
 
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    ensure_workflow_initialized(project_root=str(root))
+    from .experiment_memory import experiment_write_scope, record_linked_write, require_write_context
+
+    context = require_write_context(
+        str(root),
+        session_context_id=session_context_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
+    )
+    if context:
+        session_context_id = context.session_context_id
+        experiment_id = context.experiment_id
+        iteration_id = context.iteration_id
+        activity_id = context.activity_id
+    with experiment_write_scope(context):
+        ensure_workflow_initialized(project_root=str(root))
     ckpt_dir = root / CHECKPOINTS_DIR
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
@@ -242,6 +258,7 @@ def create_checkpoint(
     required_snapshot_files = {"workflow.json", "stages.json"}
     missing_snapshot = required_snapshot_files - set(state_snapshot.keys())
     recoverable = normalized_status != "failure" and bool(state_snapshot) and not missing_snapshot
+    registry_entry["recoverable"] = recoverable
     if normalized_status != "failure":
         if not state_snapshot:
             raise ValueError(
@@ -293,7 +310,22 @@ def create_checkpoint(
     # P1.5: Auto-propagate checkpoint creation to workflow.json/summary.json
     # so cross-session continuity works (fixes S6->S14 amnesia where
     # summary.json.updated_at stayed 4 days behind checkpoint creation).
-    touch_workflow(str(root))
+    context_kwargs = {
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
+    }
+    touch_workflow(str(root), **context_kwargs)
+    record_linked_write(
+        str(root),
+        kind="checkpoint",
+        target_id=ckpt_id,
+        path=str(ckpt_file.relative_to(root)),
+        role="checkpoint",
+        metadata={"stage_id": stage_id, "status": normalized_status, "recoverable": recoverable},
+        **context_kwargs,
+    )
 
     return checkpoint
 
@@ -386,9 +418,23 @@ def _restore_state_bytes(state_dir: Path, snapshot: dict[str, bytes]) -> None:
         _write_state_bytes_atomic(state_dir, name, content)
 
 
-def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Optional[str] = None) -> dict:
+def restore_checkpoint(
+    checkpoint_id: str,
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+    *,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
+) -> dict:
     """Restore workflow state from a checkpoint."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    from .experiment_memory import record_linked_write, require_write_context
+    context = require_write_context(
+        str(root), session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
     ckpt_file = root / CHECKPOINTS_DIR / f"{checkpoint_id}.json"
     if not ckpt_file.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_id}")
@@ -424,6 +470,12 @@ def restore_checkpoint(checkpoint_id: str, base_dir: str = ".", project_root: Op
     finally:
         shutil.rmtree(staged_dir, ignore_errors=True)
 
+    context_kwargs = ({key: value for key, value in context.as_dict().items() if key != "project_root"}
+                      if context else {})
+    record_linked_write(
+        str(root), kind="path", path=str(ckpt_file.relative_to(root)), role="checkpoint_restore",
+        metadata={"checkpoint_id": checkpoint_id}, **context_kwargs,
+    )
     return _attach_checkpoint_result(checkpoint, activity="restore_checkpoint", stage_id=checkpoint.get("stage_id"))
 
 

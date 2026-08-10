@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.state import read_state, write_state
+from runtime.simflow_core.state import read_state, resolve_project_root, write_state
 
 
 def _now_iso() -> str:
@@ -42,6 +42,7 @@ def record_submit_job(
     submit_result: dict[str, Any] | None = None,
     user_override: bool = False,
     override_gate_id: str | None = None,
+    session_context_id: str | None = None,
     experiment_id: str | None = None,
     iteration_id: str | None = None,
     activity_id: str | None = None,
@@ -52,7 +53,21 @@ def record_submit_job(
     an approved hpc_submit gate. Jobs without gate approval are rejected
     unless user_override=True with a corresponding override_gate_id.
     """
-    root = Path(project_root).expanduser().resolve()
+    root = resolve_project_root(project_root=project_root)
+    from runtime.simflow_core.experiment_memory import record_linked_write, require_write_context
+
+    ledger_context = require_write_context(
+        str(root),
+        session_context_id=session_context_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
+    )
+    if ledger_context:
+        session_context_id = ledger_context.session_context_id
+        experiment_id = ledger_context.experiment_id
+        iteration_id = ledger_context.iteration_id
+        activity_id = ledger_context.activity_id
     workflow = read_state(project_root=str(root), state_file="workflow.json")
     if not workflow:
         return {
@@ -164,6 +179,7 @@ def record_submit_job(
             "real_submit": True,
             "execution_truth": job_record["execution_truth"],
         },
+        session_context_id=session_context_id,
         experiment_id=experiment_id,
         iteration_id=iteration_id,
         activity_id=activity_id,
@@ -177,7 +193,22 @@ def record_submit_job(
         "path": _relative_path(root, record_path),
         "artifact_id": artifact["artifact_id"],
     })
-    write_state(jobs, project_root=str(root), state_file="jobs.json")
+    context_kwargs = {
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
+    }
+    write_state(jobs, project_root=str(root), state_file="jobs.json", **context_kwargs)
+    record_linked_write(
+        str(root),
+        kind="job",
+        target_id=str(job_id),
+        path=_relative_path(root, record_path),
+        role="job_record",
+        metadata={"scheduler": scheduler, "status": status, "artifact_id": artifact["artifact_id"]},
+        **context_kwargs,
+    )
 
     return {
         "status": "success",
