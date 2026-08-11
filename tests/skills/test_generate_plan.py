@@ -6,13 +6,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-proposal" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.state import init_workflow, read_state, write_state
-from generate_plan import generate_plan
+from runtime.simflow_helpers.legacy_workflow.generate_plan import generate_plan
 
 
 DFT_STAGES = [

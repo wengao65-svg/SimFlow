@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[3]
+SCRIPT_DIR = ROOT / "skills" / "simflow-modeling" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(ROOT))
 
 from build_structure import build_from_file, build_from_params, build_from_type
 from make_supercell import make_supercell

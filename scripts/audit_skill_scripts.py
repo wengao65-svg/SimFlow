@@ -23,6 +23,21 @@ STAGE_RUNNER_FUNCTIONS = {
     "run_writing_stage",
 }
 STATE_ADMIN_SCRIPTS: set[str] = set()
+STATEFUL_RUNTIME_CALLS = {
+    "check_gate",
+    "create_checkpoint",
+    "execute_stage",
+    "init_workflow",
+    "read_state",
+    "record_computation_evidence",
+    "record_gate_decision",
+    "register_artifact",
+    "restore_checkpoint",
+    "run_pipeline",
+    "touch_workflow",
+    "update_stage",
+    "write_state",
+}
 
 
 def _read(path: Path) -> str:
@@ -61,6 +76,18 @@ def _uses_standard_recording_args(tree: ast.AST) -> bool:
     return False
 
 
+def _called_names(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name):
+            names.add(node.func.id)
+        elif isinstance(node.func, ast.Attribute):
+            names.add(node.func.attr)
+    return names
+
+
 def _category(path: Path, functions: dict[str, ast.FunctionDef]) -> str:
     relative = str(path.relative_to(ROOT))
     if relative in STATE_ADMIN_SCRIPTS:
@@ -80,6 +107,7 @@ def audit_script(path: Path) -> dict[str, Any]:
     functions = _functions(tree)
     category = _category(path, functions)
     stage_runner_names = sorted(set(functions) & STAGE_RUNNER_FUNCTIONS)
+    stateful_calls = sorted(_called_names(tree) & STATEFUL_RUNTIME_CALLS)
     uses_standard_recording_args = _uses_standard_recording_args(tree)
     stage_runner_contract = None
     if stage_runner_names:
@@ -97,6 +125,7 @@ def audit_script(path: Path) -> dict[str, Any]:
         "has_record_helper_run_option": uses_standard_recording_args or _has_argparse_option(tree, "--record-helper-run"),
         "uses_standard_recording_args": uses_standard_recording_args,
         "uses_record_helper_run": "record_helper_run" in text,
+        "stateful_runtime_calls": stateful_calls,
         "mentions_omx": ".omx" in text,
         "writes_simflow_literal": ".simflow" in text,
     }
@@ -120,16 +149,10 @@ def main() -> None:
 
     for report in reports:
         flags = []
-        if report["category"] == "stage_runner" and not report["stage_runner_contract"]:
-            flags.append("bad-stage-runner-signature")
-        if report["category"] == "helper_cli":
-            for key, label in [
-                ("has_project_root_option", "missing-project-root"),
-                ("has_stage_option", "missing-stage"),
-                ("has_record_helper_run_option", "missing-record-helper-run"),
-            ]:
-                if not report[key]:
-                    flags.append(label)
+        if report["category"] == "stage_runner":
+            flags.append("public-stage-runner")
+        if report["stateful_runtime_calls"]:
+            flags.append("owns-runtime-state:" + ",".join(report["stateful_runtime_calls"]))
         if report["mentions_omx"]:
             flags.append("mentions-.omx")
         status = "OK" if not flags else "WARN"

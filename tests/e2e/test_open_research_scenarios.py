@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "skills" / "simflow-literature-review" / "scripts"))
+sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.checkpoints import create_checkpoint
@@ -15,7 +15,7 @@ from runtime.simflow_core.lineage import get_lineage
 from runtime.simflow_core.state import init_workflow, read_state
 from runtime.simflow_helpers.engines.vasp_workflows import build_vasp_task_plan, classify_vasp_request
 from runtime.simflow_helpers.project.intake import init_research
-from generate_literature_matrix import generate_literature_matrix
+from runtime.simflow_helpers.legacy_workflow.generate_literature_matrix import generate_literature_matrix
 
 
 def test_user_pdf_literature_review_tracks_sources_without_fixed_provider(tmp_path):

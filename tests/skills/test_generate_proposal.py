@@ -7,19 +7,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-LITERATURE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
-REVIEW_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
-PROPOSAL_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-proposal" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(LITERATURE_DIR))
-sys.path.insert(0, str(REVIEW_DIR))
-sys.path.insert(0, str(PROPOSAL_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
-from generate_literature_matrix import generate_literature_matrix
-from generate_proposal import generate_proposal
-from generate_review import generate_review
+from runtime.simflow_helpers.legacy_workflow.generate_literature_matrix import generate_literature_matrix
+from runtime.simflow_helpers.legacy_workflow.generate_proposal import generate_proposal
+from runtime.simflow_helpers.legacy_workflow.generate_review import generate_review
 from runtime.simflow_helpers.project.intake import init_research
 
 

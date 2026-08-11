@@ -25,12 +25,12 @@ from runtime.simflow_helpers.stages.pipeline import run_pipeline
 VASP_RUN_XML = ROOT / "tests" / "fixtures" / "vasprun_Si.xml"
 CP2K_FIXTURE_DIR = ROOT / "tests" / "fixtures" / "cp2k"
 STAGE_RUNNER_CONTRACTS = [
-    ("skills/simflow-modeling/scripts/run_modeling_stage.py", "run_modeling_stage"),
-    ("skills/simflow-computation/scripts/run_input_generation_stage.py", "run_input_generation_stage"),
-    ("skills/simflow-computation/scripts/run_compute_stage.py", "run_compute_stage"),
-    ("skills/simflow-analysis-visualization/scripts/run_analysis_stage.py", "run_analysis_stage"),
-    ("skills/simflow-analysis-visualization/scripts/run_visualization_stage.py", "run_visualization_stage"),
-    ("skills/simflow-writing/scripts/run_writing_stage.py", "run_writing_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_modeling_stage.py", "run_modeling_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_input_generation_stage.py", "run_input_generation_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_compute_stage.py", "run_compute_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_analysis_stage.py", "run_analysis_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_visualization_stage.py", "run_visualization_stage"),
+    ("runtime/simflow_helpers/legacy_workflow/run_writing_stage.py", "run_writing_stage"),
 ]
 
 pytestmark = pytest.mark.filterwarnings(
@@ -740,11 +740,11 @@ def test_compute_stage_dry_run_reports_reused_script_path_as_existing_artifact()
         script_path.parent.mkdir(parents=True, exist_ok=True)
         script_path.write_text("#!/bin/bash\n#SBATCH --job-name=reusable\nsrun vasp_std\n", encoding="utf-8")
         input_runner, _ = _load_stage_runner(
-            "skills/simflow-computation/scripts/run_input_generation_stage.py",
+            "runtime/simflow_helpers/legacy_workflow/run_input_generation_stage.py",
             "run_input_generation_stage",
         )
         compute_runner, _ = _load_stage_runner(
-            "skills/simflow-computation/scripts/run_compute_stage.py",
+            "runtime/simflow_helpers/legacy_workflow/run_compute_stage.py",
             "run_compute_stage",
         )
 

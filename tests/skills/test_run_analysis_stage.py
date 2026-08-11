@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "simflow-analysis-visualization" / "scripts" / "run_analysis_stage.py"
+SCRIPT = ROOT / "runtime" / "simflow_helpers" / "legacy_workflow" / "run_analysis_stage.py"
 sys.path.insert(0, str(ROOT))
 
 

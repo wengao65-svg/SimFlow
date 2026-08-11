@@ -25,20 +25,9 @@ def test_audit_skill_scripts_reports_all_skill_scripts():
     }
 
 
-def test_audit_identifies_canonical_stage_runner_contracts():
-    reports = {report["path"]: report for report in audit_skill_scripts(ROOT)}
-    expected = [
-        "skills/simflow-modeling/scripts/run_modeling_stage.py",
-        "skills/simflow-computation/scripts/run_input_generation_stage.py",
-        "skills/simflow-computation/scripts/run_compute_stage.py",
-        "skills/simflow-analysis-visualization/scripts/run_analysis_stage.py",
-        "skills/simflow-analysis-visualization/scripts/run_visualization_stage.py",
-        "skills/simflow-writing/scripts/run_writing_stage.py",
-    ]
-
-    for path in expected:
-        assert reports[path]["category"] == "stage_runner"
-        assert reports[path]["stage_runner_contract"] is True
+def test_public_skill_scripts_do_not_contain_stage_runners():
+    reports = audit_skill_scripts(ROOT)
+    assert [report["path"] for report in reports if report["category"] == "stage_runner"] == []
 
 
 def test_audit_output_contains_contract_fields_for_helper_scripts():
@@ -53,23 +42,25 @@ def test_audit_output_contains_contract_fields_for_helper_scripts():
     assert "has_record_helper_run_option" in helper
 
 
-def test_all_helper_cli_scripts_support_strict_recording_contract():
+def test_public_helper_scripts_do_not_own_runtime_state():
     reports = audit_skill_scripts(ROOT)
+    assert [
+        (report["path"], report["stateful_runtime_calls"])
+        for report in reports
+        if report["stateful_runtime_calls"]
+    ] == []
 
-    failures = []
-    for report in reports:
-        if report["category"] != "helper_cli":
-            continue
-        if not report["has_project_root_option"]:
-            failures.append(f"{report['path']}: missing --project-root")
-        if not report["has_stage_option"]:
-            failures.append(f"{report['path']}: missing --stage")
-        if not report["has_record_helper_run_option"]:
-            failures.append(f"{report['path']}: missing --record-helper-run")
-        if not report["uses_record_helper_run"]:
-            failures.append(f"{report['path']}: does not call helper-run recording")
 
-    assert failures == []
+def test_legacy_workflow_runners_are_internal_runtime_modules():
+    legacy_dir = ROOT / "runtime" / "simflow_helpers" / "legacy_workflow"
+    expected = {
+        "run_research_workflow.py", "generate_literature_matrix.py", "generate_review.py",
+        "generate_plan.py", "generate_proposal.py", "run_modeling_stage.py",
+        "run_input_generation_stage.py", "run_compute_stage.py", "record_computation_evidence.py",
+        "run_analysis_stage.py",
+        "run_visualization_stage.py", "build_reproducibility_package.py", "run_writing_stage.py",
+    }
+    assert expected.issubset({path.name for path in legacy_dir.glob("*.py")})
 
 
 def test_no_skill_script_uses_omx_as_workflow_state():

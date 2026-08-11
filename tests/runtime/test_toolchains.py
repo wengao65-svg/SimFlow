@@ -138,7 +138,7 @@ def test_proposal_scripts_do_not_redefine_toolchain_support_logic():
         "def _toolchain_plan",
     ]
     for rel_path in (
-        "skills/simflow-proposal/scripts/generate_proposal.py",
+        "runtime/simflow_helpers/legacy_workflow/generate_proposal.py",
         "runtime/simflow_core/proposals.py",
     ):
         source = (ROOT / rel_path).read_text(encoding="utf-8")

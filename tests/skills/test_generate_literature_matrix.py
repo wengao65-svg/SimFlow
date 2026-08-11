@@ -7,14 +7,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-LITERATURE_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-literature-review" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(LITERATURE_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import read_state
-from generate_literature_matrix import generate_literature_matrix
+from runtime.simflow_helpers.legacy_workflow.generate_literature_matrix import generate_literature_matrix
 from runtime.simflow_helpers.project.intake import init_research
 
 

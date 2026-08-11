@@ -17,7 +17,7 @@ from runtime.simflow_core.state import read_state
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "simflow" / "scripts" / "run_research_workflow.py"
+SCRIPT = ROOT / "runtime" / "simflow_helpers" / "legacy_workflow" / "run_research_workflow.py"
 
 
 def _research_text() -> str:

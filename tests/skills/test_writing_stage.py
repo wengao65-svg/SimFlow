@@ -8,14 +8,16 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-writing" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import init_workflow
-from run_writing_stage import _build_claim_map, _degraded_evidence_states, run_writing_stage
+from runtime.simflow_helpers.legacy_workflow.run_writing_stage import (
+    _build_claim_map,
+    _degraded_evidence_states,
+    run_writing_stage,
+)
 from runtime.simflow_helpers.stages.pipeline import run_pipeline
 from runtime.simflow_helpers.project.intake import init_research
 
