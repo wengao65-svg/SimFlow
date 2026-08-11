@@ -30,7 +30,8 @@ Use this reference for hybrid functionals, meta-GGA workflows, van der Waals cor
 
 - Treat hybrid/meta/vdW choices as method-level decisions that affect scientific comparison.
 - For hybrid band structures, follow the dedicated hybrid band workflow rather than fixed-density DFT assumptions.
-- Register functional choice, predecessor, restart files, resource estimate, and convergence evidence as artifacts.
+- Preserve the functional choice, predecessor, restart files, resource
+  estimate, and convergence evidence in one run manifest or summary.
 - Real execution normally requires approval due to cost.
 
 ## Common risks

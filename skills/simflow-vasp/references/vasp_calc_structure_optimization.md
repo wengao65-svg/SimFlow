@@ -29,7 +29,9 @@ Use this reference for ionic relaxation, cell relaxation, volume relaxation, equ
 - Preserve original user structure and write generated variants to named output directories.
 - Record whether a relaxation stopped because it converged or because `NSW` was exhausted.
 - For energy comparisons, ensure comparable settings, volumes/cells, smearing, k meshes, and pseudopotentials.
-- For equation-of-state or volume scans, register each structure/energy pair and fit script as artifacts.
+- For equation-of-state or volume scans, preserve every structure/energy pair
+  and the fit script in one scan manifest; do not create one runtime record per
+  point.
 
 ## Common risks
 

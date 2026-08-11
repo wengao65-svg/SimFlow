@@ -17,8 +17,9 @@ simflow.helper_evidence.v1` when a helper is updated or newly added.
   or `production_readiness_review`.
 - `status`: one of `success`, `warning`, `blocked`, `incomplete`,
   `skipped_optional_dependency`, or `capability_warning`.
-- `stage`: canonical SimFlow stage where this evidence belongs.
-- `activity`: stage-local activity such as `analysis`, `visualization`,
+- `stage`: optional research-intent label for compatibility; it does not drive
+  workflow progression.
+- `activity`: descriptive task label such as `analysis`, `visualization`,
   `dataset_build`, or `validation_md`.
 - `evidence_role`: concise role such as `dataset_manifest`, `model_metrics_summary`, `model_validation_report`, `training_run_manifest`, `anomaly_report`, or `mlp_handoff`.
 - `source_files`: source file metadata records with path, presence, size, and
@@ -34,7 +35,9 @@ simflow.helper_evidence.v1` when a helper is updated or newly added.
 - `toolchain`: user-provided toolchain list when known.
 - `warnings`: list of `{code, message}` objects for degraded evidence.
 - `limitations`: plain statements about what the helper did not prove.
-- `parent_artifacts`: artifact ids that this evidence depends on.
+- `parent_artifacts`: compatibility field for source evidence identifiers;
+  new runtime provenance should use logical record `parent_ids` when recording
+  is explicitly requested.
 
 ## Status semantics
 
@@ -53,8 +56,9 @@ or checkpoint status. Top-level statuses are compatibility fields when a
 surface also returns nested `simflow_result` data.
 
 Default helper report paths live under project-root `reports/<engine>/`.
-Direct helpers do not register arbitrary report artifacts. Stage runners may
-ingest/register outputs when those outputs become canonical stage artifacts.
+Direct helpers do not initialize runtime state or register their outputs. When
+durable provenance is explicitly requested, a shared runtime adapter may
+reference the helper's logical deliverable once.
 
 ## Production readiness
 
@@ -74,5 +78,5 @@ For MLP readiness helper output:
   must remain `false`; production-readiness approval does not authorize submit.
 
 `prepare_mlp_handoff` output should also use `simflow.helper_evidence.v1` so
-handoff artifacts can be queried by evidence role, helper status, parser status,
-recipe, and claim limits.
+handoff evidence can be inspected by evidence role, helper status, parser
+status, recipe, and claim limits.

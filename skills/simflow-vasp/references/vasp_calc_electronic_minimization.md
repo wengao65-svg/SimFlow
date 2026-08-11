@@ -29,7 +29,9 @@ Use this reference for static ground-state calculations, molecule or bulk setup 
 - Default to dry-run/static inspection unless the user explicitly requests real execution and approval gates pass.
 - Do not infer convergence from file existence or scheduler completion.
 - For downstream DOS/band/SOC/hybrid/GW/BSE work, record whether `CHGCAR`, `WAVECAR`, `vaspout.h5`, and Fermi-level evidence are needed.
-- Register input manifests, validation reports, dry-run reports, and helper-run manifests as artifacts.
+- Keep input manifests, validation reports, dry-run reports, and helper-run
+  manifests together; reference the logical package once only when durable
+  provenance is needed.
 
 ## Common risks
 

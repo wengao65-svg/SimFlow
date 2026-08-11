@@ -27,7 +27,8 @@ Use this reference for quasiparticle GW calculations, RPA/ACFDT total energies, 
 
 - Treat GW/RPA/BSE as high-cost advanced methods; require dry-run/resource evidence and approval before execution.
 - Do not present results as converged without explicit convergence series.
-- Register predecessor chain, response settings, convergence tables, resource estimates, and scripts as artifacts.
+- Preserve the predecessor chain, response settings, convergence tables,
+  resource estimates, and scripts as one logical method package.
 - For BSE, record whether the workflow is optical-region BSE or core-excitation BSE.
 
 ## Common risks

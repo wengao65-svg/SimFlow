@@ -28,7 +28,8 @@ Use this reference for NEB, climbing-image NEB, dimer, IRC, static transition-st
 ## SimFlow guidance
 
 - Do not record a transition state or barrier as final until every relevant image is converged and the path is chemically sensible.
-- Register endpoint structures, image manifest, interpolation method, validation report, barrier table, and plot script as artifacts.
+- Keep endpoint structures, image manifest, interpolation method, validation
+  report, barrier table, and plot script linked as one path-analysis package.
 - Start with minimal images when the path is uncertain; add images only with a documented rationale.
 - Preserve all user-provided image directories.
 

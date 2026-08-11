@@ -6,8 +6,8 @@ route are unclear. This map is a guide, not a fixed parser requirement.
 ## General intake
 
 - Identify the software, run type, source directory, and whether files are raw outputs, derived data, or user-edited tables.
-- Preserve original files. Write parsed tables, summaries, and plots as separate artifacts.
-- Record missing predecessors such as restart files, charge densities, topology files, trajectory metadata, or line-mode path definitions.
+- Preserve original files. Write parsed tables, summaries, and plots as separate, linked files.
+- Note missing predecessors such as restart files, charge densities, topology files, trajectory metadata, or line-mode path definitions.
 - Treat user-provided CSV, JSON, text tables, and trajectories as generic inputs when software provenance is unknown.
 
 ## VASP outputs
@@ -47,10 +47,13 @@ route are unclear. This map is a guide, not a fixed parser requirement.
 - Record command-line inputs, model or potential identifiers, output cadence, unit conventions, and any conversion scripts.
 - Route RDF/structure outputs to `md_structure_analysis.md`, transport outputs to `md_diffusion_transport.md`, mechanical outputs to `mechanical_elastic_analysis.md`, and MLP-MD readiness claims to `mlp_md_analysis_readiness.md`.
 
-## Unsupported engine placeholders
+## Unsupported engines
 
-- QE and Gaussian skills are reserved placeholders in the current SimFlow product. User-provided QE or Gaussian files can still be recorded as generic artifacts when the user asks for traceability.
-- Do not claim supported QE or Gaussian runtime analysis. Use generic parsing or user-provided scripts only when evidence and limitations are recorded.
+- QE, Gaussian, and other unsupported engines do not receive placeholder Skills.
+  Keep the requested software as context and use generic analysis guidance or
+  user-provided scripts with explicit limitations.
+- If durable traceability is needed, reference the logical input or analysis
+  package once rather than registering every file separately.
 
 ## Generic data and trajectories
 

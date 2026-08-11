@@ -41,6 +41,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "simflow_state tools/list exposes four compact tools" in result.stdout
     assert "public Skill surface is exactly one Router, six Task, and five Domain Skills" in result.stdout
     assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
+    assert "public Skill text contains no runtime registration or placeholder instructions" in result.stdout
     assert "experiment ledger and engagement modules are absent from tracked runtime sources" in result.stdout
     assert "legacy migration is read-only until explicit current-hash confirmation" in result.stdout
     assert "compact records redact credentials and POTCAR materialization remains metadata-only" in result.stdout

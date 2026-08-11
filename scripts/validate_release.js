@@ -326,6 +326,28 @@ function validateSimplificationContract() {
   );
 
   const tracked = run('git', ['ls-files'], { capture: true }).split(/\r?\n/).filter(Boolean);
+  const staleSkillPatterns = [
+    /QE and Gaussian skills are reserved placeholders/i,
+    /Stage runners may\s+ingest\/register outputs/i,
+    /^\s*-\s*Register [^\n]+ as (?:separate )?artifacts\./im,
+    /record user-provided [^\n]+ as generic artifacts/i,
+    /canonical stage artifacts/i,
+  ];
+  const staleSkillFindings = [];
+  for (const relativePath of tracked.filter(item => item.startsWith('skills/') && /\.(?:md|py)$/.test(item))) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
+    for (const pattern of staleSkillPatterns) {
+      if (pattern.test(content)) {
+        staleSkillFindings.push(`${relativePath}: ${pattern}`);
+      }
+    }
+  }
+  check(
+    'public Skill text contains no runtime registration or placeholder instructions',
+    staleSkillFindings.length === 0,
+    staleSkillFindings.join('\n'),
+  );
+
   const removedLifecycleTools = new Set([
     'begin_experiment.py',
     'begin_iteration.py',

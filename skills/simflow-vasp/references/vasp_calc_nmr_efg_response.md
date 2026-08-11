@@ -28,7 +28,8 @@ Use this reference for NMR chemical shielding, electric-field gradients, hyperfi
 
 - Record tensor conventions, reference compounds, isotope data, units, and comparison formulae.
 - Treat response properties as post-SCF only when the predecessor is compatible and documented.
-- Register raw tensor output, conversion scripts, and final tables as separate artifacts.
+- Keep raw tensor output, conversion scripts, and final tables linked; create
+  one analysis record only when durable provenance is needed.
 - Avoid response claims for metallic systems when the official method assumes insulating behavior.
 
 ## Common risks
