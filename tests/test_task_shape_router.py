@@ -77,3 +77,5 @@ def test_router_contract_host_adaptation_keeps_runtime_separate():
     assert policy["skill_load_hooks_required"] is False
     assert policy["supported_profiles"] == ["codex", "claude_code", "opencode", "generic"]
     assert "runtime_separation" in policy["host_invariant_behavior"]
+    assert "single_read_only_memory_reentry" in policy["host_invariant_behavior"]
+    assert _contract()["project_memory_policy"]["writes_session_state"] is False

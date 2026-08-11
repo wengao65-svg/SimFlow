@@ -24,7 +24,12 @@ def test_initialize_instructions_adapt_syntax_but_preserve_invariants():
     assert "$simflow" not in generic
     for instructions in (codex, claude, opencode, generic):
         assert "project_root" in instructions
-        assert "Inspect is read-only and optional" in instructions
+        assert "first SimFlow use for a project" in instructions
+        assert "read-only inspect once" in instructions
+        assert "working_directory" in instructions
+        assert "current query" in instructions
+        assert "Do not create session state" in instructions
+        assert "unambiguous match" in instructions
         assert "real recovery boundaries" in instructions
         assert "dry-run-first and approval-gated" in instructions
         assert "scientific reasoning" in instructions

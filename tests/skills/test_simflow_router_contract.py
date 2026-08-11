@@ -81,6 +81,22 @@ def test_router_separates_runtime_events_from_skill_guidance():
     assert "required mcp engagement" not in text
 
 
+def test_router_uses_one_read_only_memory_reentry_without_session_lifecycle():
+    text = _skill_text().lower()
+    policy = _contract()["project_memory_policy"]
+
+    assert policy["scope"] == "first_simflow_use_per_project_per_user_request"
+    assert policy["tool"] == "inspect"
+    assert policy["read_only"] is True
+    assert policy["writes_session_state"] is False
+    assert policy["reuse_within_request"] is True
+    assert policy["silent_binding_requires_unambiguous_match"] is True
+    assert "read-only `inspect` tool once" in text
+    assert "do not create session state" in text
+    assert "do not repeat `inspect`" in text
+    assert "fixed recovery summary" in text
+
+
 def test_router_escalates_high_risk_events_to_runtime_without_support_skill():
     text = _skill_text().lower()
     triggers = set(_contract()["runtime_escalation_triggers"])
