@@ -10,11 +10,11 @@ from runtime.simflow_core.state import ProjectRootError, read_state, resolve_pro
 # File patterns that indicate a real compute directory
 COMPUTE_MARKERS = {
     "job_logs": ["train.log", "slurm-*.out", "*.nohup", "*.pid", "parallel_launcher.log", "serial_driver.nohup"],
-    "vasp": ["OUTCAR", "vasprun.xml", "OSZICAR", "INCAR"],
-    "cp2k": ["*.log", "project-*.inp"],
-    "gpumd_nep": ["nep.in", "train.xyz", "nep.restart", "loss.out", "thermo.out"],
+    "vasp": ["OUTCAR", "vasprun.xml", "OSZICAR"],
+    "cp2k": ["*.ener", "*-pos-1.xyz", "*.restart"],
+    "gpumd_nep": ["nep.restart", "loss.out", "thermo.out"],
     "gpumd_md": ["run.in", "model.xyz", "thermo.out", "neighbor.out"],
-    "lammps": ["in.*", "log.lammps", "data.*"],
+    "lammps": ["log.lammps", "restart.*.bin"],
     "python_scripts": ["run_*.sh", "launch_*.sh", "submit_*.sh"],
 }
 
@@ -105,11 +105,31 @@ def execute(params: dict) -> dict:
         return {"status": "error", "message": str(error)}
 
     max_depth = int(params.get("max_depth", 3))
+    scan_root = root
+    experiment_id = params.get("experiment_id")
+    from runtime.simflow_core.experiment_memory import build_reentry_summary, is_ledger_enabled
+    if is_ledger_enabled(str(root)):
+        if not experiment_id and not params.get("scan_root"):
+            return {
+                "status": "error",
+                "message": "experiment_id or scan_root is required when the experiment ledger is enabled",
+            }
+        if experiment_id:
+            summary = build_reentry_summary(str(root), experiment_id=experiment_id)
+            selected = summary.get("selected_experiment") or {}
+            scan_root = root / selected.get("root_path", ".")
+        else:
+            scan_root = root / str(params["scan_root"])
+        scan_root = scan_root.resolve()
+        try:
+            scan_root.relative_to(root)
+        except ValueError:
+            return {"status": "error", "message": "scan_root must be inside project_root"}
 
     orphan_dirs = []
     risky_dirs = []
 
-    for dir_path in root.rglob("*"):
+    for dir_path in scan_root.rglob("*"):
         if not dir_path.is_dir():
             continue
         # Skip .simflow, .git, __pycache__, node_modules, etc.
@@ -118,7 +138,7 @@ def execute(params: dict) -> dict:
         if any(part in ("__pycache__", "node_modules", ".git", ".simflow") for part in dir_path.parts):
             continue
         # Depth check
-        depth = len(dir_path.relative_to(root).parts)
+        depth = len(dir_path.relative_to(scan_root).parts)
         if depth > max_depth:
             continue
 
@@ -159,6 +179,8 @@ def execute(params: dict) -> dict:
         "risky_count": len(risky_dirs),
         "orphan_dirs": orphan_dirs,
         "risky_dirs": risky_dirs,
+        "scan_root": str(scan_root.relative_to(root)) if scan_root != root else ".",
+        "experiment_id": experiment_id,
         "recommendations": [],
     }
 
@@ -175,9 +197,7 @@ def execute(params: dict) -> dict:
             f"via record_user_override."
         )
 
-    # Write report to .simflow/reports/
-    from runtime.simflow_core.state import ensure_simflow_dir, write_report
-    ensure_simflow_dir(project_root=str(root))
+    # Render report content, but keep the scanner read-only unless requested.
     report_lines = [
         "# Orphan Compute Scan Report",
         "",
@@ -203,6 +223,14 @@ def execute(params: dict) -> dict:
         report_lines.append("")
         for rec in report["recommendations"]:
             report_lines.append(f"- {rec}")
-    write_report("\n".join(report_lines), project_root=str(root), report_file="orphan_compute_audit.md")
+    if bool(params.get("write_report", False)):
+        from runtime.simflow_core.state import write_report
+
+        suffix = f"_{experiment_id}" if experiment_id else ""
+        write_report(
+            "\n".join(report_lines),
+            project_root=str(root),
+            report_file=f"orphan_compute_audit{suffix}.md",
+        )
 
     return {"status": "success", "project_root": str(root), "data": report}

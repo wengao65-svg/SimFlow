@@ -3,6 +3,12 @@ name: simflow
 description: Route computational simulation research requests into SimFlow's workflow layer; use for top-level stage selection, cross-skill delegation, state/artifact/checkpoint/handoff coordination, safety escalation, and workflow boundary decisions across literature review, proposal, modeling, computation, analysis/visualization, writing, verification, and handoff.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
+`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+
 # SimFlow Top-Level Router
 
 `simflow` is the top-level router skill for SimFlow. It maps user intent to
@@ -232,26 +238,40 @@ actions, never router actions.
 
 This skill requires the following MCP tool engagement when loaded:
 
-- **Minimum engagement**: Call `simflow_state/read_state` before any state-write
-  tool (`simflow_state/register_artifact`, `simflow_state/create_checkpoint`, `update_stage`,
-  `record_*_evidence`, `write_state`).
+- **Project entry floor**: Call `simflow_state/project_reentry` with the explicit
+  canonical `project_root` before inspecting or changing an existing project.
+  Use its structured experiment, iteration, activity, recovery, and next-action
+  summary as cross-session memory; do not reconstruct normal project memory
+  from host conversation transcripts.
+- **Lower-level write prerequisite**: State-write tools still require
+  `simflow_state/read_state` engagement. `project_reentry` establishes that
+  engagement for the current MCP session; direct lower-level callers must call
+  `read_state` first.
 - **Task-shape-aware engagement**: All task shapes — including single-stage
   compute tasks (GPUMD compile, VASP relax, NEP training) — must engage at least
-  one SimFlow MCP tool. The router must suggest MCP engagement for every task,
-  not only multi-stage research tasks.
+  `project_reentry`. The router must suggest MCP engagement for every task, not
+  only multi-stage research tasks.
 - **Engagement contract enforcement**: State-write MCP tools are hard-blocked
   unless `read_state` was called in the same session (30-min timeout). Calling
-  any read-only tool (workflow_status, stage_readiness, etc.) auto-satisfies
-  this prerequisite.
+  `project_reentry` or another read-only tool auto-satisfies this prerequisite.
 
 ## Quick Start for Re-entering a Project
 
 When entering a project that already has a `.simflow/` directory:
 
-1. Call `simflow_state/read_state` (or `workflow_status`) to load current state
-2. Do NOT call `init_workflow` — it is idempotent and will just return existing
-   state without changes
-3. Call `simflow_state/session_handoff` for a compact state summary
-4. Call `simflow_state/orphan_compute_scanner` if you suspect unregistered compute
-5. Proceed with your task — state-write tools will work because read_state was
-   called in step 1
+1. Call `simflow_state/project_reentry` with `project_root` and the current
+   working directory. If multiple active experiments remain ambiguous, select
+   one explicitly before writing.
+2. If the ledger reports `not_started`, call `begin_experiment` before new
+   tracked work. Do not import legacy state or host transcripts as experiment
+   history.
+3. Review the selected experiment, current iteration, interrupted activities,
+   latest successful recovery point, and `next_action`. Use
+   `experiment_timeline` only when more structured detail is needed.
+4. Call `start_activity` before each project mutation, computation, analysis,
+   transfer, or state change. Pass its `session_context_id`, `experiment_id`,
+   optional `iteration_id`, and `activity_id` to linked writes, then call
+   `finish_activity` with outcomes and the next action.
+5. Use `orphan_compute_scanner` only for a bounded experiment/root scan when
+   unregistered compute is suspected. End the session with `session_handoff`;
+   deliberately unfinished activities remain visible as interrupted work.

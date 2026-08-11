@@ -24,6 +24,10 @@ def execute(params: dict) -> dict:
             parameters=params.get("parameters"),
             software=params.get("software"),
             metadata=params.get("metadata"),
+            session_context_id=params.get("session_context_id"),
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
         )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}

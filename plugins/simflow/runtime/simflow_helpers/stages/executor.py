@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runtime.simflow_core.checkpoints import create_checkpoint
 from runtime.simflow_core.failures import record_stage_failure
 from runtime.simflow_core.result_contract import attach_simflow_result
+from runtime.simflow_core.script_contracts import sanitize_sensitive_json_value
 from runtime.simflow_core.state import read_state, touch_workflow, update_stage
 from runtime.simflow_core.utils import now_iso
 from runtime.simflow_helpers.stages.progress import (
@@ -182,7 +183,7 @@ def execute_stage(workflow_dir: str, stage_name: str, params: dict | None = None
         "dry_run": dry_run,
         "started_at": now_iso(),
         "scripts": [],
-        "params": params,
+        "params": sanitize_sensitive_json_value(params),
     }
 
     if dry_run:

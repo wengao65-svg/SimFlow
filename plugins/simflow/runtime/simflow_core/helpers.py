@@ -83,6 +83,10 @@ def _register_path_artifact(
     helper_name: Optional[str],
     metadata: Optional[dict[str, Any]] = None,
     software: Optional[str] = None,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     artifact_metadata = {
         "role": role,
@@ -100,6 +104,10 @@ def _register_path_artifact(
         software=software,
         metadata=artifact_metadata,
         sync_stage_outputs=False,
+        session_context_id=session_context_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
 
 
@@ -117,6 +125,10 @@ def record_helper_run(
     parent_artifacts: Optional[list[str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     software: Optional[str] = None,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Record an optional helper run and its artifacts.
 
@@ -126,6 +138,18 @@ def record_helper_run(
     require the helper to be pre-declared.
     """
     root = resolve_project_root(project_root=project_root)
+    from .experiment_memory import require_write_context
+    context = require_write_context(
+        str(root), session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
+    if context:
+        session_context_id = context.session_context_id
+        experiment_id = context.experiment_id
+        iteration_id = context.iteration_id
+        activity_id = context.activity_id
+    context_kwargs = {"session_context_id": session_context_id, "experiment_id": experiment_id,
+                      "iteration_id": iteration_id, "activity_id": activity_id}
     ensure_workflow_initialized(project_root=str(root))
 
     run_id = f"helper_{uuid.uuid4().hex[:8]}"
@@ -152,6 +176,7 @@ def record_helper_run(
             helper_name=helper,
             metadata=metadata.get("script_metadata") if isinstance(metadata.get("script_metadata"), dict) else None,
             software=software,
+            **context_kwargs,
         )
 
     input_artifacts = [
@@ -165,6 +190,7 @@ def record_helper_run(
             helper_name=helper,
             metadata=metadata.get("input_metadata") if isinstance(metadata.get("input_metadata"), dict) else None,
             software=software,
+            **context_kwargs,
         )
         for path in input_paths
     ]
@@ -188,6 +214,7 @@ def record_helper_run(
                 metadata.get("output_metadata") if isinstance(metadata.get("output_metadata"), dict) else None,
             ),
             software=software,
+            **context_kwargs,
         )
         for path in output_paths
     ]
@@ -233,6 +260,7 @@ def record_helper_run(
         software=software,
         metadata=_merge_metadata({"helper_optional": True}, general_metadata),
         sync_stage_outputs=False,
+        **context_kwargs,
     )
 
     artifacts = [

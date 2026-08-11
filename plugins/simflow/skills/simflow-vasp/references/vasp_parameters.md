@@ -86,8 +86,10 @@ These are common research-grade targets, not automatic pass/fail standards. Reco
 
 ## POTCAR and NELECT discipline
 
-- SimFlow must not generate, copy, distribute, snapshot, or print POTCAR content.
-- Record metadata only: element order, pseudopotential family/flavor/date labels, ZVAL-derived `NELECT` when locally available, and hashes/provenance when allowed.
+- SimFlow must not return, print, snapshot, register as a normal artifact, commit, package, or redistribute POTCAR content.
+- A configured user-owned library may be read and concatenated only by the SimFlow runtime into a controlled calculation directory. ASE supplies setup tables only and never handles restricted file materialization.
+- `potcar_setups` supports only `minimal`, `recommended`, and `gw`; `None` means `minimal`. Element-level suffix overrides are allowed, while unknown profiles and atom-index setups are rejected.
+- Record metadata only: element order, resolved dataset sequence, pseudopotential family/flavor/date labels, ZVAL-derived `NELECT`, size, SHA-256, and provenance when allowed.
 - POSCAR species order and POTCAR block order must match.
 - Do not mix pseudopotential families or variants in comparative studies without explicit rationale.
 

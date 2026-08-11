@@ -114,8 +114,12 @@ def validate_potcar_metadata(poscar: str, potcar: str) -> dict[str, Any]:
     result = validate_potcar(poscar, potcar)
     return {
         "valid": result.get("valid", False),
+        "reason_code": result.get("reason_code"),
         "poscar_elements": result.get("poscar_elements", []),
         "potcar_elements": result.get("potcar_elements", []),
+        "potcar_datasets": result.get("potcar_datasets", []),
+        "size_bytes": result.get("size_bytes"),
+        "sha256": result.get("sha256"),
         "message": result.get("message"),
         "content_included": False,
     }

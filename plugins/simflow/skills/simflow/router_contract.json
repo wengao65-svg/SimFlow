@@ -219,9 +219,10 @@
     "fabricated_literature_results_data_figures_citations_convergence_or_job_states"
   ],
   "task_shape_engagement_policy": {
-    "description": "P3.4: All task shapes — including single-stage compute tasks — should engage SimFlow MCP tools. The router must suggest at least read_state for any task that involves computation, analysis, modeling, or writing.",
+    "description": "P3.4: All task shapes — including single-stage compute tasks — should enter through project_reentry. Lower-level state writes still require read_state engagement, which project_reentry establishes for the current session.",
     "all_task_shapes_require_engagement": true,
-    "engagement_floor": "simflow_state/read_state",
+    "engagement_floor": "simflow_state/project_reentry",
+    "state_write_prerequisite": "simflow_state/read_state",
     "task_shape_patterns": {
       "multi_stage_research": {
         "description": "Audit, selection, analysis, dataset construction — maps to multiple stages",

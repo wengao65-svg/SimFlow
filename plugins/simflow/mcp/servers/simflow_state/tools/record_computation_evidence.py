@@ -18,6 +18,10 @@ def execute(params: dict) -> dict:
             project_root,
             params=params.get("evidence_params") or {},
             dry_run=bool(params.get("dry_run", False)),
+            session_context_id=params.get("session_context_id"),
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
         )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}

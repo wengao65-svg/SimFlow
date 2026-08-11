@@ -158,6 +158,21 @@ def manifests_match(expected: dict, actual: dict) -> bool:
     return expected.get("files", []) == actual.get("files", [])
 
 
+def restricted_transfer_files(manifest: dict) -> list[dict]:
+    """Classify restricted transfer entries without reading file contents."""
+    restricted = []
+    for item in manifest.get("files", []):
+        if PurePosixPath(item.get("path", "")).name.upper() != "POTCAR":
+            continue
+        restricted.append({
+            "path": item["path"],
+            "classification": "restricted_licensed_vasp_potcar",
+            "size_bytes": item["size_bytes"],
+            "sha256": item["sha256"],
+        })
+    return restricted
+
+
 def request_fingerprint(direction: str, remote_dir: str, paths: Iterable[str], target: dict) -> str:
     payload = {
         "schema": "ssh-target-v2",

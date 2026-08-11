@@ -3,6 +3,12 @@ name: simflow-vasp
 description: Provide VASP domain assistance for official-documentation lookup, input preparation, validation, dry-run planning, troubleshooting, output parsing, analysis/visualization, and artifact recording. Use when Codex works with VASP, INCAR, POSCAR, POTCAR metadata, KPOINTS, OUTCAR, OSZICAR, vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, NEB, phonons, AIMD, SOC, hybrid functionals, DFT+U, GW/BSE/RPA, defects, surfaces, adsorption, py4vasp, VASPKIT, or VASP-related SimFlow handoff.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
+`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+
 # SimFlow VASP
 
 `simflow-vasp` is a domain assistant. It helps the host agent use VASP official documentation, local evidence, SimFlow state, optional helper scripts, and conservative scientific checks. It is not a central workflow executor and does not define the full VASP capability surface.
@@ -79,7 +85,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 - Input set: `POSCAR`, `INCAR`, `KPOINTS`, and licensed local `POTCAR` metadata are present and mutually consistent for the requested task.
 - For MLP labeling datasets (N jobs feeding one MLP training set), additionally consult `simflow-mlp/references/mlp_dft_labeling_consistency.md` for the single-protocol contract and dataset-scope consistency requirements.
 - Structure: POSCAR species/counts, lattice, selective dynamics, surface vacuum, defect supercell, adsorption geometry, and charge/spin assumptions are explicit.
-- POTCAR: element order and ZVAL evidence are checked without copying, printing, snapshotting, or distributing POTCAR content.
+- POTCAR: element order, resolved dataset sequence, ZVAL evidence, size, and SHA-256 are checked without returning, printing, snapshotting, or redistributing POTCAR content. A configured user-owned library may be materialized only by the SimFlow runtime into a controlled calculation directory.
 - KPOINTS: mesh density, Gamma/Monkhorst choice, line-mode paths for bands, and finite-size/k-point convergence are appropriate for the system.
 - INCAR: task labels match `NSW`, `IBRION`, `ISIF`, `ISMEAR`, `SIGMA`, `EDIFF`, `EDIFFG`, `ISPIN`, `MAGMOM`, `LREAL`, `LASPH`, and any advanced tags.
 - Predecessors: DOS/band workflows have a prior static SCF charge density; NEB has endpoint/images; phonons have a displacement or DFPT plan; restart/continuation has compatible `WAVECAR`/`CHGCAR`/`CONTCAR` evidence.
@@ -89,7 +95,7 @@ description: Provide VASP domain assistance for official-documentation lookup, i
 
 ## Optional helper scripts
 
-- `scripts/generate_vasp_inputs.py`: Generate a conservative VASP input set from a structure using pymatgen. It writes POTCAR metadata/instructions only; it does not generate or distribute POTCAR content.
+- `scripts/generate_vasp_inputs.py`: Generate a conservative VASP input set from a structure using pymatgen. With a configured licensed library and controlled calculation directory, SimFlow may materialize POTCAR locally using fixed ASE-style `minimal`, `recommended`, or `gw` setup tables plus element overrides. Returned and recorded evidence remains metadata-only.
 - `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, dry-run plans, and helper-run evidence for common tasks without submitting jobs.
 - `scripts/validate_vasp_outputs.py`: Inspect VASP outputs for convergence and obvious warning/error evidence.
 - `scripts/troubleshoot_vasp.py`: Produce source-backed troubleshooting notes using official VASP/py4vasp documentation links.
@@ -114,8 +120,11 @@ the shared `VASPParser`.
 - Do not default unknown VASP tasks to `static`.
 - Do not treat common aliases as the full VASP capability surface.
 - Do not require py4vasp, VASPKIT, SimFlow parsers, fixed report names, or generated templates as the only valid path.
-- Do not generate, concatenate, copy, move, print, snapshot, or invoke VASPKIT
-  to produce POTCAR content.
+- Do not return, print, snapshot, register as a normal artifact, commit, package,
+  or redistribute POTCAR content. Do not invoke ASE or VASPKIT to perform
+  restricted materialization; only the SimFlow runtime may read and concatenate
+  an explicitly configured user-owned library into a controlled calculation
+  directory.
 - Do not fabricate VASP results, literature, figures, citations, convergence status, or completed calculations.
 - Do not record unfinished or failed calculations as completed results.
 - Do not submit real local, remote, or HPC jobs from this skill without the relevant approval gate.

@@ -55,6 +55,21 @@ def execute(params: dict) -> dict:
         return {"status": "error", "message": "risk_note is required"}
 
     now = datetime.now(timezone.utc).isoformat()
+    from runtime.simflow_core.experiment_memory import record_linked_write, require_write_context
+
+    ledger_context = require_write_context(
+        str(root),
+        session_context_id=params.get("session_context_id"),
+        experiment_id=params.get("experiment_id"),
+        iteration_id=params.get("iteration_id"),
+        activity_id=params.get("activity_id"),
+    )
+    context_kwargs = {
+        "session_context_id": ledger_context.session_context_id if ledger_context else None,
+        "experiment_id": ledger_context.experiment_id if ledger_context else None,
+        "iteration_id": ledger_context.iteration_id if ledger_context else None,
+        "activity_id": ledger_context.activity_id if ledger_context else None,
+    }
 
     override_entry = {
         "gate_id": gate_id,
@@ -65,6 +80,9 @@ def execute(params: dict) -> dict:
         "requested_action": params.get("requested_action", ""),
         "directory_path": params.get("directory_path", ""),
         "original_gate_failure_ref": params.get("original_gate_failure_ref", ""),
+        "experiment_id": context_kwargs["experiment_id"],
+        "iteration_id": context_kwargs["iteration_id"],
+        "activity_id": context_kwargs["activity_id"],
         "created_at": now,
     }
 
@@ -83,8 +101,16 @@ def execute(params: dict) -> dict:
         }
 
     gates.append(override_entry)
-    write_state(gates, project_root=str(root), state_file="gates.json")
-    touch_workflow(str(root))
+    write_state(gates, project_root=str(root), state_file="gates.json", **context_kwargs)
+    touch_workflow(str(root), **context_kwargs)
+    record_linked_write(
+        str(root),
+        kind="gate",
+        target_id=gate_id,
+        role="user_override",
+        metadata={"decision": "user_override", "stage": override_entry["stage"]},
+        **context_kwargs,
+    )
 
     return {
         "status": "success",

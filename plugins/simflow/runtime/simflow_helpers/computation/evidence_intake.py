@@ -131,20 +131,25 @@ def _write_manifest(project_root: Path, manifest: dict[str, Any]) -> Path:
     return path
 
 
-def _update_workflow_after_completion(project_root: Path) -> None:
+def _update_workflow_after_completion(project_root: Path, **context: Any) -> None:
     workflow = read_state(project_root=str(project_root), state_file="workflow.json")
     if not workflow:
         return
     workflow["current_stage"] = "computation"
     workflow["status"] = "in_progress"
     workflow["updated_at"] = _now_iso()
-    write_state(workflow, project_root=str(project_root), state_file="workflow.json")
+    write_state(workflow, project_root=str(project_root), state_file="workflow.json", **context)
 
 
 def record_computation_evidence(
     workflow_dir: str,
     params: dict[str, Any] | None = None,
     dry_run: bool = False,
+    *,
+    session_context_id: str | None = None,
+    experiment_id: str | None = None,
+    iteration_id: str | None = None,
+    activity_id: str | None = None,
 ) -> dict[str, Any]:
     """Record user-provided computation evidence as generic stage artifacts."""
     project_root = resolve_project_root_from_workflow_dir(workflow_dir)
@@ -204,6 +209,10 @@ def record_computation_evidence(
             for entry in entries
         ],
         "parent_artifact_ids": parent_artifacts,
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
     }
 
     if dry_run:
@@ -213,6 +222,19 @@ def record_computation_evidence(
             "manifest": manifest,
             "planned_artifacts": manifest["accepted_evidence"],
         }
+
+    from runtime.simflow_core.experiment_memory import require_write_context
+    ledger_context = require_write_context(
+        str(project_root), session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
+    if ledger_context:
+        session_context_id = ledger_context.session_context_id
+        experiment_id = ledger_context.experiment_id
+        iteration_id = ledger_context.iteration_id
+        activity_id = ledger_context.activity_id
+    context = {"session_context_id": session_context_id, "experiment_id": experiment_id,
+               "iteration_id": iteration_id, "activity_id": activity_id}
 
     artifacts = []
     for entry in entries:
@@ -237,6 +259,10 @@ def record_computation_evidence(
             },
             software=software,
             metadata=metadata,
+            session_context_id=session_context_id,
+            experiment_id=experiment_id,
+            iteration_id=iteration_id,
+            activity_id=activity_id,
         ))
 
     manifest["artifact_ids"] = [artifact["artifact_id"] for artifact in artifacts]
@@ -255,6 +281,10 @@ def record_computation_evidence(
             "evidence_keys": ["evidence_intake_manifest"],
             "actual_tool_used": actual_tool_used,
         },
+        session_context_id=session_context_id,
+        experiment_id=experiment_id,
+        iteration_id=iteration_id,
+        activity_id=activity_id,
     )
     artifacts.append(manifest_artifact)
 
@@ -268,6 +298,7 @@ def record_computation_evidence(
             project_root=str(project_root),
             inputs=parent_artifacts,
             outputs=output_ids,
+            **context,
         )
         checkpoint = create_checkpoint(
             state.get("workflow_id", "unknown"),
@@ -275,8 +306,12 @@ def record_computation_evidence(
             "User-provided computation evidence intake complete",
             project_root=str(project_root),
             job_id="user_provided_computation_evidence",
+            session_context_id=session_context_id,
+            experiment_id=experiment_id,
+            iteration_id=iteration_id,
+            activity_id=activity_id,
         )
-        _update_workflow_after_completion(project_root)
+        _update_workflow_after_completion(project_root, **context)
         readiness = build_stage_readiness(str(project_root), stage="computation")
 
     return {
