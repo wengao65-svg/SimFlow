@@ -148,6 +148,11 @@ def persist_verification_state(
     report: dict[str, Any],
     base_dir: str = ".",
     project_root: Optional[str] = None,
+    *,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     path = root / VERIFICATION_FILE
@@ -165,7 +170,11 @@ def persist_verification_state(
         except json.JSONDecodeError:
             existing = []
     existing.append(report)
-    path.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_state(
+        existing, project_root=str(root), state_file="verification.json",
+        session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
     return report
 
 
@@ -212,15 +221,30 @@ def write_verification_outputs(
     base_dir: str = ".",
     project_root: Optional[str] = None,
     write_markdown: bool = False,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    from .experiment_memory import record_linked_write, require_write_context
+    context = require_write_context(
+        str(root), session_context_id=session_context_id, experiment_id=experiment_id,
+        iteration_id=iteration_id, activity_id=activity_id,
+    )
+    context_kwargs = ({key: value for key, value in context.as_dict().items() if key != "project_root"}
+                      if context else {})
     json_path = _report_path(root, VERIFY_REPORT_JSON)
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    record_linked_write(str(root), kind="path", path=str(json_path.relative_to(root)),
+                        role="verification_report", **context_kwargs)
     report["output_file"] = VERIFY_REPORT_JSON
     if write_markdown:
         markdown_path = _report_path(root, VERIFY_REPORT_MARKDOWN)
         markdown_path.write_text(_build_markdown(report), encoding="utf-8")
+        record_linked_write(str(root), kind="path", path=str(markdown_path.relative_to(root)),
+                            role="verification_report", **context_kwargs)
         report["markdown_file"] = VERIFY_REPORT_MARKDOWN
     return report
 
@@ -229,9 +253,10 @@ def finalize_report(
     report: dict[str, Any],
     base_dir: str = ".",
     project_root: Optional[str] = None,
+    **context: Any,
 ) -> dict[str, Any]:
     completed = _complete_report(report)
-    persist_verification_state(completed, base_dir=base_dir, project_root=project_root)
+    persist_verification_state(completed, base_dir=base_dir, project_root=project_root, **context)
     return completed
 
 
@@ -255,6 +280,10 @@ def record_stage_completion_verification(
     project_root: str,
     *,
     checkpoint_id: Optional[str] = None,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Auto-create a verification record when a stage is marked completed.
 
@@ -302,8 +331,10 @@ def record_stage_completion_verification(
         verifications = []
 
     verifications.append(entry)
-    write_state(verifications, project_root=str(root), state_file="verification.json")
-    touch_workflow(str(root))
+    context = {"session_context_id": session_context_id, "experiment_id": experiment_id,
+               "iteration_id": iteration_id, "activity_id": activity_id}
+    write_state(verifications, project_root=str(root), state_file="verification.json", **context)
+    touch_workflow(str(root), **context)
     return entry
 
 
@@ -315,6 +346,10 @@ def record_stage_failure_verification(
     failure_id: str,
     checkpoint_id: Optional[str] = None,
     source_artifact_ids: Optional[list[str]] = None,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Record schema-complete verification evidence for a failed stage."""
     now = _now_iso()
@@ -344,8 +379,10 @@ def record_stage_failure_verification(
     root = resolve_project_root(project_root=project_root)
     verifications = get_verifications(project_root=str(root))
     verifications.append(entry)
-    write_state(verifications, project_root=str(root), state_file="verification.json")
-    touch_workflow(str(root))
+    context = {"session_context_id": session_context_id, "experiment_id": experiment_id,
+               "iteration_id": iteration_id, "activity_id": activity_id}
+    write_state(verifications, project_root=str(root), state_file="verification.json", **context)
+    touch_workflow(str(root), **context)
     return entry
 
 

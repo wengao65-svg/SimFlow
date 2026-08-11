@@ -151,7 +151,7 @@ The plugin core does not require scientific Python packages. Install optional
 dependencies only when you want local helper scripts to use those libraries:
 
 ```bash
-pip install -e ".[vasp]"       # pymatgen-backed VASP helpers
+pip install -e ".[vasp]"       # pymatgen VASP helpers plus ASE setup tables
 pip install -e ".[lammps]"     # MDAnalysis-backed LAMMPS analysis helpers
 pip install -e ".[structure]"  # pymatgen and ASE structure helpers
 pip install -e ".[all]"        # all optional scientific helpers

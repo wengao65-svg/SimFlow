@@ -15,7 +15,15 @@ def execute(params: dict) -> dict:
     data = params.get("data", {})
     try:
         project_root = _project_root(params)
-        path = write_state(data, project_root=project_root, state_file=state_file)
+        path = write_state(
+            data,
+            project_root=project_root,
+            state_file=state_file,
+            session_context_id=params.get("session_context_id"),
+            experiment_id=params.get("experiment_id"),
+            iteration_id=params.get("iteration_id"),
+            activity_id=params.get("activity_id"),
+        )
     except ProjectRootError as error:
         return {"status": "error", "message": str(error)}
     return {"status": "success", "project_root": project_root, "path": str(path)}

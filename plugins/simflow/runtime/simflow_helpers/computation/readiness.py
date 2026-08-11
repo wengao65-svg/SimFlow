@@ -43,7 +43,11 @@ def _relative_path(project_root: Path, path: str | Path) -> str:
         return str(resolved)
 
 
-def _input_file_entries(input_manifest: dict[str, Any]) -> list[str]:
+def _input_file_entries(
+    input_manifest: dict[str, Any],
+    *,
+    include_restricted: bool = True,
+) -> list[str]:
     entries: list[str] = []
     for key in ("generated_files", "input_files"):
         for value in input_manifest.get(key, []) or []:
@@ -56,6 +60,12 @@ def _input_file_entries(input_manifest: dict[str, Any]) -> list[str]:
             entries.append(value)
         elif isinstance(value, dict) and value.get("path"):
             entries.append(str(value["path"]))
+    if include_restricted:
+        for value in input_manifest.get("restricted_files", []) or []:
+            if isinstance(value, str):
+                entries.append(value)
+            elif isinstance(value, dict) and value.get("path"):
+                entries.append(str(value["path"]))
     return list(dict.fromkeys(entries))
 
 
@@ -175,7 +185,7 @@ def build_computation_readiness(
         root,
         [
             job_script_path,
-            *_input_file_entries(input_manifest),
+            *_input_file_entries(input_manifest, include_restricted=False),
         ],
     )
     status = _overall_status(

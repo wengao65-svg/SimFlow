@@ -3,6 +3,12 @@ name: simflow-cp2k
 description: Provide CP2K domain assistance for official-documentation lookup, input preparation, validation, dry-run planning, troubleshooting, output parsing, analysis/visualization, and artifact recording. Use when Codex works with CP2K, CP2K input decks, GLOBAL, FORCE_EVAL, DFT, MGRID, SCF, QS, KIND, MOTION, ENERGY, GEO_OPT, CELL_OPT, MD/AIMD, restart files, .log, .ener, trajectories, basis/potential choices, cutoff convergence, or CP2K-related SimFlow handoff.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
+`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+
 # SimFlow CP2K
 
 `simflow-cp2k` is a domain assistant. It helps the host agent use CP2K official documentation, portable example patterns, SimFlow state, helper scripts, optional user-provided CP2K source-tree evidence, and conservative scientific checks. It is not a central workflow executor and does not define the full CP2K capability surface.

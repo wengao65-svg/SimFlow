@@ -3,6 +3,12 @@ name: simflow-gpumd
 description: Provide GPUMD/NEP domain assistance for bounded input preparation, static validation, dry-run compute planning, selected output parsing, MLP evidence handoff, and artifact recording. Use when Codex works with GPUMD, NEP, run.in, model.xyz, nep.in, train.xyz, test.xyz, nep.restart, nep.txt, loss.out, thermo.out, neighbor.out, GPUMD transport outputs, GPUMDkit-adjacent evidence, or GPUMD/NEP-related SimFlow handoff; do not use it to claim real execution or HPC submission without approval gates.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
+`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+
 # SimFlow GPUMD
 
 `simflow-gpumd` is a bounded domain assistant for both NEP trainer evidence and

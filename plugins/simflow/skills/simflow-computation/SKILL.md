@@ -3,6 +3,12 @@ name: simflow-computation
 description: Use when a user asks to prepare, validate, dry-run, or submit computational simulation jobs.
 ---
 
+## Cross-Session Experiment Memory
+
+For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+
+`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+
 # SimFlow Computation
 
 ## Purpose
@@ -136,6 +142,10 @@ extends a computation stage, observe:
   manifest.
 - Preserve transfer manifests, per-file hashes, partial failures, and download
   verification as computation artifacts.
+- Licensed VASP POTCAR files may be included in an approved upload from a
+  controlled calculation directory. Store only restricted-file metadata and
+  hashes in manifests; never copy POTCAR into `.simflow/artifacts` or expose its
+  contents in reports, checkpoints, or tool responses.
 
 ## Status Semantics
 
@@ -187,8 +197,10 @@ extends a computation stage, observe:
   approval gate.
 - Do not skip dry-run, input validation, resource estimate, credential scan, or
   artifact hash recording when real execution is possible.
-- Do not store credentials, expose licensed/proprietary files, or redistribute
-  restricted simulation inputs.
+- Do not store credentials, expose licensed/proprietary file contents, or
+  redistribute restricted simulation inputs. Controlled local POTCAR
+  materialization and approval-bound transfer are permitted only through the
+  VASP runtime and existing HPC transfer path.
 - Do not require one specific simulation engine, scheduler, parser, plotting
   library, input builder, or helper script.
 

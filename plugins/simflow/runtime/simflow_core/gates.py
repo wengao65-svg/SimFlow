@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .state import resolve_project_root
+from .state import read_state, resolve_project_root, write_state
 
 GATES_DIR = Path(__file__).parent.parent.parent / "workflow" / "gates"
 GATE_STATE_FILE = ".simflow/state/gates.json"
@@ -260,6 +260,10 @@ def record_gate_decision(
     base_dir: str = ".",
     agent: str = "",
     project_root: Optional[str] = None,
+    session_context_id: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
+    activity_id: Optional[str] = None,
 ) -> dict:
     """Record a gate approval/rejection decision.
 
@@ -276,6 +280,21 @@ def record_gate_decision(
     """
     now = datetime.now(timezone.utc).isoformat()
     decision_id = f"gate_decision_{uuid.uuid4().hex[:12]}"
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    from .experiment_memory import record_linked_write, require_write_context
+
+    ledger_context = require_write_context(
+        str(root),
+        session_context_id=session_context_id or context.get("session_context_id"),
+        experiment_id=experiment_id or context.get("experiment_id"),
+        iteration_id=iteration_id or context.get("iteration_id"),
+        activity_id=activity_id or context.get("activity_id"),
+    )
+    if ledger_context:
+        session_context_id = ledger_context.session_context_id
+        experiment_id = ledger_context.experiment_id
+        iteration_id = ledger_context.iteration_id
+        activity_id = ledger_context.activity_id
     record = {
         "decision_id": decision_id,
         "gate": gate_name,
@@ -283,15 +302,13 @@ def record_gate_decision(
         "conditions": context,
         "timestamp": now,
         "agent": agent,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
     }
 
-    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     path = root / GATE_STATE_FILE
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing: Any = {"decisions": []}
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            existing = json.load(f)
+    existing: Any = read_state(project_root=str(root), state_file="gates.json")
     if isinstance(existing, list):
         existing = {"decisions": existing}
     if not isinstance(existing, dict):
@@ -304,8 +321,22 @@ def record_gate_decision(
         "latest_decision_at": now,
         "latest_agent": agent,
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(existing, f, indent=2, ensure_ascii=False)
+    context_kwargs = {
+        "session_context_id": session_context_id,
+        "experiment_id": experiment_id,
+        "iteration_id": iteration_id,
+        "activity_id": activity_id,
+    }
+    write_state(existing, project_root=str(root), state_file="gates.json", **context_kwargs)
+    record_linked_write(
+        str(root),
+        kind="gate",
+        target_id=decision_id,
+        path=str(path.relative_to(root)),
+        role="gate_decision",
+        metadata={"gate": gate_name, "decision": decision},
+        **context_kwargs,
+    )
 
     return record
 

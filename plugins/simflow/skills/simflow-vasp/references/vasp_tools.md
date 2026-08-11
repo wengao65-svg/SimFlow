@@ -69,8 +69,9 @@ SimFlow context:
   derived data and rendered images, plus the command log.
 
 Prohibited:
-- Do not use VASPKIT to generate, copy, print, snapshot, or redistribute
-  POTCAR content.
+- Do not use VASPKIT or ASE calculators to generate, copy, print, snapshot, or
+  redistribute POTCAR content. Restricted materialization belongs only to the
+  SimFlow VASP runtime.
 - Do not treat VASPKIT as the only valid VASP post-processing path; user
   scripts, py4vasp, pymatgen, or custom Python are acceptable when
   evidence and lineage are recorded.

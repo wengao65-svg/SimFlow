@@ -26,6 +26,18 @@
     "stage": {
       "type": "string"
     },
+    "experiment_id": {
+      "type": ["string", "null"],
+      "pattern": "^exp_[a-z0-9]{8}$"
+    },
+    "iteration_id": {
+      "type": ["string", "null"],
+      "pattern": "^iter_[a-z0-9]{8}$"
+    },
+    "activity_id": {
+      "type": ["string", "null"],
+      "pattern": "^act_[a-z0-9]{8}$"
+    },
     "path": {
       "type": ["string", "null"]
     },

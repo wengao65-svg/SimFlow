@@ -155,6 +155,14 @@ def _sanitize_json_value(value: Any, explicit_keys: Iterable[str] | None = None)
     return value
 
 
+def sanitize_sensitive_json_value(
+    value: Any,
+    explicit_keys: Iterable[str] | None = None,
+) -> Any:
+    """Return JSON-compatible evidence with credential and POTCAR paths redacted."""
+    return _sanitize_json_value(value, explicit_keys)
+
+
 def _redact_json_cli_value(value: str, explicit_keys: Iterable[str] | None = None) -> str:
     try:
         decoded = json.loads(value)

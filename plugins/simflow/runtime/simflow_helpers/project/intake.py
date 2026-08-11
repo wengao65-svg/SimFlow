@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from runtime.simflow_core.literature import empty_research_source_inputs, normalize_research_sources
+from runtime.simflow_core.script_contracts import sanitize_sensitive_json_value
 from runtime.simflow_core.state import init_workflow, write_state
 from runtime.simflow_core.workflow import load_recipe
 
@@ -251,7 +252,7 @@ def init_research(input_file: str = None, input_text: str = None,
         "software_specified": bool(parsed.get("software_specified")),
         "toolchain": parsed.get("toolchain", []),
         "software_stack": parsed.get("software_stack", []),
-        "parameters": parsed.get("parameters", {}),
+        "parameters": sanitize_sensitive_json_value(parsed.get("parameters", {})),
         "research_sources": research_sources,
         "created_at": datetime.now().isoformat(),
     }
