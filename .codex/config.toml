@@ -1,6 +1,6 @@
 [plugin]
 name = "simflow"
-version = "0.10.0"
+version = "0.16.0"
 
 [defaults]
 working_directory = "."

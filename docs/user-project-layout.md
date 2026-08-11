@@ -289,9 +289,9 @@ my_project/
 Note `phase1_literature_review/` and `phase2_proposal/` are absent (work
 not performed) and the remaining phases keep their canonical numbers.
 
-## Enforcement
+## Advisory Use
 
-Directory hygiene checks are specified in the `simflow-verify` skill
-(`Directory Hygiene Checks` section). The host agent performs them as
-text-level checks when verifying a project; SimFlow does not ship a
-separate validator binary for this.
+This layout is a recommended template for new projects, not a runtime
+requirement. SimFlow should respect an existing project layout and may report
+non-blocking organization suggestions when the user asks for them. Directory
+shape must not block scientific work or force an automatic migration.

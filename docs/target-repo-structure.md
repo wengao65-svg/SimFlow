@@ -44,7 +44,7 @@ into the generated `opencode-simflow` npm package.
 
 ## Skills
 
-Canonical workflow-layer skills are:
+Public Research Task Skills are:
 
 ```text
 simflow
@@ -54,7 +54,6 @@ simflow-modeling
 simflow-computation
 simflow-analysis-visualization
 simflow-writing
-simflow-safety-gates
 ```
 
 Project intake, stage execution, and pipeline helpers live under
@@ -63,10 +62,9 @@ directly instead of depending on CLI or wrapper scripts.
 
 Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, and
 `simflow-gpumd` are the supported domain assistants in the current product
-build. `simflow-mlp` provides cross-tool MLP evidence guidance. `simflow-qe`
-and `simflow-gaussian` are reserved unsupported placeholders. Engine skills do
-not own workflow progression and must not make helper scripts the only valid
-path.
+build. `simflow-mlp` provides cross-tool MLP guidance. Unsupported engines do
+not receive placeholder Skills. Domain Skills do not own workflow progression
+and must not make helper scripts the only valid path.
 
 ## Workflow Definitions
 

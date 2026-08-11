@@ -13,17 +13,11 @@ PACKAGED_SKILLS = {
     "simflow-computation",
     "simflow-analysis-visualization",
     "simflow-writing",
-    "simflow-safety-gates",
     "simflow-vasp",
-    "simflow-qe",
     "simflow-cp2k",
     "simflow-lammps",
     "simflow-gpumd",
     "simflow-mlp",
-    "simflow-gaussian",
-    "simflow-checkpoint",
-    "simflow-handoff",
-    "simflow-verify",
 }
 FORBIDDEN_SOURCE_PATHS = [
     "agents",

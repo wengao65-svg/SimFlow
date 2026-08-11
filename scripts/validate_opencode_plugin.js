@@ -22,17 +22,11 @@ const PACKAGED_SKILLS = [
   'simflow-computation',
   'simflow-analysis-visualization',
   'simflow-writing',
-  'simflow-safety-gates',
   'simflow-vasp',
-  'simflow-qe',
   'simflow-cp2k',
   'simflow-lammps',
   'simflow-gpumd',
   'simflow-mlp',
-  'simflow-gaussian',
-  'simflow-checkpoint',
-  'simflow-handoff',
-  'simflow-verify',
 ];
 const RESTRICTED_NAMES = new Set(['POTCAR', 'WAVECAR', 'CHGCAR', 'OUTCAR', 'vasprun.xml']);
 

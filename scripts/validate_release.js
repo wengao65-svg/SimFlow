@@ -178,9 +178,23 @@ function validateSupportMatrix() {
   const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
   const prd = fs.readFileSync(path.join(ROOT, 'docs', 'PRD.md'), 'utf-8');
   const softwareSkills = fs.readFileSync(path.join(ROOT, 'docs', 'software-skills.md'), 'utf-8');
-  check('README states QE/Gaussian unsupported placeholder status', /QE \/ Gaussian \| Unsupported placeholders/.test(readme));
+  check('README states unsupported engines have no placeholder Skill', /Other engines \| No placeholder Skill/.test(readme));
   check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
-  check('software skills document unsupported placeholder policy', /simflow-qe` and `simflow-gaussian` are reserved placeholders/.test(softwareSkills));
+  check('software skills document no-placeholder policy', /Unsupported engines do not receive placeholder Skills/.test(softwareSkills));
+
+  const removedPublicSkills = [
+    'simflow-safety-gates',
+    'simflow-checkpoint',
+    'simflow-handoff',
+    'simflow-verify',
+    'simflow-qe',
+    'simflow-gaussian',
+  ].filter(name => fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')));
+  check(
+    'operational and placeholder Skills are absent from the public surface',
+    removedPublicSkills.length === 0,
+    removedPublicSkills.join('\n'),
+  );
 
   const removedMcpServers = ['literature', 'structure', 'parsers', 'artifact_store', 'checkpoint_store'].filter(name => (
     fs.existsSync(path.join(ROOT, 'mcp', 'servers', name))
@@ -211,12 +225,6 @@ function validateSupportMatrix() {
     'unsupported QE/Gaussian parser and template source files are absent',
     unsupportedSourceFiles.length === 0,
     unsupportedSourceFiles.join('\n'),
-  );
-
-  const verificationRunner = fs.readFileSync(path.join(ROOT, 'skills', 'simflow-verify', 'scripts', 'run_verification.py'), 'utf-8');
-  check(
-    'verification helper rejects unsupported QE/Gaussian placeholders',
-    verificationRunner.includes('UNSUPPORTED_PLACEHOLDER_SOFTWARE') && verificationRunner.includes('unsupported_placeholder'),
   );
 
   const targetStructure = fs.readFileSync(path.join(ROOT, 'docs', 'target-repo-structure.md'), 'utf-8');

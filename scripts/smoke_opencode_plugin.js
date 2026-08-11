@@ -16,9 +16,8 @@ const SERVER_NAMES = [
 const SKILL_NAMES = [
   'simflow', 'simflow-literature-review', 'simflow-proposal', 'simflow-modeling',
   'simflow-computation', 'simflow-analysis-visualization', 'simflow-writing',
-  'simflow-safety-gates', 'simflow-vasp', 'simflow-qe', 'simflow-cp2k',
-  'simflow-lammps', 'simflow-gpumd', 'simflow-mlp', 'simflow-gaussian',
-  'simflow-checkpoint', 'simflow-handoff', 'simflow-verify',
+  'simflow-vasp', 'simflow-cp2k', 'simflow-lammps', 'simflow-gpumd',
+  'simflow-mlp',
 ];
 
 function run(command, args, options = {}) {

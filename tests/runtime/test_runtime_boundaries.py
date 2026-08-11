@@ -25,7 +25,6 @@ CANONICAL_SKILL_DIRS = [
     "skills/simflow-computation",
     "skills/simflow-analysis-visualization",
     "skills/simflow-writing",
-    "skills/simflow-safety-gates",
 ]
 
 CANONICAL_HELPER_DIRS = [

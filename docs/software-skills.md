@@ -1,8 +1,8 @@
 # Software Skills Reference
 
-Software skills are optional domain assistants. They provide input-file
-guidance, common checks, troubleshooting notes, template examples, official
-documentation pointers, and workflow-boundary guidance.
+Software skills are optional Domain Skills. They provide input-file guidance,
+common checks, troubleshooting notes, examples, and official-documentation
+pointers.
 
 They are not workflow executors. They must not make a fixed parser, builder,
 report name, software package, or DFT/AIMD/MD path mandatory.
@@ -35,18 +35,8 @@ python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
 
 The script does not submit jobs and does not advance a fixed VASP workflow.
 
-Default helper reports live under project-root `reports/<engine>/`. `.simflow`
-is touched only by explicit helper-run recording.
-
-Helper outputs do not initialize/advance stages, register artifacts, or create checkpoints unless explicit helper-run recording is requested. When
-`--record-helper-run` is used, the state effect is `record_only`: helper
-evidence and lineage are registered without changing stage status or creating a
-stage-boundary checkpoint.
-
-Direct helpers do not register arbitrary report artifacts. Stage runners may ingest/register outputs when the canonical workflow stage owns them.
-
-`simflow.result.v1` records canonical nested helper/stage/state-admin results.
-Top-level statuses are compatibility fields.
+Helpers remain usable without SimFlow MCP or workflow state. Runtime recording,
+when explicitly requested by a caller, is a separate adapter concern.
 
 ## CP2K
 
@@ -82,12 +72,11 @@ concepts. `workflow/toolchains/capabilities.json` is the support-level source of
 truth. Optional scripts may emit `simflow.helper_evidence.v1` records without
 turning that output format into a product category.
 
-## Unsupported Placeholders
+## Unsupported Engines
 
-`simflow-qe` and `simflow-gaussian` are reserved placeholders in the current
-product build. They should state that QE/Gaussian support is unavailable, avoid
-generating engine-specific inputs or validation claims, and only record
-user-provided files as generic artifacts when traceability is requested.
+Unsupported engines do not receive placeholder Skills. The router should retain
+the software name as context, select the relevant Research Task Skill, and avoid
+claiming built-in engine support.
 
 ## Analysis Helpers
 
@@ -95,11 +84,10 @@ Built-in parsers and plotting scripts are optional. The host agent may also use
 self-written Python, pandas, matplotlib, ASE, pymatgen, MDAnalysis, py4vasp,
 notebooks, or other appropriate tools.
 
-The hard requirement is traceability:
+The scientific requirement is reproducibility:
 
 - script or command recorded
 - input files recorded
 - output files recorded
 - environment or package assumptions recorded
-- artifact lineage linked
 - incomplete or speculative conclusions labeled

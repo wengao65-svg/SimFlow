@@ -26,15 +26,13 @@ ENGINE_DOMAIN_SKILLS = [
     "simflow-mlp",
 ]
 
-UNSUPPORTED_ENGINE_PLACEHOLDERS = [
-    "simflow-qe",
-    "simflow-gaussian",
-]
-
-SUPPORT_SKILLS = [
+REMOVED_OPERATIONAL_AND_PLACEHOLDER_SKILLS = [
+    "simflow-safety-gates",
     "simflow-checkpoint",
     "simflow-handoff",
     "simflow-verify",
+    "simflow-qe",
+    "simflow-gaussian",
 ]
 
 PURE_TASK_REQUIRED_SECTIONS = [
@@ -79,11 +77,19 @@ def _normalized_skill_text(skill_name: str) -> str:
 
 
 def test_canonical_core_skills_exist():
-    for skill_name in ["simflow", *RESEARCH_TASK_SKILLS, "simflow-safety-gates"]:
+    for skill_name in ["simflow", *RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS]:
         skill_file = SKILLS / skill_name / "SKILL.md"
         assert skill_file.is_file(), skill_name
         text = skill_file.read_text(encoding="utf-8")
         assert f"name: {skill_name}" in text
+
+
+def test_public_skill_surface_is_exactly_twelve():
+    public = {path.parent.name for path in SKILLS.glob("*/SKILL.md")}
+    expected = {"simflow", *RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS}
+    assert public == expected
+    for skill_name in REMOVED_OPERATIONAL_AND_PLACEHOLDER_SKILLS:
+        assert not (SKILLS / skill_name / "SKILL.md").exists()
 
 
 def test_research_task_skills_are_pure_instruction_contracts():
@@ -199,18 +205,6 @@ def test_research_task_skills_match_pure_skill_validator_sections():
             assert section in text, f"{skill_name} missing {section}"
 
 
-def test_unsupported_engine_placeholders_do_not_claim_runtime_support():
-    for skill_name in UNSUPPORTED_ENGINE_PLACEHOLDERS:
-        text = _skill_text(skill_name)
-        lowered = text.lower()
-        assert "reserved" in lowered
-        assert "does not currently provide a supported" in lowered
-        assert "do not claim supported" in lowered
-        assert "approval gate" in lowered
-        assert "project_root" in text
-        assert ".simflow" in text
-
-
 def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
     vasp_text = _normalized_skill_text("simflow-vasp")
     cp2k_text = _normalized_skill_text("simflow-cp2k")
@@ -262,16 +256,3 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
 def test_lammps_skill_uses_consistent_english_language():
     text = _skill_text("simflow-lammps")
     assert not re.search(r"[\u4e00-\u9fff]", text)
-
-
-def test_support_skills_do_not_reintroduce_fixed_executor_contracts():
-    for skill_name in SUPPORT_SKILLS:
-        text = _skill_text(skill_name)
-        lowered = text.lower()
-        assert "project_root" in text
-        assert ".omx" in text
-        assert "artifact" in lowered
-        assert "checkpoint" in lowered
-        assert "不要" in text or "do not" in lowered
-        for pattern in BANNED_HARD_CONSTRAINTS:
-            assert not pattern.search(text), f"{skill_name} matches {pattern.pattern}"

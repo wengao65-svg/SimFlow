@@ -157,7 +157,8 @@ pip install -e ".[structure]"  # pymatgen and ASE structure helpers
 pip install -e ".[all]"        # all optional scientific helpers
 ```
 
-QE and Gaussian skills are reserved placeholders in the current product build.
+Unsupported engines do not install placeholder Skills; use the relevant Task
+Skill without claiming built-in engine support.
 Do not advertise `.[qe]` or `.[gaussian]` as supported install extras until
 those helpers have product support and release tests.
 

@@ -1,64 +1,62 @@
 # Skills Directory
 
-SimFlow is skill-first, but not every bundled skill has the same role. The
-canonical workflow-layer skills define the current research-stage contract:
+SimFlow exposes exactly 12 public Skills. They provide reusable scientific
+guidance and do not own runtime state, persistence, approval, or recovery.
 
-- `simflow`
+## Router
+
+- `simflow`: selects at most one Research Task Skill and one optional Domain
+  Skill from the user's current intent.
+
+## Research Task Skills
+
 - `simflow-literature-review`
 - `simflow-proposal`
 - `simflow-modeling`
 - `simflow-computation`
 - `simflow-analysis-visualization`
 - `simflow-writing`
-- `simflow-safety-gates`
 
-These skills describe SimFlow's current workflow-layer semantics: research
-intent, evidence boundaries, artifact tracking, checkpoints, lineage, safety
-gates, and handoff discipline. They do not make SimFlow a centralized workflow
-executor.
+These are pure instruction bundles. They guide how to perform a class of
+research work, which checks matter, where agents commonly fail, when
+uncertainty must be escalated, and when the task is complete. They must not
+require MCP calls, advance workflow stages, register artifacts, create
+checkpoints, enforce project directories, or decide runtime approval.
 
-Other `simflow-*` skills are optional domain assistants or focused workflow
-helpers. Legacy executor skill entries such as `simflow-pipeline`,
-`simflow-stage`, `simflow-compute`, and older stage aliases are no longer
-discoverable as skills. Project intake, stage execution, and pipeline behavior
-has migrated into `runtime/simflow_helpers`, so new tests and integrations
-should import those helpers directly rather than adding wrapper scripts back
-under legacy skill directories.
+## Domain Skills
 
-Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, and
-`simflow-gpumd` are the supported optional domain assistants in the current
-product build. `simflow-mlp` is also a Domain Assistant, but its scope is
-cross-tool MLP lifecycle and readiness methodology rather than one engine. It
-can inspect existing evidence, build manifests, parse narrow output subsets,
-and prepare handoff records, but it does not run training or MD. `simflow-qe` and
-`simflow-gaussian` are reserved unsupported
-placeholders; they should only record user-provided files as generic artifacts
-when traceability is requested.
+- `simflow-vasp`
+- `simflow-cp2k`
+- `simflow-lammps`
+- `simflow-gpumd`
+- `simflow-mlp`
 
-Domain Assistant is a product role. Tool-level and capability-level helper
-support come from `workflow/toolchains/capabilities.json`. Optional scripts may
-emit `simflow.helper_evidence.v1` records, but that helper-evidence envelope is
-an output contract, not a Skill category.
+Domain Skills add engine- or method-specific knowledge to the current Task
+Skill. They may ship references and optional bounded helper scripts, but they
+do not own workflow progression or runtime state.
 
-When adding new skills, keep hard requirements limited to safety and
-traceability. Prefer guidance, recommended evidence, and handoff notes over
-fixed parser, builder, software, or report-file requirements.
+QE, Gaussian, and other unsupported tools do not receive placeholder Skills.
+The router keeps them as unknown context and uses the relevant Task Skill
+without claiming built-in engine support.
 
-## Domain-skill script boundary
+## Loading Rule
 
-Engine/domain skills (`simflow-vasp`, `simflow-cp2k`, `simflow-lammps`,
-`simflow-gpumd`, `simflow-mlp`) own software-specific INTAKE, INPUT, VALIDATION,
-ORCHESTRATION, and HANDOFF helpers only. Their script directories should contain
-only names matching the patterns `inspect_*`, `validate_*`, `generate_*_inputs`,
-`parse_*_outputs`, `orchestrate_*`, `troubleshoot_*`, `prepare_*_handoff`, and
-`build_*_manifest`.
+One ordinary request should select no more than:
 
-Property analysis and figure construction belong to the analysis_visualization
-stage. Scripts named `analyze_*`, `plot_*`, `audit_figure_*`, or any helper that
-computes RDF, MSD, diffusion, transport coefficients, elastic constants, DOS,
-bands, or other derived observables must live under
-`simflow-analysis-visualization/scripts/`, not under a domain skill. A domain
-skill may ship a `parse_*_outputs` adapter that records software-specific output
-semantics (columns, units, image flags, frame counts) and emits an intake
-manifest, but it must not choose final fit windows, binning, integration limits,
-or scientific claims.
+```text
+one Research Task Skill + one optional Domain Skill
+```
+
+Skill selection follows current intent, not cwd, phase, or directory names.
+Safety policy, event recording, checkpointing, recovery, verification of actual
+execution, and handoff serialization belong to SimFlow runtime.
+
+## Script Boundary
+
+Task and Domain helpers must remain useful without SimFlow MCP. A helper may
+inspect, parse, validate, or prepare files through host tools. Optional runtime
+recording must not be required for the helper's scientific function.
+
+Property analysis and figure construction belong to the analysis Task Skill.
+Domain helpers may parse software-specific output semantics but should not
+silently choose final fit windows, statistics, or scientific claims.

@@ -54,7 +54,7 @@ stage directly when the needed inputs and evidence are present.
 | LAMMPS | Classical MD setup and trajectory analysis guidance |
 | GPUMD/NEP | Input generation, validation, dry-run planning, orchestration, selected output parsing, and MLP handoff |
 | MLP | Cross-tool dataset, training, validation, active-learning, readiness, and handoff evidence guidance |
-| QE / Gaussian | Unsupported placeholders; user-provided files can still be recorded as generic artifacts |
+| Other engines | No placeholder Skill; use the relevant Task Skill without claiming built-in engine support |
 
 Domain Assistants guide software- or domain-specific work. They do not limit
 what the host agent can do, and they should return uncertainty rather than
