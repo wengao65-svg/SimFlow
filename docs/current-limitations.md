@@ -45,13 +45,18 @@ SimFlow records only events that pass through its compact runtime. It does not
 observe arbitrary host shell commands, parse Codex/Claude/OpenCode transcripts,
 or infer that a Skill was loaded.
 
-New state consists of `.simflow/project.json`, `.simflow/records.jsonl`, compact
-checkpoints, and reports. Historical `.simflow/state/*.json` and nested
-`.simflow` roots are read-only compatibility input. Explicit migration writes a
-single compact index and never reorganizes scientific data.
+New state consists of append-only `.simflow/experiments/*.md` notebooks,
+`.simflow/records.jsonl`, compact checkpoints, reports, and deterministic
+`project.json`/Experiment-index views. Historical `.simflow/state/*.json`,
+legacy `.simflow/memory/`, and nested `.simflow` roots are read-only
+compatibility input. Explicit migration writes a single metadata index and
+never reorganizes or imports source content.
 
-There is no default SQLite ledger, experiment/activity lifecycle, per-file
-artifact registry, automatic session handoff, or automatic stage checkpoint.
+There is no SQLite/session/activity ledger, Experiment lifecycle controller,
+per-file artifact registry, automatic session handoff, or automatic stage
+checkpoint. Compact Experiment notebooks are intentionally retained to prevent
+loss of scientific questions, decisions, evidence-changing actions, and next
+steps across host sessions.
 
 ## Execution Boundary
 

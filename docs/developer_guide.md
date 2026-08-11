@@ -37,16 +37,27 @@ public Skills. Engine helpers must return uncertainty for unsupported tasks.
 
 ## Compact State
 
-Use `runtime.simflow_core.records` for new writes:
+Use the canonical stores according to ownership:
 
+- `experiment_notebook` for append-only scientific semantics;
 - `record_event` for one logical event;
 - `inspect_project` for read-only status;
 - `create_recovery_checkpoint` for a real recovery boundary;
 - `recover_checkpoint` for reference/hash validation.
 
+`record` has two strict branches. Operational writes use `kind` and must reject
+Experiment-only fields. Experiment writes use `channel="experiment"`, one of
+the six entry types, and an entry-specific payload; they must reject `kind`.
+Keep actual scientific files authoritative and rebuild `project.json` with
+`rebuild_project_summary()` from notebooks, records, and checkpoints.
+
 Do not add new writes to legacy `.simflow/state/*.json` registries. Legacy APIs
 may read them and may provide compatibility views, but compact writes must not
 synchronize artifact, lineage, stage, job, or checkpoint registries.
+
+Legacy migration may inventory `.simflow/memory/` recursively, but it may emit
+only path, size, hash, JSON/JSONL container shape, and SQLite header metadata.
+It must never query SQLite tables, expose stored values, or alter source bytes.
 
 ## MCP
 
@@ -55,7 +66,9 @@ a new product decision justifies expansion. Composite tools should expose
 strict JSON schemas and explicit `project_root` where project access is needed.
 
 Real execution must be derived from a persisted run plan and approval bound to
-its `run_plan_hash`. Submit inputs must not accept mutable replacement hashes.
+its `run_plan_hash`. Experiment and Attempt bindings belong to operational plan
+records and must not participate in that hash. Submit inputs must not accept
+mutable replacement hashes.
 
 ## Workflow Contracts
 

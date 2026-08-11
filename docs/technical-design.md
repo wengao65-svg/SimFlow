@@ -66,9 +66,10 @@ scientific evidence files; notebooks retain references and hashes, not copies.
 both canonical stores and checkpoints. They are caches, not additional sources
 of truth.
 
-Historical `.simflow/state/*.json` registries are compatibility inputs only.
-They are not updated by compact writes. Migration inventories structured state
-paths, sizes, hashes, and JSON shape without importing transcripts or
+Historical `.simflow/state/*.json` registries and `.simflow/memory/` files are
+compatibility inputs only. They are not updated by compact writes. Migration
+inventories paths, sizes, hashes, safe JSON/JSONL shape, and SQLite header
+metadata without querying tables or importing transcripts, memory values, or
 scientific data content.
 
 ## Runtime Surfaces

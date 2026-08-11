@@ -18,8 +18,8 @@ with the user and architecture documents below.
 
 - [MCP Tool Reference](mcp-tool-reference.md): the four state and four HPC
   tools.
-- [State And Recovery](state-and-checkpoint.md): compact store, logical records,
-  checkpoints, and legacy migration.
+- [State And Recovery](state-and-checkpoint.md): Experiment notebooks,
+  operational records, checkpoints, summary rebuild, and legacy migration.
 - [HPC Integration](hpc-integration.md): immutable run plans and approval reuse.
 - [Verification Gates](verification-gates.md): evidence and approval rules.
 - [Credentials Policy](credentials-policy.md): credential and broker boundary.

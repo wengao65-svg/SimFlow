@@ -109,6 +109,7 @@ Historical projects may contain:
 
 ```text
 .simflow/state/*.json
+.simflow/memory/**/*
 <nested project path>/.simflow/
 ```
 
@@ -116,10 +117,11 @@ Compact runtime treats these as read-only. Compatibility Python APIs may list
 legacy artifacts and checkpoints, but new writes do not synchronize old
 registries. Legacy snapshot checkpoints are never restored into active state.
 
-With `include_legacy=true`, `inspect` inventories only structured state JSON and
-nested roots. The inventory contains relative paths, sizes, SHA-256 hashes, JSON
-shape/counts, and safety declarations. It does not include state field values,
-host transcripts, or scientific result files.
+With `include_legacy=true`, `inspect` inventories structured state JSON, legacy
+memory files, and nested roots. The inventory contains relative paths, sizes,
+SHA-256 hashes, safe JSON/JSONL shape/counts, SQLite header metadata, and safety
+declarations. It never queries SQLite tables and does not include state or
+memory field values, host transcripts, or scientific result files.
 
 Migration requires explicit confirmation of the exact current report hash. It
 persists one migration report and one compact record. Source files remain

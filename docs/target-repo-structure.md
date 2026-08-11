@@ -16,7 +16,7 @@ simflow/
 │   ├── servers/hpc/           # plan, transfer, submit, status
 │   └── shared/
 ├── runtime/
-│   ├── simflow_core/          # Compact records, gates, migration, compatibility
+│   ├── simflow_core/          # Notebooks, records, gates, migration, compatibility
 │   └── simflow_helpers/       # Optional scientific/internal helpers
 ├── schemas/
 ├── templates/
@@ -38,8 +38,10 @@ placeholders do not expose `SKILL.md`.
 
 ## Runtime
 
-`runtime/simflow_core/records.py` owns the compact project store.
-`migration.py` inventories legacy structured state without modifying it.
+`experiment_notebook.py` owns append-only scientific memory, `records.py` owns
+append-only operational truth, and `project_summary.py` rebuilds derived views.
+`migration.py` inventories legacy structured state and memory metadata without
+modifying or importing it.
 `gates.py` provides internal approval records. Compatibility modules may expose
 old Python call shapes to existing code but must map new writes to compact
 records or recovery references.
@@ -54,11 +56,17 @@ New project runtime state is:
 
 ```text
 .simflow/
+├── experiments/
+│   ├── <experiment_id>.md
+│   └── index.md
 ├── project.json
 ├── records.jsonl
 ├── checkpoints/
 └── reports/
 ```
 
-Historical `.simflow/state/` remains read-only compatibility input. The source
-repository ignores `.simflow/` because it is local runtime state.
+Experiment notebooks and operational records are canonical; `project.json` and
+`experiments/index.md` are derived and rebuildable. Historical
+`.simflow/state/`, `.simflow/memory/`, and nested `.simflow` roots remain
+read-only compatibility input. The source repository ignores `.simflow/`
+because it is local runtime state.

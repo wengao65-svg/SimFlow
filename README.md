@@ -16,7 +16,7 @@ Host Agent
   -> Research Task Skill    how to do the current research task well
   -> Domain Skill           engine- or method-specific knowledge
   -> SimFlow Runtime        inspect, record, recover, and gate real execution
-  -> .simflow/              compact project records and recovery references
+  -> .simflow/              scientific notebooks, operational truth, recovery
 ```
 
 Skill selection follows current intent. Directory organization follows the
@@ -50,30 +50,36 @@ Two MCP servers expose eight composite tools:
 | `simflow_state` | `inspect`, `record`, `checkpoint`, `recover` |
 | `hpc` | `plan`, `transfer`, `submit`, `status` |
 
-There is no engagement lifecycle, experiment ledger, activity controller, or
-mandatory session handoff. Ordinary read-only scientific work produces no
-state writes. One logical task normally needs at most one `record` call.
+There is no engagement lifecycle, SQLite/session/activity ledger, activity
+controller, or mandatory session handoff. Compact Experiment notebooks retain
+scientific questions and decisions without creating a host-session lifecycle.
+Ordinary read-only scientific work produces no state writes. One logical task
+normally needs at most one `record` call after the automatic `hpc/plan` record.
 
 New project state is compact:
 
 ```text
 .simflow/
+├── experiments/
+│   ├── <experiment_id>.md
+│   └── index.md
 ├── project.json
 ├── records.jsonl
 ├── checkpoints/
 └── reports/
 ```
 
-`project.json` is the current summary. `records.jsonl` is append-only and holds
-meaningful milestones, runs, logical deliverables, analyses, approvals,
-failures, notes, checkpoints, and migration confirmations. Provenance uses
-path/hash references and parent record IDs rather than synchronized artifact,
-lineage, stage, and job registries.
+Experiment notebooks are append-only scientific memory. `records.jsonl` is the
+append-only operational truth for plans, approvals, transfers, submissions,
+status, logical deliverables, checkpoints, and migration confirmations. Exact
+scientific files remain authoritative evidence. `project.json` and the
+Experiment index are deterministic derived summaries.
 
-Historical `.simflow/state/*.json` and nested `.simflow` roots remain readable.
-`inspect` produces a read-only migration inventory. Applying it requires an
-exact current hash and explicit confirmation; migration never moves or rewrites
-scientific data.
+Historical `.simflow/state/*.json`, `.simflow/memory/`, and nested `.simflow`
+roots remain readable. `inspect` produces a metadata-only migration inventory;
+SQLite tables and memory contents are never imported. Applying it requires an
+exact current hash and explicit confirmation, and migration never moves or
+rewrites source data.
 
 ## Safety Model
 

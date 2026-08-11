@@ -61,8 +61,9 @@ python examples/h2o/run_cp2k_workflow.py --dry-run
 
 Expected result:
 
-- The safe example creates `.simflow/project.json`, one compact record, one
-  immutable run-plan report, and no legacy registries or automatic checkpoint.
+- The safe example creates `.simflow/project.json`, an automatic operational
+  plan record plus one logical deliverable record, one immutable run-plan
+  report, and no legacy registries or automatic checkpoint.
 - Unapproved submit is blocked, and credential scan status is embedded in the
   run plan.
 - The Si example validates committed input metadata without requiring real
@@ -70,6 +71,8 @@ Expected result:
 - The LAMMPS example stores inputs in a normal calculation directory, records
   one logical deliverable, and keeps submit blocked.
 - The H2O CP2K example can run in dry-run mode without HPC credentials.
+- The Experiment-memory E2E test recovers the correct scientific question and
+  completed material-action outcome from one later read-only `inspect` call.
 
 ## 4. Public Metadata Gate
 

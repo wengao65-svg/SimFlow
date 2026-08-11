@@ -54,6 +54,11 @@ Ask OpenCode to use `simflow`, `simflow-vasp`, `simflow-cp2k`, or another
 bundled skill. Skills remain guidance and evidence contracts; they do not turn
 SimFlow into a workflow executor.
 
+On the first SimFlow use for a project in one user request, OpenCode should make
+one read-only `inspect` call with the working directory and query, then reuse
+that context. Compact Experiment notebooks preserve scientific questions and
+decisions; exact project files remain the evidence source.
+
 ## Python Interpreter
 
 The adapter starts MCP servers with `python3` by default. Override the

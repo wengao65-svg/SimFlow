@@ -4,7 +4,8 @@
 
 SimFlow provides research guidance and a small event-driven runtime around
 computational work. It is not a centralized executor, mandatory DAG, or stage
-state machine.
+state machine. Its compact Experiment notebooks preserve scientific intent
+across requests without turning host sessions into workflow state.
 
 ## Research Stages
 
@@ -51,6 +52,8 @@ Only safety and truth boundaries are hard:
 
 Current policy contracts cover:
 
+- one read-only Experiment re-entry inspection per project per user request;
+- append-only scientific memory with exact files retained as evidence;
 - immutable dry-run planning before real execution;
 - approval for real execution with approval reuse only for unchanged plans;
 - logical event recording rather than per-file registration;
@@ -60,10 +63,14 @@ Current policy contracts cover:
 
 Ordinary task or stage completion does not require a checkpoint. Producing a
 file does not automatically require a record or semantic artifact version.
+Material-action pairing applies only to persistent changes in evidence or
+recoverability, not ordinary parameter edits.
 
 ## Handoff
 
 Handoff is a host summary, not a mandatory workflow action. A useful handoff
 states the current goal, active or recent runs, meaningful deliverables,
 recoverable checkpoints, risks, next action, and approval needs. Persist it
-only when the user or project needs a durable report.
+only when the user or project needs a durable report. Cross-request scientific
+memory belongs in the relevant Experiment notebook, not in an automatic handoff
+or host transcript import.

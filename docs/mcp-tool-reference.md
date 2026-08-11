@@ -21,6 +21,8 @@ Optional filters:
 - `kind`: `milestone`, `run`, `artifact`, `analysis`, `approval`, `failure`,
   `note`, `checkpoint`, `recovery`, or `migration`;
 - `status`, `record_id`, `run_id`;
+- `working_directory` and `query` for Experiment re-entry ranking;
+- `experiment_id`, `attempt_id`, and `entry_type` for explicit filtering;
 - `limit` from 1 to 200;
 - `include_legacy`, default `true`.
 
@@ -28,14 +30,16 @@ The result includes the derived project summary, filtered recent records, and
 record counts. With `include_legacy=true`, it also includes:
 
 - a concise legacy-state presence summary;
-- a read-only migration report covering `.simflow/state/*.json` and nested
-  `.simflow` roots;
+- relevant Experiment candidates, one unambiguous selected Experiment when
+  available, and a merged scientific/operational timeline;
+- a read-only migration report covering `.simflow/state/*.json`, legacy
+  `.simflow/memory/` metadata, and nested `.simflow` roots;
 - `migration_report_hash` for explicit confirmation.
 
 `inspect` does not initialize `.simflow`, update timestamps, import host
 transcripts, or modify legacy files.
 
-### `record`
+### `record`: operational branch
 
 Append one logical project event.
 
@@ -54,6 +58,10 @@ references inside that logical record; they are not separate registry writes.
 `parent_ids` provide event-level provenance. Sensitive values and restricted
 file bodies are sanitized before persistence.
 
+`hpc/plan` writes its own operational plan record. A normal safe preparation
+flow therefore contains that plan record plus at most one logical deliverable
+record; callers must not duplicate the plan manually.
+
 For an explicit legacy migration confirmation, use:
 
 ```json
@@ -69,6 +77,23 @@ For an explicit legacy migration confirmation, use:
 The current inventory must match the supplied hash. Repeating the same
 confirmed hash is idempotent. Migration writes one report and one compact
 record; it never moves, renames, deletes, or rewrites scientific data.
+
+### `record`: Experiment branch
+
+Scientific memory uses a separate discriminated input:
+
+- `channel="experiment"`;
+- one of `entry_type`: `experiment`, `attempt`, `observation`, `decision`,
+  `material_action`, or `recovery`;
+- `action`, `summary`, and the entry-specific `payload`;
+- `experiment_id` for every entry except `experiment/create`.
+
+This branch does not accept operational `kind`, and the operational branch does
+not accept Experiment-only fields. One Experiment is defined by a scientific
+question; temperature, element, seed, retry, and resume variants are Attempts.
+Material actions require planned/terminal pairing and are reserved for durable
+changes to evidence or recoverability. Exact evidence remains in project files;
+notebooks retain bounded scientific semantics and path/hash references.
 
 ### `checkpoint`
 
