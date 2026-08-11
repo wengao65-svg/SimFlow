@@ -24,6 +24,8 @@ def record_submit_job(
     script_path: str | None = None,
     gate_decision_id: str | None = None,
     submit_result: dict[str, Any] | None = None,
+    experiment_id: str | None = None,
+    attempt_id: str | None = None,
 ) -> dict[str, Any]:
     """Append one run record after an approval-bound submit attempt."""
     root = resolve_project_root(project_root=project_root)
@@ -57,7 +59,7 @@ def record_submit_job(
         }
 
     now = _now_iso()
-    run_id = f"{scheduler}_{job_id}"
+    run_id = attempt_id or f"{scheduler}_{job_id}"
     record = record_event(
         str(root),
         kind="run",
@@ -65,6 +67,8 @@ def record_submit_job(
         status=status,
         stage="computation",
         run_id=run_id,
+        experiment_id=experiment_id,
+        attempt_id=attempt_id,
         details={
             "operation": "submit",
             "scheduler": scheduler,
@@ -72,6 +76,8 @@ def record_submit_job(
             "run_plan_hash": run_plan_hash,
             "script_path": script_path,
             "gate_decision_id": gate_decision_id,
+            "experiment_id": experiment_id,
+            "attempt_id": attempt_id,
             "submitted_at": now if status in {"submitted", "running", "completed"} else None,
             "completed_at": now if status in {"completed", "failed", "cancelled"} else None,
             "submit_result": submit_result or {},

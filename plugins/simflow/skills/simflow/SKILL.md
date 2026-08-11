@@ -8,7 +8,8 @@ description: Select at most one computational-research Task Skill and one option
 ## Purpose
 
 `simflow` is a thin intent router. It selects guidance; it does not execute a
-workflow, parse scientific files, manage persistence, or require state calls.
+workflow, parse scientific files, or own persistence. Selecting a Task or
+Domain Skill never requires a state write.
 
 ## Use when
 
@@ -50,6 +51,19 @@ Domain Skills add software- or method-specific knowledge when needed:
 6. The six recommended research phases are project-organization semantics, not
    mandatory Skill transitions.
 
+## Project memory re-entry
+
+When SimFlow is first used for a project in a user request, the host should call
+the read-only `inspect` tool once with `project_root`, `working_directory`, and
+the current query. Reuse that result for the rest of the request.
+
+- Do not create session state or a handoff for re-entry.
+- Do not repeat `inspect` before every Skill, file read, or tool action.
+- Use `selected_experiment_id` silently only when the match is unambiguous.
+- If Experiment selection is ambiguous, ask only before a durable Experiment
+  write, checkpoint binding, plan binding, transfer, submit, or recorded status.
+- Do not print a fixed recovery summary unless it is relevant to the answer.
+
 Examples:
 
 | Current intent | Task Skill | Optional Domain Skill |
@@ -69,6 +83,11 @@ recovered. High-risk events include real local or remote execution, scheduler
 submission, credentials, licensed or proprietary files, VASP POTCAR material,
 destructive actions, and state recovery.
 
+Experiment notebooks preserve scientific questions, Attempts, observations,
+decisions, material evidence changes, and recovery decisions. Operational
+records preserve plan, approval, transfer, submit, scheduler status, and
+checkpoint truth. Actual scientific files remain exact evidence.
+
 The router identifies the boundary but does not approve, submit, transfer,
 record, checkpoint, or recover anything itself.
 
@@ -86,6 +105,8 @@ record, checkpoint, or recover anything itself.
 - Do not act as a centralized workflow executor, domain parser, submitter, or
   approval gate.
 - Do not require MCP engagement merely because a Skill was selected.
+- Do not turn the one read-only project-memory inspection into a session or
+  activity lifecycle.
 - Do not choose Skills from the current phase or directory name.
 - Do not fabricate literature, inputs, outputs, figures, citations,
   convergence, approval, or job states.
@@ -97,4 +118,6 @@ record, checkpoint, or recover anything itself.
 - Zero or one Task Skill is selected.
 - Zero or one Domain Skill is selected.
 - Any runtime escalation is stated separately from Skill guidance.
+- Existing Experiment context was inspected at most once for this project in
+  the current user request when SimFlow runtime was used.
 - Unknown intent or unsupported tools are not silently mapped to known paths.

@@ -196,6 +196,10 @@ If SimFlow later adds Codex lifecycle hooks, they must be defined in a dedicated
 
 ## Safety defaults
 
+- On the first SimFlow use for a project in one user request, Codex performs one
+  read-only `inspect` with the working directory and query, then reuses it.
+- Experiment notebooks preserve scientific questions and decisions; exact
+  project files remain the evidence source.
 - Compute and HPC operations default to dry-run behavior.
 - Real HPC submission requires an explicit approval gate.
 - Credentials must come from environment variables and must not be written to state, artifacts, or logs.

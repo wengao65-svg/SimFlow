@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ from .state import resolve_project_root
 MIGRATION_REPORT_SCHEMA = "simflow.migration_report.v1"
 MIGRATION_INDEX_SCHEMA = "simflow.migration_index.v1"
 MAX_NESTED_ROOTS = 200
+MAX_MEMORY_FILES = 2000
+SQLITE_HEADER = b"SQLite format 3\x00"
 
 
 class MigrationError(ValueError):
@@ -63,6 +66,111 @@ def _json_shape(path: Path) -> dict[str, Any]:
     }
 
 
+def _jsonl_shape(path: Path) -> dict[str, Any]:
+    entry_count = 0
+    json_types: set[str] = set()
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                payload = json.loads(line)
+                entry_count += 1
+                if isinstance(payload, dict):
+                    json_types.add("object")
+                elif isinstance(payload, list):
+                    json_types.add("array")
+                else:
+                    json_types.add(type(payload).__name__)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return {
+            "valid_jsonl": False,
+            "json_types": [],
+            "entry_count": None,
+            "error": type(exc).__name__,
+        }
+    return {
+        "valid_jsonl": True,
+        "json_types": sorted(json_types),
+        "entry_count": entry_count,
+    }
+
+
+def _sqlite_header_metadata(path: Path) -> dict[str, Any] | None:
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(100)
+    except OSError:
+        return None
+    if len(header) < 100 or not header.startswith(SQLITE_HEADER):
+        return None
+    page_size = int.from_bytes(header[16:18], "big")
+    if page_size == 1:
+        page_size = 65536
+    return {
+        "format": "sqlite3",
+        "page_size": page_size,
+        "write_version": header[18],
+        "read_version": header[19],
+        "database_size_pages": int.from_bytes(header[28:32], "big"),
+        "schema_cookie": int.from_bytes(header[40:44], "big"),
+        "schema_format": int.from_bytes(header[44:48], "big"),
+        "user_version": int.from_bytes(header[60:64], "big"),
+        "application_id": int.from_bytes(header[68:72], "big"),
+        "sqlite_version_number": int.from_bytes(header[96:100], "big"),
+        "tables_inspected": False,
+    }
+
+
+def _memory_file_metadata(root: Path, path: Path) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "path": _relative(root, path),
+        "size_bytes": path.stat().st_size,
+        "sha256": _sha256(path),
+    }
+    sqlite_metadata = _sqlite_header_metadata(path)
+    if sqlite_metadata is not None:
+        metadata["sqlite"] = sqlite_metadata
+    elif path.suffix.lower() == ".json":
+        metadata["json_shape"] = _json_shape(path)
+    elif path.suffix.lower() == ".jsonl":
+        metadata["jsonl_shape"] = _jsonl_shape(path)
+    return metadata
+
+
+def _memory_inventory(root: Path, memory_dir: Path) -> dict[str, Any]:
+    files: list[dict[str, Any]] = []
+    truncated = False
+    if memory_dir.is_dir():
+        for current, directories, names in os.walk(memory_dir, followlinks=False):
+            directories[:] = sorted(
+                name for name in directories
+                if not (Path(current) / name).is_symlink()
+            )
+            for name in sorted(names):
+                path = Path(current) / name
+                try:
+                    mode = path.lstat().st_mode
+                except OSError:
+                    continue
+                if not stat.S_ISREG(mode):
+                    continue
+                files.append(_memory_file_metadata(root, path))
+                if len(files) >= MAX_MEMORY_FILES:
+                    truncated = True
+                    break
+            if truncated:
+                break
+    return {
+        "memory_dir": _relative(root, memory_dir),
+        "memory_files": files,
+        "memory_file_count": len(files),
+        "memory_scan_truncated": truncated,
+        "content_imported": False,
+        "sqlite_tables_inspected": False,
+    }
+
+
 def _state_inventory(root: Path, state_dir: Path) -> dict[str, Any]:
     files = []
     if state_dir.is_dir():
@@ -97,6 +205,7 @@ def _nested_simflow_roots(root: Path) -> tuple[list[dict[str, Any]], bool]:
         nested.append({
             "path": _relative(root, nested_root),
             **_state_inventory(root, nested_root / "state"),
+            **_memory_inventory(root, nested_root / "memory"),
         })
         if len(nested) >= MAX_NESTED_ROOTS:
             truncated = True
@@ -108,14 +217,16 @@ def build_migration_report(project_root: str) -> dict[str, Any]:
     """Inspect legacy state and propose a compact index without writing."""
     root = resolve_project_root(project_root=project_root)
     legacy = _state_inventory(root, root / ".simflow" / "state")
+    legacy_memory = _memory_inventory(root, root / ".simflow" / "memory")
     nested, truncated = _nested_simflow_roots(root)
-    detected = bool(legacy["state_files"] or nested)
+    detected = bool(legacy["state_files"] or legacy_memory["memory_files"] or nested)
     proposed_index = {
         "schema_version": MIGRATION_INDEX_SCHEMA,
         "legacy_state": legacy,
+        "legacy_memory": legacy_memory,
         "nested_simflow_roots": nested,
         "nested_scan_truncated": truncated,
-        "source_scope": "structured_simflow_state_only",
+        "source_scope": "structured_simflow_state_and_memory_metadata",
         "host_transcripts_imported": False,
         "scientific_data_actions": [],
         "automatic_moves": [],
@@ -139,6 +250,8 @@ def build_migration_report(project_root: str) -> dict[str, Any]:
         },
         "safety": {
             "source_files_are_read_only": True,
+            "legacy_memory_content_is_not_imported": True,
+            "sqlite_tables_are_not_inspected": True,
             "scientific_data_is_not_moved": True,
             "nested_simflow_is_not_modified": True,
             "host_transcripts_are_not_imported": True,
@@ -189,8 +302,9 @@ def apply_migration(
         artifacts=[{"path": str(report_path.relative_to(root)), "role": "migration_report"}],
         details={
             "migration_report_hash": migration_report_hash,
-            "source_scope": "structured_simflow_state_only",
+            "source_scope": "structured_simflow_state_and_memory_metadata",
             "legacy_state_file_count": report["proposed_index"]["legacy_state"]["state_file_count"],
+            "legacy_memory_file_count": report["proposed_index"]["legacy_memory"]["memory_file_count"],
             "nested_simflow_count": len(report["proposed_index"]["nested_simflow_roots"]),
             "host_transcripts_imported": False,
             "scientific_data_actions": [],

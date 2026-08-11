@@ -2,18 +2,22 @@
 
 ## Compact Store
 
-New SimFlow state uses four concepts:
+New SimFlow state separates scientific memory from operational truth:
 
 ```text
 .simflow/
+├── experiments/
+│   ├── <experiment_id>.md
+│   └── index.md
 ├── project.json
 ├── records.jsonl
 ├── checkpoints/
 └── reports/
 ```
 
-- `project.json` is a derived current summary.
-- `records.jsonl` is the append-only logical event history.
+- Experiment Markdown files are append-only scientific notebooks.
+- `records.jsonl` is the append-only operational event history.
+- `project.json` and `experiments/index.md` are derived summaries.
 - `checkpoints/` stores compact recovery references.
 - `reports/` stores migration, transfer, run-plan, and requested human-readable
   reports.
@@ -32,12 +36,35 @@ The summary tracks:
 - total and per-kind record counts;
 - last record metadata.
 
-It is derived from compact records and is not a second authoritative event
-history.
+It is deterministically rebuilt from Experiment notebooks, operational records,
+and checkpoint references. Incremental updates are only a cache optimization;
+deleting a valid `project.json` must not lose project truth.
+
+## Experiment Notebooks
+
+One Experiment represents one scientific question. Parameter axes such as
+temperature, element, seed, retry, and resume belong to Attempts unless they
+change the question or acceptance criteria.
+
+Notebook entry types are `experiment`, `attempt`, `observation`, `decision`,
+`material_action`, and `recovery`. Notebook files own scientific semantics;
+actual project files own exact evidence. A path/hash reference identifies
+evidence content but does not establish completion, convergence, or scientific
+validity.
+
+The public `record` input uses a discriminated contract. Existing operational
+calls keep the operational `kind` schema. `channel="experiment"` uses a separate
+`entry_type` schema and cannot fall back to operational kinds or a generic note.
+
+Material actions are limited to persistent operations that change the evidence
+set or recoverability, such as deletion, filtering, deduplication, overwrite,
+truncation, persistent movement, or replacement of a dataset. Ordinary
+scientific parameter changes are Attempt or Decision entries, not paired
+material actions.
 
 ## Logical Records
 
-Record kinds are:
+Operational record kinds are:
 
 ```text
 milestone  run  artifact  analysis  approval  failure  note
@@ -82,6 +109,7 @@ Historical projects may contain:
 
 ```text
 .simflow/state/*.json
+.simflow/memory/**/*
 <nested project path>/.simflow/
 ```
 
@@ -89,10 +117,11 @@ Compact runtime treats these as read-only. Compatibility Python APIs may list
 legacy artifacts and checkpoints, but new writes do not synchronize old
 registries. Legacy snapshot checkpoints are never restored into active state.
 
-With `include_legacy=true`, `inspect` inventories only structured state JSON and
-nested roots. The inventory contains relative paths, sizes, SHA-256 hashes, JSON
-shape/counts, and safety declarations. It does not include state field values,
-host transcripts, or scientific result files.
+With `include_legacy=true`, `inspect` inventories structured state JSON, legacy
+memory files, and nested roots. The inventory contains relative paths, sizes,
+SHA-256 hashes, safe JSON/JSONL shape/counts, SQLite header metadata, and safety
+declarations. It never queries SQLite tables and does not include state or
+memory field values, host transcripts, or scientific result files.
 
 Migration requires explicit confirmation of the exact current report hash. It
 persists one migration report and one compact record. Source files remain

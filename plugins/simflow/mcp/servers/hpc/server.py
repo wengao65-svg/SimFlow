@@ -28,6 +28,12 @@ from run_plan import (
 )
 from runtime.simflow_core.gates import get_gate_decisions
 from runtime.simflow_core.records import record_event
+from runtime.simflow_core.run_bindings import (
+    bind_run_plan,
+    find_job_run_plan_hash,
+    get_run_plan_binding,
+    latest_job_status,
+)
 from runtime.simflow_helpers.computation.job_records import record_submit_job
 from transfer import (
     TransferValidationError,
@@ -167,15 +173,42 @@ def handle_plan(params: dict) -> dict:
             script_generated=generated,
             validation=validation,
         )
+        binding = bind_run_plan(
+            project_root,
+            run_plan_hash=plan["run_plan_hash"],
+            plan_path=plan["plan_path"],
+            scheduler=plan["scheduler"],
+            script_path=plan["script"]["path"],
+            submit_ready=plan["submit_ready"],
+            experiment_id=params.get("experiment_id"),
+            attempt_id=params.get("attempt_id"),
+        )
     except (RunPlanError, TransferValidationError, OSError, ValueError, json.JSONDecodeError) as exc:
         return _error(str(exc), "run_plan_invalid")
     status = "success" if plan["submit_ready"] else "error"
     return {
         "status": status,
         "data": plan,
+        "binding": binding,
         "approval_required": plan["submit_ready"],
         "gate": "hpc_submit" if plan["submit_ready"] else None,
     }
+
+
+def _normalized_status(result: dict) -> str | None:
+    data = result.get("data") if isinstance(result.get("data"), dict) else result
+    raw = str(data.get("state") or data.get("status") or result.get("status") or "").upper()
+    if raw in {"PENDING", "CONFIGURING", "QUEUED", "Q", "HELD"}:
+        return "queued"
+    if raw in {"RUNNING", "R", "COMPLETING", "EXITING"}:
+        return "running"
+    if raw in {"COMPLETED", "C", "SUCCESS"}:
+        return "completed"
+    if raw in {"FAILED", "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "ERROR"}:
+        return "failed"
+    if raw in {"CANCELLED", "CANCELED"}:
+        return "cancelled"
+    return None
 
 
 def handle_status(params: dict) -> dict:
@@ -192,7 +225,51 @@ def handle_status(params: dict) -> dict:
         return _error(str(exc), "invalid_target")
     if connector is None:
         return _error(f"Unknown scheduler: {scheduler}", "unknown_scheduler")
-    return connector.status(str(job_id))
+    result = connector.status(str(job_id))
+    project_root = params.get("project_root")
+    if not project_root or result.get("status") == "error":
+        return result
+    recorded_hash = find_job_run_plan_hash(project_root, str(job_id))
+    requested_hash = params.get("run_plan_hash")
+    if requested_hash and recorded_hash and requested_hash != recorded_hash:
+        return _error(
+            "job_id is recorded against a different immutable run plan",
+            "job_run_plan_mismatch",
+            job_id=str(job_id),
+            recorded_run_plan_hash=recorded_hash,
+        )
+    run_plan_hash = recorded_hash
+    normalized = _normalized_status(result)
+    if not run_plan_hash or not normalized:
+        result["recorded_transition"] = False
+        if requested_hash and not recorded_hash:
+            result["recording_reason"] = "job_id has no recorded submit for this project"
+        return result
+    if latest_job_status(project_root, str(job_id)) == normalized:
+        result["recorded_transition"] = False
+        return result
+    binding = get_run_plan_binding(project_root, run_plan_hash) or {}
+    record = record_event(
+        project_root,
+        kind="run",
+        summary=f"Scheduler job {job_id} is {normalized}",
+        status=normalized,
+        stage="computation",
+        run_id=binding.get("attempt_id") or f"{scheduler}_{job_id}",
+        experiment_id=binding.get("experiment_id"),
+        attempt_id=binding.get("attempt_id"),
+        details={
+            "operation": "status",
+            "job_id": str(job_id),
+            "scheduler": scheduler,
+            "run_plan_hash": run_plan_hash,
+            "raw_status": result,
+        },
+    )
+    result["recorded_transition"] = True
+    result["run_record_id"] = record["record_id"]
+    result["binding"] = binding
+    return result
 
 
 def _transfer_report_path(project_root: str, transfer_id: str) -> Path:
@@ -205,6 +282,7 @@ def _record_transfer(project_root: str, report: dict) -> dict:
     path = _transfer_report_path(project_root, report["transfer_id"])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    binding = get_run_plan_binding(str(root), report["run_plan_hash"]) or {}
     record = record_event(
         str(root),
         kind="run",
@@ -212,6 +290,8 @@ def _record_transfer(project_root: str, report: dict) -> dict:
         status="completed" if report["status"] == "verified" else "failed",
         stage="computation",
         run_id=report["transfer_id"],
+        experiment_id=binding.get("experiment_id"),
+        attempt_id=binding.get("attempt_id"),
         artifacts=[{
             "path": str(path.relative_to(root)),
             "role": "transfer_report",
@@ -226,6 +306,8 @@ def _record_transfer(project_root: str, report: dict) -> dict:
             "source_manifest_sha256": (report.get("source_manifest") or {}).get("manifest_sha256"),
             "restricted_files": report.get("restricted_files", []),
             "error": report.get("error"),
+            "experiment_id": binding.get("experiment_id"),
+            "attempt_id": binding.get("attempt_id"),
         },
     )
     return {"path": str(path.relative_to(root)), "record": record}
@@ -362,6 +444,7 @@ def handle_submit(params: dict) -> dict:
     if approval["status"] != "success":
         return approval
     scheduler = plan["scheduler"]
+    binding = get_run_plan_binding(project_root, run_plan_hash) or {}
     target = plan.get("target")
     connector = _get_connector(scheduler, target)
     if connector is None:
@@ -402,6 +485,8 @@ def handle_submit(params: dict) -> dict:
         gate_decision_id=approval["gate_decision_id"],
         run_plan_hash=run_plan_hash,
         submit_result=result,
+        experiment_id=binding.get("experiment_id"),
+        attempt_id=binding.get("attempt_id"),
     )
     result["run_record_id"] = record["record"]["record_id"]
     return result
@@ -447,6 +532,8 @@ TOOL_SCHEMAS = {
             "base_dir": {"type": "string"},
             "resources": {"type": "object"},
             "destructive_scope": {"type": "array", "items": {"type": "string"}},
+            "experiment_id": {"type": "string"},
+            "attempt_id": {"type": "string"},
             "generate": {
                 "type": "object",
                 "properties": {
@@ -503,6 +590,8 @@ TOOL_SCHEMAS = {
             "job_id": {"type": "string"},
             "scheduler": {"type": "string", "enum": ["auto", "local", "slurm", "pbs", "ssh"]},
             "target": SSH_TARGET_SCHEMA,
+            "project_root": {"type": "string"},
+            "run_plan_hash": {"type": "string"},
         },
         "additionalProperties": False,
     },

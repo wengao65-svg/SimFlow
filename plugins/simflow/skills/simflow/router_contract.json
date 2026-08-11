@@ -47,6 +47,7 @@
     }
   ],
   "runtime_escalation_triggers": [
+    "first_use_read_only_experiment_inspection",
     "inspect_recorded_project_events",
     "record_real_run_or_deliverable",
     "real_local_execution",
@@ -58,6 +59,16 @@
     "destructive_operation",
     "recovery_or_restore"
   ],
+  "project_memory_policy": {
+    "scope": "first_simflow_use_per_project_per_user_request",
+    "tool": "inspect",
+    "read_only": true,
+    "writes_session_state": false,
+    "reuse_within_request": true,
+    "silent_binding_requires_unambiguous_match": true,
+    "ambiguity_blocks_only_durable_write_or_execution_binding": true,
+    "fixed_reentry_summary_required": false
+  },
   "ambiguous_intent_policy": {
     "return_smallest_plausible_skill_set": true,
     "list_missing_information": true,
@@ -100,6 +111,7 @@
       "intent_based_selection",
       "one_task_plus_one_domain_limit",
       "runtime_separation",
+      "single_read_only_memory_reentry",
       "scientific_truthfulness"
     ]
   }

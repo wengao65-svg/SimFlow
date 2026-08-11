@@ -289,6 +289,13 @@ def record_gate_decision(
         "agent": agent,
     }
 
+    binding = None
+    run_plan_hash = context.get("run_plan_hash") if isinstance(context, dict) else None
+    if run_plan_hash:
+        from .run_bindings import get_run_plan_binding
+
+        binding = get_run_plan_binding(str(root), str(run_plan_hash))
+
     record_event(
         str(root),
         kind="approval",
@@ -301,6 +308,8 @@ def record_gate_decision(
             "agent": agent,
         },
         record_id=decision_id,
+        experiment_id=(binding or {}).get("experiment_id"),
+        attempt_id=(binding or {}).get("attempt_id"),
     )
 
     return record
