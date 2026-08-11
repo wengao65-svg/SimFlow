@@ -36,9 +36,9 @@ def build_initialize_instructions(
         "generic": "Describe the simulation task naturally and use the SimFlow MCP tools for tracked work.",
     }[host]
     invariants = (
-        " Pass explicit project_root. For an existing project, start with workflow_status or read_state."
-        " Register tracked artifacts and create checkpoints at stage boundaries."
+        " Pass explicit project_root for runtime operations. Inspect is read-only and optional."
+        " Record only meaningful events; create checkpoints only at real recovery boundaries."
         " Real local, remote, or HPC execution remains dry-run-first and approval-gated."
-        " SimFlow records workflow evidence; the host remains responsible for scientific reasoning and execution."
+        " SimFlow records runtime truth; the host remains responsible for scientific reasoning and execution."
     )
     return invocation + invariants

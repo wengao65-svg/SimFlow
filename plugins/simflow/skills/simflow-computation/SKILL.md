@@ -1,213 +1,78 @@
 ---
 name: simflow-computation
-description: Use when a user asks to prepare, validate, dry-run, or submit computational simulation jobs.
+description: Guide disciplined preparation, validation, diagnostic execution, monitoring, and interpretation boundaries for scientific computations.
 ---
 
-## Cross-Session Experiment Memory
-
-For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
-
-`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
-
-# SimFlow Computation
+# Scientific Computation
 
 ## Purpose
 
-`simflow-computation` is the computation-stage workflow contract for calculation
-preparation, validation, dry-run evidence, submit-readiness handoff, and
-user-provided computation evidence intake. It is not a central simulation
-executor and does not replace domain skills or scheduler safety gates.
+Provide general execution discipline for computational research without owning
+submission plumbing, approval policy, job registries, or workflow state.
 
-## Trigger conditions
+## Use when
 
-- The user asks to prepare inputs, validate a calculation setup, estimate
-  resources, dry-run a job, record computation evidence, or submit a local,
-  remote, or HPC job.
-- The current research intent is computation, including input generation as an
-  optional sub-activity.
-- A planned or existing calculation needs evidence, approval, checkpointing, or
-  handoff before it can be treated as ready for the next workflow stage.
+- Preparing, validating, smoke-testing, running, resuming, or diagnosing a
+  scientific calculation.
+- Reviewing whether an existing calculation is ready for expensive execution.
+- Determining whether a run actually completed and produced usable evidence.
 
-## Input conditions
+## Do not use when
 
-- Explicit `project_root`, calculation intent, selected software/toolchain,
-  task or method, and available input or model artifacts.
-- For dry-run or submit-readiness work: command or script, input hashes,
-  resource assumptions, environment details, and credential-scan evidence.
-- Missing required potentials, structures, files, hashes, approval records, or
-  scheduler details must produce waiting or blocked evidence rather than an
-  invented default.
+- The task is only scientific model construction, output analysis, or writing.
+- The user only needs software-specific syntax; pair with one Domain Skill
+  rather than loading several Task Skills.
 
-## Computation Activities
+## Task principles
 
-- Input generation: create or register calculation input files without claiming
-  real execution.
-- Input validation: record file presence, non-empty checks, hashes, and
-  lightweight consistency evidence.
-- Dry-run planning: generate or register calculation manifests, job scripts,
-  resource estimates, credential scans, and submit-readiness evidence. Prefer
-  explicit or reusable user submit scripts over generating a new script.
-- Generic evidence intake: record user-provided computation artifacts for
-  tracked_only or unknown tools without forcing a helper route.
-- Submit handoff: pass reviewed evidence and hashes to the safety gate and MCP
-  connector path; do not submit directly from the skill contract.
+- Inspect existing inputs and validated project conventions before changing
+  anything.
+- Confirm that the software, method, model, and requested observable agree.
+- Prefer static checks and a small diagnostic run before costly production work.
+- Preserve user parameters unless a change is scientifically justified and
+  disclosed.
+- Distinguish prepared, submitted, queued, running, exited, numerically
+  converged, and scientifically usable states.
+- Treat scheduler submission as evidence of submission only.
+- Diagnose failures before retrying; do not silently relax scientific settings.
+- Resume from trustworthy software restart data when possible.
 
-## Support-Level Behavior
+## Minimum checks
 
-- `helper_supported`: built-in helpers may prepare or inspect bounded evidence,
-  but dry-run evidence is still not a real calculation.
-- `tracked_only`: record explicit user evidence and limitations; do not block
-  planning only because a helper is unavailable.
-- `unknown`: avoid software-specific claims; use generic evidence intake and
-  label limitations clearly.
+- Required inputs, referenced files, executables, versions, and units are known.
+- Syntax and cheap consistency checks pass.
+- Resource scale and expected outputs are plausible.
+- A diagnostic or dry-run path exists before production execution.
+- Exit status, completion markers, numerical convergence, and critical warnings
+  are inspected after execution.
+- The calculation has not been called successful merely because files exist or
+  a parser can read them.
 
-## Domain Skill Delegation
+## Common failure modes
 
-- VASP, CP2K, LAMMPS, GPUMD, and MLP domain skills own engine-specific file
-  semantics, scientific checks, and troubleshooting guidance.
-- `simflow-computation` owns orchestration-level evidence, submit-readiness,
-  checkpointing, and gate handoff.
-- Do not make a computation helper the only valid path for a domain task; a
-  user-provided script, notebook, or external workflow is valid when evidence
-  and limitations are recorded.
+- Equating a job ID with successful computation.
+- Equating a normal process exit with numerical or scientific convergence.
+- Overwriting a successful reference run during troubleshooting.
+- Changing cutoffs, tolerances, timestep, model, or ensemble without disclosure.
+- Repeating an expensive run before identifying the failure mode.
+- Inventing missing outputs or treating partial output as final evidence.
 
-## Output artifacts
+## Escalate uncertainty when
 
-- Calculation manifest with software, task, command, inputs, resources,
-  environment, and intended outputs.
-- Input files or input manifest with hashes and lineage.
-- Input validation report.
-- Dry-run report with script hash and input artifact hash.
-- Resource estimate.
-- Credential scan report.
-- Submit readiness summary (`submit_readiness_summary.md`) wrapping calculation
-  manifest, input validation, resource estimate, credential scan, dry-run report,
-  script/input hashes, and `hpc_submit` gate status into a user-facing artifact
-  with a matching `user_submit_readiness` payload.
-- Job record only when a real job is approved and submitted.
+- Real local, remote, or HPC execution is requested.
+- Credentials, licensed files, proprietary inputs, destructive actions, or high
+  resource cost are involved.
+- A parameter change could alter the scientific interpretation.
+- Output is incomplete, contradictory, or insufficient to determine convergence.
 
-## Directory layout
+## Completion criteria
 
-Computation work lives under `phase4_computation/stageN_<descriptor>/`
-following `docs/user-project-layout.md`. When the host agent creates or
-extends a computation stage, observe:
+- Preparation, execution state, and scientific usability are distinguished.
+- Validation evidence and unresolved warnings are reported.
+- No stronger completion claim is made than the observed outputs support.
 
-- One `stageN_*` directory per logical sub-activity. Temperature, pressure,
-  and method variants belong as subdirectories of one stage, not as
-  same-prefixed siblings (`stage3_aimd/300K/`, `stage3_aimd/500K/`, not
-  `stage3_300K/` next to `stage3_500K/`).
-- Separate dataset preparation from training runs: nest `dataset_prep/`
-  vs `run_step1/`, `run_step2/` inside a single stage directory. Do not
-  use a `_Training` suffix on a sibling to mean "the actual run".
-- Encode iteration as `vN_<desc>_<YYYYMMDD>/`, not as bare integers that
-  look like temperatures or years.
-- Reusable submit scripts live under `scripts/submit/` (see
-  `docs/user_guide.md`); task-specific scripts stay with the calculation.
-- Each run directory should carry at minimum `README.md`,
-  `protocol.json`, `input_manifest.tsv`, `output_check_summary.tsv`,
-  `run_status.tsv`, the driver script, and `static_validation.json`.
-- Do not create a nested `.simflow/` inside a stage directory; the
-  project-root `.simflow/` is the only state root.
+## Optional references
 
-## Submit-Readiness Handoff
-
-- Preserve a `submit_readiness` payload containing project root, scheduler, job
-  script path, dry-run evidence path, script hash, and input artifact hash.
-- Preserve a `user_submit_readiness` payload wrapping `status`,
-  `ready_for_approval`, `real_submit_allowed`, `approval_required`,
-  `failed_checks`, evidence references, hashes, and `next_actions` so the
-  host agent and user can inspect submit readiness without scanning internal
-  artifact paths.
-- Preserve a `submit_request_template` payload for MCP submit fields:
-  `project_root`, `script_path`, `scheduler`, `dry_run_evidence`,
-  `script_hash`, `input_artifact_hash`, and `gate_decision_id`.
-- Preserve user-provided submit scripts unchanged. If a task-specific
-  adaptation is necessary, create a derived script under `.simflow/` with
-  parent-script lineage; do not edit the original script in place.
-- Treat project-local `scripts/submit/` as the default reusable submit-script
-  library. Only reusable scripts belong there; one-off task scripts should stay
-  in the calculation directory or be referenced explicitly.
-- Set `real_submit_allowed` to `false` until an explicit `hpc_submit` gate
-  decision id is recorded against matching evidence and hashes.
-- If the job script or input hash changes after approval, require a new dry-run
-  and approval.
-
-## Remote Transfer Handoff
-
-- Use `hpc/upload` for SSH uploads and `hpc/download` for result retrieval.
-- Do not use direct Agent `scp`/`ssh` for routine transfer work. Transfers
-  require an approved `hpc_transfer` decision and verified SHA-256 manifest.
-- Pass the verified upload manifest and matching remote work directory to
-  `hpc/submit`; SSH submission is blocked when the script is absent from the
-  manifest.
-- Preserve transfer manifests, per-file hashes, partial failures, and download
-  verification as computation artifacts.
-- Licensed VASP POTCAR files may be included in an approved upload from a
-  controlled calculation directory. Store only restricted-file metadata and
-  hashes in manifests; never copy POTCAR into `.simflow/artifacts` or expose its
-  contents in reports, checkpoints, or tool responses.
-
-## Status Semantics
-
-- `planned`, `waiting`, `blocked`, `dry_run_complete`, `submitted`,
-  `completed`, and `failed` are status labels for communicating evidence state;
-  they are not a standalone runtime state machine defined by this skill.
-- `waiting` means user-supplied inputs, potentials, existing files, or evidence
-  are missing.
-- `blocked` means validation, credential scan, hashes, approval, or gate
-  conditions failed.
-- `submitted` is valid only after a recorded gate-approved real submit.
-- `completed` means stage evidence is complete; it must not imply scientific
-  result completion unless output/job evidence supports it.
-- `failed` work must produce failure evidence or a failure checkpoint.
-
-## Status write rules
-
-- Resolve `project_root` explicitly before writing `.simflow/` state,
-  artifacts, reports, gates, jobs, or checkpoints.
-- Register scripts, inputs, validation reports, dry-run evidence, credential
-  scans, resource estimates, submit summaries, and job records as artifacts
-  with metadata and lineage.
-- Keep waiting, planned, dry-run-only, and tracked-only evidence labels visible
-  in status, readiness, handoff, and writing inputs.
-- Write canonical submit-readiness evidence under `.simflow/artifacts/compute/`
-  and `.simflow/artifacts/security/`.
-
-## Checkpoint rules
-
-- Create a checkpoint after computation dry-run or submit-readiness evidence is
-  complete enough to form a recoverable boundary.
-- Associate the checkpoint with the workflow, canonical `computation` stage,
-  and registered input, validation, resource, security, and submit artifacts.
-- Create or preserve failure evidence and a failure checkpoint when validation,
-  credential scan, approval, submission, or evidence registration fails at a
-  tracked boundary.
-
-## Safety Gate Handoff
-
-- Real local, remote, or HPC execution must pass the same approval discipline.
-- The gate must evaluate recorded evidence, not agent-provided booleans.
-- Submit results must be recorded as job artifacts and `jobs.json` state only
-  after a real approved submission.
-- Do not record unfinished calculations as completed results.
-
-## Prohibited actions
-
-- Do not submit real local, remote, or HPC jobs without passing the relevant
-  approval gate.
-- Do not skip dry-run, input validation, resource estimate, credential scan, or
-  artifact hash recording when real execution is possible.
-- Do not store credentials, expose licensed/proprietary file contents, or
-  redistribute restricted simulation inputs. Controlled local POTCAR
-  materialization and approval-bound transfer are permitted only through the
-  VASP runtime and existing HPC transfer path.
-- Do not require one specific simulation engine, scheduler, parser, plotting
-  library, input builder, or helper script.
-
-## Manual confirmation scenarios
-
-- Real execution, remote access, licensed software, proprietary files, or
-  destructive file operations are involved.
-- Resource requests, wall time, queue, account, environment, or software
-  version are uncertain.
-- The job script or input hash differs from the evidence used for approval.
+Pair with at most one relevant Domain Skill for software-specific input,
+restart, convergence, and output semantics. Runtime safety and event recording
+remain separate from this guidance.

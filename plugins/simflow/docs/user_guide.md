@@ -1,215 +1,129 @@
 # SimFlow User Guide
 
-## What SimFlow Does
+## Choose Guidance From Intent
 
-SimFlow helps a host agent keep computational research traceable. It provides:
+Use `simflow` as a thin router or select a specific Skill. One task should load
+at most one Research Task Skill and one optional Domain Skill.
 
-- canonical research stages
-- `.simflow/` project state
-- artifact metadata and lineage
-- checkpoints and handoff notes
-- dry-run-first safety gates for real execution
-- optional domain helpers for common simulation software
+Examples:
 
-It does not run a fixed workflow for you and does not choose the science. The
-host agent chooses literature sources, modeling tools, simulation engines,
-analysis scripts, plotting tools, and writing format.
+| Intent | Task Skill | Domain Skill |
+| --- | --- | --- |
+| analyze GPUMD trajectories | analysis/visualization | GPUMD |
+| prepare VASP NEB inputs | modeling or computation, choose one | VASP |
+| design NEP active learning | proposal | MLP |
+| write accepted results | writing | none |
 
-## Invocation
+Skills follow current intent, not cwd or phase. They can guide useful work when
+SimFlow MCP is unavailable.
 
-SimFlow is skill-first. In Codex, use `$simflow`, `$simflow-vasp`, or natural
-language that triggers a SimFlow skill. In Claude Code, use namespaced skills
-such as `/simflow:simflow`. In OpenCode, ask the agent to use the `simflow`
-skill or a domain skill such as `simflow-vasp`; OpenCode loads them through its
-native skill tool.
+## When To Use Runtime
 
-During MCP initialization, SimFlow uses standard client information to present
-the matching invocation syntax. This affects discovery guidance only; workflow
-state, safety, and evidence rules are identical across hosts.
+Use runtime only when you need to:
 
-Legacy runtime CLI scripts have been removed from the packaged source. User
-work should enter through skills and, when needed, MCP/runtime helpers that
-write explicit `.simflow/` state, artifacts, checkpoints, lineage, and gate
-records. Do not treat SimFlow as a command-line workflow executor.
+- inspect durable project state or recovery points;
+- record one meaningful milestone, run, deliverable, analysis, approval, or
+  failure;
+- create or validate a real recovery reference;
+- plan, transfer, submit, or monitor real execution;
+- explicitly index legacy SimFlow state.
 
-### Re-entering An Existing Project
+Ordinary reading, editing, plotting, literature synthesis, and draft writing do
+not need a state call merely because a Skill was used.
 
-1. Call `simflow_state/project_reentry` with the canonical project root; do not read host transcript logs.
-2. Select an existing experiment or call `begin_experiment` for new forward-only tracking.
-3. For iterative work, call `begin_iteration` with explicit acceptance criteria.
-4. Call `start_activity` before project changes or execution and `finish_activity` afterward.
-5. Register artifacts, jobs, gates, checkpoints, and lineage with the returned experiment/activity context.
-6. Use `fork_experiment` for alternatives, `compare_experiments` for branch comparison, and `verify_experiment_ledger` when integrity must be checked.
-7. Treat `.simflow/memory/ledger.sqlite3` as authoritative; rebuild JSON/JSONL/Markdown exports instead of editing them.
-8. Run the bounded `orphan_compute_scanner` only when the ledger and experiment files disagree.
-9. End with `session_handoff` so the next session receives current state,
-   warnings, checkpoints, and approval needs.
+## Re-enter An Existing Project
 
-Risky calculation directory names such as `NoGate`, `Bypass`, or `SkipGate`
-must not be treated as approval. If the user explicitly accepts the risk,
-record that decision with `record_user_override` and preserve the original gate
-failure reference.
+1. Inspect the project root and existing layout.
+2. Call `simflow_state/inspect` only if durable state or recovery context is
+   relevant.
+3. Continue from actual files and current user intent; do not reconstruct work
+   from host transcripts.
+4. Record only new logical events that need durable provenance.
+5. Create a checkpoint only when restart references or a meaningful diagnostic
+   boundary exist.
 
-If historical state is inconsistent, run `repair_state` in `audit` mode first.
-Apply mode re-audits immediately, backs up the full `.simflow/` tree, and only
-applies structural repairs above the confidence threshold. Scientific status,
-unknown provenance, checkpoint snapshots, jobs, and gates are not inferred or
-rewritten.
+The compact summary already exposes current goal, active run, recent milestone,
+failure, checkpoint, and next action. No project re-entry, experiment,
+iteration, activity, or session-handoff lifecycle is required.
 
-## Canonical Stages
+## Records
 
-| Stage | Purpose |
-| --- | --- |
-| `literature_review` | Track sources, search logs, notes, citation evidence, and review claims |
-| `proposal` | Record research plan, assumptions, alternatives, resources, and risks |
-| `modeling` | Preserve model sources and transformations |
-| `computation` | Prepare, validate, dry-run, optionally submit, and record jobs |
-| `analysis_visualization` | Record scripts, data, figures, interpretation, and lineage |
-| `writing` | Map claims to evidence artifacts and mark speculation |
+Use one record for a logical deliverable or run. A directory of outputs may be
+represented by a manifest or a few key file references. Parent record IDs can
+link an analysis to its run or a figure to its processed data.
 
-Any stage can be entered directly when the needed evidence is available.
+Do not record temporary files, repeated copies, helper invocation receipts, or
+reports whose only purpose is to prove that another record exists.
 
-## Recipes
+## Stages And Recipes
 
-DFT, AIMD, classical MD, phonon, NEB, and custom paths are recipes or tags. They
-are reference paths, not fixed executor DAGs.
+The six stage names provide shared research vocabulary. They do not require
+ordered transitions. DFT, AIMD, classical MD, MLP-MD, phonon, NEB, and custom
+paths are recipes or tags, not fixed executor DAGs.
 
-Current work should use canonical stages and recipes under `workflow/recipes/`.
+Project directories are independent of runtime stages. SimFlow respects an
+existing layout and offers the six `phaseN_*` directories only as a template
+for new work.
 
-## Software And Toolchains
+## Computation And HPC
 
-Software names are proposal metadata, helper-routing hints, and artifact
-provenance. They are not a required registry entry before a project can move
-through SimFlow.
+Before real local, remote, or scheduler execution:
 
-If a proposal names a helper-supported tool such as VASP, CP2K, LAMMPS, GPUMD, or NEP,
-stage runners may use the corresponding helper path. If it names a
-tracked-only or unknown tool, SimFlow should still record the plan, user
-scripts, commands, outputs, versions, environment, limitations, and lineage.
-Built-in stage runners return a `capability_warning` when automation is
-requested for a tool without helper support.
+1. inspect existing inputs and preserve validated scientific parameters;
+2. run cheap validation or a smoke test where appropriate;
+3. call `hpc/plan` with the exact script and inputs;
+4. review the returned validation, credential scan, restricted files, target,
+   resources, and `run_plan_hash`;
+5. record explicit user approval bound to that hash;
+6. use `hpc/transfer` when the plan declares remote transfer;
+7. call `hpc/submit` with the same hash and approval reference;
+8. use `hpc/status` for scheduler state and inspect scientific outputs
+   separately.
 
-After a `capability_warning`, record user-provided computation evidence through
-the generic computation evidence intake path. The intake records existing
-scripts, inputs, validation reports, dry-run reports, resource estimates,
-commands, versions, environments, and limitations as computation artifacts. If
-the required computation evidence is present, the computation stage can be
-explicitly completed and checkpointed without adding a software-specific helper.
+Changing the script, inputs, target, remote directory, resources, transfer
+scope, destructive scope, or restricted-file metadata invalidates approval.
+An unchanged retry or resume can reuse it.
 
-All recipes use the same toolchain contract. DFT, AIMD, classical MD, phonon,
-NEB, and MLP-MD workflows may record single-tool or multi-tool plans in
-`toolchain` or `toolchain_plan`, then record the concrete runtime fact in
-artifact metadata as `actual_tool_used`. Recipe files can suggest activity
-roles, but they do not define software support levels.
+A scheduler job ID means submission occurred; it does not mean the calculation
+completed. Output existence does not prove convergence, and parser success does
+not prove scientific validity.
 
-## Common Work Patterns
+Production or scientific readiness decisions are not submit decisions. A
+production-readiness result still requires separate `hpc_submit` evidence,
+approval bound to the current run plan, and a real submit record.
 
-### Literature Review From User PDFs
+## POTCAR
 
-Record uploaded PDFs, search/source logs, notes, citation maps, and review
-summaries. Direct quotes, source claims, and agent interpretation should be
-separate artifacts or clearly separated sections.
+VASP POTCAR may be materialized from a user-owned licensed library into a
+controlled calculation directory. Variant selection must be exact. SimFlow may
+record element, dataset, relative path, size, hash, and validation metadata.
+POTCAR content must never enter `.simflow`, Git, logs, checkpoints, packages,
+or MCP responses.
 
-### User-Provided Structure
+## Analysis And Figures
 
-Register the original POSCAR/CIF/XYZ as a user-provided model artifact before
-any transformation. If the agent uses ASE, pymatgen, Open Babel, or a custom
-script, record the script/command, environment, output, and lineage.
+Choose the analysis location from the actual input scope:
 
-### Computation
+- one calculation unit: near that unit;
+- multiple runs in one stage: one stage-level analysis entry;
+- multiple stages in one phase: the meaningful phase common parent;
+- only project-wide synthesis: phase 5 when that template is used.
 
-Before real local, remote, or HPC execution, record:
+Keep one authoritative location. Use shallow README indexes and relative links
+instead of copying or symlinking results. Record analysis only at logical
+deliverable granularity, including relevant inputs, script/environment, main
+outputs, uncertainty, and parent record IDs.
 
-- calculation manifest
-- input validation report
-- dry-run report
-- resource estimate
-- credential scan
-- script/input hashes
-- gate decision id or approval token
+## Writing
 
-If you already have a working submit script, pass it as `job_script` or
-`submit_script`. SimFlow will preserve it unchanged, hash that exact file, and
-point `submit_readiness` at it. Reusable submit scripts should live under
-`scripts/submit/`; task-specific scripts can stay with the calculation inputs.
-When SimFlow finds more than one reusable script, it waits for an explicit
-choice instead of guessing. Template rendering is opt-in and writes a derived
-copy under `.simflow/`, never an in-place edit.
+Claims must remain traceable to real evidence. Do not turn a trend into a
+mechanism, correlation into causation, a planned calculation into a result, or
+an unfinished run into completed evidence. Methods must describe what was
+actually executed.
 
-A job record is only required after a real local, remote, or HPC submit has
-occurred. Dry-run-only computation evidence does not need
-`job_record_if_submitted`. When a real `hpc.submit` succeeds through the MCP
-submit tool, SimFlow records a `job_record_if_submitted` computation artifact
-with the scheduler job id, gate decision, approved hashes, script path, and
-submit result.
+## Legacy Migration
 
-The computation helper writes the gate evidence to canonical project-local
-paths so later submit tools can verify the exact preparation state:
-
-| Evidence | Path |
-| --- | --- |
-| Calculation manifest | `.simflow/artifacts/compute/calculation_manifest.json` |
-| Input validation | `.simflow/artifacts/compute/input_validation.json` |
-| Resource estimate | `.simflow/artifacts/compute/resource_estimate.json` |
-| Dry-run report | `.simflow/artifacts/compute/dry_run_report.json` |
-| Credential scan | `.simflow/artifacts/security/credential_scan.json` |
-
-`dry_run_report.json` records `status`, `script_hash`, `input_artifact_hash`,
-and `input_manifest_hash`. The compute plan also contains `submit_readiness`,
-which names the dry-run evidence, script path, scheduler, and hashes expected by
-the submit connector.
-
-Changing the script or input hashes invalidates prior approval.
-
-### Analysis And Figures
-
-The agent may use built-in helpers or write custom Python. Either path must
-record scripts, commands, inputs, outputs, environment, and figure lineage.
-Incomplete outputs, failed convergence, missing frames, or speculative
-interpretations must be labeled.
-
-For tracked-only tools, custom notebooks, external post-processing suites, or
-manually prepared figures, record evidence through generic analysis evidence
-intake instead of adding a recipe-specific parser. The intake records analysis
-scripts, input data, derived outputs, environment notes, figure files, figure
-manifests, visual QA, and claim evidence maps as `analysis_visualization`
-artifacts.
-
-### Writing
-
-Writing outputs can be a draft, proposal, internal report, figure captions,
-slides, or another user-requested format. Key claims should trace to literature,
-modeling, computation, analysis, or figure artifacts. Unfinished calculations
-must not be written as completed results.
-
-Writing claim maps include degraded evidence states such as `dry_run_only`,
-`waiting_for_outputs`, `missing_evidence`, and `skipped_optional_dependency`.
-These states are explicit reminders that the text may describe plans,
-limitations, or pending evidence, but must not present those items as completed
-scientific results.
-
-### Status And Readiness
-
-`workflow_status`, `project_readiness`, `stage_readiness`, and handoff summaries
-are read-only views over existing SimFlow state. For tracked-only computation or
-analysis paths, status output includes generic evidence intake actions such as
-`record_computation_evidence` and `record_analysis_evidence` so users can see
-which missing evidence should be registered next without adding recipe-specific
-software logic.
-
-Production or scientific readiness decisions are not submit decisions. For
-example, `production_md_readiness` may approve that MLP-MD evidence is ready for
-the next scientific step, but real local, remote, or HPC execution still
-requires separate `hpc_submit` evidence, hashes, credential scan, approval, and
-job-record handling.
-
-## Environment Variables
-
-| Variable | Purpose |
-| --- | --- |
-| `MP_API_KEY` | Materials Project API key |
-| `S2_API_KEY` | Semantic Scholar API key |
-
-SSH host, user, and port are supplied per call. SSH authentication is managed
-by OpenSSH or a host-managed agent and must not be stored in `.simflow/`,
-artifacts, reports, checkpoints, logs, or handoff packages.
+`inspect` reports legacy `.simflow/state/*.json` and nested `.simflow` roots
+without writing. To persist a compact index, use `record(kind="migration")`
+with `confirm_migration=true` and the exact current report hash. The operation
+does not reorganize the project or import host conversations.

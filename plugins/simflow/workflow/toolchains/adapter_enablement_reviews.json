@@ -71,7 +71,7 @@
       "evidence_roles": ["input_manifest", "calculation_manifest", "output_parse_summary"],
       "claim_limits": ["Candidate-only provenance fixture; QE helper support remains unavailable."],
       "safety_boundary": "Use generic artifact recording only; do not expose QE-specific helper support from this review.",
-      "skill_decision": "existing simflow-qe placeholder remains unsupported; no active QE helper skill in Stage3",
+      "skill_decision": "no dedicated QE placeholder or active QE Domain Skill; retain QE as unsupported tool context",
       "status": "candidate_only"
     }
   ]

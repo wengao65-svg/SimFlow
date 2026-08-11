@@ -9,6 +9,5 @@
   "approval_triggers": ["large_resource_commitment", "licensed_or_proprietary_file_handling"],
   "handoff_notes": ["Record selected assumptions, rejected alternatives, required inputs, resource estimate, and user constraints."],
   "risk_notes": ["Do not imply the proposal proves results before computation or analysis artifacts exist."],
-  "checkpoint_policy": "on_completion",
   "review_triggers": ["resource_exceeds_budget", "unclear_research_goal", "missing_control_or_comparison"]
 }

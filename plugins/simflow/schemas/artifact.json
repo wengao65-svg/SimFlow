@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Artifact",
-  "description": "Artifact metadata and lineage",
+  "title": "Legacy Artifact Record",
+  "description": "Read-only compatibility schema for historical .simflow/state/artifacts.json entries. New writes use compact logical records.",
   "type": "object",
   "required": ["artifact_id", "name", "type", "version", "stage", "lineage", "metadata", "created_at"],
   "properties": {

@@ -1,169 +1,108 @@
-# State and Checkpoint Management
+# State And Recovery
 
-## .simflow Directory Structure
+## Compact Store
 
-```
+New SimFlow state uses four concepts:
+
+```text
 .simflow/
-├── state/
-│   ├── workflow.json      # Overall workflow state
-│   ├── stages.json        # Stage status registry
-│   ├── artifacts.json     # Artifact registry
-│   ├── checkpoints.json   # Checkpoint registry
-│   ├── jobs.json          # HPC job tracking
-│   ├── verification.json  # Gate verification state
-│   ├── lineage.json       # First-class artifact nodes and links
-│   ├── mcp_engagement_log.jsonl # Session-level MCP engagement evidence
-│   └── summary.json       # Project status summary
-├── memory/
-│   ├── ledger.sqlite3     # Canonical transactional experiment ledger
-│   ├── ledger.json        # Derived activation/history-boundary view
-│   ├── experiments.json   # Derived experiment projection
-│   ├── iterations.json    # Derived iteration and acceptance projection
-│   ├── activity_events.jsonl # Derived activity projection
-│   ├── events.jsonl       # Derived immutable event-DAG view
-│   ├── summary.json       # Derived compact ledger summary
-│   ├── session_contexts.jsonl # Derived re-entry contexts, without transcripts
-│   └── session_handoffs.jsonl # Derived compact session transfer records
-├── artifacts/
-│   ├── initial_structure.cif
-│   ├── relaxed_structure.cif
-│   └── energy.dat
+├── project.json
+├── records.jsonl
 ├── checkpoints/
-│   ├── relax_001.tar.gz
-│   └── scf_001.tar.gz
-├── reports/
-│   └── status_summary.md
-├── extensions/
-│   └── skills/            # Custom skill overrides
-├── logs/
-│   └── workflow.log
-└── config.json            # Local overrides
+└── reports/
 ```
 
-## State Lifecycle
+- `project.json` is a derived current summary.
+- `records.jsonl` is the append-only logical event history.
+- `checkpoints/` stores compact recovery references.
+- `reports/` stores migration, transfer, run-plan, and requested human-readable
+  reports.
 
-1. **Initialize**: `simflow_state.init_workflow` creates the `.simflow/` tree, required state registries, and status summary files
-2. **Running**: Stage transitions update stage status
-3. **Completed**: Artifacts registered, checkpoint created
-4. **Recovery**: Load last checkpoint, resume from that stage
+`inspect` is read-only and does not create this tree. The first `record` or
+`checkpoint` creates only the compact paths required by that operation.
 
-## Forward-Only Experiment Memory
+## Project Summary
 
-New tracked work uses `.simflow/memory/ledger.sqlite3` as the canonical,
-transactional cross-session experimental notebook and immutable provenance
-DAG. It is intentionally forward-only: enabling it does not
-import host transcripts, infer experiments from legacy artifacts, or treat old
-workflow summaries as a recovery point.
+The summary tracks:
 
-Every project session starts with `simflow_state/project_reentry`. New work then
-creates an experiment and, for iterative work, an iteration with explicit
-acceptance criteria. Each mutation, computation, analysis, transfer, or state
-change is bracketed by `start_activity` and `finish_activity`. The activity
-record preserves software, method, script hashes, redacted command, inputs,
-outputs, result, failure, recovery location, and next action.
+- current goal;
+- active run ID;
+- latest milestone, failure, and checkpoint;
+- next action;
+- total and per-kind record counts;
+- last record metadata.
 
-JSON, JSONL, and per-experiment Markdown notebooks are derived views and can be
-rebuilt from SQLite. Event payloads are hash-linked to parent events, and SQLite
-triggers reject event/reference update or deletion. Checkpoint restore never
-rolls the ledger back. Legacy `.simflow/state/` remains queryable but does not
-determine experiment selection or continuation once the ledger is enabled.
+It is derived from compact records and is not a second authoritative event
+history.
 
-Once enabled, core state, report, artifact, checkpoint, gate, job, and MCP/HPC
-writes fail closed unless they carry a valid open session and active activity.
-Child processes inherit this binding through `SIMFLOW_SESSION_CONTEXT_ID`,
-`SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and
-`SIMFLOW_ACTIVITY_ID`. Existing pre-ledger records may be referenced explicitly
-with `provenance: pre_ledger_baseline`; this does not import transcript history.
+## Logical Records
 
-Initialization is idempotent. Re-entering an existing project preserves its
-state. An explicit `force=true` request first copies the current tree to
-`.simflow/backups/<timestamp>/` before recreating canonical state files.
+Record kinds are:
 
-Artifact registration is a single state transaction: `artifacts.json`,
-`lineage.json`, and the producing stage's `outputs` are updated together. Every
-new artifact records its `workflow_id`.
-
-Stage completion creates a pending verification record. Stage execution failure
-uses `record_stage_failure`, which writes sanitized log and error-report
-artifacts, marks workflow/stage summaries failed, creates a fail verification,
-and creates a failure checkpoint with a separate recovery checkpoint reference.
-
-## Ownership Boundaries
-
-Canonical stage runners own stage transitions. Checkpoint/state-admin APIs own
-checkpoint operations. Helper outputs are evidence-only by default; they may
-write requested files under `project_root`, but they do not initialize or
-advance stages, do not register artifacts, and do not create checkpoints
-unless explicit helper-run recording is requested.
-
-Default helper reports live under project-root `reports/<engine>/`. `.simflow`
-is touched only by explicit helper-run recording.
-
-`--record-helper-run` is `record_only`: it registers helper evidence and
-lineage only. It does not mark a stage complete or failed and does not create
-a stage-boundary checkpoint.
-
-Direct helpers do not register arbitrary report artifacts. Stage runners may
-ingest/register outputs when those outputs become canonical stage artifacts.
-
-`simflow.result.v1` defines canonical nested roles, outcomes, and state
-effects. Top-level statuses are compatibility fields rather than the canonical
-cross-surface contract. Helper evidence status, stage status, verification
-status, readiness status, gate status, and checkpoint status are distinct
-vocabularies.
-
-## Host State Boundary
-
-`.omx/` is owned by oh-my-codex / the host session. SimFlow may read `.omx/` for host context, but `.omx/` is never the SimFlow workflow state root. Initializing SimFlow in a project that already contains `.omx/` must leave `.omx/` untouched and create or update only `.simflow/` for workflow state.
-
-## Project Root Boundary
-
-SimFlow distinguishes `plugin_root` from `project_root`. `plugin_root` is the installed plugin or cache directory used to import SimFlow code. `project_root` is the user's current working project and is where `.simflow/`, `reports/`, artifacts, and checkpoints are written. MCP servers may run with cwd set to `plugin_root`, so MCP tools must receive an explicit `project_root` and must reject attempts to write workflow state to the plugin root or plugin cache.
-
-## Recovery Strategy
-
-1. Find the latest successful, recoverable stage checkpoint
-2. Extract artifacts from checkpoint
-3. Update state to reflect recovered artifacts
-4. Resume workflow from the next stage
-
-Do not automatically restore the latest checkpoint by creation time: the newest
-checkpoint may be a diagnostic failure snapshot. A checkpoint marked
-`recoverable=false` is never restorable.
-
-Failure checkpoints are always diagnostic and non-recoverable. Experiment
-handoff reports the latest event checkpoint and the latest successful recovery
-checkpoint separately. New checkpoints record `experiment_id`, optional
-`iteration_id`, and `activity_id` when experiment memory is active.
-
-For historical projects, `repair_state audit` reports stale summaries, missing
-lineage nodes, stage-output gaps, legacy checkpoint statuses, and safe path-case
-corrections without writing files. `repair_state apply` requires prior state
-engagement, creates `.simflow/backups/<timestamp>/`, preserves checkpoint
-snapshots, and writes a machine-readable report under
-`.simflow/reports/repair_state/`.
-
-## State Schema
-
-Workflow state follows `schemas/state.schema.json`. Projects use canonical
-stages and may store DFT/AIMD/MD as `recipe` or `tags`.
-
-```json
-{
-  "workflow_id": "wf_001",
-  "workflow_type": "custom",
-  "recipe": "dft",
-  "tags": ["dft"],
-  "status": "running",
-  "current_stage": "computation",
-  "stages": {
-    "modeling": {"status": "completed"},
-    "computation": {"status": "running"}
-  },
-  "artifacts": {
-    "initial_structure": {"path": "...", "stage": "modeling"}
-  },
-  "created_at": "2026-05-01T10:00:00Z",
-  "updated_at": "2026-05-01T10:05:00Z"
-}
+```text
+milestone  run  artifact  analysis  approval  failure  note
+checkpoint  recovery  migration
 ```
+
+The public `record` tool writes the first seven plus explicit migration
+confirmation. Checkpoint and recovery records are written by their runtime
+operations.
+
+One record represents one logical event or deliverable. Related files belong in
+the record's `artifacts` references or a manifest. `parent_ids` express useful
+provenance. Do not create records for every transient log, plot attempt, cache,
+or helper call.
+
+Records sanitize bearer tokens, secret assignments, private-key material, and
+sensitive fields such as password, token, API key, private-key, and POTCAR body
+content.
+
+## Recovery Checkpoints
+
+A checkpoint may contain:
+
+- `record_id`, `run_id`, or `milestone_id`;
+- the current records byte offset;
+- input and restart file references with hashes;
+- resume command;
+- risk notes;
+- `ready`, `partial`, or `diagnostic` status.
+
+It never contains state, artifact, lineage, gate, or job registry snapshots.
+A recoverable checkpoint requires at least one real recovery reference.
+Diagnostic checkpoints may document a failure boundary but are not runnable.
+
+`recover` validates that referenced paths remain inside the project, still
+exist, and match recorded hashes. It returns readiness and instructions; it
+does not execute the resume command or roll project files backward.
+
+## Legacy Compatibility
+
+Historical projects may contain:
+
+```text
+.simflow/state/*.json
+<nested project path>/.simflow/
+```
+
+Compact runtime treats these as read-only. Compatibility Python APIs may list
+legacy artifacts and checkpoints, but new writes do not synchronize old
+registries. Legacy snapshot checkpoints are never restored into active state.
+
+With `include_legacy=true`, `inspect` inventories only structured state JSON and
+nested roots. The inventory contains relative paths, sizes, SHA-256 hashes, JSON
+shape/counts, and safety declarations. It does not include state field values,
+host transcripts, or scientific result files.
+
+Migration requires explicit confirmation of the exact current report hash. It
+persists one migration report and one compact record. Source files remain
+byte-identical. A changed source invalidates the old hash.
+
+## Root Boundary
+
+`project_root` is the user project and the only authorized SimFlow write root.
+`plugin_root` is only the installed code location. MCP cwd must never be used as
+the project root.
+
+`.omx/`, Codex/Claude/OpenCode session files, and other host state are outside
+SimFlow ownership. They are not copied, deleted, or imported.

@@ -3,7 +3,7 @@
   "title": "SkillContract",
   "description": "SimFlow skill contract schema (SKILL.md frontmatter for built-in and project custom skills)",
   "type": "object",
-  "required": ["skill_name", "description", "stage_binding"],
+  "required": ["skill_name", "description"],
   "properties": {
     "skill_name": {
       "type": "string",
@@ -18,6 +18,11 @@
       "type": "string",
       "default": "0.1.0"
     },
+    "skill_type": {
+      "type": "string",
+      "enum": ["router", "research_task", "domain"],
+      "description": "Public Skill role. Runtime policy, persistence, and verification are not Skill types."
+    },
     "stage_binding": {
       "oneOf": [
         {"type": "string"},
@@ -26,7 +31,17 @@
           "items": {"type": "string"}
         }
       ],
-      "description": "Canonical workflow stage, custom activity label, domain tag, or list of such bindings. Custom labels are not automatically promoted to top-level stages."
+      "description": "Optional compatibility metadata. Skill selection follows current intent, not the active workflow stage."
+    },
+    "intent_binding": {
+      "oneOf": [
+        {"type": "string"},
+        {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      ],
+      "description": "User intents that may select this Skill independently of cwd or project phase."
     },
     "agent_binding": {
       "type": "string",
@@ -57,42 +72,15 @@
       },
       "description": "Produced output artifacts"
     },
-    "mcp_tools": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "MCP tools this skill depends on"
-    },
     "scripts": {
       "type": "array",
       "items": {"type": "string"},
       "description": "Available helper scripts"
     },
-    "policies": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Applicable policies"
-    },
-    "requires_approval": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether execution requires user approval"
-    },
-    "required_mcp_tools": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "MCP tools that must be called when this skill is loaded. Used by the engagement contract (P0.7) to enforce skill-MCP hard-binding. At least one tool from this list must be called before state-write tools will be accepted.",
-      "default": ["simflow_state/read_state"]
-    },
-    "minimum_mcp_engagement": {
-      "type": "integer",
-      "minimum": 0,
-      "default": 1,
-      "description": "Declarative routing guidance for minimum MCP engagement. Runtime enforcement applies to protected MCP writes and does not depend on observable skill-load events."
-    },
     "task_shapes": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Task shape patterns that trigger this skill. Used by the task-shape-aware router (P3.4) to suggest MCP engagement for all task types, including single-stage compute tasks.",
+      "description": "Optional intent examples for Skill routing. They do not require runtime or MCP engagement.",
       "default": []
     }
   }

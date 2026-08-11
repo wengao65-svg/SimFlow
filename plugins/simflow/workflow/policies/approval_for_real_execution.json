@@ -1,0 +1,23 @@
+{
+  "name": "approval_for_real_execution",
+  "description": "All real local, remote, or scheduler execution requires approval bound to the immutable run plan.",
+  "scope": "real_execution",
+  "rules": [
+    {
+      "condition": "real_execution_requested",
+      "action": "require_run_plan_approval",
+      "parameters": {
+        "gate": "hpc_submit",
+        "binding": "run_plan_hash"
+      }
+    },
+    {
+      "condition": "run_plan_changed",
+      "action": "invalidate_prior_approval"
+    },
+    {
+      "condition": "run_plan_unchanged_retry_or_resume",
+      "action": "reuse_existing_approval"
+    }
+  ]
+}

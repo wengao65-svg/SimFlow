@@ -1,277 +1,100 @@
 ---
 name: simflow
-description: Route computational simulation research requests into SimFlow's workflow layer; use for top-level stage selection, cross-skill delegation, state/artifact/checkpoint/handoff coordination, safety escalation, and workflow boundary decisions across literature review, proposal, modeling, computation, analysis/visualization, writing, verification, and handoff.
+description: Select at most one computational-research Task Skill and one optional Domain Skill from the user's current intent.
 ---
 
-## Cross-Session Experiment Memory
-
-For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
-
-`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
-
-# SimFlow Top-Level Router
-
-`simflow` is the top-level router skill for SimFlow. It maps user intent to
-canonical stages, recipe/tag metadata, downstream skills, evidence needs, state
-write decisions, and safety gates. It is not a centralized workflow executor,
-domain parser, input generator, scientific judge, writing authority, submitter,
-or approval gate.
-
-Use `router_contract.json` only as a lightweight machine-readable companion for
-stable routing categories. It is a contract summary, not a runtime schema and
-not a source of software capability support; use the shared toolchain contract
-for current helper support levels.
+# SimFlow Router
 
 ## Purpose
 
-- Choose the appropriate SimFlow stage, recipe/tag, and downstream skill set
-  from a computational simulation research request.
-- Coordinate evidence, artifact, checkpoint, verification, handoff, and safety
-  boundaries without replacing the host agent's scientific reasoning or tools.
-- Keep dry-run-first and evidence-first behavior visible whenever real local,
-  remote, or HPC execution may be requested.
+`simflow` is a thin intent router. It selects guidance; it does not execute a
+workflow, parse scientific files, manage persistence, or require state calls.
 
-## Trigger conditions
+## Use when
 
-- The user asks about computational simulation, materials modeling, DFT, AIMD,
-  classical MD, MLP-MD, literature review, modeling, computation, analysis,
-  visualization, writing, project status, checkpointing, verification, or
-  handoff.
-- The user wants SimFlow to track state, artifacts, lineage, gates, or recovery
-  checkpoints for an open research task.
-- Multiple SimFlow skills could apply and a top-level routing decision is
-  needed.
+- A computational-research request could benefit from one of the bundled Task
+  or Domain Skills.
+- The current intent has changed and the active guidance should be reconsidered.
+- It is unclear whether a request is literature, planning, modeling,
+  computation, analysis, or writing.
 
-## Input conditions
+## Routing model
 
-- User intent, available project evidence, current workflow state when present,
-  and the explicit `project_root` whenever state access may be needed.
-- Optional recipe/tag context, software/toolchain provenance, artifact ids,
-  checkpoint references, gate records, or requested deliverables.
-- Missing or ambiguous inputs must remain explicit; do not fabricate state,
-  artifacts, software support, or scientific evidence to complete a route.
+Research Task Skills answer how to do the current class of work well:
 
-## Stage And Skill Routing
+- `simflow-literature-review`
+- `simflow-proposal`
+- `simflow-modeling`
+- `simflow-computation`
+- `simflow-analysis-visualization`
+- `simflow-writing`
 
-- `literature_review`: route source discovery, screening, notes, and citation
-  evidence to `simflow-literature-review`.
-- `proposal`: route research plans, assumptions, alternatives, recipes, risks,
-  and evidence contracts to `simflow-proposal`.
-- `modeling`: route structure/model sources, transformations, supercells,
-  constraints, provenance, and validation to `simflow-modeling`.
-- `computation`: route input preparation, validation, dry-run plans,
-  submit-readiness evidence, approved job records, and user-provided
-  computation evidence to `simflow-computation`.
-- `analysis_visualization`: route output inspection, data extraction, scripts,
-  statistics, figures, visual QA, and source-data lineage to
-  `simflow-analysis-visualization`.
-- `writing`: route claim maps, drafts, captions, reproducibility packages, and
-  evidence-calibrated narratives to `simflow-writing`.
+Domain Skills add software- or method-specific knowledge when needed:
 
-Any stage can be entered directly when the needed evidence exists. Treat DFT,
-AIMD, classical MD, MLP-MD, phonon, NEB, defect, adsorption, transport, active
-learning, and custom workflows as recipe/tag metadata, not top-level workflow
-stages.
+- `simflow-vasp`
+- `simflow-cp2k`
+- `simflow-lammps`
+- `simflow-gpumd`
+- `simflow-mlp`
 
-## Delegation Rules
+## Selection rules
 
-- `simflow` owns top-level routing, stage/tag selection, state-write decisions,
-  safety escalation detection, and cross-skill boundary resolution.
-- Domain skills own software-specific file semantics, task uncertainty,
-  documentation pointers, static checks, parser limits, and domain warnings.
-  Route VASP, CP2K, LAMMPS, GPUMD/NEP, and MLP-specific questions to
-  `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, `simflow-gpumd`, or
-  `simflow-mlp` as appropriate.
-- `simflow-computation` owns input-generation stage integration, dry-run plans,
-  resource estimates, submit-readiness evidence, computation artifacts, and job
-  records after approved real submits.
-- `simflow-safety-gates` owns high-risk approval decisions and gate records.
-- `simflow-verify` owns evidence sufficiency, readiness checks, and
-  verification reports.
-- `simflow-handoff` owns transfer summaries, artifact inventories, risks,
-  approval needs, and next-step packages.
-- `simflow-checkpoint` owns checkpoint creation, inspection, restore integrity,
-  and overwrite/rollback confirmation.
-- `simflow-writing` owns claim wording, speculation labeling, and
-  claim-evidence consistency.
-- `simflow` must not become the only executor, parser, validator, plotter,
-  report generator, or scientific judge.
+1. Select at most one Research Task Skill from the user's immediate intent.
+2. Select at most one Domain Skill when engine- or method-specific knowledge is
+   material to the answer.
+3. Do not load every Skill that might become relevant later.
+4. Skill selection follows current intent, not cwd, directory names, workflow
+   stage, or the location of existing files.
+5. A request inside a computation directory may need analysis guidance; a
+   request inside an analysis directory may need computation guidance.
+6. The six recommended research phases are project-organization semantics, not
+   mandatory Skill transitions.
 
-## Status write rules
+Examples:
 
-Write `.simflow/` state only when the user asks to initialize, track,
-checkpoint, verify, handoff, or record work; when artifacts, inputs, outputs,
-scripts, figures, claims, gates, reports, or decisions need metadata and
-lineage; or when a stage, failure, approval, or handoff boundary is reached.
+| Current intent | Task Skill | Optional Domain Skill |
+| --- | --- | --- |
+| analyze GPUMD trajectories | analysis-visualization | gpumd |
+| prepare or run VASP NEB | modeling or computation, choose one | vasp |
+| design NEP active learning | proposal | mlp |
+| train NEP | computation | gpumd |
+| compare MACE and NEP | analysis-visualization | mlp |
+| draft results from accepted evidence | writing | none |
 
-Do not write `.simflow/` state for casual conceptual explanation, preliminary
-brainstorming without a record request, purely educational discussion, or
-route-only answers that do not create artifacts or decisions.
+## Runtime escalation
 
-Always use the explicit user project root/current `project_root`. Never write
-project state into the plugin root, skill directory, MCP server cwd, tool installation directory, or `.omx/`.
+Runtime is separate from Skill selection. Hand a request to SimFlow runtime
+only when an actual event must be inspected, recorded, safeguarded, or
+recovered. High-risk events include real local or remote execution, scheduler
+submission, credentials, licensed or proprietary files, VASP POTCAR material,
+destructive actions, and state recovery.
 
-## Directory guidance
+The router identifies the boundary but does not approve, submit, transfer,
+record, checkpoint, or recover anything itself.
 
-When the host agent creates a new stage directory in a user project, follow
-the two-layer convention defined in `docs/user-project-layout.md`:
+## Ambiguous intent
 
-- Top level: `phaseN_<canonical_stage>/` where `phase1`..`phase6` map 1:1
-  to the canonical stages `literature_review`..`writing`. Phase numbers are
-  fixed and must not be renumbered when a phase is skipped.
-- Second level: `stageN_<snake_case_descriptor>/` inside the phase.
-  Numbering is local to the phase. One `stageN_*` equals one logical
-  sub-activity; variants (temperature, method) belong as subdirectories,
-  not as same-prefixed siblings.
-- Prep and run must be separated: `dataset_prep/` vs `run_step1/`,
-  `run_step2/`. Iteration uses `vN_<desc>_<YYYYMMDD>/`, not bare integers.
-- Shared directories (`scripts/`, `reference/`, `config/`, `templates/`,
-  `tests/`, `docs/`, `archives/`, `legacy/`, `scratch/`) live at the project
-  root. Bare `stageN_*` at the project root is forbidden.
-- `.simflow/` lives only at `project_root`; never create a nested
-  `.simflow/` inside a phase directory.
-
-Route verification of an existing layout to `simflow-verify`'s Directory
-Hygiene Checks.
-
-## Checkpoint rules
-
-- Do not create a checkpoint for route-only or conceptual responses that do not
-  establish a workflow boundary.
-- Delegate checkpoint creation, inspection, and recovery to
-  `simflow-checkpoint`; associate every checkpoint with a workflow and stage.
-- Require a checkpoint when a tracked stage boundary is completed and preserve
-  failure evidence when a tracked stage cannot proceed.
-
-## Output artifacts
-
-When routing a request, produce or instruct the host agent to produce this
-conceptual shape:
-
-```json
-{
-  "interpreted_intent": "...",
-  "recommended_stage": "...",
-  "recommended_recipe_tags": [],
-  "recommended_skills": [],
-  "required_evidence": [],
-  "safety_gates": [],
-  "state_write_needed": false,
-  "state_write_reason": null,
-  "next_actions": [],
-  "risks_or_uncertainties": []
-}
-```
-
-This is a router output contract, not a mandatory runtime schema.
-
-## Optional End-To-End Research Workflow Script
-
-When a user wants to drive the full canonical chain
-`literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing`
-from a structured research intent, the optional
-`scripts/run_research_workflow.py` skill script initializes research via
-`runtime.simflow_helpers.project.intake`, runs the canonical pipeline with
-dry-run-first behavior, and emits a compact JSON summary at
-`.simflow/reports/research_workflow_summary.json` covering workflow id/status,
-completed stages, artifact counts by stage/type, checkpoint summary, computation
-dry-run status, `hpc_submit` gate status, handoff report paths, and next
-actions. It never submits local, remote, or HPC jobs.
-
-## Safety Escalation
-
-Escalate to `simflow-safety-gates` whenever the request involves real local execution,
-remote execution, HPC submit, scheduler interaction, job launch,
-`sbatch`, `qsub`, `srun`, `mpirun`, `mpiexec`, SSH, cluster access,
-credentials, tokens, private keys, license files, proprietary files, VASP
-POTCAR/licensed content, expensive compute, destructive operations, or attempts
-to bypass dry-run, hash checks, verification, or approval.
-
-`simflow` may summarize missing evidence and next steps. It must not approve,
-execute, submit, access remote systems, handle credentials, or claim gate
-passage itself. Real execution and HPC submit remain downstream safety-gated
-actions, never router actions.
-
-## Ambiguous Intent Handling
-
-- Return candidate stages, candidate skills, missing information, safe default
-  evidence actions, and risks.
-- Ask only for information that blocks safe progress or materially changes the
-  evidence contract.
-- If progress is safe without clarification, proceed with dry-run,
-  static-inspection, route-only, or evidence-only planning.
-- Do not default unknown software to a supported helper path.
-- Do not default unknown computation tasks to static, ENERGY, NVT, training,
-  or any other known task.
-- Preserve unsupported or unknown tools as provenance and route them to generic
-  computation or analysis evidence intake when appropriate.
+- Return the smallest plausible Skill choices and the missing information.
+- Ask only when the ambiguity blocks useful or safe progress.
+- Do not default unknown software to a supported engine.
+- Do not default an unknown computation to static, ENERGY, NVT, or training.
+- If no bundled Domain Skill applies, use the relevant Task Skill alone and
+  preserve the unknown tool as context.
 
 ## Prohibited actions
 
-- Do not perform software-specific input generation, parser-specific output
-  interpretation, real simulation execution, local submit, remote execution, HPC
-  submit, scheduler interaction, or credential handling from `simflow`.
-- Do not make scientific convergence, production-readiness, transferability,
-  mechanism, transport-property, or publication claims without evidence.
-- Do not fabricate literature, computation results, datasets, figures,
-  citations, convergence states, validation status, approval states, completed
-  calculations, or job states.
-- Do not store credentials or licensed/proprietary file contents in state,
-  reports, logs, checkpoints, or handoff packages.
-- Do not force fixed parsers, builders, plotting libraries, report names, or
-  engine choices as the only valid path.
+- Do not act as a centralized workflow executor, domain parser, submitter, or
+  approval gate.
+- Do not require MCP engagement merely because a Skill was selected.
+- Do not choose Skills from the current phase or directory name.
+- Do not fabricate literature, inputs, outputs, figures, citations,
+  convergence, approval, or job states.
+- Do not duplicate software capability claims; use the shared toolchain
+  contract when capability detail is needed.
 
-## Manual confirmation scenarios
+## Completion criteria
 
-- Research goal, stage entry, deliverable format, evidence threshold, or
-  approval scope is unclear and affects the plan.
-- Real local/remote/HPC execution, scheduler use, licensed/proprietary files,
-  credentials, high-cost resources, destructive operations, or state restore is
-  involved.
-- Evidence is missing, incomplete, stale, contradictory, private, or would be
-  interpreted beyond its support.
-- Claim strength, production-readiness threshold, active-learning stop criteria,
-  analysis method, or figure interpretation materially affects a scientific
-  conclusion.
-
-## Required MCP Engagement
-
-This skill requires the following MCP tool engagement when loaded:
-
-- **Project entry floor**: Call `simflow_state/project_reentry` with the explicit
-  canonical `project_root` before inspecting or changing an existing project.
-  Use its structured experiment, iteration, activity, recovery, and next-action
-  summary as cross-session memory; do not reconstruct normal project memory
-  from host conversation transcripts.
-- **Lower-level write prerequisite**: State-write tools still require
-  `simflow_state/read_state` engagement. `project_reentry` establishes that
-  engagement for the current MCP session; direct lower-level callers must call
-  `read_state` first.
-- **Task-shape-aware engagement**: All task shapes — including single-stage
-  compute tasks (GPUMD compile, VASP relax, NEP training) — must engage at least
-  `project_reentry`. The router must suggest MCP engagement for every task, not
-  only multi-stage research tasks.
-- **Engagement contract enforcement**: State-write MCP tools are hard-blocked
-  unless `read_state` was called in the same session (30-min timeout). Calling
-  `project_reentry` or another read-only tool auto-satisfies this prerequisite.
-
-## Quick Start for Re-entering a Project
-
-When entering a project that already has a `.simflow/` directory:
-
-1. Call `simflow_state/project_reentry` with `project_root` and the current
-   working directory. If multiple active experiments remain ambiguous, select
-   one explicitly before writing.
-2. If the ledger reports `not_started`, call `begin_experiment` before new
-   tracked work. Do not import legacy state or host transcripts as experiment
-   history.
-3. Review the selected experiment, current iteration, interrupted activities,
-   latest successful recovery point, and `next_action`. Use
-   `experiment_timeline` only when more structured detail is needed.
-4. Call `start_activity` before each project mutation, computation, analysis,
-   transfer, or state change. Pass its `session_context_id`, `experiment_id`,
-   optional `iteration_id`, and `activity_id` to linked writes, then call
-   `finish_activity` with outcomes and the next action.
-5. Use `orphan_compute_scanner` only for a bounded experiment/root scan when
-   unregistered compute is suspected. End the session with `session_handoff`;
-   deliberately unfinished activities remain visible as interrupted work.
+- Zero or one Task Skill is selected.
+- Zero or one Domain Skill is selected.
+- Any runtime escalation is stated separately from Skill guidance.
+- Unknown intent or unsupported tools are not silently mapped to known paths.

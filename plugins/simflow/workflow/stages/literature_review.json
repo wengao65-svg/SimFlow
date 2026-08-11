@@ -8,6 +8,5 @@
   "suggested_checks": ["source traceability", "query traceability", "screening criteria documented", "citation verification", "unavailable full text marked", "interpretation separated from direct source evidence"],
   "approval_triggers": ["licensed_or_proprietary_file_handling"],
   "handoff_notes": ["Record searched sources, search strings, inclusion criteria, inaccessible papers, key claims, and uncertain interpretations."],
-  "risk_notes": ["Do not fabricate citations, metadata, direct quotes, paper conclusions, or literature gaps."],
-  "checkpoint_policy": "on_completion"
+  "risk_notes": ["Do not fabricate citations, metadata, direct quotes, paper conclusions, or literature gaps."]
 }

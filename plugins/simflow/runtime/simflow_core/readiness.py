@@ -330,13 +330,6 @@ def build_stage_readiness(project_root: str, stage: str | None = None) -> dict[s
             "message": f"{len(missing_parents)} lineage parent reference(s) are missing for {selected_stage}.",
             "lineage": missing_parents,
         })
-    if stage_status == "completed" and not _stage_checkpoint_present(selected_stage, stage_state, state["checkpoints"]):
-        blockers.append({
-            "code": "missing_checkpoint",
-            "severity": "medium",
-            "message": f"Completed stage {selected_stage} does not have a checkpoint.",
-        })
-
     approval_triggers = _as_list(contract.get("approval_triggers"))
     approval_state = {"triggers": approval_triggers, "hpc_submit_decision": _approved_hpc_decision(state["gates"])}
     if selected_stage == "computation" and _has_real_submit_evidence(artifacts) and approval_state["hpc_submit_decision"] is None:

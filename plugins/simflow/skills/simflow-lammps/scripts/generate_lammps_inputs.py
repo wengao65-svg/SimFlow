@@ -235,7 +235,7 @@ def generate_lammps_inputs(
             "message": f"Unsupported LAMMPS helper job type: {job_type}",
             "supported_job_types": sorted(SUPPORTED_JOB_TYPES),
             "candidate_paths": [
-                "record user-provided LAMMPS input/log/dump files as generic artifacts",
+                "inspect user-provided LAMMPS input/log/dump files and preserve their provenance as one logical package when needed",
                 "use inspect_lammps_inputs.py for static evidence checks",
                 "write a project-specific script when the task is outside the small template helper",
             ],

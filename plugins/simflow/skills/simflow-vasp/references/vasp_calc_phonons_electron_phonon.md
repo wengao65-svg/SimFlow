@@ -29,7 +29,8 @@ Use this reference for finite-displacement phonons, DFPT phonons, phonon DOS/dis
 
 - Do not infer dynamical stability from incomplete displacement sets or underconverged forces.
 - Record imaginary modes as warnings requiring structural/supercell/q-point review, not automatically as physical instabilities.
-- Register displacement manifests, force directories, force-constant files, plotting scripts, and figures as artifacts.
+- Keep displacement manifests, force directories, force-constant files,
+  plotting scripts, and figures linked as one logical analysis package.
 - For electron-phonon claims, record all sampling and statistical/convergence evidence.
 
 ## Common risks

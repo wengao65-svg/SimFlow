@@ -9,6 +9,5 @@
   "approval_triggers": ["key_conclusion_review", "licensed_or_proprietary_file_handling"],
   "handoff_notes": ["Record which claims are supported, which are speculative, which computations are incomplete, and what remains to review."],
   "risk_notes": ["Do not write unfinished computation, unsupported claims, or speculative explanations as established results."],
-  "checkpoint_policy": "on_completion",
   "review_triggers": ["key_conclusion_review", "unsupported_claim", "missing_figure_lineage"]
 }

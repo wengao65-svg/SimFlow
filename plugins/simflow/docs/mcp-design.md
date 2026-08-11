@@ -2,121 +2,58 @@
 
 ## Role
 
-SimFlow MCP servers provide recording, validation, and state-management tools.
-They should not decide the scientific path for the host agent.
+MCP is the narrow runtime boundary for durable project truth and risky
+execution. Scientific reasoning and ordinary file work remain with the host
+agent and Skills.
 
-Recommended MCP responsibilities:
+## Public Surface
 
-- initialize and read project workflow state
-- record artifacts and metadata
-- link lineage between artifacts
-- create and list checkpoints
-- evaluate and record safety gate decisions
-- summarize handoff status
-- run bounded helper operations such as dry-run validation and approved HPC
-  file transfer
-
-Avoid tools that claim to choose the best science for the user, such as
-`choose_software`, `classify_vasp_task` as an authority, or
-`generate_full_workflow` as a mandatory executor.
-
-Remote file transfer is an explicit MCP boundary: use `hpc/upload` and
-`hpc/download` with an approved `hpc_transfer` decision and verified SHA-256
-manifest. The host agent should not implement routine remote transfer with
-direct `scp` or `ssh` calls.
-
-SSH operations receive a per-call `target` containing a required `host` and
-optional `user` and `port`. The host may be an OpenSSH alias, hostname, or IP.
-Omitted fields are not replaced with defaults, so OpenSSH configuration remains
-effective. Upload, download, submit, and SSH status calls require this target.
-It is included in approval bindings and transfer fingerprints. Passwords,
-private-key content, key paths, and arbitrary SSH options are rejected.
-
-## Project Root Boundary
-
-Every write operation must receive `project_root` explicitly. MCP servers often
-run with cwd set to the plugin root or cache directory, and that cwd is not the
-user project.
-
-Write tools must reject:
-
-- missing `project_root`
-- the SimFlow plugin root used as `project_root`
-- attempts to write SimFlow workflow state outside the project `.simflow/` root
-
-The plugin root is only for importing code and reading bundled assets.
-
-## Tool Schema Policy
-
-MCP `tools/list` responses must expose real input schemas. Empty schemas with
-`additionalProperties: true` are not sufficient for write tools because agents
-cannot see required fields or safety boundaries.
-
-Example target schema:
-
-```json
-{
-  "name": "simflow.artifact.record",
-  "inputSchema": {
-    "type": "object",
-    "required": ["project_root", "stage", "artifact_type", "path"],
-    "properties": {
-      "project_root": {"type": "string"},
-      "stage": {"type": "string"},
-      "artifact_type": {"type": "string"},
-      "path": {"type": "string"},
-      "metadata": {"type": "object"}
-    },
-    "additionalProperties": false
-  }
-}
+```text
+simflow_state: inspect, record, checkpoint, recover
+hpc:           plan, transfer, submit, status
 ```
 
-## Server Categories
+Do not add a new public tool when an existing composite operation can own the
+behavior internally. In particular, do not reintroduce separate state-read
+prerequisites, workflow status/readiness variants, artifact/lineage registries,
+activity lifecycle calls, handoff tools, or separate upload/download tools.
 
-The high-level target surface is:
+## State Tool Rules
 
-- `simflow.project.init`
-- `simflow.workflow.status`
-- `simflow.workflow.advance`
-- `simflow.artifact.record`
-- `simflow.artifact.list`
-- `simflow.lineage.link`
-- `simflow.checkpoint.create`
-- `simflow.gate.evaluate`
-- `simflow.gate.record_decision`
-- `simflow.handoff.summarize`
+- `inspect` is always read-only and must work for an uninitialized project.
+- `record` appends one logical event and refreshes the derived summary.
+- `checkpoint` creates only a compact recovery reference.
+- `recover` validates references and never executes or restores snapshots.
+- every project operation receives explicit `project_root`;
+- write schemas use `additionalProperties: false` at their public boundary;
+- path references stay inside the project unless explicitly represented as
+  metadata-only external sources;
+- sensitive values are sanitized before persistence.
 
-The current wire-level server surface is `simflow_state` and `hpc`.
-Artifact and checkpoint tools are consolidated into `simflow_state`.
-Literature enrichment, structure operations, and parser helpers are
-runtime/skill capabilities rather than MCP servers.
+## HPC Tool Rules
 
-The names above describe architectural categories, not the current wire-level
-tool names. See [MCP Tool Reference](mcp-tool-reference.md) for the actual
-the `simflow_state/*` and `hpc/*` surface.
+- `plan` owns script preparation, dry-run validation, credential scanning, and
+  immutable identity construction;
+- `transfer` owns upload/download and manifest verification declared by the
+  plan;
+- `submit` accepts only `run_plan_hash` plus approval reference and bounded
+  execution options;
+- `status` reports connector state without claiming scientific success.
 
-## Credentials
+Approval binds the complete plan identity. Mutable submit-time script or input
+hash fields are intentionally absent. Transfer and submit write one compact run
+record automatically.
 
-SSH authentication is delegated to the host OpenSSH client or a host-managed
-agent through an internal Unix-socket broker. The Agent-facing `hpc` MCP does
-not inherit `SSH_AUTH_SOCK` and never invokes the direct SSH connector. SimFlow
-does not read SSH configuration or inspect private-key files. Credentials must
-not be written to `.simflow/`, artifacts, reports, checkpoints, logs, or
-generated handoff packages.
+## Credential Boundary
 
-The broker accepts only versioned structured requests for status, cancellation,
-transfer verification, upload/download, and approved submit. It has no generic
-remote-shell operation. The socket is owner-only, peers are UID-checked, and
-local file operations are confined to `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`.
+The Agent-facing HPC server never receives private keys or an SSH agent socket.
+Real SSH operations are delegated to the owner-only Unix-socket broker, which
+accepts bounded structured operations and confines local paths to configured
+roots. Missing or unsafe broker configuration fails closed.
 
 ## Host Adaptation
 
-The shared MCP runtime reads standard `initialize.params.clientInfo` metadata.
-The `simflow_state` server returns discovery guidance adapted to Codex, Claude
-Code, or a generic MCP client. Only invocation syntax differs; project-root
-boundaries, engagement prerequisites, artifact/checkpoint semantics, and safety
-gates are host-invariant.
-
-Host adaptation does not depend on skill-load hooks, transcript access, cwd,
-plugin cache paths, or `.omx/`. Unknown clients receive generic guidance.
+Standard MCP `clientInfo` changes discovery wording only. Tool semantics,
+project-root checks, approval binding, and credential isolation are identical
+for Codex, Claude Code, OpenCode, and generic clients. SimFlow does not need
+skill-load telemetry or host transcript access.
