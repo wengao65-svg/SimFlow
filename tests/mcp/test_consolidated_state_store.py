@@ -1,112 +1,75 @@
-"""Tests for the v0.12 consolidated state/artifact/checkpoint MCP surface."""
+"""Compact state-store integration tests."""
 
-import importlib.util
-import sys
-from pathlib import Path
-
-from runtime.simflow_core.state import init_workflow
-
-
-ROOT = Path(__file__).resolve().parents[2]
-STATE_DIR = ROOT / "mcp" / "servers" / "simflow_state"
+from runtime.simflow_core.records import (
+    create_recovery_checkpoint,
+    inspect_project,
+    record_event,
+    recover_checkpoint,
+)
 
 
-def _load_state_server():
-    for name in [key for key in sys.modules if key == "tools" or key.startswith("tools.")]:
-        del sys.modules[name]
-    sys.path.insert(0, str(STATE_DIR))
-    spec = importlib.util.spec_from_file_location("consolidated_state_server", STATE_DIR / "server.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_state_server_exposes_consolidated_storage_tools():
-    server = _load_state_server()
-    assert {
-        "register_artifact",
-        "list_artifacts",
-        "get_artifact",
-        "create_checkpoint",
-        "list_checkpoints",
-        "restore_checkpoint",
-    }.issubset(server.TOOLS)
-    for name in (
-        "register_artifact",
-        "list_artifacts",
-        "get_artifact",
-        "create_checkpoint",
-        "list_checkpoints",
-        "restore_checkpoint",
-    ):
-        assert server.TOOL_SCHEMAS[name]["additionalProperties"] is False
-
-
-def test_consolidated_artifact_and_checkpoint_flow(tmp_path):
-    server = _load_state_server()
-    workflow = init_workflow("custom", "computation", project_root=str(tmp_path))
-    read = server.handle_request(
-        {"tool": "read_state", "params": {"project_root": str(tmp_path), "file": "workflow.json"}}
+def test_project_summary_tracks_current_run_milestone_and_failure(tmp_path):
+    run = record_event(
+        str(tmp_path),
+        kind="run",
+        summary="production run submitted",
+        status="submitted",
     )
-    assert read["status"] == "success"
+    milestone = record_event(
+        str(tmp_path),
+        kind="milestone",
+        summary="baseline accepted",
+        next_action="compare variants",
+    )
+    failure = record_event(
+        str(tmp_path),
+        kind="failure",
+        summary="variant diverged",
+        run_id=run["run_id"],
+        status="failed",
+    )
 
-    artifact_path = tmp_path / "result.json"
-    artifact_path.write_text('{"ok": true}\n', encoding="utf-8")
-    registered = server.handle_request(
-        {
-            "tool": "register_artifact",
-            "params": {
-                "project_root": str(tmp_path),
-                "name": "result.json",
-                "type": "report",
-                "stage": "computation",
-                "path": "result.json",
-            },
-        }
-    )
-    assert registered["status"] == "success"
-    artifact_id = registered["data"]["artifact_id"]
-
-    listed = server.handle_request(
-        {"tool": "list_artifacts", "params": {"project_root": str(tmp_path)}}
-    )
-    fetched = server.handle_request(
-        {"tool": "get_artifact", "params": {"project_root": str(tmp_path), "artifact_id": artifact_id}}
-    )
-    assert [item["artifact_id"] for item in listed["data"]] == [artifact_id]
-    assert fetched["data"]["artifact_id"] == artifact_id
-
-    created = server.handle_request(
-        {
-            "tool": "create_checkpoint",
-            "params": {
-                "project_root": str(tmp_path),
-                "workflow_id": workflow["workflow_id"],
-                "stage_id": "computation",
-                "description": "consolidated MCP checkpoint",
-            },
-        }
-    )
-    assert created["status"] == "success"
-    checkpoints = server.handle_request(
-        {"tool": "list_checkpoints", "params": {"project_root": str(tmp_path)}}
-    )
-    assert checkpoints["data"][-1]["checkpoint_id"] == created["data"]["checkpoint_id"]
+    state = inspect_project(str(tmp_path))
+    current = state["project"]["current"]
+    assert current["active_run_id"] == run["run_id"]
+    assert current["latest_milestone_id"] == milestone["record_id"]
+    assert current["latest_failure_id"] == failure["record_id"]
+    assert current["next_action"] == "compare variants"
+    assert state["project"]["counts"]["total"] == 3
 
 
-def test_consolidated_writes_still_require_engagement(tmp_path):
-    server = _load_state_server()
-    init_workflow("custom", "computation", project_root=str(tmp_path))
-    result = server.handle_request(
-        {
-            "tool": "register_artifact",
-            "params": {
-                "project_root": str(tmp_path),
-                "name": "planned",
-                "type": "report",
-                "stage": "computation",
-            },
-        }
+def test_terminal_run_clears_only_matching_active_run(tmp_path):
+    first = record_event(str(tmp_path), kind="run", summary="first", status="running")
+    second = record_event(str(tmp_path), kind="run", summary="second", status="running")
+    record_event(
+        str(tmp_path), kind="run", summary="first done", status="completed", run_id=first["run_id"]
     )
-    assert result["status"] == "error"
-    assert result["code"] == "skill_engagement_contract_violation"
+    assert inspect_project(str(tmp_path))["project"]["current"]["active_run_id"] == second["run_id"]
+    record_event(
+        str(tmp_path), kind="run", summary="second done", status="completed", run_id=second["run_id"]
+    )
+    assert inspect_project(str(tmp_path))["project"]["current"]["active_run_id"] is None
+
+
+def test_latest_checkpoint_can_be_recovered_without_explicit_id(tmp_path):
+    input_path = tmp_path / "input.inp"
+    input_path.write_text("input\n", encoding="utf-8")
+    checkpoint = create_recovery_checkpoint(
+        str(tmp_path),
+        summary="ready to resume",
+        input_refs=["input.inp"],
+        resume_command="solver input.inp",
+    )
+
+    result = recover_checkpoint(str(tmp_path))
+    assert result["checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
+    assert result["ready"] is True
+
+
+def test_checkpoint_requires_real_recovery_reference(tmp_path):
+    try:
+        create_recovery_checkpoint(str(tmp_path), summary="empty")
+    except ValueError as error:
+        assert "recovery reference" in str(error)
+    else:
+        raise AssertionError("checkpoint without recovery references should fail")

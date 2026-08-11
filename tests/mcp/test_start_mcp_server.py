@@ -136,11 +136,8 @@ def test_hpc_startup_does_not_inherit_ssh_agent_socket(monkeypatch):
     assert "SSH_AGENT_PID" not in captured["env"]
 
 
-def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():
-    from runtime.simflow_core.state import init_workflow
-
+def test_stdio_record_does_not_require_engagement_bootstrap():
     with tempfile.TemporaryDirectory() as project_root, tempfile.TemporaryDirectory() as cwd:
-        init_workflow("custom", "computation", project_root=project_root)
         payload = "\n".join([
             json.dumps({
                 "jsonrpc": "2.0",
@@ -157,8 +154,12 @@ def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():
                 "id": 2,
                 "method": "tools/call",
                 "params": {
-                    "name": "repair_state",
-                    "arguments": {"project_root": project_root, "mode": "apply"},
+                    "name": "record",
+                    "arguments": {
+                        "project_root": project_root,
+                        "kind": "note",
+                        "summary": "stdio direct record",
+                    },
                 },
             }),
             json.dumps({"jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": {}}),
@@ -173,10 +174,11 @@ def test_stdio_tools_call_cannot_bypass_repair_apply_engagement():
             timeout=5,
         )
 
-    responses = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-    tool_text = responses[1]["result"]["content"][0]["text"]
-    tool_result = json.loads(tool_text)
-    assert tool_result["code"] == "skill_engagement_contract_violation"
+        responses = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+        tool_text = responses[1]["result"]["content"][0]["text"]
+        tool_result = json.loads(tool_text)
+        assert tool_result["status"] == "success"
+        assert (Path(project_root) / ".simflow" / "records.jsonl").is_file()
 
 
 def test_mcp_startup_prefers_repo_package_when_third_party_mcp_exists():

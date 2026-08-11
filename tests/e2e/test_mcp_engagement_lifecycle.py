@@ -1,86 +1,68 @@
-"""End-to-end MCP state, artifact, checkpoint, verification, and handoff flow."""
+"""End-to-end coverage for the compact state record lifecycle."""
 
 import importlib.util
 import sys
 from pathlib import Path
 
-from runtime.simflow_core.state import init_workflow, read_state
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _load_server(server_name: str):
-    server_dir = ROOT / "mcp" / "servers" / server_name
+def _load_state_server():
+    server_dir = ROOT / "mcp" / "servers" / "simflow_state"
     for name in [name for name in sys.modules if name == "tools" or name.startswith("tools.")]:
         del sys.modules[name]
-    path_text = str(server_dir)
-    if path_text in sys.path:
-        sys.path.remove(path_text)
-    sys.path.insert(0, path_text)
-    spec = importlib.util.spec_from_file_location(f"test_{server_name}_lifecycle", server_dir / "server.py")
+    sys.path.insert(0, str(server_dir))
+    spec = importlib.util.spec_from_file_location("compact_state_lifecycle", server_dir / "server.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
 
-def test_mcp_engagement_artifact_checkpoint_verification_handoff(tmp_path):
-    workflow = init_workflow("custom", "computation", project_root=str(tmp_path))
-    data_dir = tmp_path / "outputs"
-    data_dir.mkdir()
-    (data_dir / "result.dat").write_text("1 2 3\n", encoding="utf-8")
+def test_mcp_record_checkpoint_recover_lifecycle(tmp_path):
+    output = tmp_path / "outputs" / "result.dat"
+    output.parent.mkdir()
+    output.write_text("1 2 3\n", encoding="utf-8")
+    server = _load_state_server()
 
-    state_server = _load_server("simflow_state")
-    status = state_server.handle_request({
-        "tool": "workflow_status",
-        "params": {"project_root": str(tmp_path)},
-    })
-    assert status["status"] == "success"
+    initial = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    assert initial["status"] == "success"
+    assert initial["data"]["initialized"] is False
 
-    artifact_result = state_server.handle_request({
-        "tool": "register_artifact",
+    run = server.handle_request({
+        "tool": "record",
         "params": {
             "project_root": str(tmp_path),
-            "name": "outputs",
-            "type": "output_directory",
+            "kind": "run",
+            "summary": "Computation paused after validated output",
+            "status": "paused",
             "stage": "computation",
-            "path": "outputs",
+            "artifacts": [{"path": "outputs/result.dat", "role": "logical_run_output"}],
+            "next_action": "resume from validated output",
         },
     })
-    assert artifact_result["status"] == "success"
-    artifact_id = artifact_result["data"]["artifact_id"]
+    assert run["status"] == "success"
 
-    checkpoint_result = state_server.handle_request({
-        "tool": "create_checkpoint",
+    checkpoint = server.handle_request({
+        "tool": "checkpoint",
         "params": {
             "project_root": str(tmp_path),
-            "workflow_id": workflow["workflow_id"],
-            "stage_id": "computation",
-            "description": "Computation evidence complete",
+            "summary": "Resume computation",
+            "run_id": run["data"]["run_id"],
+            "restart_refs": ["outputs/result.dat"],
+            "resume_command": "solver --restart outputs/result.dat",
         },
     })
-    assert checkpoint_result["status"] == "success"
+    assert checkpoint["status"] == "success"
+    assert "state_snapshot" not in checkpoint["data"]
 
-    state_server = _load_server("simflow_state")
-    completed = state_server.handle_request({
-        "tool": "update_stage",
-        "params": {
-            "project_root": str(tmp_path),
-            "stage_name": "computation",
-            "status": "completed",
-        },
-    })
-    assert completed["status"] == "success"
-    handoff = state_server.handle_request({
-        "tool": "session_handoff",
-        "params": {"project_root": str(tmp_path)},
-    })
-    assert handoff["status"] == "success"
+    recovered = server.handle_request({"tool": "recover", "params": {"project_root": str(tmp_path)}})
+    assert recovered["status"] == "success"
+    assert recovered["data"]["ready"] is True
+    assert recovered["data"]["checkpoint"]["checkpoint_id"] == checkpoint["data"]["checkpoint_id"]
 
-    stages = read_state(project_root=str(tmp_path), state_file="stages.json")
-    verifications = read_state(project_root=str(tmp_path), state_file="verification.json")
-    assert artifact_id in stages["computation"]["outputs"]
-    assert stages["computation"]["checkpoint_id"] == checkpoint_result["data"]["checkpoint_id"]
-    assert verifications[-1]["status"] == "pending"
-    assert (tmp_path / handoff["data"]["report_path"]).is_file()
+    final = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    assert final["data"]["project"]["counts"]["by_kind"] == {"checkpoint": 1, "run": 1}
+    assert final["data"]["project"]["current"]["active_run_id"] == run["data"]["run_id"]
+    assert not (tmp_path / ".simflow" / "state").exists()

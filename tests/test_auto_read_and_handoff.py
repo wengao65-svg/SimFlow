@@ -1,252 +1,95 @@
-#!/usr/bin/env python3
-"""Tests for P3.1 auto-read_state and P3.2 session_handoff tool.
+"""Regression tests for read-only inspect and host-owned handoff behavior."""
 
-P3.1: When a read-only tool is called first, read_state is auto-recorded
-      so subsequent state-write tools don't get blocked.
-P3.2: session_handoff generates a report with state summary, warnings,
-      and next steps.
-"""
-
+import importlib.util
 import sys
-import tempfile
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "runtime"))
-sys.path.insert(0, str(ROOT / "mcp" / "servers" / "simflow_state"))
-
-
-def _init(project_root):
-    from runtime.simflow_core.state import init_workflow
-    return init_workflow("custom", "computation", project_root=project_root)
+MCP_DIR = ROOT / "mcp" / "servers" / "simflow_state"
 
 
 def _load_server():
-    import importlib.util
-    MCP_DIR = ROOT / "mcp" / "servers" / "simflow_state"
-    # Purge cached modules
-    for k in [k for k in sys.modules if k == "server" or k == "tools" or k.startswith("tools.")]:
-        del sys.modules[k]
-    spec = importlib.util.spec_from_file_location(
-        "simflow_state_server_test_p3",
-        str(MCP_DIR / "server.py"),
-    )
+    for name in [key for key in sys.modules if key == "tools" or key.startswith("tools.")]:
+        del sys.modules[name]
+    sys.path.insert(0, str(MCP_DIR))
+    spec = importlib.util.spec_from_file_location("compact_state_read_tests", MCP_DIR / "server.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-# ============================================================
-# P3.1: Auto-read_state on first call to read-only tools
-# ============================================================
-
-def test_workflow_status_auto_records_read_state():
-    """Calling workflow_status first auto-records read_state, satisfying
-    prerequisites for subsequent state-write tools."""
+def test_inspect_does_not_bootstrap_or_write_state(tmp_path):
     server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        # Call workflow_status (read-only, no prior engagement)
-        result = server.handle_request({
-            "tool": "workflow_status",
-            "params": {"project_root": tmpdir},
-        })
-        assert result["status"] == "success"
-
-        # Now try update_stage (state-write) — should succeed because
-        # read_state was auto-recorded by the workflow_status call
-        result = server.handle_request({
-            "tool": "update_stage",
-            "params": {
-                "project_root": tmpdir,
-                "stage_name": "computation",
-                "status": "in_progress",
-            },
-        })
-        assert result["status"] == "success", f"update_stage should succeed after workflow_status auto-read: {result}"
+    result = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    assert result["status"] == "success"
+    assert result["data"]["initialized"] is False
+    assert not (tmp_path / ".simflow").exists()
 
 
-def test_stage_readiness_auto_records_read_state():
-    """Calling stage_readiness first also auto-records read_state."""
+def test_record_can_be_first_state_call(tmp_path):
     server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        # Call stage_readiness (read-only)
-        result = server.handle_request({
-            "tool": "stage_readiness",
-            "params": {"project_root": tmpdir},
-        })
-        assert result["status"] == "success"
-
-        # Now try write_state — should succeed
-        result = server.handle_request({
-            "tool": "write_state",
-            "params": {
-                "project_root": tmpdir,
-                "file": "metadata.json",
-                "data": {"test": True},
-            },
-        })
-        assert result["status"] == "success", f"write_state should succeed: {result}"
-
-
-def test_explicit_read_state_still_works():
-    """Explicit read_state call still works (no double-auto-record issue)."""
-    server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        # Explicit read_state
-        result = server.handle_request({
-            "tool": "read_state",
-            "params": {"project_root": tmpdir, "file": "workflow.json"},
-        })
-        assert result["status"] == "success"
-
-        # update_stage should work
-        result = server.handle_request({
-            "tool": "update_stage",
-            "params": {
-                "project_root": tmpdir,
-                "stage_name": "computation",
-                "status": "in_progress",
-            },
-        })
-        assert result["status"] == "success"
-
-
-# ============================================================
-# P3.2: session_handoff tool
-# ============================================================
-
-def test_session_handoff_generates_report():
-    """session_handoff generates a markdown report with state summary."""
-    server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        result = server.handle_request({
-            "tool": "session_handoff",
-            "params": {"project_root": tmpdir},
-        })
-
-        assert result["status"] == "success"
-        assert "report_path" in result["data"]
-        report_path = Path(tmpdir) / result["data"]["report_path"]
-        assert report_path.exists()
-        content = report_path.read_text(encoding="utf-8")
-        assert "Session Handoff" in content
-        assert "Workflow State" in content
-        assert "Counts" in content
-
-
-def test_session_handoff_includes_latest_checkpoint():
-    """session_handoff includes latest checkpoint info."""
-    server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-
-        # Create a checkpoint
-        from runtime.simflow_core.checkpoints import create_checkpoint
-        create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="computation",
-            description="test checkpoint",
-            project_root=tmpdir,
-        )
-
-        result = server.handle_request({
-            "tool": "session_handoff",
-            "params": {"project_root": tmpdir},
-        })
-
-        assert result["status"] == "success"
-        assert result["data"]["latest_checkpoint"] is not None
-        assert result["data"]["checkpoint_count"] == 1
-
-
-def test_session_handoff_detects_stale_state():
-    """session_handoff warns when workflow.json is stale vs latest checkpoint."""
-    server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-
-        # Make workflow.json stale by backdating it
-        from runtime.simflow_core.state import read_state, write_state
-        wf = read_state(project_root=tmpdir, state_file="workflow.json")
-        wf["updated_at"] = "2026-01-01T00:00:00+00:00"
-        write_state(wf, project_root=tmpdir, state_file="workflow.json")
-
-        # Create a fresh checkpoint (which will touch_workflow and update timestamps)
-        from runtime.simflow_core.checkpoints import create_checkpoint
-        ckpt = create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="computation",
-            description="test checkpoint",
-            project_root=tmpdir,
-        )
-        # touch_workflow updated workflow.json, so now backdate it again
-        wf = read_state(project_root=tmpdir, state_file="workflow.json")
-        wf["updated_at"] = "2026-01-01T00:00:00+00:00"
-        write_state(wf, project_root=tmpdir, state_file="workflow.json")
-
-        result = server.handle_request({
-            "tool": "session_handoff",
-            "params": {"project_root": tmpdir},
-        })
-
-        assert result["status"] == "success"
-        warnings = result["data"]["warnings"]
-        assert any("stale" in w.lower() for w in warnings), f"expected stale warning, got: {warnings}"
-
-
-def test_session_handoff_warns_empty_gates_with_checkpoints():
-    """session_handoff warns when checkpoints exist but gates.json is empty."""
-    server = _load_server()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-
-        # Create a checkpoint without any gates
-        from runtime.simflow_core.checkpoints import create_checkpoint
-        create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="computation",
-            description="test checkpoint",
-            project_root=tmpdir,
-        )
-
-        result = server.handle_request({
-            "tool": "session_handoff",
-            "params": {"project_root": tmpdir},
-        })
-
-        assert result["status"] == "success"
-        warnings = result["data"]["warnings"]
-        assert any("gates.json is empty" in w for w in warnings)
-
-
-def test_session_handoff_requires_project_root():
-    """session_handoff requires project_root parameter."""
-    server = _load_server()
-
     result = server.handle_request({
-        "tool": "session_handoff",
-        "params": {},
+        "tool": "record",
+        "params": {"project_root": str(tmp_path), "kind": "note", "summary": "first call"},
     })
-    assert result["status"] == "error"
-    assert "project_root" in result["message"]
+    assert result["status"] == "success"
+    assert (tmp_path / ".simflow" / "records.jsonl").is_file()
 
 
-if __name__ == "__main__":
-    import pytest
-    sys.exit(pytest.main([__file__, "-v"]))
+def test_inspect_returns_current_summary_for_host_handoff(tmp_path):
+    server = _load_server()
+    server.handle_request({
+        "tool": "record",
+        "params": {
+            "project_root": str(tmp_path),
+            "kind": "milestone",
+            "summary": "model validated",
+            "goal": "evaluate production model",
+            "next_action": "prepare immutable run plan",
+        },
+    })
+    result = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    current = result["data"]["project"]["current"]
+    assert current["goal"] == "evaluate production model"
+    assert current["next_action"] == "prepare immutable run plan"
+    assert current["latest_milestone_id"].startswith("rec_")
+
+
+def test_checkpoint_replaces_mandatory_session_handoff(tmp_path):
+    server = _load_server()
+    restart = tmp_path / "restart.dat"
+    restart.write_text("restart\n", encoding="utf-8")
+    checkpoint = server.handle_request({
+        "tool": "checkpoint",
+        "params": {
+            "project_root": str(tmp_path),
+            "summary": "recoverable boundary",
+            "restart_refs": ["restart.dat"],
+            "resume_command": "solver --restart restart.dat",
+        },
+    })
+    assert checkpoint["status"] == "success"
+    assert not (tmp_path / ".simflow" / "reports" / "session_handoff.md").exists()
+    inspected = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    assert inspected["data"]["project"]["current"]["latest_checkpoint_id"] == checkpoint["data"]["checkpoint_id"]
+
+
+def test_legacy_state_is_reported_without_auto_migration(tmp_path):
+    legacy = tmp_path / ".simflow" / "state"
+    legacy.mkdir(parents=True)
+    workflow = legacy / "workflow.json"
+    workflow.write_text('{"workflow_id":"wf_old"}\n', encoding="utf-8")
+    server = _load_server()
+    result = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    assert result["data"]["legacy"]["detected"] is True
+    assert workflow.read_text(encoding="utf-8") == '{"workflow_id":"wf_old"}\n'
+    assert not (tmp_path / ".simflow" / "project.json").exists()
+
+
+def test_all_public_tools_require_explicit_project_root():
+    server = _load_server()
+    for tool in ("inspect", "record", "checkpoint", "recover"):
+        result = server.handle_request({"tool": tool, "params": {}})
+        assert result["status"] == "error"
+        assert "project_root" in result["message"]

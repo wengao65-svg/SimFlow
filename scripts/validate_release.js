@@ -513,18 +513,13 @@ function validateWorkflowAutomation() {
     'server = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(server)',
     'tools = {item["name"]: item["inputSchema"] for item in _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)}',
-    'assert tools["record_computation_evidence"]["required"] == ["project_root", "evidence_params"]',
-    'assert tools["record_analysis_evidence"]["required"] == ["project_root", "evidence_params"]',
-    'assert tools["register_artifact"]["required"] == ["project_root", "name", "type", "stage"]',
-    'assert tools["create_checkpoint"]["required"] == ["project_root", "workflow_id", "stage_id"]',
-    'assert tools["list_artifacts"]["required"] == ["project_root"]',
-    'assert tools["list_checkpoints"]["required"] == ["project_root"]',
-    'evidence_graph = tools["evidence_graph"]["properties"]',
-    'assert evidence_graph["direction"]["enum"] == ["upstream", "downstream", "both"]',
-    'assert evidence_graph["depth"]["maximum"] == 5',
-    'assert "recipe" in evidence_graph and "claim_id" in evidence_graph',
+    'assert set(tools) == {"inspect", "record", "checkpoint", "recover"}',
+    'assert tools["inspect"]["required"] == ["project_root"]',
+    'assert tools["record"]["required"] == ["project_root", "kind", "summary"]',
+    'assert tools["checkpoint"]["required"] == ["project_root", "summary"]',
+    'assert tools["recover"]["required"] == ["project_root"]',
   ].join('; ');
-  runCheck('simflow_state tools/list exposes evidence intake tools', 'python', ['-c', stateToolsSmoke]);
+  runCheck('simflow_state tools/list exposes four compact tools', 'python', ['-c', stateToolsSmoke]);
 
   const hpcSubmitSmoke = [
     'import hashlib, importlib.util, json, sys, tempfile',

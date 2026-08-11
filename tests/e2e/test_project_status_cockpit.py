@@ -1,184 +1,81 @@
-#!/usr/bin/env python3
-"""E2E coverage for the SimFlow project status cockpit."""
+"""E2E coverage for compact project status and record filtering."""
 
 import importlib.util
 import sys
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[2]
 MCP_STATE_DIR = ROOT / "mcp" / "servers" / "simflow_state"
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(MCP_STATE_DIR))
-
-from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.checkpoints import create_checkpoint
-from runtime.simflow_core.gates import record_gate_decision
-from runtime.simflow_core.state import init_workflow, read_state, update_stage, write_state
-from runtime.simflow_core.status import build_handoff_summary, build_project_status
 
 
 def _load_state_server():
-    spec = importlib.util.spec_from_file_location(
-        "simflow_state_server_e2e_module",
-        str(MCP_STATE_DIR / "server.py"),
-    )
+    for name in [name for name in sys.modules if name == "tools" or name.startswith("tools.")]:
+        del sys.modules[name]
+    sys.path.insert(0, str(MCP_STATE_DIR))
+    spec = importlib.util.spec_from_file_location("compact_status_cockpit", MCP_STATE_DIR / "server.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def _write(root: Path, relative_path: str, content: str) -> None:
-    path = root / relative_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+def _call(server, tool, project_root, **params):
+    return server.handle_request({"tool": tool, "params": {"project_root": str(project_root), **params}})
 
 
-def test_project_status_cockpit_tracks_progress_evidence_and_handoff(tmp_path):
-    workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
-    update_stage("literature_review", "completed", project_root=str(tmp_path))
-    update_stage("proposal", "completed", project_root=str(tmp_path))
-    update_stage("modeling", "in_progress", project_root=str(tmp_path))
-
-    workflow_state = read_state(project_root=str(tmp_path), state_file="workflow.json")
-    workflow_state["current_stage"] = "modeling"
-    workflow_state["status"] = "in_progress"
-    write_state(workflow_state, project_root=str(tmp_path), state_file="workflow.json")
-
-    _write(tmp_path, "literature/review_summary.md", "review evidence\n")
-    _write(tmp_path, "proposal/proposal.md", "proposal evidence\n")
-    _write(tmp_path, "models/structure.cif", "data_structure\n")
-    _write(tmp_path, "compute/dry_run_report.json", '{"status": "pass"}\n')
-
-    review = register_artifact(
-        "review_summary.md",
-        "literature_review_summary",
-        "literature_review",
-        path="literature/review_summary.md",
-        project_root=str(tmp_path),
-    )
-    proposal = register_artifact(
-        "proposal.md",
-        "proposal_document",
-        "proposal",
-        path="proposal/proposal.md",
-        parent_artifacts=[review["artifact_id"]],
-        project_root=str(tmp_path),
-    )
-    model = register_artifact(
-        "structure.cif",
-        "model_structure",
-        "modeling",
-        path="models/structure.cif",
-        parent_artifacts=[proposal["artifact_id"]],
-        project_root=str(tmp_path),
-    )
-    dry_run = register_artifact(
-        "dry_run_report.json",
-        "dry_run_report",
-        "computation",
-        path="compute/dry_run_report.json",
-        parent_artifacts=[model["artifact_id"]],
-        project_root=str(tmp_path),
-    )
-    checkpoint = create_checkpoint(
-        workflow["workflow_id"],
-        "proposal",
-        "Proposal complete and modeling started",
-        project_root=str(tmp_path),
-    )
-    decision = record_gate_decision(
-        "hpc_submit",
-        "rejected",
-        {"reason": "approval not requested in e2e"},
-        agent="e2e",
-        project_root=str(tmp_path),
-    )
-
-    status = build_project_status(str(tmp_path))
-    handoff = build_handoff_summary(str(tmp_path))
+def test_project_status_tracks_current_goal_progress_and_logical_evidence(tmp_path):
     server = _load_state_server()
-    mcp_status = server.handle_request({"tool": "workflow_status", "params": {"project_root": str(tmp_path)}})
-    mcp_graph = server.handle_request({
-        "tool": "evidence_graph",
-        "params": {"project_root": str(tmp_path), "artifact_id": dry_run["artifact_id"]},
-    })
+    review = tmp_path / "literature" / "review.md"
+    proposal = tmp_path / "proposal" / "plan.md"
+    model = tmp_path / "model" / "structure.cif"
+    for path, content in ((review, "review\n"), (proposal, "plan\n"), (model, "structure\n")):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
 
-    assert status["workflow"]["current_stage"] == "modeling"
-    assert status["progress"]["completed_stages"] == ["literature_review", "proposal"]
-    assert status["next_actions"] == [
-        {"action": "continue_stage", "stage": "modeling", "reason": "stage_in_progress"}
-    ]
-    assert status["lineage"]["node_count"] == 4
-    assert status["lineage"]["link_count"] == 3
-    assert status["lineage"]["missing_parents"] == []
-    assert status["risks"] == []
-    assert status["checkpoints"]["latest"]["checkpoint_id"] == checkpoint["checkpoint_id"]
-    assert status["gates"]["latest_decisions"]["hpc_submit"]["latest_decision_id"] == decision["decision_id"]
+    literature = _call(
+        server, "record", tmp_path, kind="milestone", summary="Literature baseline accepted",
+        stage="literature_review", goal="compare candidate mechanisms", artifacts=["literature/review.md"],
+    )["data"]
+    proposal_record = _call(
+        server, "record", tmp_path, kind="milestone", summary="Protocol accepted",
+        stage="proposal", parent_ids=[literature["record_id"]], artifacts=["proposal/plan.md"],
+    )["data"]
+    run = _call(
+        server, "record", tmp_path, kind="run", summary="Model validation running", status="running",
+        stage="modeling", parent_ids=[proposal_record["record_id"]], artifacts=["model/structure.cif"],
+        next_action="inspect validation metrics",
+    )["data"]
+    approval = _call(
+        server, "record", tmp_path, kind="approval", summary="Production execution not approved",
+        status="denied", run_id=run["run_id"], details={"run_plan_hash": "sha256:plan"},
+    )["data"]
 
-    assert handoff["current_stage"] == "modeling"
-    assert handoff["latest_checkpoint"]["stage_id"] == "proposal"
-    assert mcp_status["status"] == "success"
-    assert mcp_status["data"]["progress"]["completed_stages"] == ["literature_review", "proposal"]
-    assert mcp_graph["status"] == "success"
-    assert {node["artifact_id"] for node in mcp_graph["data"]["nodes"]} == {
-        model["artifact_id"],
-        dry_run["artifact_id"],
-    }
+    status = _call(server, "inspect", tmp_path)
+    assert status["status"] == "success"
+    project = status["data"]["project"]
+    assert project["current"]["goal"] == "compare candidate mechanisms"
+    assert project["current"]["active_run_id"] == run["run_id"]
+    assert project["current"]["latest_milestone_id"] == proposal_record["record_id"]
+    assert project["current"]["next_action"] == "inspect validation metrics"
+    assert project["counts"]["by_kind"] == {"approval": 1, "milestone": 2, "run": 1}
+    assert status["data"]["records"][-1]["record_id"] == approval["record_id"]
 
 
-def test_readiness_cockpit_reports_stage_gaps_and_ready_transition(tmp_path):
-    workflow = init_workflow("custom", "proposal", project_root=str(tmp_path))
-    update_stage("proposal", "completed", project_root=str(tmp_path))
+def test_status_filtering_and_compact_checkpoint_readiness(tmp_path):
     server = _load_state_server()
+    restart = tmp_path / "restart" / "state.bin"
+    restart.parent.mkdir()
+    restart.write_text("state\n", encoding="utf-8")
+    first = _call(server, "record", tmp_path, kind="analysis", summary="first analysis", status="partial")["data"]
+    second = _call(server, "record", tmp_path, kind="analysis", summary="accepted analysis", status="completed")["data"]
+    checkpoint = _call(
+        server, "checkpoint", tmp_path, summary="Analysis recovery point", record_id=second["record_id"],
+        restart_refs=["restart/state.bin"], resume_command="python continue_analysis.py",
+    )["data"]
 
-    for evidence_key in [
-        "proposal",
-        "calculation_plan",
-        "parameter_rationale",
-        "resource_estimate",
-        "risk_register",
-    ]:
-        _write(tmp_path, f"proposal/{evidence_key}.json", "{}\n")
-        register_artifact(
-            f"{evidence_key}.json",
-            "proposal_evidence",
-            "proposal",
-            path=f"proposal/{evidence_key}.json",
-            metadata={"evidence_key": evidence_key},
-            project_root=str(tmp_path),
-        )
-
-    blocked = server.handle_request({
-        "tool": "stage_readiness",
-        "params": {"project_root": str(tmp_path), "stage": "proposal"},
-    })
-    assert blocked["status"] == "success"
-    assert blocked["data"]["readiness_status"] == "blocked"
-    assert {blocker["code"] for blocker in blocked["data"]["blockers"]} == {"missing_checkpoint"}
-
-    checkpoint = create_checkpoint(
-        workflow["workflow_id"],
-        "proposal",
-        "Proposal evidence ready for handoff",
-        project_root=str(tmp_path),
-    )
-    ready = server.handle_request({
-        "tool": "stage_readiness",
-        "params": {"project_root": str(tmp_path), "stage": "proposal"},
-    })
-    project = server.handle_request({
-        "tool": "project_readiness",
-        "params": {"project_root": str(tmp_path)},
-    })
-
-    assert ready["status"] == "success"
-    assert ready["data"]["readiness_status"] == "ready"
-    assert ready["data"]["checkpoint"]["present"] is True
-    assert checkpoint["checkpoint_id"].startswith("ckpt_")
-    assert project["status"] == "success"
-    assert project["data"]["readiness_status"] == "incomplete"
-    proposal = next(stage for stage in project["data"]["stages"] if stage["stage"] == "proposal")
-    modeling = next(stage for stage in project["data"]["stages"] if stage["stage"] == "modeling")
-    assert proposal["readiness_status"] == "ready"
-    assert modeling["readiness_status"] == "incomplete"
-    assert not (tmp_path / ".simflow" / "reports" / "verify" / "verification_report.json").exists()
+    filtered = _call(server, "inspect", tmp_path, kind="analysis", status="completed")
+    assert filtered["data"]["matched_count"] == 1
+    assert filtered["data"]["records"][0]["record_id"] == second["record_id"]
+    assert filtered["data"]["records"][0]["record_id"] != first["record_id"]
+    recovered = _call(server, "recover", tmp_path, checkpoint_id=checkpoint["checkpoint_id"])
+    assert recovered["data"]["ready"] is True
