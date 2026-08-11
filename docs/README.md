@@ -1,46 +1,46 @@
 # SimFlow Documentation Index
 
-SimFlow documentation follows the current workflow-layer position: SimFlow
-records, checks, gates, and hands off computational research work. It is not a
-centralized workflow executor and does not decide the science for the host
-agent.
+SimFlow separates scientific guidance from event-driven runtime state. Start
+with the user and architecture documents below.
 
 ## Start Here
 
-- [README](../README.md): product summary, install notes, and current structure.
-- [User Guide](user_guide.md): how to think about stages, recipes, evidence,
-  and safety gates.
-- [OpenCode Quick Start](quickstart_opencode.md): install, update, local
-  development, MCP verification, and compatibility boundaries.
-- [Workflow Layer Design](workflow-layer-design.md): canonical stage and recipe
-  semantics.
-- [MLP-MD Workflow Recipe](mlp-md-workflow.md): machine-learning-potential MD
-  stage mapping, evidence roles, and production-readiness gate.
-- [Skill Design](skill-design.md): skill-first contracts and domain assistant
-  rules.
-- [MCP Design](mcp-design.md): recording-tool boundaries and project-root
-  requirements.
-- [MCP Tool Reference](mcp-tool-reference.md): actual server/tool names,
-  engagement prerequisites, and state effects.
+- [README](../README.md): product summary and install paths.
+- [User Guide](user_guide.md): Skills, compact records, recovery, and common
+  work patterns.
+- [Skill Design](skill-design.md): Router, Task, Domain, and pure Skill rules.
+- [Workflow Layer Design](workflow-layer-design.md): advisory stages, recipes,
+  and hard safety boundaries.
+- [User Project Layout](user-project-layout.md): existing-layout-first and
+  analysis placement guidance.
 
-## Operations And Safety
+## Runtime And Safety
 
-- [Release Checklist](release-checklist.md): source, wrapper, metadata, and
-  install-smoke gates before publishing. Concrete install-smoke evidence is
-  recorded under local `.simflow/` workflow state.
-- [Current Limitations](current-limitations.md): supported helpers,
-  unsupported placeholders, and release boundaries.
-- [HPC Integration](hpc-integration.md): dry-run-first submit evidence and hash
-  requirements.
-- [Credentials Policy](credentials-policy.md): credential handling boundaries.
-- [Verification Gates](verification-gates.md): gate concepts and review
-  discipline.
-- [Approval Reviewer Contract](approval_reviewer_simflow_contract.md):
-  anti-bypass review signals and evidence expectations.
-- [State And Checkpoint](state-and-checkpoint.md): `.simflow/` state and
-  recovery.
+- [MCP Tool Reference](mcp-tool-reference.md): the four state and four HPC
+  tools.
+- [State And Recovery](state-and-checkpoint.md): compact store, logical records,
+  checkpoints, and legacy migration.
+- [HPC Integration](hpc-integration.md): immutable run plans and approval reuse.
+- [Verification Gates](verification-gates.md): evidence and approval rules.
+- [Credentials Policy](credentials-policy.md): credential and broker boundary.
+- [Approval Reviewer Contract](approval_reviewer_simflow_contract.md): review
+  signals for real execution and scientific truth.
 
-## Development References
+## Installation And Release
 
-- [Target Repo Structure](target-repo-structure.md): current source layout.
-- [Software Skills](software-skills.md): optional engine helper guidance.
+- [Installation](installation.md)
+- [Claude Quick Start](quickstart_claude.md)
+- [Codex Quick Start](quickstart_codex.md)
+- [OpenCode Quick Start](quickstart_opencode.md)
+- [Current Limitations](current-limitations.md)
+- [Release Checklist](release-checklist.md)
+
+## Development
+
+- [Technical Design](technical-design.md)
+- [Developer Guide](developer_guide.md)
+- [Target Repository Structure](target-repo-structure.md)
+- [Software Skills](software-skills.md)
+- [Custom Skills](custom-skills.md)
+- [Artifact And Record Guidance](artifact-schema.md)
+- [MLP-MD Recipe](mlp-md-workflow.md)

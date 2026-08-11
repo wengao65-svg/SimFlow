@@ -1,67 +1,85 @@
 # SimFlow Technical Design
 
-## Architecture Overview
+## Four-Layer Model
 
 ```text
-Codex / Claude Code / Host Agent
-  -> SimFlow Skills
-     intent recognition, evidence guidance, handoff discipline
-  -> Workflow Layer
-     open research stages, recipes, gates, policies
-  -> MCP Recording Tools
-     state, artifact, lineage, checkpoint, gate, handoff
-  -> Runtime Helpers
-     optional parsers, validators, templates, engine helpers
-  -> .simflow/
-     per-project state, artifacts, reports, checkpoints, logs
+Host Agent
+  reasoning, search, coding, tools
+       |
+Research Task Skill
+  literature, proposal, modeling, computation, analysis, writing
+       | optional
+Domain Skill
+  VASP, CP2K, LAMMPS, GPUMD/NEP, MLP
+       |
+SimFlow Runtime
+  inspect, compact records, approval, execution truth, recovery
+       |
+.simflow/
 ```
 
-SimFlow is the state, evidence, and safety layer around computational research
-work. It is not a central executor. The host agent remains responsible for
-scientific judgment, code writing, source selection, analysis, and prose.
+The two Skill layers answer how to work reliably. Runtime answers what happened
+and what must be safeguarded. Stages and directories do not select Skills, and
+Skill selection does not imply a runtime write.
 
-## Data Flow
+## Event Flow
 
-1. A user request triggers one or more SimFlow skills.
-2. The host agent identifies the current research stage and clarifies intent
-   when needed.
-3. SimFlow guidance states the minimum evidence and safety checks.
-4. The agent performs the work using appropriate tools or custom code.
-5. Artifacts are recorded with metadata, checksums, and lineage.
-6. Stage boundaries create checkpoints.
-7. High-risk actions are evaluated through gates and require recorded approval.
-8. Handoff summaries capture state, artifacts, checkpoint, risks, and next
-   steps.
+1. Route the immediate user intent to zero or one Task Skill and zero or one
+   Domain Skill.
+2. Perform the scientific work with host tools and optional helpers.
+3. Use runtime only if a meaningful event needs durable provenance, approval,
+   execution truth, or recovery.
+4. Append one compact record for the logical event rather than synchronizing
+   multiple registries.
+5. Create a compact checkpoint only when restart or recovery information has
+   real value.
+6. For real execution, build an immutable run plan, obtain approval for its
+   hash, then transfer/submit/status through the bounded HPC surface.
 
-## Component Responsibilities
+## State Model
 
-- **Skills** provide intent-specific workflow guidance and evidence contracts.
-- **Stages** describe research intent and expected evidence boundaries.
-- **Recipes** describe optional reference paths such as DFT, AIMD, phonon, NEB,
-  or classical MD.
-- **Gates** enforce safety and traceability checks for risky actions.
-- **Policies** define workflow-wide hard boundaries such as no credential
-  storage.
-- **MCP servers** record and retrieve state, artifacts, lineage, checkpoints,
-  gates, and handoff data.
-- **Runtime helpers** provide optional validators, templates, parsers, and
-  engine-specific support.
+```text
+.simflow/
+├── project.json              # Derived current summary
+├── records.jsonl             # Append-only logical events
+├── checkpoints/              # Compact recovery references
+└── reports/                  # Migration, HPC, and requested reports
+```
 
-## Technology Stack
+`project.json` tracks the current goal, active run, latest milestone, latest
+failure, latest checkpoint, next action, counts, and last record. A record may
+reference project-relative files, hashes, parent record IDs, and structured
+details. Credentials and restricted file bodies are sanitized before writing.
 
-- Python 3.10+ for runtime helpers and MCP servers
-- JSON and JSON Schema for workflow contracts
-- JSON recipe files for the current recipe migration
-- Optional scientific libraries such as pymatgen, ASE, MDAnalysis, pandas, or
-  matplotlib when available and appropriate
-- MCP protocol for host-agent tool integration
+Historical `.simflow/state/*.json` registries are compatibility inputs only.
+They are not updated by compact writes. Migration inventories structured state
+paths, sizes, hashes, and JSON shape without importing transcripts or
+scientific data content.
 
-## Boundary Rules
+## Runtime Surfaces
 
-- `.simflow/` is the only SimFlow workflow state root.
-- MCP write tools must receive explicit `project_root`.
-- Plugin root and project root are separate.
-- Real local, remote, or HPC execution requires approval.
-- Credentials must not be persisted in SimFlow artifacts or logs.
-- Scientific claims must trace back to literature, model, computation,
-  analysis, or figure artifacts.
+`simflow_state` exposes `inspect`, `record`, `checkpoint`, and `recover`.
+`hpc` exposes `plan`, `transfer`, `submit`, and `status`.
+
+The public surface deliberately omits state-read prerequisites, stage update
+tools, artifact/lineage registries, experiment/activity lifecycle calls,
+session handoff calls, and separate upload/download tools.
+
+## Helpers And Compatibility
+
+`runtime/simflow_helpers/` contains optional scientific utilities and internal
+delivery/verification adapters. Helpers remain usable without SimFlow state.
+Legacy Python APIs may read old projects or map old calls to compact records,
+but they are not public MCP tools and must not recreate synchronized state
+registries.
+
+## Hard Boundaries
+
+- explicit `project_root` for project operations;
+- one root `.simflow/` and no automatic nested-root migration;
+- writes confined to the authorized project;
+- no credentials or restricted bodies in persisted records;
+- no real execution without approval bound to the current `run_plan_hash`;
+- no claim that submission, parsing, or file presence proves successful or
+  scientifically valid completion;
+- no automatic project layout reorganization.

@@ -1,125 +1,77 @@
 # SimFlow Developer Guide
 
-## Architecture Overview
+## Design Rule
 
-SimFlow is a plugin-hosted workflow layer, not a standalone research executor.
-Codex, Claude Code, OpenCode, or another host agent performs the scientific work. SimFlow
-records evidence, state, lineage, checkpoints, gates, and handoff context.
+Keep scientific guidance, domain knowledge, and runtime state separate.
 
 ```text
-User request
-  -> SimFlow skills
-  -> workflow-layer contracts
-  -> MCP recording tools
-  -> optional runtime helpers
-  -> .simflow/ project state
+current intent -> one Task Skill + optional Domain Skill
+actual event   -> compact runtime record/recovery/safety operation
 ```
 
-## Directory Structure
+Do not add lifecycle calls merely to prove that a Skill was used.
 
-```text
-skills/          canonical skill entry points and domain helpers
-workflow/        stages, recipes, gates, policies
-mcp/             recording and bounded helper servers
-runtime/         core facades and optional helpers
-schemas/         JSON schemas
-tests/           unit, MCP, workflow, skill, and e2e tests
-docs/            design and user documentation
-scripts/         packaging, marketplace, scaffold, and validation scripts
-opencode/        dependency-free OpenCode plugin module
-```
+## Skills
 
-New behavior should use `workflow/recipes/`, canonical stages, and helper
-modules under `runtime/simflow_helpers/`.
+A Research Task or Domain Skill is a pure instruction bundle. It may guide,
+inspect, suggest, and use host tools. It must not:
 
-## Design Rules
+- require MCP or state initialization;
+- own stage progression, approval, artifact registration, or checkpoints;
+- enforce a fixed project layout, parser, helper, report, or software path;
+- claim support for an engine that has no tested Domain Skill.
 
-### Skill-First
+Keep high-frequency and high-risk behavior in `SKILL.md`; move long methods and
+examples into `references/`. Public Skills remain direct children of `skills/`
+until every host supports recursive discovery.
 
-User-facing research work enters through canonical skills. Skills describe
-trigger conditions, evidence requirements, risks, safety boundaries, and
-handoff needs. They must not require one parser, one builder, one report
-filename, or one software package as the only valid path.
+## Helpers
 
-### Open Stage Model
+Helpers are optional scientific utilities. By default they read project files
+and write requested outputs inside the authorized project without initializing
+SimFlow state. Optional recording belongs in a shared adapter and should append
+one logical record, not per-file registry updates.
 
-Canonical stages are:
+Safety, delivery, and verification helpers are internal runtime modules, not
+public Skills. Engine helpers must return uncertainty for unsupported tasks.
 
-```text
-literature_review
-proposal
-modeling
-computation
-analysis_visualization
-writing
-```
+## Compact State
 
-`input_generation` belongs inside `computation`; `visualization` belongs inside
-`analysis_visualization`; review is a cross-stage checking action.
+Use `runtime.simflow_core.records` for new writes:
 
-### State In .simflow/
+- `record_event` for one logical event;
+- `inspect_project` for read-only status;
+- `create_recovery_checkpoint` for a real recovery boundary;
+- `recover_checkpoint` for reference/hash validation.
 
-All workflow state is written under the user's project `.simflow/` root. MCP
-write tools must receive explicit `project_root`; plugin root and project root
-must not be conflated.
+Do not add new writes to legacy `.simflow/state/*.json` registries. Legacy APIs
+may read them and may provide compatibility views, but compact writes must not
+synchronize artifact, lineage, stage, job, or checkpoint registries.
 
-### Optional Helpers
+## MCP
 
-Runtime parsers, validators, templates, and engine helpers are optional. They
-may suggest, inspect, validate, or record artifacts. They should not decide the
-science or block reasonable unlisted workflows.
+The public surface is fixed at four `simflow_state` and four `hpc` tools unless
+a new product decision justifies expansion. Composite tools should expose
+strict JSON schemas and explicit `project_root` where project access is needed.
 
-### Evidence-Based Gates
+Real execution must be derived from a persisted run plan and approval bound to
+its `run_plan_hash`. Submit inputs must not accept mutable replacement hashes.
 
-Real local, remote, or HPC execution requires dry-run evidence, validation,
-credential scan, resource estimate, matching hashes, and an approval reference.
-Boolean-only approval is not enough.
+## Workflow Contracts
 
-## Adding A Skill
+Stage and recipe files are guidance. Runtime policy files may enforce only real
+safety, truth, recording, and recovery boundaries. Do not reintroduce automatic
+stage-boundary checkpoints, per-file artifact versioning, mandatory phase
+transitions, or directory admission rules.
 
-1. Run `node scripts/scaffold_skill.js my-new-skill`.
-2. Edit `skills/my-new-skill/SKILL.md`.
-3. Keep the body focused on trigger conditions, evidence, risks, safety, and
-   handoff.
-4. Add tests if the skill introduces new contract language.
-5. Run `npm run validate:skills`.
-
-Do not add a skill that acts as a mandatory workflow executor.
-
-## Adding A Helper
-
-Helpers should be bounded and optional. A good helper records what it did:
-
-- script or command
-- input artifacts
-- output artifacts
-- environment assumptions
-- lineage links
-- warnings and uncertainty
-
-For analysis helpers, self-written Python and external scientific libraries are
-valid paths when they are recorded with the same evidence discipline.
-
-Executable helper scripts under `skills/*/scripts/` must expose the standard
-recording options:
-
-```bash
---project-root <path> --stage <canonical-stage> --record-helper-run
-```
-
-Use `runtime.simflow_core.script_contracts.add_helper_recording_args` and
-`maybe_record_helper_run` instead of duplicating CLI and lineage code. Stage
-runners keep the `run_*_stage(workflow_dir, params, dry_run)` callable
-contract.
-
-## Running Verification
+## Validation
 
 ```bash
 python -m pytest tests/ -q
 npm run validate:all
+python scripts/audit_skill_scripts.py
+npm run validate:release -- --skip-wrapper-build
 ```
 
-If marketplace or distribution files change, also run the marketplace build and
-validation commands documented in the release workflow. OpenCode changes must
-also pass the package build, built-package validator, and isolated OpenCode
-smoke test.
+Changes to distribution content also require marketplace/package builds and
+isolated host smoke tests from the release checklist.

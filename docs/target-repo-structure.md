@@ -1,144 +1,64 @@
 # Target Repository Structure
 
-This document describes the current workflow-layer shape. It is not a central
-executor design and does not define a fixed DFT/AIMD/MD DAG.
-
-## Top-Level Layout
+## Source Layout
 
 ```text
 simflow/
-  AGENTS.md
-  README.md
-  .opencode/plugins/
-  opencode/
-  skills/
-  workflow/
-    stages/
-    recipes/
-    gates/
-    policies/
-    templates/
-  runtime/
-    simflow_core/
-    simflow_helpers/
-  mcp/
-    servers/
-    shared/
-  schemas/
-  templates/
-  docs/
-  tests/
-  scripts/
+├── skills/                    # 12 public Skills, kept flat for host discovery
+├── workflow/
+│   ├── stages/                # Advisory research-intent contracts
+│   ├── recipes/               # Optional reference paths
+│   ├── gates/                 # Evidence and approval definitions
+│   ├── policies/              # Runtime safety and recording contracts
+│   └── toolchains/            # Helper support metadata
+├── mcp/
+│   ├── servers/simflow_state/ # inspect, record, checkpoint, recover
+│   ├── servers/hpc/           # plan, transfer, submit, status
+│   └── shared/
+├── runtime/
+│   ├── simflow_core/          # Compact records, gates, migration, compatibility
+│   └── simflow_helpers/       # Optional scientific/internal helpers
+├── schemas/
+├── templates/
+├── tests/
+├── docs/
+└── scripts/                   # Validation, packaging, and scaffolding
 ```
 
-The SimFlow plugin repository `scripts/` directory is for packaging,
-validation, scaffolding, and developer utilities. In a user project,
-`scripts/submit/` is the default convention for reusable submit scripts that
-can be referenced by computation-stage dry-run/readiness evidence. One-off
-calculation scripts should stay with the calculation directory or be passed
-explicitly as `job_script`/`submit_script`.
+The flat `skills/<name>/SKILL.md` layout is retained because Codex, Claude Code,
+and OpenCode distribution validators discover direct children. Logical Router,
+Task, and Domain classification does not require a physical directory move.
 
-`.opencode/plugins/simflow.js` is the project-local OpenCode loader.
-`opencode/simflow.mjs` is the dependency-free canonical plugin module copied
-into the generated `opencode-simflow` npm package.
+## Public Skills
 
-## Skills
-
-Public Research Task Skills are:
-
-```text
-simflow
-simflow-literature-review
-simflow-proposal
-simflow-modeling
-simflow-computation
-simflow-analysis-visualization
-simflow-writing
-```
-
-Project intake, stage execution, and pipeline helpers live under
-`runtime/simflow_helpers/`; tests and integrations should import those helpers
-directly instead of depending on CLI or wrapper scripts.
-
-Engine skills such as `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, and
-`simflow-gpumd` are the supported domain assistants in the current product
-build. `simflow-mlp` provides cross-tool MLP guidance. Unsupported engines do
-not receive placeholder Skills. Domain Skills do not own workflow progression
-and must not make helper scripts the only valid path.
-
-## Workflow Definitions
-
-Canonical top-level stages live in `workflow/stages/`:
-
-```text
-literature_review
-proposal
-modeling
-computation
-analysis_visualization
-writing
-```
-
-`input_generation` is an optional activity inside `computation`.
-`visualization` is an optional activity inside `analysis_visualization`.
-`review` is a cross-stage checking action.
-
-Reference recipes live in `workflow/recipes/` and use JSON in this refactor:
-
-```text
-dft.json
-aimd.json
-classical_md.json
-mlp_md.json
-phonon.json
-neb.json
-custom.json
-```
-
-The repository's canonical recipe examples live under `workflow/recipes/`.
-`workflow/workflows/` is not part of the current source surface.
+The only directories containing public `SKILL.md` files are the router, six
+Research Task Skills, and five Domain Skills. Safety, checkpoint, handoff, and
+verification implementations belong under runtime helpers. Unsupported engine
+placeholders do not expose `SKILL.md`.
 
 ## Runtime
 
-`runtime/simflow_core/` is the canonical import surface for state, artifact,
-checkpoint, lineage, gate, proposal, workflow, and validation APIs.
+`runtime/simflow_core/records.py` owns the compact project store.
+`migration.py` inventories legacy structured state without modifying it.
+`gates.py` provides internal approval records. Compatibility modules may expose
+old Python call shapes to existing code but must map new writes to compact
+records or recovery references.
 
-`runtime/simflow_helpers/` contains optional helper modules. Project intake and
-canonical stage execution live under `runtime/simflow_helpers/project` and
-`runtime/simflow_helpers/stages`. Engine-specific helpers live under
-`runtime/simflow_helpers/engines`; they may suggest and validate, but they
-should return uncertainty for unknown tasks instead of forcing a default
-calculation.
+`runtime/simflow_helpers/delivery/` and `verification/` contain operational
+implementations that are no longer public Skills. Engine and task helpers must
+remain optional and usable without state.
 
-Runtime entry points should be exposed through skills, MCP tools, or reusable
-helpers under `runtime/simflow_helpers/`.
+## User State
 
-## MCP
-
-MCP servers provide recording and bounded helper tools:
-
-```text
-simflow_state
-hpc
-```
-
-MCP tools must keep `project_root` separate from plugin root. Write tools should
-record state, artifacts, lineage, checkpoints, gates, or handoff summaries. They
-should not decide the scientific path for the host agent.
-
-## Project State
-
-Per-project state belongs under the user's project root:
+New project runtime state is:
 
 ```text
 .simflow/
-  state/
-  artifacts/
-  checkpoints/
-  reports/
-  logs/
-  extensions/
+├── project.json
+├── records.jsonl
+├── checkpoints/
+└── reports/
 ```
 
-The repository `.gitignore` ignores `.simflow/` because it is runtime state, not
-plugin source.
+Historical `.simflow/state/` remains read-only compatibility input. The source
+repository ignores `.simflow/` because it is local runtime state.

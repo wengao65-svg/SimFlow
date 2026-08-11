@@ -1,7 +1,7 @@
 {
   "name": "simflow",
   "version": "0.16.0",
-  "description": "Claude Code computational simulation workflow layer with recipe/tag guidance and approval-aware evidence tracking.",
+  "description": "Claude Code computational-research guidance with compact provenance, recovery, and immutable run-plan approval.",
   "author": {
     "name": "wengao65-svg",
     "url": "https://github.com/wengao65-svg"

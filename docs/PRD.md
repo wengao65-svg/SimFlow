@@ -1,58 +1,49 @@
 # SimFlow Product Requirements Document
 
-## Product Overview
+## Product
 
-SimFlow is a Codex-native computational simulation workflow layer for agentic
-research. It records stages, evidence, artifacts, lineage, checkpoints, safety
-gates, and handoff context around open computational work.
+SimFlow is a host-neutral computational-research guidance, provenance,
+recovery, and execution-safety layer. It improves how an agent performs
+scientific tasks without becoming the scientific reasoner or a centralized
+workflow executor.
 
-SimFlow is not a centralized workflow executor. Codex, Claude Code, or another
-host agent remains responsible for scientific reasoning, literature selection,
-modeling choices, simulation software, analysis code, and writing format.
+## Users
 
-## Target Users
+- researchers using coding agents for simulation projects;
+- teams that need compact cross-session project truth and recovery references;
+- users who need dry-run-first local, remote, and HPC execution discipline;
+- projects that already have established directory layouts and scripts.
 
-- Computational simulation researchers who need traceable research state.
-- Agentic coding users who need safe handoff across literature, modeling,
-  computation, analysis, and writing.
-- Teams that need dry-run-first local, remote, or HPC submission discipline.
+## Required Capabilities
 
-## Core Capabilities
+1. One thin router, six Research Task Skills, and five Domain Skills.
+2. Task and Domain Skills that work without MCP and never own runtime state.
+3. Four compact state tools: inspect, record, checkpoint, recover.
+4. Four execution tools: plan, transfer, submit, status.
+5. Append-only logical records and a derived project summary.
+6. Compact recovery references without registry snapshots.
+7. Approval bound to an immutable run-plan hash and reusable only while the
+   plan remains unchanged.
+8. Read-only legacy state discovery and explicit non-destructive migration.
+9. Existing-layout-first project organization with optional six-phase guidance.
+10. Credential isolation and metadata-only handling of licensed POTCAR.
 
-1. **Workflow-layer state**: project `.simflow/` state, canonical stages,
-   recipes/tags, and handoff summaries.
-2. **Artifact and lineage tracking**: registered literature, model, compute,
-   analysis, figure, and writing artifacts with metadata and checksums.
-3. **Evidence-based gates**: dry-run, validation, credential scan, approval, and
-   hash checks before real local, remote, or HPC submit.
-4. **Optional helpers**: supported domain assistants for VASP, CP2K, LAMMPS,
-   GPUMD, and NEP, plus generic parsers, templates, and analysis utilities. QE and
-   Gaussian are reserved placeholders in the current product build.
-5. **Skill and MCP integration**: canonical skills and MCP recording tools
-   expose the workflow layer to host agents without a central executor.
+## Domain Boundary
 
-## Feature Matrix
-
-| Feature | Current position |
-| --- | --- |
-| Literature review | Evidence tracking; no required source/provider |
-| Proposal | Traceable plan and resource/risk evidence |
-| Modeling | Preserve user-provided models and transformations |
-| Computation | Dry-run-first setup, validation, hash evidence, gated submit |
-| Analysis/visualization | Built-in or self-written helpers, all recorded with lineage |
-| Writing | Claim-to-evidence traceability; no fixed document structure |
-| DFT/AIMD/MD | Reference recipes/tags |
-| Supported engine helpers | VASP, CP2K, LAMMPS, GPUMD, and NEP domain assistants, not workflow executors |
-| Unsupported placeholders | QE and Gaussian; user-provided files may be tracked as generic artifacts |
+Built-in Domain Skills cover VASP, CP2K, LAMMPS, GPUMD/NEP, and general MLP
+methodology. Unsupported engines use the relevant Task Skill with explicit
+uncertainty. Placeholder Skills are not shipped.
 
 ## Success Criteria
 
-- Users can enter SimFlow from any canonical research stage.
-- Scientific claims trace to literature, model, computation, analysis, or figure
-  artifacts.
-- Real local, remote, or HPC execution is blocked without approval, dry-run
-  evidence, credential scan, and matching hashes.
-- Unknown engine tasks return uncertainty and missing information instead of
-  being forced into a default task.
-- Current projects use canonical stages and open recipe/tag metadata instead of
-  fixed DFT/AIMD/MD workflow types.
+- ordinary read-only research produces zero SimFlow writes;
+- ordinary file preparation or analysis needs at most one logical record;
+- each task selects at most one Task Skill and one Domain Skill;
+- remote execution uses at most plan, transfer, submit, and status;
+- unchanged retries do not repeat approval, while material changes do;
+- checkpoint files contain recovery references, not full state snapshots;
+- old projects continue without directory migration;
+- POTCAR bodies, credentials, and private-key paths never enter state or
+  distribution packages;
+- no runtime surface claims that submission, output presence, or parser success
+  proves scientific completion.

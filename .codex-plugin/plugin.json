@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "SimFlow",
     "shortDescription": "Computational simulation workflow layer for Codex.",
-    "longDescription": "SimFlow provides Codex skills and MCP tools for computational simulation research workflows with open recipe/tag guidance, state, artifact lineage, checkpoints, safety gates, handoff discipline, and optional domain helpers.",
+    "longDescription": "SimFlow provides pure research-task and domain guidance plus compact event records, recovery references, immutable run-plan approval, and optional scientific helpers.",
     "developerName": "wengao65-svg",
     "category": "Productivity",
     "capabilities": [
