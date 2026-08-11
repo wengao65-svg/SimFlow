@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "JobRecord",
-  "description": "Recorded computation job submission state",
+  "title": "Legacy Job Registry Record",
+  "description": "Read-only compatibility schema for historical .simflow/state/jobs.json entries. New submit attempts are compact run records.",
   "type": "object",
   "required": ["job_id", "workflow_id", "stage", "status", "dry_run", "created_at"],
   "properties": {

@@ -80,7 +80,7 @@
     "task_shapes": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Task shape patterns that trigger this skill. Used by the task-shape-aware router (P3.4) to suggest MCP engagement for all task types, including single-stage compute tasks.",
+      "description": "Optional intent examples for Skill routing. They do not require runtime or MCP engagement.",
       "default": []
     }
   }
