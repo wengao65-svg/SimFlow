@@ -377,7 +377,7 @@ function validateSimplificationContract() {
       )
   ));
   check(
-    'experiment ledger and engagement modules are absent from tracked runtime sources',
+    'legacy experiment ledger ceremony remains absent from tracked runtime sources',
     lifecycleFindings.length === 0,
     lifecycleFindings.join('\n'),
   );

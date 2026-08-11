@@ -123,7 +123,7 @@ def test_agent_facing_hpc_server_does_not_import_direct_ssh_connector():
     assert "SSHBrokerClient" in text
 
 
-def test_removed_ledger_and_engagement_modules_are_absent():
+def test_legacy_ledger_and_engagement_modules_are_absent():
     for name in ("engagement.py", "experiment_memory.py"):
         assert not (REPO_ROOT / "runtime" / "simflow_core" / name).exists()
     assert not (REPO_ROOT / "schemas" / "experiment_memory.schema.json").exists()

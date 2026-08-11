@@ -2,18 +2,22 @@
 
 ## Compact Store
 
-New SimFlow state uses four concepts:
+New SimFlow state separates scientific memory from operational truth:
 
 ```text
 .simflow/
+├── experiments/
+│   ├── <experiment_id>.md
+│   └── index.md
 ├── project.json
 ├── records.jsonl
 ├── checkpoints/
 └── reports/
 ```
 
-- `project.json` is a derived current summary.
-- `records.jsonl` is the append-only logical event history.
+- Experiment Markdown files are append-only scientific notebooks.
+- `records.jsonl` is the append-only operational event history.
+- `project.json` and `experiments/index.md` are derived summaries.
 - `checkpoints/` stores compact recovery references.
 - `reports/` stores migration, transfer, run-plan, and requested human-readable
   reports.
@@ -32,12 +36,35 @@ The summary tracks:
 - total and per-kind record counts;
 - last record metadata.
 
-It is derived from compact records and is not a second authoritative event
-history.
+It is deterministically rebuilt from Experiment notebooks, operational records,
+and checkpoint references. Incremental updates are only a cache optimization;
+deleting a valid `project.json` must not lose project truth.
+
+## Experiment Notebooks
+
+One Experiment represents one scientific question. Parameter axes such as
+temperature, element, seed, retry, and resume belong to Attempts unless they
+change the question or acceptance criteria.
+
+Notebook entry types are `experiment`, `attempt`, `observation`, `decision`,
+`material_action`, and `recovery`. Notebook files own scientific semantics;
+actual project files own exact evidence. A path/hash reference identifies
+evidence content but does not establish completion, convergence, or scientific
+validity.
+
+The public `record` input uses a discriminated contract. Existing operational
+calls keep the operational `kind` schema. `channel="experiment"` uses a separate
+`entry_type` schema and cannot fall back to operational kinds or a generic note.
+
+Material actions are limited to persistent operations that change the evidence
+set or recoverability, such as deletion, filtering, deduplication, overwrite,
+truncation, persistent movement, or replacement of a dataset. Ordinary
+scientific parameter changes are Attempt or Decision entries, not paired
+material actions.
 
 ## Logical Records
 
-Record kinds are:
+Operational record kinds are:
 
 ```text
 milestone  run  artifact  analysis  approval  failure  note
