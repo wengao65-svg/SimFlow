@@ -38,15 +38,6 @@ CANONICAL_ARTIFACT_STAGE_DIRS = [
     "analysis_visualization",
     "writing",
 ]
-ARTIFACT_CATEGORY_DIRS = [
-    "literature",
-    "models",
-    "compute",
-    "analysis",
-    "figures",
-]
-
-
 class ProjectRootError(ValueError):
     """Raised when a SimFlow state operation targets an invalid project root."""
 
@@ -193,9 +184,6 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
     dirs = [
         sf / "state",
         sf / "plans",
-        sf / "artifacts",
-        *[sf / "artifacts" / name for name in CANONICAL_ARTIFACT_STAGE_DIRS],
-        *[sf / "artifacts" / name for name in ARTIFACT_CATEGORY_DIRS],
         sf / "checkpoints",
         sf / "reports",
         sf / "logs",

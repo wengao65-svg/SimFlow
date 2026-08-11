@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
 
 import runtime.simflow_core.state as state_module
 from runtime.simflow_core.state import (
-    ARTIFACT_CATEGORY_DIRS,
     CANONICAL_ARTIFACT_STAGE_DIRS,
     ProjectRootError,
     ensure_simflow_dir,
@@ -42,7 +41,6 @@ class TestState:
         assert sf.exists()
         assert (sf / "state").exists()
         assert (sf / "plans").exists()
-        assert (sf / "artifacts").exists()
         assert (sf / "checkpoints").exists()
         assert (sf / "reports").exists()
         for path in [
@@ -57,8 +55,7 @@ class TestState:
             sf / "state" / "metadata.json",
         ]:
             assert path.exists()
-        for dirname in CANONICAL_ARTIFACT_STAGE_DIRS + ARTIFACT_CATEGORY_DIRS:
-            assert (sf / "artifacts" / dirname).is_dir()
+        assert not (sf / "artifacts").exists()
         assert not (sf / "metadata.json").exists()
         assert not (sf / "workflow_state.json").exists()
 
@@ -80,12 +77,12 @@ class TestState:
             sf / "state" / "summary.json",
             sf / "state" / "metadata.json",
             sf / "plans",
-            sf / "artifacts",
             sf / "checkpoints",
             sf / "reports",
             sf / "logs",
         ]:
             assert path.exists()
+        assert not (sf / "artifacts").exists()
         assert read_state(self.base_dir, "stages.json") == {}
         assert read_state(self.base_dir, "artifacts.json") == []
         assert read_state(self.base_dir, "checkpoints.json") == []
