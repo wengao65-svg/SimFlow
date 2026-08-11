@@ -1,26 +1,17 @@
-# Before-Handoff Hook
+# Optional Handoff Hook
 
-## 触发时机
+## Trigger
 
-会话结束或 agent 交接前。
+When the user requests a handoff or another agent needs durable context.
 
-## 执行步骤
+## Summary
 
-1. 检查当前 workflow 完整性
-2. 列出所有已产出 artifact
-3. 确认最新 checkpoint
-4. 检查未解决的警告
-5. 生成 handoff 摘要
+- current goal;
+- active or recent runs and their true status;
+- meaningful deliverables;
+- latest recoverable checkpoint, if one exists;
+- unresolved risks and missing evidence;
+- next action and approval needs.
 
-## 输出
-
-- 完整性检查报告
-- artifact 清单
-- 最新 checkpoint
-- handoff 摘要
-
-## 注意事项
-
-- 不创建新 checkpoint
-- 不修改 workflow state
-- 不包含凭据信息
+A handoff is a host summary, not a mandatory runtime write. It must not create a
+checkpoint or import host transcripts.

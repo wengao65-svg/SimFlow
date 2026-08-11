@@ -7,14 +7,14 @@
 ## 通知内容
 
 - checkpoint ID
-- 关联的 workflow 和 stage
-- 描述
+- 恢复状态与关联 record/run/milestone
+- restart 引用与恢复说明
 
 ## 模板
 
 ```
-[SimFlow] Checkpoint 创建: {checkpoint_id}
-Workflow: {workflow_id}
-Stage: {stage_id}
-描述: {description}
+[SimFlow] Recovery checkpoint created: {checkpoint_id}
+Status: {status}
+References: {recovery_references}
+Resume: {resume_command}
 ```

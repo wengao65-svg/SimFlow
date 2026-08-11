@@ -1,25 +1,16 @@
-# Post-Stage Hook
+# Post-Task Advisory Hook
 
-## 触发时机
+## Trigger
 
-每个阶段成功完成后。
+After a meaningful research task or deliverable.
 
-## 执行步骤
+## Actions
 
-1. 收集阶段产出的所有 artifact
-2. 注册 artifact 到 artifacts.json（含版本和 lineage）
-3. 更新 stages.json 中该阶段状态为 completed
-4. 运行阶段验证器（validators）
-5. 创建 checkpoint
-6. 更新 workflow state 的 current_stage
+1. Verify the requested scientific result or file.
+2. State uncertainty, incomplete evidence, and execution status accurately.
+3. Append at most one logical runtime record when durable provenance is useful.
+4. Include key file/hash references and parent record IDs in that record.
+5. Create a checkpoint only when restart or recovery references exist.
 
-## 输出
-
-- artifact 注册确认
-- 验证报告
-- checkpoint ID
-
-## 失败处理
-
-- artifact 注册失败：记录错误，重试
-- 验证失败：创建 failure checkpoint，不推进到下一阶段
+Do not update legacy stage/artifact/lineage registries or create a checkpoint
+merely because a task ended.

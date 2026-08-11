@@ -1,19 +1,19 @@
 {
   "version": "1.0",
-  "description": "SimFlow notification policy: maps events to channels and severity levels",
+  "description": "Optional notification templates for meaningful runtime events; notifications do not drive workflow state.",
   "default_channel": "console",
   "events": {
     "stage_complete": {
       "level": "info",
       "channels": ["console"],
       "template": "stage_complete.md",
-      "description": "A workflow stage completed successfully"
+      "description": "A bounded research task or milestone completed"
     },
     "stage_failed": {
       "level": "error",
       "channels": ["console"],
       "template": "stage_failed.md",
-      "description": "A workflow stage failed"
+      "description": "A bounded operation failed"
     },
     "approval_required": {
       "level": "warning",
@@ -25,13 +25,13 @@
       "level": "info",
       "channels": ["console"],
       "template": "workflow_complete.md",
-      "description": "Entire workflow completed"
+      "description": "A project milestone was reached"
     },
     "checkpoint_created": {
       "level": "debug",
       "channels": ["console"],
       "template": "checkpoint_created.md",
-      "description": "A checkpoint was created"
+      "description": "A compact recovery checkpoint was created"
     }
   },
   "channels": {

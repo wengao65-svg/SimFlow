@@ -2,32 +2,32 @@
   "hooks": [
     {
       "event": "pre_stage",
-      "description": "Check inputs and prerequisites before stage execution",
+      "description": "Advisory check of current research intent and available inputs",
       "handler": "hooks/pre_stage.md"
     },
     {
       "event": "post_stage",
-      "description": "Write artifacts, checkpoint, and reports after stage completion",
+      "description": "Optionally summarize one meaningful deliverable after a task",
       "handler": "hooks/post_stage.md"
     },
     {
       "event": "pre_submit",
-      "description": "Verify approval gate before HPC job submission",
+      "description": "Validate the immutable run plan and its bound approval before real execution",
       "handler": "hooks/pre_submit.md"
     },
     {
       "event": "post_analysis",
-      "description": "Generate charts, reports, and handoff after analysis",
+      "description": "Check analysis evidence and update shallow navigation when useful",
       "handler": "hooks/post_analysis.md"
     },
     {
       "event": "on_error",
-      "description": "Diagnose failure, collect logs, create checkpoint",
+      "description": "Diagnose failure and create a checkpoint only when recovery references exist",
       "handler": "hooks/on_error.md"
     },
     {
       "event": "before_handoff",
-      "description": "Completeness check before handoff",
+      "description": "Optional host summary before a handoff",
       "handler": "hooks/before_handoff.md"
     }
   ]

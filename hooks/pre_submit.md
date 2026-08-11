@@ -1,25 +1,17 @@
-# Pre-Submit Hook
+# Pre-Submit Safety Hook
 
-## 触发时机
+## Trigger
 
-HPC 作业提交前。
+Before any real local, remote, or scheduler execution.
 
-## 执行步骤
+## Checks
 
-1. 检查 approval gate 状态
-2. 运行 dry-run 验证
-3. 检查输入文件完整性
-4. 检查资源申请合理性
-5. 扫描文件中的凭据信息
+1. Build or reload the immutable run plan.
+2. Recompute script, input, target, resource, transfer, destructive, and
+   restricted-file identity.
+3. Confirm dry-run validation and credential scan did not fail.
+4. Require explicit approval bound to the exact `run_plan_hash`.
+5. For SSH, require the broker and a verified transfer manifest.
 
-## 输出
-
-- 审批状态确认
-- dry-run 报告
-- 提交前检查清单
-
-## 失败处理
-
-- 审批未通过：中止提交，报告原因
-- dry-run 失败：中止提交，报告问题
-- 凭据检测：中止提交，报告安全风险
+Any identity change invalidates approval. Submission remains blocked until the
+current plan is approved.

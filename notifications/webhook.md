@@ -17,7 +17,7 @@ Disabled by default. Requires `SIMFLOW_WEBHOOK_URL` environment variable.
   "timestamp": "{timestamp}",
   "message": "{message}",
   "details": {
-    "artifacts": [],
+    "record_ids": [],
     "checkpoint_id": null,
     "error": null
   },
