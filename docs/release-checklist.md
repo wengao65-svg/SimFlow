@@ -61,12 +61,14 @@ python examples/h2o/run_cp2k_workflow.py --dry-run
 
 Expected result:
 
-- The safe example produces `.simflow/` state, artifact registry,
-  checkpoints, dry-run computation evidence, credential scan evidence, and
-  handoff reports under the disposable project root.
+- The safe example creates `.simflow/project.json`, one compact record, one
+  immutable run-plan report, and no legacy registries or automatic checkpoint.
+- Unapproved submit is blocked, and credential scan status is embedded in the
+  run plan.
 - The Si example validates committed input metadata without requiring real
   POTCAR content.
-- The LAMMPS example records synthetic dry-run evidence and keeps submit gated.
+- The LAMMPS example stores inputs in a normal calculation directory, records
+  one logical deliverable, and keeps submit blocked.
 - The H2O CP2K example can run in dry-run mode without HPC credentials.
 
 ## 4. Public Metadata Gate
@@ -138,8 +140,9 @@ Expected result:
   commit summary.
 - Any manual install-smoke status or known limitations are summarized in the
   final release notes before publishing.
-- Detailed install-smoke evidence remains local workflow state under
-  `.simflow/reports/` and `.simflow/checkpoints/`, not tracked release docs.
+- Detailed install-smoke evidence remains under `.simflow/reports/`, not
+  tracked release docs. Create a checkpoint only when the smoke process has a
+  real recovery reference.
 
 ## 7. Manual Install Smoke Gate
 
@@ -197,9 +200,10 @@ Expected result:
 - OpenCode reports stable version 1.18.9 or a later stable 1.x release and does
   not require V2 beta APIs.
 - Real local, remote, or HPC submission remains blocked without dry-run
-  evidence, matching hashes, credential scan, and explicit approval.
-- Results are recorded in `.simflow/reports/release_smoke_<version>.md` with a
-  matching checkpoint before the release is announced.
+  validation, matching hashes, credential scan, and explicit approval bound to
+  the current `run_plan_hash`.
+- Results are recorded in `.simflow/reports/release_smoke_<version>.md` before
+  the release is announced; no automatic checkpoint is required.
 - Public release notes only summarize the manual smoke status as pass, block,
   or warning; do not publish host-local CLI paths, credentials, private
   hostnames, cache paths, or other environment-specific evidence.

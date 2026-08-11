@@ -1,112 +1,103 @@
 # Current Product Limitations
 
-This page describes the current release boundary. It should be reviewed before
-publishing release notes or marketplace branches.
+This page describes the current release boundary. Review it before publishing
+release notes or marketplace packages.
 
-## Supported Domain Assistants
+## Supported Domain Skills
 
-The current product build includes Domain Assistants for:
+The public product includes Domain Skills for:
 
-- VASP
-- CP2K
-- LAMMPS
-- GPUMD/NEP input generation, validation, dry-run planning, orchestration, selected parsing, and evidence handoff
-- Cross-tool MLP lifecycle, evidence review, and readiness methodology
+- VASP;
+- CP2K;
+- LAMMPS;
+- GPUMD/NEP;
+- engine-independent MLP methodology.
 
-These Domain Assistants provide guidance and may call optional helpers for
-validation, templates, parsing, analysis, or artifact recording. The product
-role does not make SimFlow a workflow executor.
+These Skills provide scientific guidance and may use optional validation,
+generation, parsing, or analysis helpers. They do not own runtime state or make
+SimFlow a workflow executor.
 
-GPUMD and NEP are helper-supported at the shared tool-support level for
-bounded input preparation, static validation, dry-run planning, selected output
-parsing, orchestration, manifest generation, and evidence handoff. This
-includes helper-supported input generation and validation. GPUMD/NEP real execution,
-local submit, remote execution, and HPC submit are not helper-supported
-actions.
+GPUMD and NEP have bounded helper support for input preparation, static
+validation, dry-run planning, selected output parsing, orchestration metadata,
+and evidence handoff. SimFlow does not claim an engine-specific GPUMD/NEP real
+execution implementation. A user-provided script may still use the generic,
+approval-bound HPC runtime.
 
-`workflow/toolchains/capabilities.json` is the source of truth for helper
-support. `simflow.helper_evidence.v1` is an optional helper-script output
-format, not a Domain Assistant classification or support level.
+`workflow/toolchains/capabilities.json` describes helper support. Optional
+helper output does not establish that a calculation completed or that a result
+is scientifically valid.
 
-Software names outside this helper set do not block workflow planning or
-artifact tracking. A shared toolchain contract records them as `tracked_only`
-or `unknown` metadata and requires user-provided scripts, official
-documentation, or custom artifacts for the scientific work.
+## Unsupported Engines
 
-For tracked-only or unknown tools, SimFlow provides generic evidence intake
-rather than engine automation. Users or agents can register existing
-computation scripts, inputs, validation summaries, dry-run reports, resource
-estimates, outputs, environment metadata, analysis scripts, metrics, figures,
-and QA reports so readiness and handoff remain traceable.
+Unsupported engines do not receive placeholder Skills. The router keeps the
+requested software as context, selects the relevant Research Task Skill, and
+states uncertainty instead of mapping the request to a supported engine.
 
-## Unsupported Placeholders
+QE, Gaussian, ABINIT, GROMACS, OpenMM, Phonopy, NEPTrainKit, DeePMD, MACE,
+NequIP, Allegro, and other tools may appear in project records or user-provided
+scripts. SimFlow does not advertise engine-specific generation, validation,
+parsing, execution, or scientific interpretation for them unless a tested
+Domain Skill and release contract exist.
 
-QE and Gaussian skills are reserved placeholders. They are packaged so users
-receive a clear limitation message, but they are not supported computation,
-analysis, validation, or stage-runner paths in this release.
+## Runtime Observation Boundary
 
-If a user provides QE or Gaussian files, SimFlow may record them as generic
-artifacts with explicit unsupported status. Do not advertise engine-specific
-input generation, validation, parsing, or scientific conclusions for these
-engines until product support and release tests are added.
+SimFlow records only events that pass through its compact runtime. It does not
+observe arbitrary host shell commands, parse Codex/Claude/OpenCode transcripts,
+or infer that a Skill was loaded.
 
-The same boundary applies across DFT, AIMD, classical MD, phonon, NEB, and
-MLP-MD recipes. Tools without dedicated execution helpers in this release,
-including Quantum ESPRESSO, ABINIT, GROMACS, OpenMM, Phonopy, NEPTrainKit,
-DeePMD, MACE, NequIP, and Allegro, may appear in proposal
-toolchains and artifact provenance, but SimFlow does not provide
-engine-specific execution automation for them yet.
+New state consists of `.simflow/project.json`, `.simflow/records.jsonl`, compact
+checkpoints, and reports. Historical `.simflow/state/*.json` and nested
+`.simflow` roots are read-only compatibility input. Explicit migration writes a
+single compact index and never reorganizes scientific data.
+
+There is no default SQLite ledger, experiment/activity lifecycle, per-file
+artifact registry, automatic session handoff, or automatic stage checkpoint.
 
 ## Execution Boundary
 
-Real local, remote, or HPC execution is blocked unless SimFlow has dry-run
-evidence, credential scan evidence, matching script/input hashes, and explicit
-approval. Examples and CI should stay dry-run-only.
+The public HPC surface is `plan`, `transfer`, `submit`, and `status`. Real
+local, remote, or scheduler execution requires:
 
-Remote file transfer is MCP-mediated through `hpc/upload` and `hpc/download`.
-Transfers require a separate `hpc_transfer` approval and a verified SHA-256
-manifest. Direct Agent `scp`/`ssh` is outside the tracked workflow. Hosts that
-require SSH credential isolation must deny Agent shell access to `.ssh`,
-MCP-only agent sockets, and direct remote networking while allowing the HPC
-broker's separate permission domain to perform approved operations. The public
-HPC MCP removes inherited SSH agent variables and communicates only with the
-broker, but the host must still prevent the Agent from directly reading `.ssh`
-or connecting to the broker socket outside MCP policy.
+- a current immutable run plan;
+- dry-run validation and credential scan from that plan;
+- explicit approval bound to its exact `run_plan_hash`;
+- unchanged script, inputs, target, resources, transfer scope, destructive
+  scope, and restricted-file metadata.
+
+Remote file movement uses `hpc/transfer` with `direction=upload|download` and a
+verified manifest. SSH operations use the isolated credential broker. Direct
+host `ssh` or `scp` commands are outside SimFlow's observable runtime and must
+not be represented as tracked SimFlow execution.
+
+An unchanged retry may reuse approval. A materially changed plan requires new
+approval. Job submission, output existence, and parser success do not prove
+scientific completion.
 
 ## Licensed And Large Scientific Artifacts
 
-The repository must not contain real VASP `POTCAR`, `WAVECAR`, `CHGCAR`,
-`OUTCAR`, or `vasprun.xml` artifacts. VASP examples may include redistributable
-metadata placeholders only. Users must provide licensed files locally when they
-run real calculations. A user-owned POTCAR library may be materialized by the
-SimFlow runtime into a controlled calculation directory and transferred through
-the approved HPC upload path, but the resulting POTCAR must remain outside
-`.simflow`, Git, marketplace wrappers, packages, checkpoints, and ordinary
-artifact storage.
+The repository and generated distributions must not contain real VASP
+`POTCAR`, `WAVECAR`, `CHGCAR`, `OUTCAR`, or `vasprun.xml` artifacts. Examples may
+include redistributable metadata placeholders or explicit synthetic fixtures.
+
+A user-owned POTCAR library may be materialized into a controlled calculation
+directory and transferred through an approved run plan. POTCAR bodies remain
+outside `.simflow`, Git, packages, checkpoints, logs, and ordinary records.
 
 ## Distribution Boundary
 
 Codex and Claude marketplace branches and the `opencode-simflow` npm package
-are the user-facing host distribution channels. The OpenCode adapter targets
-stable OpenCode `1.18.9 <= version < 2`; the V2 beta plugin API is outside the
-current compatibility contract. PyPI is not the primary user install path
-until a package has been published and install-smoked.
+are the user-facing distribution channels. The OpenCode adapter targets stable
+OpenCode `1.18.9 <= version < 2`; V2 beta APIs are outside the current contract.
+PyPI is not the primary install path until a package is published and
+install-smoked.
 
-Host adaptation uses standard MCP `clientInfo` to tailor discovery and
-invocation guidance. SimFlow does not observe host transcripts or skill-load
-events, and it does not use host-specific hooks to alter workflow or safety
-semantics.
-
-Cross-session continuity is enforced by the SimFlow core runtime for registered
-state, report, artifact, checkpoint, gate, job, MCP, and HPC writes. Arbitrary
-host shell commands that never call SimFlow still cannot be observed or
-recorded automatically. The canonical forward-only SQLite ledger records
-structured summaries, activities, iterations, failures, recovery points, and a
-hash-linked provenance DAG. It deliberately does not parse or import raw Codex,
-Claude Code, or OpenCode conversations.
+Standard MCP `clientInfo` may tailor discovery wording. It does not change tool
+semantics, approval, project-root checks, or credential isolation.
 
 ## Scientific Responsibility
 
-SimFlow records evidence, lineage, checkpoints, safety gates, and handoff
-context. The host agent and user remain responsible for scientific decisions,
-interpretation, literature selection, model choices, and final claims.
+Research Task and Domain Skills improve how work is performed. The host agent
+and user remain responsible for scientific decisions, literature selection,
+model choices, parameter justification, interpretation, and final claims.
+SimFlow must not turn planned, submitted, partial, parsed, or failed work into a
+completed scientific result.

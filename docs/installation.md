@@ -197,8 +197,8 @@ npm run validate:claude-plugin
 npm run validate:opencode-plugin
 ```
 
-These validators initialize the configured SimFlow MCP servers over stdio and
-verify `tools/list` responses.
+These validators initialize the two configured SimFlow MCP servers over stdio
+and verify that `simflow_state` exposes four tools and `hpc` exposes four tools.
 
 ## Runtime Layout
 
@@ -206,14 +206,14 @@ Current source layout:
 
 ```text
 simflow/
-├── skills/                    # Workflow-layer and domain helper skills
+├── skills/                    # 1 Router, 6 Task, and 5 Domain Skills
 ├── .opencode/plugins/         # OpenCode source-checkout loader
 ├── opencode/                  # OpenCode plugin module
-├── workflow/                  # Stage, recipe, gate, and policy definitions
-├── mcp/                       # MCP servers and connectors
+├── workflow/                  # Advisory stages/recipes and runtime policies
+├── mcp/                       # Two MCP servers and bounded connectors
 ├── runtime/
-│   ├── simflow_core/          # State, artifacts, checkpoints, gates, status
-│   └── simflow_helpers/       # Optional literature, modeling, compute, engine helpers
+│   ├── simflow_core/          # Compact records, recovery, approval, compatibility
+│   └── simflow_helpers/       # Optional scientific and internal helpers
 ├── templates/                 # Optional helper templates
 ├── schemas/                   # JSON schemas
 ├── tests/                     # Unit, MCP, and E2E tests
@@ -231,15 +231,15 @@ points.
 | `MP_API_KEY` | Materials Project API key |
 | `SIMFLOW_PYTHON` | Python executable used by OpenCode MCP commands |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_HPC_HOST` | Optional HPC host alias for helper scripts |
-| `SIMFLOW_HPC_BASE` | Optional remote working directory |
+| `SIMFLOW_HPC_HOST` | Optional host alias used by legacy/example scripts |
+| `SIMFLOW_HPC_BASE` | Optional remote directory used by legacy/example scripts |
 | `SIMFLOW_HPC_BROKER_SOCKET` | Unix socket for isolated SSH operations |
 | `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS` | Path-separated project roots accessible to the broker |
 | `SIMFLOW_HPC_BROKER_ALLOWED_UID` | Optional permitted MCP peer UID; defaults to broker UID |
 | `SIMFLOW_HPC_BROKER_UID` | Optional expected broker process UID; defaults to MCP UID |
 | `SIMFLOW_HPC_BROKER_TIMEOUT` | Optional broker client timeout in seconds |
-| `SIMFLOW_PARTITION` | Optional scheduler partition |
-| `SIMFLOW_NTASKS` | Optional MPI task count |
+| `SIMFLOW_PARTITION` | Optional partition used by example scripts |
+| `SIMFLOW_NTASKS` | Optional task count used by example scripts |
 
 SSH MCP targets are supplied per call. Authentication remains in OpenSSH
 configuration or a host-managed agent and must not be written to `.simflow/`,
@@ -283,11 +283,13 @@ pip install -e ".[all]"
 
 ### HPC or remote submit is blocked
 
-This is expected unless dry-run evidence, credential scan, matching hashes, and
-an explicit `hpc_submit` approval decision are present. Local execution is also
-approval-gated.
+This is expected unless a current immutable run plan, passing credential scan,
+matching hashes, and an explicit approval bound to the plan's
+`run_plan_hash` are present. Local execution is also approval-gated.
 
 ### Remove project state
 
-SimFlow stores per-project workflow state in `.simflow/`. Delete that directory
-only when you intentionally want to remove local workflow state.
+SimFlow stores compact per-project state in `.simflow/`. Historical projects
+may also contain read-only legacy registries below `.simflow/state/`. Delete
+the root only when you intentionally want to remove all local SimFlow records,
+reports, and recovery references.

@@ -2,122 +2,110 @@
 
 ## Positioning
 
-HPC integration is a safety-gated helper inside the `computation` stage. It is
-not a standalone SimFlow CLI workflow and it must not bypass the SimFlow
-approval model.
+HPC support is a narrow runtime boundary for real local, remote, and scheduler
+execution. It is selected because the current task needs execution, not because
+the project is in a particular stage or directory.
 
-All real execution targets are treated as risky:
+All real execution targets are approval-gated:
 
-- SLURM
-- PBS/Torque
-- SSH remote execution
-- local shell execution
+- local shell execution;
+- SLURM;
+- PBS/Torque;
+- SSH-backed remote execution.
 
-Local execution is included because it can still consume resources, mutate
-files, or run destructive commands.
+Local execution follows the same discipline because it can consume resources,
+mutate files, or invoke destructive commands.
 
-## Dry-Run First
+## Four-Tool Flow
 
-Compute actions start with dry-run evidence. A dry-run package should record:
+The public HPC surface is:
 
-- calculation manifest
-- input file list and hashes
-- job script path and hash
-- resource estimate
-- environment or command description
-- input validation report
-- credential scan result
-- warnings and unresolved risks
+```text
+plan -> transfer -> submit -> status
+```
 
-The dry-run report is an artifact. Later approval must reference that artifact
-instead of relying on an agent-supplied boolean.
+`transfer` is optional for local work and for remote plans that do not move
+files. There are no separate public upload or download tools.
 
-Submit script handling is preserve-first. If the user provides `job_script` or
-`submit_script`, the computation stage records and hashes that script without
-editing it. If no script is provided, SimFlow may reuse a single
-scheduler-compatible script from the project reusable library
-`scripts/submit/`. Multiple candidates require an explicit user choice. Only
-when no suitable script exists should SimFlow generate a new script under
-`.simflow/artifacts/compute/`.
+### `plan`
 
-Reusable submit scripts belong under `scripts/submit/`. One-off calculation
-scripts should remain in their calculation directory or be referenced
-explicitly. If a reusable script uses declared `{{SIMFLOW_*}}` placeholders and
-the user requests rendering, SimFlow writes a derived copy under `.simflow/`
-and records lineage to the original; it must not modify the original script in
-place.
+`hpc/plan` receives an explicit `project_root`, job script, non-empty input
+list, scheduler, resources, and any SSH or transfer declaration. It:
 
-The standard computation helper emits the following evidence package:
+- preserves an existing user script or creates a bounded SLURM script only
+  when explicitly requested;
+- validates that paths stay inside the project;
+- hashes the script and input manifest;
+- scans planned content for credentials;
+- identifies restricted files without persisting their bodies;
+- binds target, remote directory, resources, transfer scope, and destructive
+  scope into one immutable identity;
+- writes the run-plan report under `.simflow/reports/hpc/plans/`.
 
-| Evidence | Canonical path |
-| --- | --- |
-| Calculation manifest | `.simflow/artifacts/compute/calculation_manifest.json` |
-| Input validation | `.simflow/artifacts/compute/input_validation.json` |
-| Resource estimate | `.simflow/artifacts/compute/resource_estimate.json` |
-| Credential scan | `.simflow/artifacts/security/credential_scan.json` |
-| Dry-run report | `.simflow/artifacts/compute/dry_run_report.json` |
+The returned `run_plan_hash` is the unit of approval. Planning does not approve,
+transfer, submit, or prove scientific correctness.
 
-`dry_run_report.json` must report `status` as `pass`, `warning`, or `fail`.
-It also carries the job `script_hash`, `input_artifact_hash`, and
-`input_manifest_hash` that submit connectors compare against the current script
-and approved evidence.
+One-off job scripts should stay in their calculation directory. Reusable
+scripts may stay in an existing project script library. SimFlow does not move
+them into a fixed artifact directory.
 
-## Approval Gate
+### Approval
 
-Real submission requires an approval gate decision tied to evidence. The target
-submit contract requires:
+The host must obtain explicit user approval and persist an approval record
+whose conditions contain the exact `run_plan_hash`. For example:
 
-- `approval_token` or `gate_decision_id`
-- dry-run evidence path
-- script hash approved by the gate
-- input artifact hash or manifest hash approved by the gate
-- scheduler or execution backend
-- project root
+```json
+{
+  "kind": "approval",
+  "summary": "Approve the reviewed run plan",
+  "status": "approved",
+  "details": {
+    "gate": "hpc_submit",
+    "conditions": {
+      "run_plan_hash": "<exact hash from hpc/plan>"
+    }
+  }
+}
+```
 
-The compute plan exposes these fields through `submit_readiness`. It is a
-handoff payload for submit tools, not approval by itself. A real submit remains
-blocked until the evidence-based `hpc_submit` gate has an approved decision for
-the same project and hashes.
+`hpc/transfer` and `hpc/submit` require the resulting approval reference. The
+runtime recomputes the plan identity before action. Changes to the script,
+inputs, target, remote directory, resources, transfer scope, destructive scope,
+or restricted-file metadata invalidate the approval. An unchanged retry or
+resume may reuse it.
 
-Submission must be blocked when:
+### `transfer`
 
-- the project root does not contain initialized SimFlow workflow state
-- approval is missing
-- dry-run evidence is missing
-- input validation evidence is missing
-- credential scan evidence is missing or unresolved
-- the current job script hash differs from the approved dry-run artifact
-- the current input manifest hash differs from the approved dry-run artifact
+`hpc/transfer` executes the `upload` or `download` direction already declared
+inside the approved run plan. Callers cannot replace the plan's paths, target,
+or directories at transfer time.
 
-## Connector Responsibilities
+The runtime verifies source and destination manifests and writes one transfer
+report plus one compact run record. A failed or partial transfer is recorded as
+such; it is never promoted to a successful submit.
 
-Connectors may generate scripts, validate scripts, submit jobs, query status,
-and cancel jobs. They must not decide whether submission is safe. That decision
-belongs to the gate engine and the recorded approval decision.
+### `submit`
 
-All connectors should share the same approval semantics:
+`hpc/submit` accepts the immutable hash and approval reference, then submits the
+unchanged plan. SSH submit additionally requires the verified upload manifest.
+Every attempt writes one compact run record.
 
-- SLURM: `sbatch`
-- PBS/Torque: `qsub`
-- SSH: remote scheduler or `nohup bash`
-- Local: `bash` or equivalent local process execution
+A scheduler job ID proves only that submission occurred. It does not prove that
+the calculation started, completed, converged, or produced scientifically valid
+results.
 
-## Credential Security
+### `status`
 
-- SSH targets contain only a host or alias plus optional user and port.
-- Passwords, private keys, key paths, and arbitrary SSH options are rejected.
-- SimFlow does not parse `.ssh/config` or inspect private-key files. OpenSSH or
-  a host-managed SSH agent owns authentication.
-- A host that needs Agent/MCP credential isolation must deny the Agent access
-  to `.ssh`, broker credentials, and the broker socket outside MCP policy.
-- The Agent-facing HPC MCP removes inherited `SSH_AUTH_SOCK` and
-  `SSH_AGENT_PID`. A separately launched broker owns OpenSSH authentication.
-- Credentials must not be copied into job scripts, artifacts, logs,
-  checkpoints, or reports.
+`hpc/status` queries bounded connector state for a job ID. Scheduler state and
+scientific result validation remain separate facts. Output presence or parser
+success must not be reported as convergence without domain-specific checks.
 
-### Credential Broker
+## Credential Broker
 
-Configure and start the broker before real SSH operations:
+SSH targets contain only `host` plus optional `user` and `port`. Passwords,
+private keys, key paths, and arbitrary SSH options are rejected.
+
+Configure the broker for real SSH operations:
 
 ```bash
 export SIMFLOW_HPC_BROKER_SOCKET="${XDG_RUNTIME_DIR:-/tmp}/simflow-hpc/broker.sock"
@@ -125,37 +113,36 @@ export SIMFLOW_HPC_BROKER_ALLOWED_ROOTS="/path/to/project-a:/path/to/project-b"
 python3 scripts/start_hpc_broker.py
 ```
 
-Start the broker from the environment that owns the required OpenSSH config or
-SSH agent. Start the Agent host without that `SSH_AUTH_SOCK`, while preserving
-`SIMFLOW_HPC_BROKER_SOCKET` for the plugin. The broker socket is created with
-mode `0600`, checks the peer UID, rejects arbitrary operations, and refuses
-local transfer or submit paths outside the configured roots.
+Start the broker in the environment that owns the required OpenSSH config or
+SSH agent. The Agent-facing host receives only the broker socket variable and
+must not inherit the broker's `SSH_AUTH_SOCK`. The owner-only socket checks peer
+identity, accepts only bounded structured operations, and confines local paths
+to configured project roots. Missing or unsafe broker configuration fails
+closed.
 
-SSH dry-run validates local scripts without the broker. Status, cancellation,
-upload, download, remote manifest verification, and submission return
-`hpc_broker_unavailable` or another fail-closed broker error when isolation is
-not configured correctly.
-- Credential scans should be recorded before approval.
-- Proprietary or licensed files must be identified and handled only with
-  user-approved boundaries.
-- A VASP POTCAR materialized by SimFlow in a controlled project calculation
-  directory may be uploaded after an `hpc_transfer` approval. Transfer reports
-  retain only its relative path, restricted classification, size, and SHA-256;
-  the existing remote manifest verification remains authoritative and no
-  POTCAR content is copied into `.simflow`.
+Credentials must never be copied into scripts, records, reports, checkpoints,
+logs, or packages.
 
-## Handoff
+## POTCAR And Restricted Files
 
-After a compute preparation or submission step, handoff notes should state:
+A VASP POTCAR may be materialized only from a user-owned licensed library into
+a controlled calculation directory with exact dataset selection. It may be
+included in an approved transfer plan.
 
-- what was prepared or submitted
-- where it is expected to run
-- which inputs and scripts were used
-- which hashes were approved
-- whether outputs are complete, partial, missing, or unknown
-- what checkpoint records the current state
+Run plans and transfer reports retain only metadata such as relative path,
+restricted classification, size, SHA-256, element, dataset, and validation.
+POTCAR content must never enter `.simflow`, Git, MCP responses, checkpoints, or
+distribution packages.
 
-After a successful real `hpc.submit`, the MCP submit tool writes a
-`job_record_if_submitted` computation artifact and appends the same record to
-`.simflow/state/jobs.json`. This record is the evidence that makes the
-conditional computation readiness key `job_record_if_submitted` present.
+## Recording And Recovery
+
+Plan reports, transfer reports, and submit attempts are runtime facts. Do not
+create per-file artifact registry entries or a separate jobs registry.
+
+A checkpoint is optional and should be created only when real restart files,
+input hashes, and a usable resume command form a recovery boundary. Ordinary
+planning, submission, or stage completion does not require one.
+
+A useful host handoff states the reviewed plan hash, target, latest scheduler
+state, scientific validation status, risks, next action, and whether approval is
+still valid. Handoff is a summary, not a mandatory runtime operation.

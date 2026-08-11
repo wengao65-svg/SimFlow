@@ -3,7 +3,7 @@
 ## Security Rules
 
 1. **Host-managed storage**: SSH credentials remain in OpenSSH or a host-managed agent
-2. **Never write credentials**: Not to files, artifacts, logs, or state
+2. **Never write credentials**: Not to records, reports, checkpoints, scripts, or logs
 3. **Never expose in errors**: Credential values never appear in error messages
 4. **Graceful fallback**: Missing optional credentials use an open connector or
    a clearly marked unverified fallback; they never fabricate verified evidence
@@ -15,6 +15,8 @@
 |---------------------|---------|----------|---------|
 | `MP_API_KEY` | Materials Project | No | Structure database access |
 | `S2_API_KEY` | Semantic Scholar | No | Literature search |
+| `SIMFLOW_VASP_POTCAR_PATH` | User-owned VASP library | No | Controlled local POTCAR materialization |
+| `SIMFLOW_VASP_POTCAR_FLAVOR` | VASP dataset selection | No | Functional family such as PBE or LDA |
 
 ## Fallback Behavior
 
@@ -25,9 +27,9 @@
 | arXiv | Always available | Public API, no key needed |
 | Crossref | Always available | Public API, no key needed |
 | COD | Always available | Public API, no key needed |
-| SSH HPC | Host OpenSSH/agent authenticates approved MCP operations | Remote operations fail |
-| SLURM | Direct submission | Script generation only |
-| Local | Always available | Subprocess execution |
+| SSH HPC | Host OpenSSH/agent authenticates approved broker operations | Remote operations fail closed |
+| SLURM/PBS | Approved immutable plan may be submitted | Planning and script validation remain available |
+| Local execution | Approved immutable plan may be executed | Unapproved execution remains blocked |
 
 ## Setting Credentials
 
@@ -36,8 +38,8 @@
 export MP_API_KEY="your-api-key-here"
 export S2_API_KEY="your-api-key-here"
 
-# Or in .env file (NOT committed to version control)
-# .env is automatically loaded if present
+# A host may load an untracked .env before starting the plugin.
+# SimFlow itself reads credentials only from the process environment.
 ```
 
 ## API Key Acquisition
@@ -64,7 +66,9 @@ safe_text = sanitize_for_logging("Using key ABC123...longtoken...XYZ")
 - Rotate keys periodically
 - Never commit `.env` files to version control
 - Never pass SSH key paths, private-key contents, or passwords through MCP parameters
+- Keep `SIMFLOW_VASP_POTCAR_PATH` out of records and reports; persist only
+  materialized file metadata allowed by the POTCAR policy
 - Run `scripts/start_hpc_broker.py` in the permission domain that owns SSH credentials
 - Give the Agent-facing plugin only `SIMFLOW_HPC_BROKER_SOCKET`, not the broker's SSH agent socket
 - Deny Agent shell access to `.ssh` and direct access to the broker socket outside MCP policy
-- Use `check_all_credentials()` to verify setup before running workflows
+- Use `check_all_credentials()` to verify availability without returning secret values
