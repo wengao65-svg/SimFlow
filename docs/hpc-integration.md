@@ -138,6 +138,11 @@ not configured correctly.
 - Credential scans should be recorded before approval.
 - Proprietary or licensed files must be identified and handled only with
   user-approved boundaries.
+- A VASP POTCAR materialized by SimFlow in a controlled project calculation
+  directory may be uploaded after an `hpc_transfer` approval. Transfer reports
+  retain only its relative path, restricted classification, size, and SHA-256;
+  the existing remote manifest verification remains authoritative and no
+  POTCAR content is copied into `.simflow`.
 
 ## Handoff
 

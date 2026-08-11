@@ -68,6 +68,10 @@ hash mismatches return an error while preserving a `transfer_manifest`
 computation artifact. SSH authentication remains host-managed and no key path
 is accepted by the MCP target schema.
 
+Approved uploads may include a locally materialized VASP `POTCAR`. Such entries
+are marked `restricted_licensed_vasp_potcar`; only relative path, size, and
+SHA-256 metadata are returned or recorded.
+
 The SSH target requires `host` and accepts optional `user` and `port`. For
 `{"host":"hpc"}`, OpenSSH resolves the alias configuration. For
 `{"host":"192.168.5.69","user":"zxy"}`, SimFlow constructs the direct

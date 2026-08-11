@@ -78,7 +78,11 @@ or connecting to the broker socket outside MCP policy.
 The repository must not contain real VASP `POTCAR`, `WAVECAR`, `CHGCAR`,
 `OUTCAR`, or `vasprun.xml` artifacts. VASP examples may include redistributable
 metadata placeholders only. Users must provide licensed files locally when they
-run real calculations.
+run real calculations. A user-owned POTCAR library may be materialized by the
+SimFlow runtime into a controlled calculation directory and transferred through
+the approved HPC upload path, but the resulting POTCAR must remain outside
+`.simflow`, Git, marketplace wrappers, packages, checkpoints, and ordinary
+artifact storage.
 
 ## Distribution Boundary
 

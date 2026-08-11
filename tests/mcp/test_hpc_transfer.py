@@ -77,6 +77,34 @@ class _FakeConnector:
         return {"status": "success", "manifest": manifest}
 
 
+class _PotcarConnector:
+    def __init__(self, local_file: Path):
+        self.local_file = local_file
+
+    def upload_files(self, local_dir, remote_dir, files):
+        assert files == ["POTCAR"]
+        return {"status": "success", "uploaded": 1, "files": files}
+
+    def remote_file_manifest(self, remote_dir, files):
+        import hashlib
+
+        entry = {
+            "path": "POTCAR",
+            "size_bytes": self.local_file.stat().st_size,
+            "sha256": hashlib.sha256(self.local_file.read_bytes()).hexdigest(),
+        }
+        manifest = {
+            "algorithm": "sha256-path-size-content-v1",
+            "file_count": 1,
+            "total_size_bytes": entry["size_bytes"],
+            "files": [entry],
+            "manifest_sha256": hashlib.sha256(
+                json.dumps([entry], ensure_ascii=False, separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+        return {"status": "success", "manifest": manifest}
+
+
 def test_upload_requires_approval(tmp_path):
     server = _load_server()
     init_workflow("custom", "computation", project_root=str(tmp_path))
@@ -126,6 +154,45 @@ def test_upload_registers_verified_manifest(tmp_path, monkeypatch):
     assert report["source_manifest"]["manifest_sha256"]
     assert report["remote_manifest"]["files"] == report["source_manifest"]["files"]
     assert report["target"] == TARGET
+
+
+def test_upload_potcar_records_only_restricted_metadata(tmp_path, monkeypatch):
+    server = _load_server()
+    marker = "PRIVATE_POTCAR_TRANSFER_BODY"
+    potcar = tmp_path / "inputs" / "POTCAR"
+    potcar.parent.mkdir(parents=True)
+    potcar.write_text(
+        f"PAW_PBE Si 05Jan2001\nPOMASS = 1.0; ZVAL = 4.0\n{marker}\n",
+        encoding="utf-8",
+    )
+    decision = _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["POTCAR"])
+    monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: _PotcarConnector(potcar))
+
+    result = server.handle_request({
+        "tool": "upload",
+        "params": {
+            "project_root": str(tmp_path),
+            "local_dir": "inputs",
+            "remote_dir": "/scratch/job",
+            "paths": ["POTCAR"],
+            "target": TARGET,
+            "gate_decision_id": decision["decision_id"],
+        },
+    })
+
+    assert result["status"] == "success"
+    restricted = result["data"]["report"]["restricted_files"]
+    assert restricted == [{
+        "path": "POTCAR",
+        "classification": "restricted_licensed_vasp_potcar",
+        "size_bytes": potcar.stat().st_size,
+        "sha256": restricted[0]["sha256"],
+    }]
+    assert len(restricted[0]["sha256"]) == 64
+    serialized = json.dumps(result)
+    assert marker not in serialized
+    report_text = (tmp_path / result["data"]["manifest_path"]).read_text(encoding="utf-8")
+    assert marker not in report_text
 
 
 def test_upload_rejects_path_escape_before_approval(tmp_path):

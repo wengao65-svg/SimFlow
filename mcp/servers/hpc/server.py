@@ -32,6 +32,7 @@ from transfer import (
     manifests_match,
     normalize_target,
     request_fingerprint,
+    restricted_transfer_files,
     resolve_project_path,
     validate_remote_dir,
 )
@@ -382,6 +383,7 @@ def _handle_transfer(params: dict, direction: str) -> dict:
                 raise TransferValidationError("transfer paths contain no regular files")
             expected = file_manifest(local_files)
             report["source_manifest"] = expected
+            report["restricted_files"] = restricted_transfer_files(expected)
             result = connector.upload_files(str(local_root), remote_dir, [rel for rel, _ in local_files])
             report["transport"] = result
             if result.get("status") != "success":
@@ -409,6 +411,7 @@ def _handle_transfer(params: dict, direction: str) -> dict:
                     report["transport"] = before
                 else:
                     report["source_manifest"] = before["manifest"]
+                    report["restricted_files"] = restricted_transfer_files(before["manifest"])
                     result = connector.download_files(remote_dir, str(local_root), remote_files)
                     report["transport"] = result
                     local_files = [(rel, local_root / rel) for rel in remote_files]

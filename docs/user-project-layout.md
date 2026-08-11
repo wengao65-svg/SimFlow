@@ -215,6 +215,11 @@ counter-examples from the inspected projects):
 All of these belong inside the relevant `stageN_*` directory, or under
 `scripts/`, `docs/`, `archives/`, or `legacy/` as appropriate.
 
+A licensed VASP `POTCAR` is permitted only inside the relevant
+`phase4_computation/stageN_*/` calculation directory for real execution. It is
+still forbidden at project root, under `.simflow`, in Git, and in distributable
+packages.
+
 ## Relationship With `.simflow/`
 
 1. **`.simflow/` is the only workflow state root.** It lives at

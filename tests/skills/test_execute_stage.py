@@ -48,6 +48,16 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _write_vasp_potcar_library(root: Path, dataset: str = "Si", marker: str = "") -> Path:
+    target = root / "PBE" / dataset
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "POTCAR").write_text(
+        f"PAW_PBE {dataset} 05Jan2001\nPOMASS = 1.0; ZVAL = 4.0\n{marker}\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 def _write_metadata(tmpdir: str, workflow_type: str = "dft"):
     state = read_state(tmpdir, "workflow.json")
     metadata = {
@@ -493,10 +503,47 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         )
 
 
+def test_execute_stage_rejects_direct_existing_potcar_dataset_mismatch():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        input_files = _write_direct_vasp_inputs(project_root)
+        potcar = project_root / "inputs" / "vasp" / "POTCAR"
+        potcar.write_text(
+            "PAW_PBE Si_GW 05Jan2001\nPOMASS = 1.0; ZVAL = 4.0\nKEEP_EXISTING\n",
+            encoding="utf-8",
+        )
+        input_files.append("inputs/vasp/POTCAR")
+        init_research(
+            input_text="\n".join([
+                "entry_stage: computation",
+                "goal: validate existing VASP inputs",
+                "material: Si",
+                "software: vasp",
+                "parameters: " + json.dumps({
+                    "input_files": input_files,
+                    "task": "static",
+                    "potcar_setups": "minimal",
+                }),
+            ]),
+            output_dir=tmpdir,
+        )
+
+        result = execute_stage(str(project_root / ".simflow"), "computation", dry_run=False)
+
+        assert result["status"] == "error"
+        assert result["reason_code"] == "existing_potcar_dataset_mismatch"
+        assert result["message"] == "Existing POTCAR dataset sequence does not match the resolved setup selection."
+        assert potcar.read_text(encoding="utf-8").endswith("KEEP_EXISTING\n")
+        assert not any(
+            artifact["name"] == "input_manifest.json"
+            for artifact in list_artifacts(stage="computation", project_root=tmpdir)
+        )
+
+
 def test_execute_stage_vasp_input_manifest_redacts_raw_potcar_root():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
-        init_research(
+        init_result = init_research(
             input_text="\n".join([
                 "entry_stage: modeling",
                 "goal: prepare VASP inputs with compatibility-only POTCAR hint",
@@ -515,8 +562,85 @@ def test_execute_stage_vasp_input_manifest_redacts_raw_potcar_root():
         input_manifest = result["manifests"]["input_generation"]
         manifest_text = json.dumps(input_manifest)
 
-        assert input_manifest["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
+        assert init_result["metadata"]["parameters"]["potcar_root"] == "<redacted>"
+        assert result["params"] == {}
+        assert input_manifest["potcar"]["status"] == "unavailable"
         assert "/licensed/private/library" not in manifest_text
+        recorded_json = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (project_root / ".simflow").rglob("*.json")
+        )
+        assert "/licensed/private/library" not in recorded_json
+
+
+def test_execute_stage_materializes_potcar_only_in_controlled_calculation_dir():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+        private_library = _write_vasp_potcar_library(
+            project_root / "reference" / "licensed" / "private_potpaw",
+            marker="PRIVATE_POTCAR_STAGE_MARKER",
+        )
+        calculation_dir = "phase4_computation/stage1_vasp_static/run_step1"
+        init_research(
+            input_text="\n".join([
+                "entry_stage: modeling",
+                "goal: prepare controlled VASP inputs",
+                "material: Si",
+                "software: vasp",
+                "parameters: {\"structure_type\": \"diamond\", \"lattice_param\": 5.43, \"elements\": [\"Si\"]}",
+            ]),
+            output_dir=tmpdir,
+        )
+        run_pipeline(str(project_root / ".simflow"), target_stage="proposal", dry_run=False)
+        assert execute_stage(str(project_root / ".simflow"), "modeling", dry_run=False)["status"] == "completed"
+
+        result = execute_stage(
+            str(project_root / ".simflow"),
+            "computation",
+            params={
+                "calculation_dir": calculation_dir,
+                "potcar_root": str(private_library),
+                "potcar_setups": "minimal",
+            },
+            dry_run=False,
+        )
+        calc = project_root / calculation_dir
+        input_manifest = result["manifests"]["input_generation"]
+        restricted = input_manifest["restricted_files"]
+        artifacts = list_artifacts(stage="computation", project_root=tmpdir)
+        input_validation = json.loads(
+            (project_root / ".simflow/artifacts/compute/input_validation.json").read_text(encoding="utf-8")
+        )
+        credential_scan = json.loads(
+            (project_root / ".simflow/artifacts/security/credential_scan.json").read_text(encoding="utf-8")
+        )
+
+        assert result["status"] == "completed"
+        assert result["params"]["potcar_root"] == "<redacted>"
+        assert (calc / "POTCAR").is_file()
+        assert list((project_root / ".simflow").rglob("POTCAR")) == []
+        assert restricted == [{
+            "path": f"{calculation_dir}/POTCAR",
+            "classification": "restricted_licensed_vasp_potcar",
+            "size_bytes": (calc / "POTCAR").stat().st_size,
+            "sha256": _sha256_file(calc / "POTCAR"),
+        }]
+        assert all(not path.endswith("/POTCAR") for path in input_manifest["generated_files"])
+        assert not any(artifact["name"] == "POTCAR" for artifact in artifacts)
+        potcar_validation = next(
+            item for item in input_validation["files"] if item["path"].endswith("/POTCAR")
+        )
+        assert potcar_validation["sha256"] == restricted[0]["sha256"]
+        assert not any(path.endswith("/POTCAR") for path in credential_scan["scanned_paths"])
+        serialized_result = json.dumps(result)
+        recorded_json = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (project_root / ".simflow").rglob("*.json")
+        )
+        assert str(private_library) not in serialized_result
+        assert str(private_library) not in recorded_json
+        assert "PRIVATE_POTCAR_STAGE_MARKER" not in serialized_result
+        assert "PRIVATE_POTCAR_STAGE_MARKER" not in recorded_json
 
 
 def test_computation_stage_preserves_explicit_user_submit_script():

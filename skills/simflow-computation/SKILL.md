@@ -142,6 +142,10 @@ extends a computation stage, observe:
   manifest.
 - Preserve transfer manifests, per-file hashes, partial failures, and download
   verification as computation artifacts.
+- Licensed VASP POTCAR files may be included in an approved upload from a
+  controlled calculation directory. Store only restricted-file metadata and
+  hashes in manifests; never copy POTCAR into `.simflow/artifacts` or expose its
+  contents in reports, checkpoints, or tool responses.
 
 ## Status Semantics
 
@@ -193,8 +197,10 @@ extends a computation stage, observe:
   approval gate.
 - Do not skip dry-run, input validation, resource estimate, credential scan, or
   artifact hash recording when real execution is possible.
-- Do not store credentials, expose licensed/proprietary files, or redistribute
-  restricted simulation inputs.
+- Do not store credentials, expose licensed/proprietary file contents, or
+  redistribute restricted simulation inputs. Controlled local POTCAR
+  materialization and approval-bound transfer are permitted only through the
+  VASP runtime and existing HPC transfer path.
 - Do not require one specific simulation engine, scheduler, parser, plotting
   library, input builder, or helper script.
 

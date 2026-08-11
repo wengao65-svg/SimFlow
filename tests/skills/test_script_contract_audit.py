@@ -120,7 +120,7 @@ def test_docs_define_helper_recording_as_record_only_and_stage_runner_owned():
         assert phrase in combined
 
 
-def test_docs_reject_stale_helper_orchestrator_claims_and_vasp_potcar_generation():
+def test_docs_reject_stale_helper_claims_and_bound_potcar_materialization():
     vasp = (ROOT / "skills" / "simflow-vasp" / "SKILL.md").read_text(encoding="utf-8").lower()
     cp2k = (ROOT / "skills" / "simflow-cp2k" / "SKILL.md").read_text(encoding="utf-8").lower()
     gpumd = (ROOT / "skills" / "simflow-gpumd" / "SKILL.md").read_text(encoding="utf-8").lower()
@@ -132,7 +132,10 @@ def test_docs_reject_stale_helper_orchestrator_claims_and_vasp_potcar_generation
     )
     skill_design = (ROOT / "docs" / "skill-design.md").read_text(encoding="utf-8").lower()
 
-    assert "do not generate, concatenate, copy, move, print, snapshot, or invoke vaspkit" in _normalize_whitespace(vasp)
+    normalized_vasp = _normalize_whitespace(vasp)
+    assert "only the simflow runtime may read and concatenate" in normalized_vasp
+    assert "do not return, print, snapshot, register as a normal artifact, commit, package, or redistribute potcar content" in normalized_vasp
+    assert "minimal`, `recommended`, or `gw`" in normalized_vasp
     assert "`scripts/orchestrate_vasp_task.py`: build simflow vasp reports, artifacts, and checkpoint records" not in _normalize_whitespace(vasp)
     assert "`scripts/orchestrate_cp2k_task.py`: build simflow cp2k reports, artifacts, checkpoints" not in _normalize_whitespace(cp2k)
     assert "`scripts/orchestrate_gpumd_task.py`: build simflow reports, artifacts, checkpoints" not in _normalize_whitespace(gpumd)

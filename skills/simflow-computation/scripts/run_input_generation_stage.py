@@ -24,13 +24,14 @@ from runtime.simflow_core.proposals import (
     TASK_KEYS,
     load_proposal_contract,
 )
-from runtime.simflow_core.state import read_state
+from runtime.simflow_core.state import ProjectRootError, read_state, resolve_project_path
 from runtime.simflow_core.toolchains import (
     build_actual_tool_used,
     capability_warning,
 )
 from runtime.simflow_helpers.engines.cp2k import normalize_cp2k_task
 from runtime.simflow_helpers.engines.gpumd import normalize_gpumd_task
+from runtime.simflow_helpers.engines.vasp_potcar import resolve_potcar_setups, validate_potcar
 
 VASP_TASK_ALIASES = {
     "static": "scf",
@@ -161,7 +162,11 @@ def _stage_parameters(contract: dict[str, Any], params: dict[str, Any]) -> dict[
         "cpu_cores_per_numa",
         "cpu_cores_per_numa_domain",
         "potcar_root",
+        "potcar_flavor",
+        "potcar_setups",
         "use_vaspkit",
+        "calculation_dir",
+        "input_dir",
         "pair_style",
         "pair_coeff",
         "force_field_source",
@@ -286,7 +291,9 @@ def _direct_input_manifest(
 
     software = contract["software"]
     task = _normalize_task(software, params.get("task") or params.get("job_type") or contract.get("task") or contract.get("job_type"))
-    generated_files = [_relative_path(project_root, path) for path in input_files]
+    restricted_input_files = [path for path in input_files if software == "vasp" and path.name == "POTCAR"]
+    regular_input_files = [path for path in input_files if path not in restricted_input_files]
+    generated_files = [_relative_path(project_root, path) for path in regular_input_files]
     artifact_dir = _common_artifact_dir(project_root, input_files)
     required_names = {path.name for path in input_files}
     manifest = {
@@ -299,6 +306,7 @@ def _direct_input_manifest(
         "parent_artifact_ids": [],
         "generated_files": generated_files,
         "input_files": generated_files,
+        "restricted_files": [],
         "artifact_dir": artifact_dir,
         "missing_optional_inputs": ["POTCAR"] if software == "vasp" and "POTCAR" not in required_names else [],
         "downstream_compute_hints": {
@@ -311,7 +319,61 @@ def _direct_input_manifest(
         manifest.setdefault("num_atoms", int(params.get("num_atoms") or contract.get("parameter_overrides", {}).get("num_atoms") or 1))
         manifest.setdefault("elements", params.get("elements") or contract.get("parameter_overrides", {}).get("elements") or [])
         manifest.setdefault("kpoints_mesh", params.get("kpoints_mesh") or [1, 1, 1])
-        manifest.setdefault("potcar", {"status": "not_redistributed"})
+        if restricted_input_files:
+            potcar_path = restricted_input_files[0]
+            poscar_path = next((path for path in input_files if path.name == "POSCAR"), None)
+            if poscar_path is None:
+                selection = None
+                validation = {
+                    "valid": False,
+                    "reason_code": "poscar_missing",
+                    "message": "POSCAR is required for POTCAR metadata validation.",
+                    "content_included": False,
+                }
+            else:
+                basic_validation = validate_potcar(str(poscar_path), str(potcar_path))
+                selection = resolve_potcar_setups(
+                    basic_validation.get("poscar_elements", []),
+                    {**contract.get("parameter_overrides", {}), **(params or {})}.get("potcar_setups"),
+                )
+                validation = (
+                    validate_potcar(
+                        str(poscar_path),
+                        str(potcar_path),
+                        expected_datasets=selection["resolved_datasets"],
+                    )
+                    if selection.get("status") == "success"
+                    else basic_validation
+                )
+            manifest["restricted_files"] = [{
+                "path": _relative_path(project_root, potcar_path),
+                "classification": "restricted_licensed_vasp_potcar",
+                "size_bytes": validation.get("size_bytes"),
+                "sha256": validation.get("sha256"),
+            }]
+            manifest["potcar"] = {
+                "status": "existing" if validation.get("valid") and selection and selection.get("status") == "success" else "error",
+                "reason_code": (
+                    selection.get("reason_code")
+                    if selection and selection.get("status") != "success"
+                    else validation.get("reason_code")
+                ),
+                "resolved_datasets": (selection or {}).get("resolved_datasets", []),
+                "selection_policy": selection,
+                "validation": validation,
+                "restricted": True,
+                "content_included": False,
+            }
+            if manifest["potcar"]["status"] == "error":
+                manifest["status"] = "error"
+                manifest["reason_code"] = manifest["potcar"]["reason_code"]
+                manifest["message"] = (
+                    selection.get("message")
+                    if selection and selection.get("status") != "success"
+                    else validation.get("message")
+                )
+        else:
+            manifest.setdefault("potcar", {"status": "not_materialized", "content_included": False})
     return manifest
 
 
@@ -338,6 +400,14 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
         direct_manifest = _direct_input_manifest(project_root, contract, params, dry_run)
         if not direct_manifest:
             return {"status": "error", "message": "Modeling stage has no registered outputs"}
+        if direct_manifest.get("status") == "error":
+            return {
+                "status": "error",
+                "code": direct_manifest.get("reason_code"),
+                "reason_code": direct_manifest.get("reason_code"),
+                "message": direct_manifest.get("message"),
+                "potcar": direct_manifest.get("potcar"),
+            }
         if dry_run:
             direct_manifest["planned_outputs"] = [".simflow/reports/input_generation/input_manifest.json"]
             return {
@@ -439,28 +509,65 @@ def run_input_generation_stage(workflow_dir: str, params: dict | None = None, dr
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     if software == "vasp":
+        merged_params = {**contract.get("parameter_overrides", {}), **(params or {})}
+        calculation_dir = merged_params.get("calculation_dir")
+        vasp_output_dir = artifacts_dir
+        if calculation_dir:
+            try:
+                vasp_output_dir = resolve_project_path(calculation_dir, project_root=str(project_root))
+            except ProjectRootError as error:
+                return {"status": "error", "message": str(error), "code": "invalid_calculation_dir"}
+            relative_output = vasp_output_dir.relative_to(project_root)
+            if vasp_output_dir == project_root or ".simflow" in relative_output.parts:
+                return {
+                    "status": "error",
+                    "message": "VASP calculation_dir must be a project subdirectory outside .simflow.",
+                    "code": "invalid_calculation_dir",
+                }
         kppa = int((params or {}).get("kppa") or contract.get("parameter_overrides", {}).get("kppa") or 1000)
         vasp_params = {**stage_params, **_vasp_policy_context_parameters(contract, params)}
+        potcar_root = merged_params.get("potcar_root")
+        if potcar_root == "<redacted>":
+            potcar_root = None
         generation = GENERATE_VASP_INPUTS(
             str(structure_path),
             task,
-            str(artifacts_dir),
+            str(vasp_output_dir),
             params=vasp_params,
             kppa=kppa,
-            potcar_root=params.get("potcar_root") or contract.get("parameter_overrides", {}).get("potcar_root"),
+            potcar_root=potcar_root,
             use_vaspkit=bool(
-                params.get("use_vaspkit", contract.get("parameter_overrides", {}).get("use_vaspkit", False))
+                merged_params.get("use_vaspkit", False)
             ),
+            potcar_flavor=merged_params.get("potcar_flavor"),
+            potcar_setups=merged_params.get("potcar_setups"),
+            project_root=str(project_root),
         )
+        if generation.get("status") != "success":
+            if generation.get("reason_code") and not generation.get("code"):
+                generation["code"] = generation["reason_code"]
+            return generation
         generated_files = [_relative_path(project_root, Path(path)) for path in generation["files_generated"]]
+        potcar_metadata = generation["potcar"]
+        restricted_files = []
+        if potcar_metadata.get("status") in {"materialized", "existing"}:
+            restricted_files.append({
+                "path": _relative_path(project_root, vasp_output_dir / "POTCAR"),
+                "classification": "restricted_licensed_vasp_potcar",
+                "size_bytes": potcar_metadata.get("size_bytes"),
+                "sha256": potcar_metadata.get("sha256"),
+            })
         manifest.update({
             "generated_files": generated_files,
-            "missing_optional_inputs": [] if (artifacts_dir / "POTCAR").is_file() else ["POTCAR"],
+            "input_files": generated_files,
+            "restricted_files": restricted_files,
+            "artifact_dir": _relative_path(project_root, vasp_output_dir),
+            "missing_optional_inputs": [] if restricted_files else ["POTCAR"],
             "num_atoms": generation["num_atoms"],
             "elements": generation["elements"],
             "kpoints_mesh": generation["kpoints_mesh"],
             "incar_policy": generation.get("incar_policy"),
-            "potcar": generation["potcar"],
+            "potcar": potcar_metadata,
         })
     elif software == "cp2k":
         cif_path = _materialize_cp2k_structure(structure_path, artifacts_dir / "structure.cif")

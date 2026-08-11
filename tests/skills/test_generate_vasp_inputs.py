@@ -28,6 +28,15 @@ def _load_module(name, path):
     return mod
 
 
+def _write_potcar_dataset(root: Path, dataset: str, marker: str = "") -> None:
+    target = root / "PBE" / dataset
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "POTCAR").write_text(
+        f"PAW_PBE {dataset} 05Jan2001\nPOMASS = 1.0; ZVAL = 4.0\n{marker}\n",
+        encoding="utf-8",
+    )
+
+
 def test_input_gen_incar():
     mod = _load_module("input_gen", INPUT_GEN_SCRIPT)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -165,32 +174,31 @@ def test_vasp_pymatgen_relax():
         assert "NSW" in incar_content
 
 
-def test_vasp_generator_potcar_compatibility_inputs_are_nonoperative():
+def test_vasp_generator_materializes_configured_potcar_without_exposing_content(tmp_path):
     mod = _load_module("vasp_gen_potcar_compat", VASP_SCRIPT)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = mod.generate_vasp_inputs(
-            str(FIXTURE_DIR / "POSCAR_Si"),
-            "scf",
-            tmpdir,
-            kppa=100,
-            potcar_root="/licensed/potpaw_PBE",
-            use_vaspkit=True,
-        )
-        assert result["status"] == "success"
-        assert result["potcar"]["status"] == "metadata_only"
-        assert result["potcar"]["content_generated"] is False
-        assert "compatibility" in result["potcar"]["message"].lower()
-        assert result["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
-        assert result["potcar"]["compatibility_inputs_ignored"]["use_vaspkit_supplied"] is True
-        serialized = json.dumps(result)
-        assert "/licensed/potpaw_PBE" not in serialized
-        assert '"potcar_root":' not in serialized
-        assert os.path.exists(os.path.join(tmpdir, "POTCAR")) is False
-        potcar_info = json.loads(Path(os.path.join(tmpdir, "POTCAR_info.json")).read_text(encoding="utf-8"))
-        assert potcar_info["generation"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
-        serialized_info = json.dumps(potcar_info)
-        assert "/licensed/potpaw_PBE" not in serialized_info
-        assert '"potcar_root":' not in serialized_info
+    library = tmp_path / "licensed" / "private"
+    output = tmp_path / "phase4_computation" / "stage1_vasp" / "run_step1"
+    _write_potcar_dataset(library, "Si", "PRIVATE_POTCAR_BODY_MARKER")
+    result = mod.generate_vasp_inputs(
+        str(FIXTURE_DIR / "POSCAR_Si"),
+        "scf",
+        str(output),
+        kppa=100,
+        potcar_root=str(library),
+        use_vaspkit=True,
+        project_root=str(tmp_path),
+    )
+    assert result["status"] == "success"
+    assert result["potcar"]["status"] == "materialized"
+    assert result["potcar"]["resolved_datasets"] == ["Si"]
+    assert result["potcar"]["content_materialized"] is True
+    assert result["potcar"]["vaspkit_used"] is False
+    assert (output / "POTCAR").is_file()
+    assert str(output / "POTCAR") not in result["files_generated"]
+    assert not (output / "POTCAR_info.json").exists()
+    serialized = json.dumps(result)
+    assert str(library) not in serialized
+    assert "PRIVATE_POTCAR_BODY_MARKER" not in serialized
 
 
 def test_vasp_generator_does_not_persist_raw_potcar_root_in_stage_payloads():
@@ -204,9 +212,27 @@ def test_vasp_generator_does_not_persist_raw_potcar_root_in_stage_payloads():
             potcar_root="/licensed/private/library",
         )
 
-        assert result["potcar"]["compatibility_inputs_ignored"]["potcar_root_supplied"] is True
-        assert result["potcar"]["compatibility_inputs_ignored"]["use_vaspkit_supplied"] is False
+        assert result["status"] == "error"
+        assert result["potcar"]["reason_code"] == "potcar_flavor_unavailable"
         assert "/licensed/private/library" not in json.dumps(result)
+
+
+def test_vasp_generator_returns_stable_unsupported_setup_profile_without_library(tmp_path, monkeypatch):
+    mod = _load_module("vasp_gen_unsupported_setup", VASP_SCRIPT)
+    monkeypatch.delenv("SIMFLOW_VASP_POTCAR_PATH", raising=False)
+
+    result = mod.generate_vasp_inputs(
+        str(FIXTURE_DIR / "POSCAR_Si"),
+        "scf",
+        str(tmp_path / "vasp_input"),
+        kppa=100,
+        potcar_setups="future-profile",
+        project_root=str(tmp_path),
+    )
+
+    assert result["status"] == "error"
+    assert result["reason_code"] == "unsupported_potcar_setup_profile"
+    assert result["potcar"]["reason_code"] == "unsupported_potcar_setup_profile"
 
 
 @pytest.mark.parametrize("inline_value", [False, True])
@@ -315,7 +341,7 @@ def test_vasp_helper_run_redacts_sensitive_values_inside_params(tmp_path, inline
     assert recorded_json.count("<redacted>") >= len(raw_values)
 
 
-def test_vasp_generator_help_marks_potcar_generation_flags_as_compatibility_only():
+def test_vasp_generator_help_documents_restricted_potcar_selection():
     completed = subprocess.run(
         [sys.executable, str(VASP_SCRIPT), "--help"],
         capture_output=True,
@@ -324,8 +350,9 @@ def test_vasp_generator_help_marks_potcar_generation_flags_as_compatibility_only
     )
 
     assert completed.returncode == 0
-    assert "compatibility-only" in completed.stdout.lower()
     assert "--potcar-root" in completed.stdout
+    assert "--potcar-flavor" in completed.stdout
+    assert "--potcar-setups" in completed.stdout
     assert "--use-vaspkit" in completed.stdout
 
 

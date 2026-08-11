@@ -17,8 +17,12 @@ Unknown or specialized requests such as phonon, NEB, SOC, hybrid, DFT+U,
 defect, surface, adsorption, and custom analysis should return candidates and
 missing information instead of silently becoming a static calculation.
 
-POTCAR content is licensed/proprietary in many installations. SimFlow must not
-generate, copy, print, store, or redistribute it.
+POTCAR content is licensed/proprietary in many installations. SimFlow may use a
+configured user-owned library to materialize POTCAR inside a controlled local
+calculation directory, using fixed ASE setup tables for variant selection and
+SimFlow runtime code for all restricted file access. It must never return,
+print, place in the normal artifact store, commit, package, or redistribute the
+content.
 
 Optional helper script:
 

@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-vasp = ["pymatgen>=2023.0"]
+vasp = ["pymatgen>=2023.0", "ase>=3.22"]
 lammps = ["MDAnalysis>=2.5"]
 structure = ["pymatgen>=2023.0", "ase>=3.22"]
 all = ["pymatgen>=2023.0", "MDAnalysis>=2.5", "ase>=3.22"]
