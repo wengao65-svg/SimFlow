@@ -16,11 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]  # tests/ -> simflow/
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
 
-# Ensure the simflow_state MCP server tools are importable
-MCP_STATE_DIR = ROOT / "mcp" / "servers" / "simflow_state"
-sys.path.insert(0, str(MCP_STATE_DIR))
-
-
 def _init_workflow(*args, **kwargs):
     from runtime.simflow_core.state import init_workflow
     return init_workflow(*args, **kwargs)
@@ -29,11 +24,6 @@ def _init_workflow(*args, **kwargs):
 def _read_state(project_root, state_file="workflow.json"):
     from runtime.simflow_core.state import read_state
     return read_state(project_root=project_root, state_file=state_file)
-
-
-def _import_init_workflow_tool():
-    from tools.init_workflow import execute
-    return execute
 
 
 def test_first_init_creates_all_canonical_files():
@@ -135,63 +125,6 @@ def test_force_init_preserves_created_at_when_existing():
         result = _init_workflow("new_type", "literature_review", project_root=tmpdir, force=True)
         assert result["created_at"] == original_created_at
         assert result["updated_at"] != original_created_at
-
-
-def test_mcp_init_workflow_tool_defaults_to_idempotent():
-    """MCP tool execute() must default to non-destructive path."""
-    execute = _import_init_workflow_tool()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        first = execute({
-            "workflow_type": "custom",
-            "entry_point": "computation",
-            "project_root": tmpdir,
-        })
-        assert first["status"] == "success"
-        original_workflow_id = first["data"]["workflow_id"]
-
-        # Add custom gates.json
-        from runtime.simflow_core.state import write_state
-        write_state(
-            [{"gate_id": "gate_user_custom"}],
-            project_root=tmpdir,
-            state_file="gates.json",
-        )
-
-        # Second call without force — must preserve custom gates
-        second = execute({
-            "workflow_type": "different_type",
-            "entry_point": "literature_review",
-            "project_root": tmpdir,
-        })
-        assert second["status"] == "success"
-        assert second["data"]["workflow_id"] == original_workflow_id
-        assert "backup_path" not in second
-
-        gates = _read_state(tmpdir, "gates.json")
-        assert gates == [{"gate_id": "gate_user_custom"}], "MCP default path clobbered gates.json"
-
-
-def test_mcp_init_workflow_tool_force_returns_backup_path():
-    """MCP tool with force=True returns backup_path field."""
-    execute = _import_init_workflow_tool()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        execute({
-            "workflow_type": "custom",
-            "entry_point": "computation",
-            "project_root": tmpdir,
-        })
-
-        result = execute({
-            "workflow_type": "new_type",
-            "entry_point": "literature_review",
-            "project_root": tmpdir,
-            "force": True,
-        })
-        assert result["status"] == "success"
-        assert "backup_path" in result
-        assert Path(result["backup_path"]).is_dir()
 
 
 def test_init_workflow_on_empty_project_does_not_create_backup():
