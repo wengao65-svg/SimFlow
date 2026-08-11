@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.0 (2026-08-11) — Compact runtime and research guidance separation
+
+- Separated the Router, six Research Task Skills, five Domain Skills, and
+  compact runtime into explicit product layers. Public Skills no longer own
+  workflow state, checkpoints, artifact registration, approval, or directory
+  layout.
+- Reduced the public runtime to four `simflow_state` tools (`inspect`, `record`,
+  `checkpoint`, `recover`) and four HPC tools (`plan`, `transfer`, `submit`,
+  `status`).
+- Replaced the experiment/activity ledger and synchronized registries with
+  `.simflow/project.json`, append-only logical records, compact recovery
+  references, and explicit read-only legacy migration.
+- Bound real local, remote, and scheduler execution approval to an immutable
+  `run_plan_hash`, with approval reuse only while the complete plan remains
+  unchanged.
+- Made project organization existing-layout-first. The six phases remain a
+  recommended template, while analysis placement follows scientific input
+  scope and shallow navigation rather than runtime directory enforcement.
+- Preserved credential isolation and controlled, metadata-only licensed POTCAR
+  materialization and transfer protections.
+- Added release guards for the 12-Skill surface, 4+4 MCP tools, pure helper
+  scripts and references, explicit migration consent, credential redaction,
+  POTCAR restrictions, compact examples, and all three host distributions.
+
 ## v0.15.0 (2026-08-01) — Isolated SSH credential broker
 
 - Routed all real SSH status, transfer, cancellation, and submission operations
