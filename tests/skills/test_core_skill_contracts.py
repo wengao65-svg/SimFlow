@@ -74,6 +74,10 @@ def _skill_text(skill_name: str) -> str:
     return (SKILLS / skill_name / "SKILL.md").read_text(encoding="utf-8")
 
 
+def _normalized_skill_text(skill_name: str) -> str:
+    return " ".join(_skill_text(skill_name).split())
+
+
 def test_canonical_core_skills_exist():
     for skill_name in ["simflow", *RESEARCH_TASK_SKILLS, "simflow-safety-gates"]:
         skill_file = SKILLS / skill_name / "SKILL.md"
@@ -179,12 +183,13 @@ def test_engine_skills_are_domain_assistants_not_workflow_executors():
     for skill_name in ENGINE_DOMAIN_SKILLS:
         text = _skill_text(skill_name)
         lowered = text.lower()
-        assert "domain assistant" in lowered or "domain assistance" in lowered or "domain assistant" in text
-        assert "not a central workflow executor" in lowered or "not the workflow contract" in lowered or "不决定顶层 workflow" in text
-        assert "helper-run manifest" in lowered
-        assert "approval gate" in lowered
-        assert "only valid" in lowered or "唯一合法" in text
-        assert "unknown" in lowered or "未知" in text
+        assert "domain assistant" in lowered
+        assert "workflow progression" in lowered or "workflow state" in lowered
+        assert "## domain principles" in lowered
+        assert "## minimum checks" in lowered
+        assert "## completion criteria" in lowered
+        for term in FORBIDDEN_TASK_RUNTIME_TERMS:
+            assert term not in lowered, f"{skill_name} contains runtime term {term}"
 
 
 def test_research_task_skills_match_pure_skill_validator_sections():
@@ -207,41 +212,34 @@ def test_unsupported_engine_placeholders_do_not_claim_runtime_support():
 
 
 def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
-    vasp_text = _skill_text("simflow-vasp")
-    cp2k_text = _skill_text("simflow-cp2k")
+    vasp_text = _normalized_skill_text("simflow-vasp")
+    cp2k_text = _normalized_skill_text("simflow-cp2k")
 
     assert "Do not default unknown VASP tasks to `static`" in vasp_text
     assert "Do not default unknown CP2K tasks to `ENERGY`" in cp2k_text
 
 
 def test_gpumd_skill_keeps_execution_and_submit_safety_boundary():
-    text = _skill_text("simflow-gpumd")
+    text = _normalized_skill_text("simflow-gpumd")
 
-    assert "helper-supported engines" in text
-    assert "real execution" in text
-    assert "static_input_inspection" in text
-    assert "manifest_generation" in text
-    assert "selected_output_parsing" in text
-    assert "evidence_handoff" in text
-    assert "Do not expose GPUMD/NEP real execution" in text
-    assert "input generation" in text
+    assert "without owning real execution" in text
+    assert "Real execution" in text
+    assert "selected output parsing" in text
+    assert "No real execution or production claim" in text
 
 
 def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
-    text = _skill_text("simflow-lammps")
+    text = _normalized_skill_text("simflow-lammps")
     lowered = text.lower()
     references_dir = SKILLS / "simflow-lammps" / "references"
 
     for phrase in [
-        "classic_md",
-        "reactive_md",
-        "mlp_md_deployment",
-        "analysis_handoff",
-        "lammps_output_intake_manifest",
+        "classical md",
+        "reactive md",
+        "mlp deployment",
         "troubleshooting",
         "simflow-mlp",
-        "simflow-analysis-visualization",
-        "deployment only",
+        "analysis task skill",
     ]:
         assert phrase in lowered
 
@@ -258,7 +256,7 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
 
     assert "lammps_analysis_visualization.md" not in text
     assert not (references_dir / "lammps_analysis_visualization.md").exists()
-    assert "does not own final property analysis" in lowered
+    assert "property methodology belongs to the analysis task skill" in lowered
 
 
 def test_lammps_skill_uses_consistent_english_language():

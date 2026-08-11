@@ -53,7 +53,7 @@ def test_mlp_uses_provider_defined_training_policy():
     ]:
         assert phrase.lower() in combined.lower(), phrase
 
-    assert "does not prescribe a provider-independent training-phase sequence" in combined
+    assert "rather than imposing a universal schedule" in " ".join(combined.split())
 
 
 def test_nep_two_step_training_is_scoped_provider_reference_guidance():
@@ -150,7 +150,8 @@ def test_gpumd_owns_provider_files_and_delegates_generic_readiness():
         assert filename in text
 
     assert "simflow-mlp" in text
-    assert "does not redefine general MLP production-readiness criteria" in text
+    assert "general MLP methodology" in text
+    assert "No real execution or production claim" in text
     assert "troubleshooting" in text.lower()
 
 

@@ -61,6 +61,26 @@ const RESEARCH_TASK_SKILLS = new Set([
   'simflow-writing',
 ]);
 
+const DOMAIN_SKILLS = new Set([
+  'simflow-vasp',
+  'simflow-cp2k',
+  'simflow-lammps',
+  'simflow-gpumd',
+  'simflow-mlp',
+]);
+
+const PURE_DOMAIN_REQUIRED_SECTIONS = [
+  '## Purpose',
+  '## Use when',
+  '## Do not use when',
+  '## Domain principles',
+  '## Minimum checks',
+  '## Common failure modes',
+  '## Escalate uncertainty when',
+  '## Completion criteria',
+  '## Optional references',
+];
+
 const ROUTER_REQUIRED_SECTIONS = [
   '## Purpose',
   '## Use when',
@@ -147,9 +167,12 @@ skillDirs.forEach(skillName => {
   }
 
   const isResearchTask = RESEARCH_TASK_SKILLS.has(skillName);
+  const isDomain = DOMAIN_SKILLS.has(skillName);
   const isRouter = skillName === 'simflow';
   const missingSections = isResearchTask
     ? PURE_SKILL_REQUIRED_SECTIONS.filter(section => !body.includes(section))
+    : isDomain
+      ? PURE_DOMAIN_REQUIRED_SECTIONS.filter(section => !body.includes(section))
     : isRouter
       ? ROUTER_REQUIRED_SECTIONS.filter(section => !body.includes(section))
       : LEGACY_REQUIRED_SECTION_GROUPS
@@ -163,7 +186,7 @@ skillDirs.forEach(skillName => {
     console.log(`  OK: ${skillName}`);
   }
 
-  if (isResearchTask) {
+  if (isResearchTask || isDomain) {
     for (const pattern of FORBIDDEN_TASK_RUNTIME_PATTERNS) {
       if (pattern.test(body)) {
         console.error(`  ERROR: ${skillName} - pure task skill contains runtime directive matching ${pattern}`);
