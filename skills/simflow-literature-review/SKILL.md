@@ -1,54 +1,70 @@
 ---
 name: simflow-literature-review
-description: Use when a user asks to collect, screen, or synthesize literature for a computational simulation question.
+description: Guide reliable literature discovery, screening, source verification, and evidence-bounded synthesis for computational simulation research.
 ---
 
-## Cross-Session Experiment Memory
+# Literature Review
 
-For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+## Purpose
 
-`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+Help the agent establish a reliable scientific background without inventing
+sources, overstating abstracts, or confusing secondary summaries with primary
+evidence.
 
-# SimFlow Literature Review
+## Use when
 
-## Trigger conditions
+- The user asks to find, screen, compare, or synthesize scientific literature.
+- A research decision depends on published methods, parameters, benchmarks, or
+  competing interpretations.
+- Existing citations or factual claims need source verification.
 
-- The user provides papers, PDFs, DOIs, citations, keywords, or a research question for literature review.
-- The current research intent is to understand prior work, methods, datasets, open questions, or evidence quality.
-- A later proposal, model, computation, analysis, or writing task needs source-backed context.
+## Do not use when
 
-## Input conditions
+- The user only asks to format already verified citations.
+- The task is primarily calculation setup, output analysis, or manuscript
+  drafting and no new literature judgment is needed.
 
-- A research question, topic, uploaded paper set, citation list, or search intent.
-- Optional user constraints such as time range, domain, language, venue, theory level, method family, or supplied PDFs.
-- Existing `.simflow/` state may be used, but literature review can also be the entry stage.
+## Task principles
 
-## Output artifacts
+- Prefer primary sources for methods, parameters, and scientific claims.
+- Trace important claims back to the original paper rather than a citing paper.
+- Separate what a source reports from the agent's inference.
+- Treat title and abstract screening as provisional until the relevant full text
+  is checked.
+- Preserve disagreement, uncertainty, and scope limits instead of forcing a
+  single narrative.
+- Never fabricate a citation, DOI, quotation, author list, or access result.
 
-- Search log or source log recording where each paper or source came from.
-- Paper notes that separate direct source claims from agent interpretation.
-- Review summary, gap list, citation map, or another user-requested literature deliverable.
-- Access notes for sources without full text, inaccessible PDFs, or unverified metadata.
+## Minimum checks
 
-## Status write rules
+- Confirm bibliographic identity for every source used in a key conclusion.
+- Record the search scope, inclusion logic, and obvious evidence gaps.
+- Verify that quoted or paraphrased claims match the cited source.
+- Distinguish peer-reviewed articles, preprints, reviews, documentation, and
+  informal sources.
+- State when full text was unavailable or only partial evidence was inspected.
 
-- Resolve the user's current working directory as `project_root` before writing SimFlow state.
-- Record literature artifacts with source, query, selection criteria, access status, and citation metadata when available.
-- Link review summaries to their source notes or citation artifacts through lineage.
+## Common failure modes
 
-## Checkpoint rules
+- Expanding an abstract claim beyond the paper's actual evidence.
+- Citing a review when an original parameter or result is available.
+- Treating citation count or recency as a quality guarantee.
+- Hiding contradictory papers or negative results.
+- Producing a polished bibliography with unverified metadata.
 
-- Create a checkpoint when the literature review reaches a handoff boundary, such as search complete, screening complete, or synthesis complete.
-- A checkpoint must identify unresolved access, metadata, citation, or interpretation risks.
+## Escalate uncertainty when
 
-## Prohibited actions
+- A key source is inaccessible, ambiguous, retracted, or internally inconsistent.
+- Sources disagree in a way that changes the proposed scientific path.
+- The requested evidence threshold or date range materially changes the answer.
 
-- Do not fabricate papers, citations, search results, quotes, data, or conclusions.
-- Do not treat inaccessible full text as read.
-- Do not require a specific literature database, PDF manager, parser, report filename, or citation format when the user has another reasonable path.
+## Completion criteria
 
-## Manual confirmation scenarios
+- The review answers the user's question with traceable sources.
+- Selection limits and unresolved evidence gaps are explicit.
+- Factual claims, interpretations, and recommendations are clearly separated.
 
-- Search scope, screening criteria, or inclusion thresholds are ambiguous.
-- Key papers are inaccessible, contradictory, or missing metadata.
-- The user asks for claims that require stronger evidence than the available sources support.
+## Optional references
+
+Use host search tools, local PDFs, Zotero, scholarly indexes, or user-provided
+collections as appropriate. No particular provider is required.

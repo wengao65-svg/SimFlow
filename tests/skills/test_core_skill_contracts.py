@@ -9,15 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / "skills"
 
-CORE_SKILLS = [
-    "simflow",
+RESEARCH_TASK_SKILLS = [
     "simflow-literature-review",
     "simflow-proposal",
     "simflow-modeling",
     "simflow-computation",
     "simflow-analysis-visualization",
     "simflow-writing",
-    "simflow-safety-gates",
 ]
 
 ENGINE_DOMAIN_SKILLS = [
@@ -39,14 +37,27 @@ SUPPORT_SKILLS = [
     "simflow-verify",
 ]
 
-VALIDATOR_REQUIRED_SECTIONS = [
-    "## Trigger conditions",
-    "## Input conditions",
-    "## Output artifacts",
-    "## Status write rules",
-    "## Checkpoint rules",
-    "## Prohibited actions",
-    "## Manual confirmation scenarios",
+PURE_TASK_REQUIRED_SECTIONS = [
+    "## Purpose",
+    "## Use when",
+    "## Do not use when",
+    "## Task principles",
+    "## Minimum checks",
+    "## Common failure modes",
+    "## Escalate uncertainty when",
+    "## Completion criteria",
+    "## Optional references",
+]
+
+FORBIDDEN_TASK_RUNTIME_TERMS = [
+    "project_reentry",
+    "start_activity",
+    "finish_activity",
+    "begin_experiment",
+    "session_handoff",
+    "required mcp engagement",
+    "update_stage",
+    ".simflow/state",
 ]
 
 BANNED_HARD_CONSTRAINTS = [
@@ -64,23 +75,26 @@ def _skill_text(skill_name: str) -> str:
 
 
 def test_canonical_core_skills_exist():
-    for skill_name in CORE_SKILLS:
+    for skill_name in ["simflow", *RESEARCH_TASK_SKILLS, "simflow-safety-gates"]:
         skill_file = SKILLS / skill_name / "SKILL.md"
         assert skill_file.is_file(), skill_name
         text = skill_file.read_text(encoding="utf-8")
         assert f"name: {skill_name}" in text
 
 
-def test_core_skills_keep_state_artifact_checkpoint_contracts():
-    for skill_name in CORE_SKILLS:
+def test_research_task_skills_are_pure_instruction_contracts():
+    for skill_name in RESEARCH_TASK_SKILLS:
         text = _skill_text(skill_name).lower()
-        assert "artifact" in text, skill_name
-        assert "checkpoint" in text, skill_name
-        assert "project_root" in text or ".simflow" in text, skill_name
+        for section in PURE_TASK_REQUIRED_SECTIONS:
+            assert section.lower() in text, f"{skill_name} missing {section}"
+        for term in FORBIDDEN_TASK_RUNTIME_TERMS:
+            assert term not in text, f"{skill_name} contains runtime term {term}"
+        assert "create a checkpoint" not in text, skill_name
+        assert "register an artifact" not in text, skill_name
 
 
 def test_core_skills_do_not_force_fixed_helpers_or_reports():
-    for skill_name in CORE_SKILLS:
+    for skill_name in RESEARCH_TASK_SKILLS:
         text = _skill_text(skill_name)
         for pattern in BANNED_HARD_CONSTRAINTS:
             assert not pattern.search(text), f"{skill_name} matches {pattern.pattern}"
@@ -105,50 +119,22 @@ def test_legacy_executor_skill_entries_are_removed():
         assert not (SKILLS / skill_name / "SKILL.md").exists(), skill_name
 
 
-def test_router_documents_optional_end_to_end_research_workflow_script():
-    text = _skill_text("simflow")
-    assert "run_research_workflow" in text
-    assert "research_workflow_summary.json" in text
-    assert "literature_review -> proposal -> modeling -> computation -> analysis_visualization -> writing" in text
-
-
-def test_computation_documents_submit_readiness_summary_artifact():
-    text = _skill_text("simflow-computation")
-    assert "submit_readiness_summary" in text
-    assert "user_submit_readiness" in text
-
-
-def test_computation_requires_approval_without_fixed_software():
+def test_computation_preserves_scientific_execution_discipline():
     text = _skill_text("simflow-computation").lower()
-    assert "approval" in text
-    assert "dry-run" in text
-    assert "credential" in text
-    assert "do not require one specific simulation engine" in text
-    for section in [
-        "## Purpose",
-        "## Computation Activities",
-        "## Support-Level Behavior",
-        "## Domain Skill Delegation",
-        "## Output artifacts",
-        "## Submit-Readiness Handoff",
-        "## Status Semantics",
-        "## Safety Gate Handoff",
-    ]:
-        assert section.lower() in text
-    assert "submit_request_template" in text
-    assert "tracked_only" in text
-    assert "unknown" in text
-    assert "not a standalone runtime state machine" in text
-    assert "generic evidence intake" in text
-    assert "real_submit_allowed" in text
+    assert "scheduler submission as evidence of submission only" in text
+    assert "normal process exit" in text
+    assert "parser can read" in text
+    assert "small diagnostic run" in text
+    assert "do not silently relax scientific settings" in text
+    assert "runtime safety and event recording" in text
+    assert "remain separate from this guidance" in text
 
 
 def test_analysis_visualization_allows_agent_written_analysis():
     text = _skill_text("simflow-analysis-visualization")
     assert "self-written Python" in text
-    assert "Do not require a fixed parser" in text
-    assert "Figure lineage" in text
-    assert "Built-in analysis and visualization stage runners are optional reference routes" in text
+    assert "No fixed parser or plotting library is required" in text
+    assert "raw input through processing to figure data" in text
 
 
 def test_analysis_visualization_reference_map_is_routable():
@@ -176,26 +162,17 @@ def test_analysis_visualization_reference_map_is_routable():
         assert reference in text
         assert (SKILLS / "simflow-analysis-visualization" / "references" / reference).is_file()
 
-    assert "data intake/profiling" in text
-    assert "community post-processing" in text
-    assert "GPUMDkit" in text
-    assert "VASPKIT-style optional tools" in text
-    assert "publication figure QA" in text
-    assert "tool-specific visualization" in text
-    assert "property-specific analysis" in text
-
-
 def test_modeling_preserves_user_provided_models():
     text = _skill_text("simflow-modeling")
-    assert "用户提供的原始模型必须保留" in text
-    assert "不要强制使用内置 crystal builder" in text
+    assert "Preserve user-provided source models" in text
+    assert "Builders such as ASE or pymatgen are optional tools" in text
 
 
 def test_writing_requires_evidence_traceability_without_fixed_structure():
     text = _skill_text("simflow-writing")
-    assert "关键科学 claim 必须链接" in text
-    assert "不要求固定文档结构" in text
-    assert "不要强制生成某个固定报告文件" in text
+    assert "Every substantive claim must be supportable" in text
+    assert "Describe methods as executed" in text
+    assert "Unsupported statements are removed, weakened, or explicitly marked" in text
 
 
 def test_engine_skills_are_domain_assistants_not_workflow_executors():
@@ -210,10 +187,10 @@ def test_engine_skills_are_domain_assistants_not_workflow_executors():
         assert "unknown" in lowered or "未知" in text
 
 
-def test_router_computation_and_lammps_match_skill_validator_sections():
-    for skill_name in ["simflow", "simflow-computation", "simflow-lammps"]:
+def test_research_task_skills_match_pure_skill_validator_sections():
+    for skill_name in RESEARCH_TASK_SKILLS:
         text = _skill_text(skill_name)
-        for section in VALIDATOR_REQUIRED_SECTIONS:
+        for section in PURE_TASK_REQUIRED_SECTIONS:
             assert section in text, f"{skill_name} missing {section}"
 
 

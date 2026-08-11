@@ -1,198 +1,67 @@
 {
-  "schema_version": "simflow.router_contract.v1",
-  "purpose": "Top-level routing contract for SimFlow skill delegation, stage selection, state-write decisions, safety escalation, verification, checkpointing, and handoff coordination.",
+  "schema_version": "simflow.router_contract.v2",
+  "purpose": "Thin intent routing for one Research Task Skill plus one optional Domain Skill.",
   "not_runtime_schema": true,
-  "canonical_stages": [
-    "literature_review",
-    "proposal",
-    "modeling",
-    "computation",
-    "analysis_visualization",
-    "writing"
-  ],
-  "standard_router_output_fields": [
-    "interpreted_intent",
-    "recommended_stage",
-    "recommended_recipe_tags",
-    "recommended_skills",
-    "required_evidence",
-    "safety_gates",
-    "state_write_needed",
-    "state_write_reason",
-    "next_actions",
-    "risks_or_uncertainties"
-  ],
-  "routing_categories": [
+  "research_task_skills": {
+    "literature_review": "simflow-literature-review",
+    "proposal": "simflow-proposal",
+    "modeling": "simflow-modeling",
+    "computation": "simflow-computation",
+    "analysis_visualization": "simflow-analysis-visualization",
+    "writing": "simflow-writing"
+  },
+  "domain_skills": {
+    "vasp": "simflow-vasp",
+    "cp2k": "simflow-cp2k",
+    "lammps": "simflow-lammps",
+    "gpumd_nep": "simflow-gpumd",
+    "mlp_methodology": "simflow-mlp"
+  },
+  "selection_policy": {
+    "max_research_task_skills": 1,
+    "max_domain_skills": 1,
+    "selection_basis": "current_user_intent",
+    "directory_or_phase_drives_selection": false,
+    "load_future_maybe_relevant_skills": false
+  },
+  "intent_examples": [
     {
-      "category": "literature_review",
-      "primary_skill": "simflow-literature-review",
-      "secondary_skills": [
-        "simflow-writing",
-        "simflow-handoff"
-      ],
-      "stage": "literature_review"
+      "intent": "analyze_existing_gpumd_md",
+      "task_skill": "simflow-analysis-visualization",
+      "domain_skill": "simflow-gpumd"
     },
     {
-      "category": "proposal",
-      "primary_skill": "simflow-proposal",
-      "secondary_skills": [
-        "simflow-verify"
-      ],
-      "stage": "proposal"
+      "intent": "run_vasp",
+      "task_skill": "simflow-computation",
+      "domain_skill": "simflow-vasp"
     },
     {
-      "category": "modeling",
-      "primary_skill": "simflow-modeling",
-      "secondary_skills": [
-        "domain_skills",
-        "simflow-verify"
-      ],
-      "stage": "modeling"
+      "intent": "design_nep_active_learning",
+      "task_skill": "simflow-proposal",
+      "domain_skill": "simflow-mlp"
     },
     {
-      "category": "vasp_domain",
-      "primary_skill": "simflow-vasp",
-      "secondary_skills": [
-        "simflow-computation",
-        "simflow-analysis-visualization",
-        "simflow-safety-gates"
-      ],
-      "stage": "computation"
-    },
-    {
-      "category": "cp2k_domain",
-      "primary_skill": "simflow-cp2k",
-      "secondary_skills": [
-        "simflow-computation",
-        "simflow-analysis-visualization",
-        "simflow-safety-gates"
-      ],
-      "stage": "computation"
-    },
-    {
-      "category": "lammps_domain",
-      "primary_skill": "simflow-lammps",
-      "secondary_skills": [
-        "simflow-computation",
-        "simflow-analysis-visualization",
-        "simflow-safety-gates"
-      ],
-      "stage": "computation"
-    },
-    {
-      "category": "gpumd_nep_domain",
-      "primary_skill": "simflow-gpumd",
-      "secondary_skills": [
-        "simflow-computation",
-        "simflow-mlp",
-        "simflow-safety-gates"
-      ],
-      "stage": "computation"
-    },
-    {
-      "category": "mlp_evidence",
-      "primary_skill": "simflow-mlp",
-      "secondary_skills": [
-        "simflow-verify",
-        "simflow-writing",
-        "simflow-safety-gates"
-      ],
-      "stage": "analysis_visualization"
-    },
-    {
-      "category": "real_execution_or_submit",
-      "primary_skill": "simflow-computation",
-      "secondary_skills": [
-        "simflow-safety-gates",
-        "simflow-verify",
-        "simflow-checkpoint"
-      ],
-      "stage": "computation",
-      "required_gates": [
-        "hpc_submit"
-      ]
-    },
-    {
-      "category": "analysis_visualization",
-      "primary_skill": "simflow-analysis-visualization",
-      "secondary_skills": [
-        "domain_skills",
-        "simflow-writing",
-        "simflow-verify"
-      ],
-      "stage": "analysis_visualization"
-    },
-    {
-      "category": "writing",
-      "primary_skill": "simflow-writing",
-      "secondary_skills": [
-        "simflow-verify",
-        "simflow-handoff"
-      ],
-      "stage": "writing"
-    },
-    {
-      "category": "status_checkpoint_handoff_verify",
-      "primary_skill": "simflow-verify",
-      "secondary_skills": [
-        "simflow-checkpoint",
-        "simflow-handoff"
-      ],
-      "stage": "current"
-    },
-    {
-      "category": "unknown_or_unsupported_tool_evidence",
-      "primary_skill": "simflow-computation",
-      "secondary_skills": [
-        "simflow-analysis-visualization",
-        "simflow-verify",
-        "simflow-handoff"
-      ],
-      "stage": "computation"
+      "intent": "write_existing_results",
+      "task_skill": "simflow-writing",
+      "domain_skill": null
     }
   ],
-  "state_write_triggers": [
-    "initialize_or_track_project",
-    "record_artifact_input_output_script_figure_claim_gate_or_report",
-    "stage_boundary",
-    "failure_boundary",
-    "real_execution_planned_or_approved",
-    "verification_report_needed",
-    "checkpoint_needed",
-    "handoff_needed",
-    "safety_decision_needed"
-  ],
-  "state_write_non_triggers": [
-    "casual_conceptual_explanation",
-    "preliminary_brainstorming_without_record_request",
-    "purely_educational_discussion",
-    "route_only_answer_without_artifact_or_decision"
-  ],
-  "safety_escalation_triggers": [
+  "runtime_escalation_triggers": [
+    "inspect_recorded_project_events",
+    "record_real_run_or_deliverable",
     "real_local_execution",
     "remote_execution",
-    "hpc_submit",
-    "scheduler_command",
-    "sbatch",
-    "qsub",
-    "srun",
-    "mpirun",
-    "mpiexec",
-    "ssh_or_cluster_access",
-    "credentials_or_tokens_or_private_keys",
-    "license_files",
-    "proprietary_files",
-    "vasp_potcar_or_licensed_content",
-    "expensive_compute",
+    "scheduler_submit",
+    "credentials_or_private_keys",
+    "licensed_or_proprietary_files",
+    "vasp_potcar_material",
     "destructive_operation",
-    "bypass_dry_run_hash_verification_or_approval"
+    "recovery_or_restore"
   ],
   "ambiguous_intent_policy": {
-    "return_candidate_stages": true,
-    "return_candidate_skills": true,
+    "return_smallest_plausible_skill_set": true,
     "list_missing_information": true,
-    "ask_only_for_safe_progress_blockers": true,
-    "allow_dry_run_or_evidence_only_planning": true,
+    "ask_only_for_blockers": true,
     "do_not_default_unknown_software_to_supported_helper": true,
     "do_not_default_unknown_computation_tasks_to_known_tasks": [
       "static",
@@ -203,59 +72,35 @@
   },
   "toolchain_contract_reference": {
     "source": "workflow/toolchains/capabilities.json",
-    "purpose": "Single source of truth for helper support levels and capability support.",
-    "router_behavior": "Use software names for routing only; do not duplicate capability support in the router contract."
+    "purpose": "Single source of truth for helper and capability support.",
+    "router_behavior": "Use software names for routing only; do not duplicate capability support."
   },
   "prohibited_actions": [
     "centralized_executor_behavior",
     "domain_parser_behavior_from_top_level_router",
-    "software_specific_input_generation_from_top_level_router",
-    "real_local_submit",
-    "remote_execution",
-    "hpc_submit",
+    "skill_selection_from_directory_or_phase",
+    "mandatory_mcp_engagement_from_skill_selection",
+    "real_execution_or_submit",
     "credential_handling",
-    "scientific_convergence_judgment_without_evidence",
-    "production_readiness_approval_without_evidence",
     "fabricated_literature_results_data_figures_citations_convergence_or_job_states"
   ],
-  "task_shape_engagement_policy": {
-    "description": "P3.4: All task shapes — including single-stage compute tasks — should enter through project_reentry. Lower-level state writes still require read_state engagement, which project_reentry establishes for the current session.",
-    "all_task_shapes_require_engagement": true,
-    "engagement_floor": "simflow_state/project_reentry",
-    "state_write_prerequisite": "simflow_state/read_state",
-    "task_shape_patterns": {
-      "multi_stage_research": {
-        "description": "Audit, selection, analysis, dataset construction — maps to multiple stages",
-        "minimum_engagement": 3,
-        "example_triggers": ["审计", "分析", "筛选", "dataset", "baseline", "reproduce"]
-      },
-      "single_stage_compute": {
-        "description": "GPUMD compile, VASP relax, AIMD, NEP training — single computation",
-        "minimum_engagement": 1,
-        "example_triggers": ["编译", "compile", "训练", "train", "NVT", "NPT", "AIMD", "relax"]
-      },
-      "analysis_only": {
-        "description": "Plot, statistics, trajectory analysis — no new compute",
-        "minimum_engagement": 1,
-        "example_triggers": ["绘图", "plot", "统计", "RDF", "MSD", "energy", "force"]
-      },
-      "literature_review": {
-        "description": "Search, screening, synthesis",
-        "minimum_engagement": 2,
-        "example_triggers": ["文献", "literature", "search", "DOI", "reference"]
-      }
-    }
-  },
   "host_adaptation_policy": {
-    "signal": "mcp_initialize_client_info",
     "skill_load_hooks_required": false,
-    "supported_profiles": ["codex", "claude_code", "opencode", "generic"],
-    "host_specific_behavior": ["invocation_syntax", "discovery_guidance"],
+    "supported_profiles": [
+      "codex",
+      "claude_code",
+      "opencode",
+      "generic"
+    ],
+    "host_specific_behavior": [
+      "invocation_syntax",
+      "discovery_guidance"
+    ],
     "host_invariant_behavior": [
-      "project_root_boundary",
-      "engagement_prerequisites",
-      "artifact_and_checkpoint_semantics",
-      "safety_gates"
+      "intent_based_selection",
+      "one_task_plus_one_domain_limit",
+      "runtime_separation",
+      "scientific_truthfulness"
     ]
   }
 }

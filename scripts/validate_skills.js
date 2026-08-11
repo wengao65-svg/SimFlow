@@ -9,7 +9,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const SKILLS_DIR = path.join(ROOT, 'skills');
 
-const REQUIRED_SECTION_GROUPS = [
+const LEGACY_REQUIRED_SECTION_GROUPS = [
   {
     label: 'trigger conditions',
     options: ['## 触发条件', '## Trigger conditions'],
@@ -38,6 +38,51 @@ const REQUIRED_SECTION_GROUPS = [
     label: 'manual confirmation scenarios',
     options: ['## 需要人工确认的场景', '## Manual confirmation scenarios'],
   },
+];
+
+const PURE_SKILL_REQUIRED_SECTIONS = [
+  '## Purpose',
+  '## Use when',
+  '## Do not use when',
+  '## Task principles',
+  '## Minimum checks',
+  '## Common failure modes',
+  '## Escalate uncertainty when',
+  '## Completion criteria',
+  '## Optional references',
+];
+
+const RESEARCH_TASK_SKILLS = new Set([
+  'simflow-literature-review',
+  'simflow-proposal',
+  'simflow-modeling',
+  'simflow-computation',
+  'simflow-analysis-visualization',
+  'simflow-writing',
+]);
+
+const ROUTER_REQUIRED_SECTIONS = [
+  '## Purpose',
+  '## Use when',
+  '## Routing model',
+  '## Selection rules',
+  '## Runtime escalation',
+  '## Ambiguous intent',
+  '## Prohibited actions',
+  '## Completion criteria',
+];
+
+const FORBIDDEN_TASK_RUNTIME_PATTERNS = [
+  /project_reentry/i,
+  /start_activity/i,
+  /finish_activity/i,
+  /begin_experiment/i,
+  /session_handoff/i,
+  /required mcp engagement/i,
+  /register(?:ed|ing)?\s+(?:an\s+)?artifact/i,
+  /create(?:s|d|ing)?\s+(?:a\s+)?checkpoint/i,
+  /update_stage/i,
+  /\.simflow\/state/i,
 ];
 
 let errors = 0;
@@ -101,15 +146,30 @@ skillDirs.forEach(skillName => {
     errors++;
   }
 
-  const missingSections = REQUIRED_SECTION_GROUPS
-    .filter(group => !group.options.some(option => body.includes(option)))
-    .map(group => group.label);
+  const isResearchTask = RESEARCH_TASK_SKILLS.has(skillName);
+  const isRouter = skillName === 'simflow';
+  const missingSections = isResearchTask
+    ? PURE_SKILL_REQUIRED_SECTIONS.filter(section => !body.includes(section))
+    : isRouter
+      ? ROUTER_REQUIRED_SECTIONS.filter(section => !body.includes(section))
+      : LEGACY_REQUIRED_SECTION_GROUPS
+      .filter(group => !group.options.some(option => body.includes(option)))
+      .map(group => group.label);
 
   if (missingSections.length > 0) {
     console.error(`  ERROR: ${skillName} - missing sections: ${missingSections.join(', ')}`);
     errors++;
   } else {
     console.log(`  OK: ${skillName}`);
+  }
+
+  if (isResearchTask) {
+    for (const pattern of FORBIDDEN_TASK_RUNTIME_PATTERNS) {
+      if (pattern.test(body)) {
+        console.error(`  ERROR: ${skillName} - pure task skill contains runtime directive matching ${pattern}`);
+        errors++;
+      }
+    }
   }
 
   if (!body.includes('# ')) {
