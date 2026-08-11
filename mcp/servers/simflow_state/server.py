@@ -30,8 +30,8 @@ TOOLS = {
 }
 
 TOOL_DESCRIPTIONS = {
-    "inspect": "Read compact project status, recent records, recovery points, and a read-only legacy migration audit.",
-    "record": "Append one logical project record or explicitly confirm a migration audit by hash.",
+    "inspect": "Read project status, relevant Experiment memory, operational records, recovery points, and a read-only legacy audit.",
+    "record": "Append one operational record or one schema-discriminated Experiment notebook entry.",
     "checkpoint": "Create a compact recovery reference containing hashes, restart paths, and restart instructions.",
     "recover": "Validate a compact checkpoint and return recovery readiness without executing compute.",
 }
@@ -56,6 +56,112 @@ _PATH_REF_SCHEMA = {
     ]
 }
 
+_EXPERIMENT_PAYLOAD_SCHEMAS = {
+    "experiment": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "minLength": 1},
+            "research_question": {"type": "string", "minLength": 1},
+            "scope_paths": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "status": {"type": "string", "enum": ["active", "paused", "completed", "abandoned", "superseded"]},
+            "next_action": {"type": ["string", "object", "array"]},
+        },
+        "additionalProperties": False,
+    },
+    "attempt": {
+        "type": "object",
+        "properties": {
+            "attempt_id": {"type": "string"}, "method": {"type": "string"},
+            "parameters": {"type": "object"}, "acceptance_criteria": {"type": ["array", "object", "string"]},
+            "software": {"type": ["string", "object"]}, "status": {"type": "string"},
+            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
+            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "observation": {
+        "type": "object",
+        "properties": {
+            "attempt_id": {"type": "string"}, "status": {"type": "string"},
+            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
+            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
+            "uncertainty": {"type": ["string", "object", "array"]},
+        },
+        "additionalProperties": False,
+    },
+    "decision": {
+        "type": "object",
+        "properties": {
+            "attempt_id": {"type": "string"}, "status": {"type": "string"},
+            "outcome": {"type": ["string", "object"]}, "rationale": {"type": "string"},
+            "alternatives": {"type": "array"}, "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
+            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "material_action": {
+        "type": "object",
+        "required": ["status", "operation"],
+        "properties": {
+            "attempt_id": {"type": "string"},
+            "status": {"type": "string", "enum": ["planned", "completed", "partial", "failed", "reverted"]},
+            "operation": {"type": "string", "enum": ["delete", "filter", "deduplicate", "overwrite", "truncate", "move", "replace_dataset", "clean_trajectory", "other_evidence_change"]},
+            "material_action_id": {"type": "string"}, "targets": {"type": "array", "items": {"type": "string"}},
+            "reason": {"type": "string"}, "selection_criteria": {"type": ["string", "object", "array"]},
+            "recoverability": {"type": "string", "enum": ["reversible", "partially_reversible", "irreversible"]},
+            "outcome": {"type": ["string", "object", "array"]}, "actual_scope": {"type": ["string", "object", "array"]},
+            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
+            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+    "recovery": {
+        "type": "object",
+        "properties": {
+            "attempt_id": {"type": "string"}, "status": {"type": "string"},
+            "checkpoint_id": {"type": "string"}, "decision": {"type": ["string", "object"]},
+            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
+            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
+        },
+        "additionalProperties": False,
+    },
+}
+
+_OPERATIONAL_RECORD_PROPERTIES = {
+    "project_root": {"type": "string"}, "channel": {"type": "string", "const": "operational"},
+    "kind": {"type": "string", "enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note", "migration"]},
+    "summary": {"type": "string", "minLength": 1}, "status": {"type": "string"},
+    "stage": {"type": "string"}, "run_id": {"type": "string"}, "goal": {"type": "string"},
+    "next_action": {"type": ["string", "object", "array"]}, "artifacts": {"type": "array", "items": _PATH_REF_SCHEMA},
+    "parent_ids": {"type": "array", "items": {"type": "string"}}, "details": {"type": "object"},
+    "migration_report_hash": {"type": "string"}, "confirm_migration": {"type": "boolean", "default": False},
+    "experiment_id": {"type": "string"}, "attempt_id": {"type": "string"}, "idempotency_key": {"type": "string"},
+}
+
+_EXPERIMENT_RECORD_PROPERTIES = {
+    "project_root": {"type": "string"}, "channel": {"type": "string", "const": "experiment"},
+    "entry_type": {"type": "string", "enum": list(_EXPERIMENT_PAYLOAD_SCHEMAS)},
+    "action": {"type": "string", "minLength": 1}, "summary": {"type": "string", "minLength": 1},
+    "experiment_id": {"type": "string", "pattern": "^exp_[0-9a-f]{12}$"},
+    "parent_entry_ids": {"type": "array", "items": {"type": "string"}},
+    "runtime_record_ids": {"type": "array", "items": {"type": "string"}},
+    "idempotency_key": {"type": "string"},
+    "payload": {"type": "object"},
+}
+
+_EXPERIMENT_RECORD_VARIANTS = [
+    {
+        "required": ["project_root", "channel", "entry_type", "action", "summary", "payload"],
+        "properties": {
+            "channel": {"const": "experiment"},
+            "entry_type": {"const": entry_type},
+            "payload": payload_schema,
+        },
+    }
+    for entry_type, payload_schema in _EXPERIMENT_PAYLOAD_SCHEMAS.items()
+]
+
 TOOL_SCHEMAS = {
     "inspect": {
         "type": "object",
@@ -74,30 +180,21 @@ TOOL_SCHEMAS = {
             "run_id": {"type": "string"},
             "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 20},
             "include_legacy": {"type": "boolean", "default": True},
+            "working_directory": {"type": "string"},
+            "query": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "attempt_id": {"type": "string"},
+            "entry_type": {"type": "string", "enum": list(_EXPERIMENT_PAYLOAD_SCHEMAS)},
         },
         "additionalProperties": False,
     },
     "record": {
         "type": "object",
-        "required": ["project_root", "kind", "summary"],
-        "properties": {
-            "project_root": {"type": "string"},
-            "kind": {
-                "type": "string",
-                "enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note", "migration"],
-            },
-            "summary": {"type": "string", "minLength": 1},
-            "status": {"type": "string"},
-            "stage": {"type": "string"},
-            "run_id": {"type": "string"},
-            "goal": {"type": "string"},
-            "next_action": {"type": ["string", "object", "array"]},
-            "artifacts": {"type": "array", "items": _PATH_REF_SCHEMA},
-            "parent_ids": {"type": "array", "items": {"type": "string"}},
-            "details": {"type": "object"},
-            "migration_report_hash": {"type": "string"},
-            "confirm_migration": {"type": "boolean", "default": False},
-        },
+        "properties": {**_OPERATIONAL_RECORD_PROPERTIES, **_EXPERIMENT_RECORD_PROPERTIES},
+        "oneOf": [
+            {"required": ["project_root", "kind", "summary"], "properties": {"channel": {"enum": ["operational"]}}},
+            *_EXPERIMENT_RECORD_VARIANTS,
+        ],
         "additionalProperties": False,
     },
     "checkpoint": {
@@ -114,6 +211,8 @@ TOOL_SCHEMAS = {
             "restart_refs": {"type": "array", "items": _PATH_REF_SCHEMA},
             "resume_command": {"type": "string"},
             "risk_notes": {"type": "array", "items": {"type": "string"}},
+            "experiment_id": {"type": "string"},
+            "attempt_id": {"type": "string"},
         },
         "additionalProperties": False,
     },

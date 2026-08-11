@@ -30,12 +30,98 @@ def test_server_exposes_exactly_four_composite_tools():
     listed = _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)
     schemas = {item["name"]: item["inputSchema"] for item in listed}
     assert schemas["inspect"]["required"] == ["project_root"]
-    assert schemas["record"]["required"] == ["project_root", "kind", "summary"]
+    assert len(schemas["record"]["oneOf"]) == 7
+    assert schemas["record"]["oneOf"][0]["required"] == ["project_root", "kind", "summary"]
+    assert {branch["properties"]["entry_type"]["const"] for branch in schemas["record"]["oneOf"][1:]} == {
+        "experiment", "attempt", "observation", "decision", "material_action", "recovery",
+    }
     assert schemas["checkpoint"]["required"] == ["project_root", "summary"]
     assert schemas["recover"]["required"] == ["project_root"]
     assert all(schema["additionalProperties"] is False for schema in schemas.values())
     assert "migration" in schemas["inspect"]["properties"]["kind"]["enum"]
     assert "migration" in schemas["record"]["properties"]["kind"]["enum"]
+
+
+def test_experiment_record_schema_is_separate_from_operational_kinds(tmp_path):
+    server = _load_state_server()
+    mixed = server.handle_request({
+        "tool": "record",
+        "params": {
+            "project_root": str(tmp_path),
+            "channel": "experiment",
+            "kind": "note",
+            "entry_type": "experiment",
+            "action": "create",
+            "summary": "invalid mixed record",
+            "payload": {"title": "Question", "research_question": "Why?", "scope_paths": ["."]},
+        },
+    })
+    wrong_payload = server.handle_request({
+        "tool": "record",
+        "params": {
+            "project_root": str(tmp_path),
+            "channel": "experiment",
+            "entry_type": "attempt",
+            "action": "define",
+            "summary": "invalid attempt",
+            "experiment_id": "exp_123456789abc",
+            "payload": {"title": "not an attempt field"},
+        },
+    })
+
+    assert mixed["status"] == "error"
+    assert "Unsupported experiment record fields" in mixed["message"]
+    assert wrong_payload["status"] == "error"
+    assert "Unsupported attempt payload fields" in wrong_payload["message"]
+
+
+def test_create_inspect_and_append_experiment_memory(tmp_path):
+    server = _load_state_server()
+    scope = tmp_path / "stage6_NEP" / "NEPv3"
+    scope.mkdir(parents=True)
+    created = server.handle_request({
+        "tool": "record",
+        "params": {
+            "project_root": str(tmp_path),
+            "channel": "experiment",
+            "entry_type": "experiment",
+            "action": "create",
+            "summary": "Define the high-temperature dataset question",
+            "payload": {
+                "title": "NEPv3 high-temperature dataset",
+                "research_question": "Should frames at or above 400 K enter NEPv3?",
+                "scope_paths": ["stage6_NEP/NEPv3"],
+                "tags": ["nep", "dataset"],
+            },
+        },
+    })
+    experiment_id = created["data"]["experiment_id"]
+    appended = server.handle_request({
+        "tool": "record",
+        "params": {
+            "project_root": str(tmp_path),
+            "channel": "experiment",
+            "entry_type": "observation",
+            "action": "record",
+            "summary": "Frames at or above 400 K were excluded",
+            "experiment_id": experiment_id,
+            "payload": {"details": {"criterion": "temperature >= 400 K"}, "next_action": "train NEPv3"},
+        },
+    })
+    inspected = server.handle_request({
+        "tool": "inspect",
+        "params": {
+            "project_root": str(tmp_path),
+            "working_directory": str(scope),
+            "query": "NEPv3 400 K dataset",
+        },
+    })
+
+    assert created["status"] == appended["status"] == inspected["status"] == "success"
+    assert inspected["data"]["experiment_memory"]["selected_experiment_id"] == experiment_id
+    assert inspected["data"]["experiment_memory"]["entries"][-1]["entry_type"] == "observation"
+    assert inspected["data"]["project"]["current"]["next_action"] == "train NEPv3"
+    assert (tmp_path / ".simflow" / "experiments" / "index.md").is_file()
 
 
 def test_record_initializes_compact_store_without_engagement(tmp_path):

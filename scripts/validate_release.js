@@ -717,7 +717,8 @@ function validateWorkflowAutomation() {
     'tools = {item["name"]: item["inputSchema"] for item in _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)}',
     'assert set(tools) == {"inspect", "record", "checkpoint", "recover"}',
     'assert tools["inspect"]["required"] == ["project_root"]',
-    'assert tools["record"]["required"] == ["project_root", "kind", "summary"]',
+    'assert tools["record"]["oneOf"][0]["required"] == ["project_root", "kind", "summary"]',
+    'assert len(tools["record"]["oneOf"]) == 7',
     'assert tools["checkpoint"]["required"] == ["project_root", "summary"]',
     'assert tools["recover"]["required"] == ["project_root"]',
   ].join('; ');

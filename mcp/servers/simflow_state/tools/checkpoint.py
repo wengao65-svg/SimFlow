@@ -20,6 +20,8 @@ def execute(params: dict) -> dict:
             restart_refs=params.get("restart_refs"),
             resume_command=params.get("resume_command"),
             risk_notes=params.get("risk_notes"),
+            experiment_id=params.get("experiment_id"),
+            attempt_id=params.get("attempt_id"),
         )
     except (ProjectRootError, TypeError, ValueError) as error:
         return {"status": "error", "message": str(error)}

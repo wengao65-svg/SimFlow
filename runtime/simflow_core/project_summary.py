@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +13,7 @@ from typing import Any
 
 from .experiment_notebook import list_experiment_notebooks
 from .records import list_project_records
-from .state import resolve_project_root
+from .state import resolve_project_path, resolve_project_root
 
 
 PROJECT_SUMMARY_SCHEMA = "simflow.project.v2"
@@ -137,10 +138,12 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
     checkpoint_paths = sorted(checkpoints_dir.glob("*.json")) if checkpoints_dir.is_dir() else []
 
     record_counts: dict[str, int] = {}
-    active_run_ids: set[str] = set()
+    active_run_ids: list[str] = []
     latest_checkpoint_id = None
     latest_milestone_id = None
     latest_failure_id = None
+    latest_goal = None
+    latest_next_action = None
     for record in records:
         kind = record.get("kind")
         record_counts[kind] = record_counts.get(kind, 0) + 1
@@ -150,11 +153,18 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
             latest_failure_id = record.get("record_id")
         if kind == "checkpoint":
             latest_checkpoint_id = record.get("checkpoint_id")
+        if record.get("goal") is not None:
+            latest_goal = record.get("goal")
+        if record.get("next_action") is not None:
+            latest_next_action = record.get("next_action")
         if kind == "run" and record.get("run_id"):
             if record.get("status") in {"planned", "prepared", "submitted", "queued", "running", "paused"}:
-                active_run_ids.add(record["run_id"])
+                if record["run_id"] in active_run_ids:
+                    active_run_ids.remove(record["run_id"])
+                active_run_ids.append(record["run_id"])
             elif record.get("status") in {"completed", "failed", "cancelled", "abandoned"}:
-                active_run_ids.discard(record["run_id"])
+                if record["run_id"] in active_run_ids:
+                    active_run_ids.remove(record["run_id"])
 
     timestamps = [
         value for value in [
@@ -176,18 +186,20 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
         "created_at": min(timestamps) if timestamps else _now(),
         "updated_at": max(timestamps) if timestamps else _now(),
         "current": {
-            "goal": latest_experiment.get("research_question") if latest_experiment else None,
+            "goal": latest_experiment.get("research_question") if latest_experiment else latest_goal,
             "active_experiment_ids": active_experiments,
             "latest_experiment_id": latest_experiment.get("experiment_id") if latest_experiment else None,
-            "active_run_ids": sorted(active_run_ids),
-            "active_run_id": sorted(active_run_ids)[-1] if active_run_ids else None,
+            "active_run_ids": active_run_ids,
+            "active_run_id": active_run_ids[-1] if active_run_ids else None,
             "latest_milestone_id": latest_milestone_id,
             "latest_failure_id": latest_failure_id,
             "latest_checkpoint_id": latest_checkpoint_id,
-            "next_action": latest_experiment.get("next_action") if latest_experiment else None,
+            "next_action": latest_experiment.get("next_action") if latest_experiment and latest_experiment.get("next_action") is not None else latest_next_action,
             "open_material_actions": open_material,
         },
         "counts": {
+            "total": len(records),
+            "by_kind": record_counts,
             "operational_total": len(records),
             "operational_by_kind": record_counts,
             "experiments": len(experiments),
@@ -203,6 +215,119 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
         "source_cursors": build_source_cursors(str(root)),
     }
     return summary
+
+
+def inspect_experiment_context(
+    project_root: str,
+    *,
+    working_directory: str | None = None,
+    query: str | None = None,
+    experiment_id: str | None = None,
+    attempt_id: str | None = None,
+    entry_type: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Rank relevant Experiments and merge scientific and operational timelines."""
+    root = resolve_project_root(project_root=project_root)
+    summary = build_project_summary(str(root))
+    notebooks = {item["header"]["experiment_id"]: item for item in list_experiment_notebooks(str(root))}
+    directory = resolve_project_path(working_directory or str(root), project_root=str(root))
+    relative_directory = directory.relative_to(root).as_posix() or "."
+    query_tokens = {
+        token for token in re.findall(r"[A-Za-z0-9_+-]{3,}", str(query or "").lower())
+    }
+
+    candidates = []
+    for item in summary["experiments"]:
+        if experiment_id and item["experiment_id"] != experiment_id:
+            continue
+        path_match = False
+        path_reasons = []
+        for scope in item.get("scope_paths", []):
+            scope_path = resolve_project_path(scope, project_root=str(root))
+            try:
+                directory.relative_to(scope_path)
+                path_match = True
+                path_reasons.append(f"working_directory is inside {scope}")
+                continue
+            except ValueError:
+                pass
+            try:
+                scope_path.relative_to(directory)
+                path_match = True
+                path_reasons.append(f"scope {scope} is inside working_directory")
+            except ValueError:
+                pass
+        haystack = " ".join([
+            str(item.get("title") or ""),
+            str(item.get("research_question") or ""),
+            " ".join(item.get("tags", [])),
+        ]).lower()
+        matched_tokens = sorted(token for token in query_tokens if token in haystack)
+        query_match = bool(matched_tokens)
+        score = (100 if path_match else 0) + min(50, len(matched_tokens) * 5) + (10 if item["status"] == "active" else 0)
+        reasons = [*path_reasons]
+        if matched_tokens:
+            reasons.append(f"query tokens matched: {', '.join(matched_tokens)}")
+        if item["status"] == "active":
+            reasons.append("experiment is active")
+        candidates.append({
+            **item,
+            "score": score,
+            "path_match": path_match,
+            "query_match": query_match,
+            "match_reasons": reasons,
+        })
+    candidates.sort(key=lambda item: (item["score"], item["latest_entry_at"]), reverse=True)
+
+    selected_id = None
+    if experiment_id and experiment_id in notebooks:
+        selected_id = experiment_id
+    else:
+        active_path = [item for item in candidates if item["status"] == "active" and item["path_match"]]
+        if len(active_path) == 1:
+            selected_id = active_path[0]["experiment_id"]
+        else:
+            active_both = [item for item in active_path if item["query_match"]]
+            if len(active_both) == 1:
+                selected_id = active_both[0]["experiment_id"]
+
+    entries: list[dict[str, Any]] = []
+    if selected_id:
+        entries = list(notebooks[selected_id]["entries"])
+        if attempt_id:
+            entries = [item for item in entries if item.get("attempt_id") == attempt_id]
+        if entry_type:
+            entries = [item for item in entries if item.get("entry_type") == entry_type]
+    operational = [
+        record for record in list_project_records(str(root))
+        if selected_id and (
+            record.get("experiment_id") == selected_id
+            or (isinstance(record.get("details"), dict) and record["details"].get("experiment_id") == selected_id)
+        )
+    ]
+    if attempt_id:
+        operational = [
+            record for record in operational
+            if record.get("attempt_id") == attempt_id
+            or (isinstance(record.get("details"), dict) and record["details"].get("attempt_id") == attempt_id)
+        ]
+    timeline = [
+        *({"source": "notebook", **item} for item in entries),
+        *({"source": "operational", **item} for item in operational),
+    ]
+    timeline.sort(key=lambda item: item.get("created_at", ""))
+    bounded = max(1, min(int(limit), 200))
+    return {
+        "working_directory": relative_directory,
+        "query": query,
+        "candidates": candidates,
+        "selected_experiment_id": selected_id,
+        "selection_ambiguous": selected_id is None and len(candidates) > 1,
+        "entries": entries[-bounded:],
+        "operational_records": operational[-bounded:],
+        "timeline": timeline[-bounded:],
+    }
 
 
 def _render_index(summary: dict[str, Any]) -> str:
@@ -233,7 +358,9 @@ def rebuild_project_summary(project_root: str, *, write: bool = True) -> dict[st
             root / ".simflow" / "project.json",
             json.dumps(summary, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         )
-        _write_atomic(root / ".simflow" / "experiments" / "index.md", _render_index(summary))
+        experiments_dir = root / ".simflow" / "experiments"
+        if summary["experiments"] or experiments_dir.is_dir():
+            _write_atomic(experiments_dir / "index.md", _render_index(summary))
     return summary
 
 
@@ -247,4 +374,3 @@ def project_summary_is_stale(project_root: str) -> bool:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return True
     return current.get("source_cursors") != build_source_cursors(str(root))
-
