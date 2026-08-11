@@ -30,8 +30,8 @@ TOOLS = {
 }
 
 TOOL_DESCRIPTIONS = {
-    "inspect": "Read compact project status, recent records, recovery points, and legacy-state presence without writing.",
-    "record": "Append one logical milestone, run, artifact, analysis, approval, failure, or note record.",
+    "inspect": "Read compact project status, recent records, recovery points, and a read-only legacy migration audit.",
+    "record": "Append one logical project record or explicitly confirm a migration audit by hash.",
     "checkpoint": "Create a compact recovery reference containing hashes, restart paths, and restart instructions.",
     "recover": "Validate a compact checkpoint and return recovery readiness without executing compute.",
 }
@@ -66,7 +66,7 @@ TOOL_SCHEMAS = {
                 "type": "string",
                 "enum": [
                     "milestone", "run", "artifact", "analysis", "approval",
-                    "failure", "note", "checkpoint", "recovery",
+                    "failure", "note", "checkpoint", "recovery", "migration",
                 ],
             },
             "status": {"type": "string"},
@@ -84,7 +84,7 @@ TOOL_SCHEMAS = {
             "project_root": {"type": "string"},
             "kind": {
                 "type": "string",
-                "enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note"],
+                "enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note", "migration"],
             },
             "summary": {"type": "string", "minLength": 1},
             "status": {"type": "string"},
@@ -95,6 +95,8 @@ TOOL_SCHEMAS = {
             "artifacts": {"type": "array", "items": _PATH_REF_SCHEMA},
             "parent_ids": {"type": "array", "items": {"type": "string"}},
             "details": {"type": "object"},
+            "migration_report_hash": {"type": "string"},
+            "confirm_migration": {"type": "boolean", "default": False},
         },
         "additionalProperties": False,
     },

@@ -34,6 +34,8 @@ def test_server_exposes_exactly_four_composite_tools():
     assert schemas["checkpoint"]["required"] == ["project_root", "summary"]
     assert schemas["recover"]["required"] == ["project_root"]
     assert all(schema["additionalProperties"] is False for schema in schemas.values())
+    assert "migration" in schemas["inspect"]["properties"]["kind"]["enum"]
+    assert "migration" in schemas["record"]["properties"]["kind"]["enum"]
 
 
 def test_record_initializes_compact_store_without_engagement(tmp_path):
@@ -156,6 +158,34 @@ def test_inspect_reports_legacy_state_without_rewriting_it(tmp_path):
     assert result["data"]["legacy"]["counts"]["artifacts"] == 1
     assert artifacts.read_text(encoding="utf-8") == '[{"artifact_id": "art_old"}]\n'
     assert not (tmp_path / ".simflow" / "project.json").exists()
+
+
+def test_migration_is_confirmed_by_inspected_hash_and_is_idempotent(tmp_path):
+    legacy = tmp_path / ".simflow" / "state"
+    legacy.mkdir(parents=True)
+    workflow = legacy / "workflow.json"
+    workflow.write_text('{"workflow_id": "wf_old"}\n', encoding="utf-8")
+    original = workflow.read_bytes()
+    server = _load_state_server()
+
+    inspected = server.handle_request({"tool": "inspect", "params": {"project_root": str(tmp_path)}})
+    report_hash = inspected["data"]["migration"]["migration_report_hash"]
+    params = {
+        "project_root": str(tmp_path),
+        "kind": "migration",
+        "summary": "Index legacy state",
+        "migration_report_hash": report_hash,
+        "confirm_migration": True,
+    }
+    first = server.handle_request({"tool": "record", "params": params})
+    second = server.handle_request({"tool": "record", "params": params})
+
+    assert first["status"] == "success"
+    assert first["data"]["status"] == "applied"
+    assert second["data"]["status"] == "already_applied"
+    assert workflow.read_bytes() == original
+    records = (tmp_path / ".simflow" / "records.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(records) == 1
 
 
 def test_unknown_tool_returns_error():

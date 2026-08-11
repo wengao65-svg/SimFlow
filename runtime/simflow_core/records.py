@@ -40,6 +40,7 @@ RECORD_KINDS = (
     "note",
     "checkpoint",
     "recovery",
+    "migration",
 )
 ACTIVE_RUN_STATUSES = {"planned", "prepared", "submitted", "queued", "running", "paused"}
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled", "abandoned"}
@@ -382,6 +383,9 @@ def inspect_project(
     }
     if include_legacy:
         result["legacy"] = _legacy_summary(paths)
+        from .migration import build_migration_report
+
+        result["migration"] = build_migration_report(str(root))
     return result
 
 
