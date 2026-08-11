@@ -316,7 +316,9 @@ def test_cp2k_record_helper_run_creates_helper_artifacts_only():
         assert result["simflow_result"]["state_effect"] == "record_only"
         checkpoints = json.loads((root / ".simflow/state/checkpoints.json").read_text(encoding="utf-8"))
         stages = json.loads((root / ".simflow/state/stages.json").read_text(encoding="utf-8"))
-        artifacts = json.loads((root / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+        from runtime.simflow_core.artifacts import list_artifacts
+
+        artifacts = list_artifacts(project_root=str(root))
         manifest_path = next(
             Path(root / artifact["path"])
             for artifact in artifacts

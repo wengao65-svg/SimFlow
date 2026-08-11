@@ -1,228 +1,99 @@
-"""Artifact management with versioning and lineage."""
+"""Logical deliverable compatibility adapter.
+
+New artifact writes are single compact records. Legacy artifact registries are
+read-only inputs retained for old projects; this module never synchronizes
+lineage, stages, summaries, or checkpoint snapshots.
+"""
+
+from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .state import (
-    CANONICAL_ARTIFACT_STAGE_DIRS,
-    ensure_workflow_initialized,
-    read_state,
-    resolve_project_root,
-    touch_workflow,
-)
-
-ARTIFACTS_DIR = ".simflow/artifacts"
-STATE_FILE = ".simflow/state/artifacts.json"
-_ORIGINAL_OS_REPLACE = os.replace
+from .records import list_project_records, record_event
+from .state import ProjectRootError, read_state, resolve_project_path, resolve_project_root
 
 
-def _compute_checksum(file_path: str) -> str:
-    """Compute SHA256 checksum of a file."""
-    h = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def _compute_checksum(file_path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(file_path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-def _compute_directory_tree_hash(dir_path: Path) -> tuple[str, dict]:
-    """Compute a tree hash for a directory and collect file statistics.
-
-    Walks the directory recursively, sorts file paths, computes SHA256 for
-    each file, and hashes its relative path, size, and content digest. Returns
-    (tree_hash, stats_dict).
-
-    stats_dict contains:
-    - file_count: number of files
-    - total_size_bytes: total size of all files
-    - file_hashes: list of {path, sha256, size} for each file
-    """
-    file_entries = []
+def _compute_directory_tree_hash(directory: Path) -> tuple[str, dict[str, Any]]:
+    entries = []
     total_size = 0
-    for path in sorted(dir_path.rglob("*")):
-        if path.is_file():
-            sha = _compute_checksum(str(path))
-            size = path.stat().st_size
-            total_size += size
-            rel_path = str(path.relative_to(dir_path))
-            file_entries.append({"path": rel_path, "sha256": sha, "size": size})
-
-    h = hashlib.sha256()
-    for entry in file_entries:
-        encoded = json.dumps(
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        size = path.stat().st_size
+        sha256 = _compute_checksum(path)
+        total_size += size
+        entries.append({"path": str(path.relative_to(directory)), "sha256": sha256, "size": size})
+    digest = hashlib.sha256()
+    for entry in entries:
+        payload = json.dumps(
             [entry["path"], entry["size"], entry["sha256"]],
             ensure_ascii=False,
             separators=(",", ":"),
         ).encode("utf-8")
-        h.update(len(encoded).to_bytes(8, "big"))
-        h.update(encoded)
-    tree_hash = h.hexdigest()
-
-    stats = {
-        "file_count": len(file_entries),
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+    tree_hash = digest.hexdigest()
+    return tree_hash, {
+        "is_directory": True,
+        "file_count": len(entries),
         "total_size_bytes": total_size,
-        "file_hashes": file_entries,
+        "tree_hash": tree_hash,
+        "tree_hash_algorithm": "sha256-path-size-content-v1",
     }
-    return tree_hash, stats
 
 
-def _read_artifacts(base_dir: str = ".", project_root: Optional[str] = None) -> list:
-    """Read the artifacts registry."""
-    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    path = root / STATE_FILE
-    if not path.exists():
+def _legacy_artifacts(root: Path) -> list[dict[str, Any]]:
+    path = root / ".simflow" / "state" / "artifacts.json"
+    if not path.is_file():
         return []
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _write_artifacts(artifacts: list, base_dir: str = ".", project_root: Optional[str] = None) -> None:
-    """Write the artifacts registry."""
-    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    ensure_workflow_initialized(project_root=str(root))
-    path = root / STATE_FILE
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(artifacts, f, indent=2, ensure_ascii=False)
-
-
-def _write_temp_json(target_path: Path, data: Any) -> Path:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{target_path.stem}.",
-        suffix=".tmp",
-        dir=str(target_path.parent),
-    )
-    temp_path = Path(tmp_name)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, indent=2, ensure_ascii=False)
-        return temp_path
-    except Exception:
-        temp_path.unlink(missing_ok=True)
-        raise
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return []
+    return payload if isinstance(payload, list) else []
 
 
-def _restore_file(path: Path, previous: Optional[bytes]) -> None:
-    if previous is None:
-        path.unlink(missing_ok=True)
-        return
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{path.stem}.rollback.",
-        suffix=".tmp",
-        dir=str(path.parent),
-    )
-    temp_path = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(previous)
-        _ORIGINAL_OS_REPLACE(str(temp_path), str(path))
-    except Exception:
-        temp_path.unlink(missing_ok=True)
-        raise
+def _read_artifacts(base_dir: str = ".", project_root: Optional[str] = None) -> list[dict[str, Any]]:
+    """Compatibility alias for read-only artifact consumers."""
+    return list_artifacts(base_dir=base_dir, project_root=project_root)
 
 
-def _write_registration_transaction(root: Path, updates: dict[str, Any]) -> None:
-    """Replace artifact-related state together and roll back partial writes."""
-    state_dir = root / ".simflow" / "state"
-    targets = {name: state_dir / name for name in updates}
-    previous = {
-        name: path.read_bytes() if path.exists() else None
-        for name, path in targets.items()
+def _record_to_artifact(record: dict[str, Any]) -> dict[str, Any]:
+    details = record.get("details", {}) if isinstance(record.get("details"), dict) else {}
+    refs = record.get("artifacts", []) if isinstance(record.get("artifacts"), list) else []
+    ref = refs[0] if refs and isinstance(refs[0], dict) else {}
+    artifact_id = record.get("record_id")
+    return {
+        "artifact_id": artifact_id,
+        "workflow_id": details.get("workflow_id"),
+        "name": details.get("name") or record.get("summary"),
+        "type": details.get("type") or "logical_deliverable",
+        "version": details.get("version") or "v1.0.0",
+        "stage": record.get("stage"),
+        "path": ref.get("path"),
+        "lineage": {
+            "parent_artifacts": list(record.get("parent_ids", [])),
+            "parameters": details.get("parameters", {}),
+            "software": details.get("software"),
+        },
+        "metadata": details.get("metadata", {}),
+        "checksum": ref.get("sha256"),
+        "created_at": record.get("created_at"),
+        "record_id": artifact_id,
+        "storage": "compact_record",
     }
-    temps: dict[str, Path] = {}
-    try:
-        for name, data in updates.items():
-            temps[name] = _write_temp_json(targets[name], data)
-    except Exception:
-        for temp_path in temps.values():
-            temp_path.unlink(missing_ok=True)
-        raise
-    replaced: list[str] = []
-    try:
-        for name in ("artifacts.json", "lineage.json", "stages.json"):
-            os.replace(str(temps[name]), str(targets[name]))
-            replaced.append(name)
-    except Exception:
-        for temp_path in temps.values():
-            temp_path.unlink(missing_ok=True)
-        for name in reversed(replaced):
-            _restore_file(targets[name], previous[name])
-        raise
-
-
-def _updated_lineage_state(root: Path, artifact: dict, now: str) -> dict:
-    lineage_state = read_state(project_root=str(root), state_file="lineage.json")
-    if not isinstance(lineage_state, dict):
-        lineage_state = {}
-    nodes = list(lineage_state.get("artifacts", []))
-    links = list(lineage_state.get("links", []))
-    nodes.append({
-        "artifact_id": artifact["artifact_id"],
-        "workflow_id": artifact["workflow_id"],
-        "name": artifact.get("name"),
-        "type": artifact.get("type"),
-        "stage": artifact.get("stage"),
-        "version": artifact.get("version"),
-        "path": artifact.get("path"),
-        "checksum": artifact.get("checksum"),
-        "updated_at": now,
-    })
-    for parent_id in artifact.get("lineage", {}).get("parent_artifacts", []):
-        links.append({
-            "link_id": f"lin_{uuid.uuid4().hex[:8]}",
-            "child_artifact_id": artifact["artifact_id"],
-            "parent_artifact_id": parent_id,
-            "relationship": "derived_from",
-            "stage": artifact.get("stage"),
-            "parameters": artifact.get("lineage", {}).get("parameters", {}),
-            "created_at": now,
-        })
-    return {**lineage_state, "artifacts": nodes, "links": links}
-
-
-def _updated_stage_state(
-    root: Path,
-    stage: str,
-    artifact_id: str,
-    now: str,
-    *,
-    sync_stage_outputs: bool,
-) -> dict:
-    stages = read_state(project_root=str(root), state_file="stages.json")
-    if not isinstance(stages, dict):
-        stages = {}
-    if not sync_stage_outputs:
-        return stages
-    if stage not in stages:
-        stages[stage] = {
-            "stage_name": stage,
-            "status": "pending",
-            "agent": None,
-            "inputs": [],
-            "outputs": [],
-            "checkpoint_id": None,
-            "failure_checkpoint_id": None,
-            "last_success_checkpoint_id": None,
-            "error_message": None,
-            "error_report_artifact_id": None,
-            "started_at": None,
-            "completed_at": None,
-        }
-        if stage not in CANONICAL_ARTIFACT_STAGE_DIRS:
-            stages[stage]["custom_stage"] = True
-    outputs = list(stages[stage].get("outputs", []))
-    if artifact_id not in outputs:
-        outputs.append(artifact_id)
-    stages[stage]["outputs"] = outputs
-    stages[stage]["updated_at"] = now
-    return stages
 
 
 def register_artifact(
@@ -241,120 +112,77 @@ def register_artifact(
     experiment_id: Optional[str] = None,
     iteration_id: Optional[str] = None,
     activity_id: Optional[str] = None,
-) -> dict:
-    """Register a new artifact."""
+) -> dict[str, Any]:
+    """Record one logical deliverable without mutating legacy registries."""
+    del sync_stage_outputs, session_context_id, experiment_id, iteration_id, activity_id
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    from .experiment_memory import experiment_write_scope, record_linked_write, require_write_context
-
-    context = require_write_context(
-        str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
-    )
-    if context:
-        session_context_id = context.session_context_id
-        experiment_id = context.experiment_id
-        iteration_id = context.iteration_id
-        activity_id = context.activity_id
-    with experiment_write_scope(context):
-        workflow = ensure_workflow_initialized(project_root=str(root))
-    artifacts = _read_artifacts(project_root=str(root))
-    now = datetime.now(timezone.utc).isoformat()
-    art_id = f"art_{uuid.uuid4().hex[:8]}"
-
-    # Determine version
-    existing = [a for a in artifacts if a["name"] == name]
-    major = len(existing) + 1
-    version = f"v{major}.0.0"
-
-    # Compute checksum if path exists (file or directory)
+    artifact_id = f"art_{uuid.uuid4().hex[:12]}"
+    artifact_metadata = dict(metadata or {})
     checksum = None
-    artifact_metadata = metadata or {}
+    artifact_ref = None
     if path:
-        artifact_path = Path(path)
-        full_path = artifact_path if artifact_path.is_absolute() else root / artifact_path
-        if full_path.is_dir():
-            # Directory artifact: compute tree hash
-            tree_hash, dir_stats = _compute_directory_tree_hash(full_path)
-            checksum = tree_hash
-            artifact_metadata = {
-                **artifact_metadata,
-                "is_directory": True,
-                "file_count": dir_stats["file_count"],
-                "total_size_bytes": dir_stats["total_size_bytes"],
-                "tree_hash": tree_hash,
-                "tree_hash_algorithm": "sha256-path-size-content-v1",
-            }
-        elif full_path.exists():
-            # File artifact: compute single-file checksum
-            checksum = _compute_checksum(str(full_path))
+        try:
+            resolved = resolve_project_path(path, project_root=str(root))
+            artifact_ref = {"path": str(resolved.relative_to(root)), "role": artifact_type}
+        except ProjectRootError:
+            resolved = Path(path).expanduser().resolve()
+            artifact_ref = {"name": resolved.name, "role": artifact_type, "external_source": True}
+        if resolved.is_dir():
+            checksum, directory_metadata = _compute_directory_tree_hash(resolved)
+            artifact_metadata = {**artifact_metadata, **directory_metadata}
+            artifact_ref["sha256"] = checksum
+            artifact_ref["manifest_kind"] = "directory_tree"
+        elif resolved.is_file():
+            checksum = _compute_checksum(resolved)
+            artifact_ref["sha256"] = checksum
+            artifact_ref["size_bytes"] = resolved.stat().st_size
 
-    artifact = {
-        "artifact_id": art_id,
-        "workflow_id": workflow["workflow_id"],
-        "name": name,
-        "type": artifact_type,
-        "version": version,
-        "stage": stage,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
-        "path": path,
-        "lineage": {
-            "parent_artifacts": parent_artifacts or [],
-            "parameters": parameters or {},
-            "software": software,
-        },
-        "metadata": artifact_metadata,
-        "checksum": checksum,
-        "created_at": now,
-    }
-    _write_registration_transaction(root, {
-        "artifacts.json": [*artifacts, artifact],
-        "lineage.json": _updated_lineage_state(root, artifact, now),
-        "stages.json": _updated_stage_state(
-            root,
-            stage,
-            art_id,
-            now,
-            sync_stage_outputs=sync_stage_outputs,
-        ),
-    })
-    # Auto-refresh workflow.json/summary.json/status_summary.md
-    context_kwargs = {
-        "session_context_id": session_context_id,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
-    }
-    touch_workflow(str(root), **context_kwargs)
-    record_linked_write(
+    legacy_workflow = read_state(project_root=str(root), state_file="workflow.json")
+    workflow_id = legacy_workflow.get("workflow_id") if isinstance(legacy_workflow, dict) else None
+    if not workflow_id:
+        workflow_id = f"project_{hashlib.sha256(str(root).encode('utf-8')).hexdigest()[:12]}"
+    record = record_event(
         str(root),
         kind="artifact",
-        target_id=art_id,
-        path=path,
-        sha256=checksum,
-        role="artifact_output",
-        metadata={"name": name, "type": artifact_type, "stage": stage, "version": version},
-        **context_kwargs,
+        summary=name,
+        stage=stage,
+        artifacts=[artifact_ref] if artifact_ref else None,
+        parent_ids=list(parent_artifacts or []),
+        details={
+            "name": name,
+            "type": artifact_type,
+            "version": "v1.0.0",
+            "workflow_id": workflow_id,
+            "parameters": parameters or {},
+            "software": software,
+            "metadata": artifact_metadata,
+        },
+        record_id=artifact_id,
     )
-    return artifact
+    return _record_to_artifact(record)
 
 
-def get_artifact(artifact_id: str, base_dir: str = ".", project_root: Optional[str] = None) -> Optional[dict]:
-    """Get an artifact by ID."""
-    artifacts = _read_artifacts(base_dir, project_root=project_root)
-    for a in artifacts:
-        if a["artifact_id"] == artifact_id:
-            return a
-    return None
-
-
-def list_artifacts(stage: Optional[str] = None, base_dir: str = ".", project_root: Optional[str] = None) -> list:
-    """List artifacts, optionally filtered by stage."""
-    artifacts = _read_artifacts(base_dir, project_root=project_root)
+def list_artifacts(
+    stage: Optional[str] = None,
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """List compact deliverables plus read-only legacy artifact entries."""
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    compact = [_record_to_artifact(record) for record in list_project_records(str(root), kind="artifact")]
+    combined = [*_legacy_artifacts(root), *compact]
     if stage:
-        return [a for a in artifacts if a["stage"] == stage]
-    return artifacts
+        return [artifact for artifact in combined if artifact.get("stage") == stage]
+    return combined
+
+
+def get_artifact(
+    artifact_id: str,
+    base_dir: str = ".",
+    project_root: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Fetch one compact or legacy artifact without rewriting either store."""
+    for artifact in list_artifacts(base_dir=base_dir, project_root=project_root):
+        if artifact.get("artifact_id") == artifact_id:
+            return artifact
+    return None

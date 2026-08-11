@@ -98,8 +98,8 @@ def test_create_checkpoint_propagates_to_summary():
             "summary.json.updated_at should be refreshed after checkpoint creation"
 
 
-def test_register_artifact_propagates_to_workflow():
-    """register_artifact auto-refreshes workflow.json.updated_at."""
+def test_register_artifact_updates_compact_summary_not_legacy_workflow():
+    """Logical artifact records leave legacy workflow timestamps unchanged."""
     from runtime.simflow_core.state import init_workflow, read_state
     from runtime.simflow_core.artifacts import register_artifact
 
@@ -121,8 +121,9 @@ def test_register_artifact_propagates_to_workflow():
         )
 
         wf_after = read_state(project_root=tmpdir, state_file="workflow.json")
-        assert wf_after["updated_at"] != updated_at_before, \
-            "workflow.json.updated_at should be refreshed after artifact registration"
+        project = json.loads((Path(tmpdir) / ".simflow" / "project.json").read_text(encoding="utf-8"))
+        assert wf_after["updated_at"] == updated_at_before
+        assert project["counts"]["by_kind"]["artifact"] == 1
 
 
 def test_update_stage_propagates_to_workflow():

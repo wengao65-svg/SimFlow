@@ -39,7 +39,7 @@ class TestCheckpoint:
         registry = json.loads(registry_path.read_text(encoding="utf-8"))
         assert registry[0]["checkpoint_id"] == ckpt["checkpoint_id"]
 
-    def test_checkpoint_captures_lineage_snapshot(self):
+    def test_legacy_checkpoint_does_not_duplicate_compact_lineage(self):
         parent = register_artifact("input.json", "input_manifest", "computation", self.base_dir)
         child = register_artifact(
             "analysis.json",
@@ -50,12 +50,8 @@ class TestCheckpoint:
         )
 
         ckpt = create_checkpoint("wf_test", "analysis_visualization", "After analysis", self.base_dir)
-        links = ckpt["lineage_snapshot"]["links"]
-        assert any(
-            link["parent_artifact_id"] == parent["artifact_id"]
-            and link["child_artifact_id"] == child["artifact_id"]
-            for link in links
-        )
+        assert ckpt["lineage_snapshot"]["links"] == []
+        assert child["lineage"]["parent_artifacts"] == [parent["artifact_id"]]
 
     def test_list_checkpoints(self):
         create_checkpoint("wf_test", "literature_review", "First", self.base_dir)

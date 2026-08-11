@@ -1,5 +1,6 @@
 """Workflow state management."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -237,6 +238,44 @@ def write_report(
 def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_root: Optional[str] = None) -> Any:
     """Read a state file from .simflow/state/."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    if state_file == "artifacts.json":
+        from .artifacts import list_artifacts
+
+        return list_artifacts(project_root=str(root))
+    if state_file == "lineage.json":
+        from .artifacts import list_artifacts
+
+        artifacts = list_artifacts(project_root=str(root))
+        return {
+            "artifacts": [
+                {
+                    "artifact_id": artifact.get("artifact_id"),
+                    "name": artifact.get("name"),
+                    "type": artifact.get("type"),
+                    "stage": artifact.get("stage"),
+                    "version": artifact.get("version"),
+                    "path": artifact.get("path"),
+                    "checksum": artifact.get("checksum"),
+                    "updated_at": artifact.get("created_at"),
+                }
+                for artifact in artifacts
+            ],
+            "links": [
+                {
+                    "link_id": "lin_" + hashlib.sha256(
+                        f"{artifact.get('artifact_id')}:{parent_id}".encode("utf-8")
+                    ).hexdigest()[:12],
+                    "child_artifact_id": artifact.get("artifact_id"),
+                    "parent_artifact_id": parent_id,
+                    "relationship": "derived_from",
+                    "stage": artifact.get("stage"),
+                    "parameters": artifact.get("lineage", {}).get("parameters", {}),
+                    "created_at": artifact.get("created_at"),
+                }
+                for artifact in artifacts
+                for parent_id in (artifact.get("lineage", {}).get("parent_artifacts", []) or [])
+            ],
+        }
     path = root / STATE_DIR / state_file
     if not path.exists():
         return {}

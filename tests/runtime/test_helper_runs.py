@@ -6,7 +6,8 @@ from pathlib import Path
 
 from runtime.simflow_core.helpers import list_helper_runs, record_helper_run
 from runtime.simflow_core.lineage import get_lineage
-from runtime.simflow_core.state import init_workflow, read_state
+from runtime.simflow_core.artifacts import list_artifacts
+from runtime.simflow_core.state import init_workflow
 
 
 def test_record_helper_run_tracks_self_written_analysis_script():
@@ -38,7 +39,7 @@ def test_record_helper_run_tracks_self_written_analysis_script():
             metadata={"claim": "demo energy summary"},
         )
 
-        artifacts = read_state(project_root=tmpdir, state_file="artifacts.json")
+        artifacts = list_artifacts(project_root=tmpdir)
         helper_runs = list_helper_runs(project_root=tmpdir, stage="analysis_visualization")
         manifest_path = project_root / result["manifest_artifact"]["path"]
 

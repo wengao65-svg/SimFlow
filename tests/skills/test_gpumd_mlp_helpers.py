@@ -387,7 +387,9 @@ def test_orchestrate_gpumd_record_helper_run_creates_helper_artifacts_only(tmp_p
     assert result["simflow_result"]["state_effect"] == "record_only"
     checkpoints = json.loads((tmp_path / ".simflow/state/checkpoints.json").read_text(encoding="utf-8"))
     stages = json.loads((tmp_path / ".simflow/state/stages.json").read_text(encoding="utf-8"))
-    artifacts = json.loads((tmp_path / ".simflow/state/artifacts.json").read_text(encoding="utf-8"))
+    from runtime.simflow_core.artifacts import list_artifacts
+
+    artifacts = list_artifacts(project_root=str(tmp_path))
     manifest_path = next(
         tmp_path / artifact["path"]
         for artifact in artifacts

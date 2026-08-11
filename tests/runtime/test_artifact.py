@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for runtime/lib/artifact.py"""
 
-import os
 import json
 import shutil
 import sys
@@ -32,10 +31,12 @@ class TestArtifact:
         assert art["artifact_id"].startswith("art_")
         assert art["name"] == "test.md"
         assert art["version"] == "v1.0.0"
-        assert art["workflow_id"].startswith("wf_")
+        assert art["workflow_id"].startswith("project_")
 
+        assert art["storage"] == "compact_record"
+        assert (Path(self.base_dir) / ".simflow" / "records.jsonl").is_file()
         stages = json.loads((Path(self.base_dir) / ".simflow" / "state" / "stages.json").read_text())
-        assert stages["proposal"]["outputs"] == [art["artifact_id"]]
+        assert stages == {}
 
     def test_register_open_artifact_type_and_metadata(self):
         path = Path(self.base_dir) / "custom-output.dat"
@@ -88,16 +89,6 @@ class TestArtifact:
             software="matplotlib",
         )
 
-        lineage_state = json.loads((Path(self.base_dir) / ".simflow" / "state" / "lineage.json").read_text())
-        node_ids = {node["artifact_id"] for node in lineage_state["artifacts"]}
-        assert parent["artifact_id"] in node_ids
-        assert child["artifact_id"] in node_ids
-        assert any(
-            link["parent_artifact_id"] == parent["artifact_id"]
-            and link["child_artifact_id"] == child["artifact_id"]
-            for link in lineage_state["links"]
-        )
-
         lineage = get_lineage(child["artifact_id"], self.base_dir)
         assert lineage["parent_artifacts"] == [parent["artifact_id"]]
         assert lineage["links"][0]["relationship"] == "derived_from"
@@ -107,37 +98,12 @@ class TestArtifact:
         descendants = get_descendants(parent["artifact_id"], self.base_dir)
         assert descendants[0]["artifact_id"] == child["artifact_id"]
 
-    def test_registration_rolls_back_artifact_lineage_and_stage_together(self, monkeypatch):
-        from runtime.simflow_core import artifacts as artifact_module
-
-        parent = register_artifact("input.json", "input_manifest", "computation", self.base_dir)
+    def test_registration_does_not_mutate_legacy_registries(self):
         state_dir = Path(self.base_dir) / ".simflow" / "state"
-        before = {
-            name: (state_dir / name).read_bytes()
-            for name in ("artifacts.json", "lineage.json", "stages.json")
-        }
-        real_replace = artifact_module.os.replace
-        calls = 0
-
-        def fail_second_replace(source, target):
-            nonlocal calls
-            calls += 1
-            if calls == 2:
-                raise OSError("injected lineage write failure")
-            return real_replace(source, target)
-
-        monkeypatch.setattr(artifact_module.os, "replace", fail_second_replace)
-        with pytest.raises(OSError, match="injected lineage write failure"):
-            register_artifact(
-                "failed.json",
-                "output_manifest",
-                "computation",
-                self.base_dir,
-                parent_artifacts=[parent["artifact_id"]],
-            )
-
-        for name, content in before.items():
-            assert (state_dir / name).read_bytes() == content
+        before = {name: (state_dir / name).read_bytes() for name in ("artifacts.json", "lineage.json", "stages.json")}
+        register_artifact("result.json", "output_manifest", "computation", self.base_dir)
+        after = {name: (state_dir / name).read_bytes() for name in before}
+        assert after == before
 
 
 if __name__ == "__main__":

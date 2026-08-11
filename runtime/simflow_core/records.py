@@ -385,6 +385,15 @@ def inspect_project(
     return result
 
 
+def list_project_records(project_root: str, *, kind: str | None = None) -> list[dict[str, Any]]:
+    """Return canonical records for internal adapters without the MCP limit."""
+    root = resolve_project_root(project_root=project_root)
+    records = _read_records(_paths(root)["records"])
+    if kind is not None:
+        return [record for record in records if record.get("kind") == kind]
+    return records
+
+
 def create_recovery_checkpoint(
     project_root: str,
     *,

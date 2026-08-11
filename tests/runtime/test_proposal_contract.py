@@ -121,7 +121,7 @@ def test_generate_proposal_registers_protocol_contract_artifact():
         assert protocol["control_groups"][0]["status"] == "needs_definition"
 
 
-def test_load_proposal_contract_allows_missing_protocol_contract_artifact_for_old_projects():
+def test_load_proposal_contract_retains_append_only_reference_when_file_is_missing():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = _prepare_proposal(tmpdir)
         protocol_path = project_root / ".simflow" / "plans" / "protocol_contract.json"
@@ -134,7 +134,7 @@ def test_load_proposal_contract_allows_missing_protocol_contract_artifact_for_ol
         contract = load_proposal_contract(str(project_root / ".simflow"))
 
         assert contract["protocol_contract"] == {}
-        assert "protocol_contract.json" not in contract["proposal_artifacts"]
+        assert "protocol_contract.json" in contract["proposal_artifacts"]
 
 
 def test_load_proposal_contract_uses_metadata_over_parameter_table_values():
