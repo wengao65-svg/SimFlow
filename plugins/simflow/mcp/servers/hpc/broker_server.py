@@ -166,10 +166,11 @@ class SSHBrokerServer:
         connection, _ = self.socket.accept()
         with connection:
             try:
+                request = _receive_request(connection)
                 allowed_uid = int(os.environ.get("SIMFLOW_HPC_BROKER_ALLOWED_UID", str(os.geteuid())))
                 if _peer_uid(connection) != allowed_uid:
                     raise BrokerRequestError("broker peer uid is not allowed")
-                response = _dispatch(_receive_request(connection))
+                response = _dispatch(request)
             except Exception as exc:
                 response = {
                     "status": "error",
