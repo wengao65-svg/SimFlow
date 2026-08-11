@@ -17,6 +17,11 @@ def execute(params: dict) -> dict:
             run_id=params.get("run_id"),
             limit=params.get("limit", 20),
             include_legacy=params.get("include_legacy", True),
+            working_directory=params.get("working_directory"),
+            query=params.get("query"),
+            experiment_id=params.get("experiment_id"),
+            attempt_id=params.get("attempt_id"),
+            entry_type=params.get("entry_type"),
         )
     except (ProjectRootError, TypeError, ValueError) as error:
         return {"status": "error", "message": str(error)}

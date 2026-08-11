@@ -34,17 +34,34 @@ not need a state call merely because a Skill was used.
 ## Re-enter An Existing Project
 
 1. Inspect the project root and existing layout.
-2. Call `simflow_state/inspect` only if durable state or recovery context is
-   relevant.
-3. Continue from actual files and current user intent; do not reconstruct work
-   from host transcripts.
-4. Record only new logical events that need durable provenance.
-5. Create a checkpoint only when restart references or a meaningful diagnostic
+2. On the first SimFlow use for this project in the current user request, call
+   `simflow_state/inspect` once with `working_directory` and the current query.
+3. Reuse that result for the request; do not inspect before every Skill or file
+   action.
+4. Continue from exact files and the selected Experiment when the match is
+   unambiguous. Ask before a durable binding when selection is ambiguous.
+5. Record only new scientific memory or operational events that need durable
+   provenance.
+6. Create a checkpoint only when restart references or a meaningful diagnostic
    boundary exist.
 
-The compact summary already exposes current goal, active run, recent milestone,
-failure, checkpoint, and next action. No project re-entry, experiment,
-iteration, activity, or session-handoff lifecycle is required.
+The compact summary exposes active Experiments, current goal, active run,
+recent milestone, failure, checkpoint, open material actions, and next action.
+No session, iteration, activity, or mandatory handoff lifecycle is required.
+
+## Experiment Memory
+
+Use `record(channel="experiment")` for durable scientific semantics that a
+later request must recover: the scientific question, Attempts, observations,
+decisions, material evidence changes, recovery choices, uncertainty, and next
+action. Do not mirror raw trajectories, structures, outputs, or logs into the
+notebook; those files remain exact evidence and are referenced by path/hash.
+
+An Experiment follows one scientific question. Parameter variants such as
+temperature, element, seed, retry, and resume are Attempts unless they change
+the question or acceptance criteria. Ordinary parameter edits are Attempts or
+Decisions. Use `material_action` only for persistent changes to evidence or
+recoverability, and record both the planned action and terminal outcome.
 
 ## Records
 
@@ -123,7 +140,10 @@ actually executed.
 
 ## Legacy Migration
 
-`inspect` reports legacy `.simflow/state/*.json` and nested `.simflow` roots
-without writing. To persist a compact index, use `record(kind="migration")`
-with `confirm_migration=true` and the exact current report hash. The operation
-does not reorganize the project or import host conversations.
+`inspect` reports legacy `.simflow/state/*.json`, old `.simflow/memory/` files,
+and nested `.simflow` roots without writing. Memory inventory includes only
+path, size, hash, safe JSON shape, and SQLite header metadata; it never queries
+SQLite tables or imports memory content. To persist a compact index, use the
+operational `record(kind="migration")` branch with `confirm_migration=true` and
+the exact current report hash. The operation does not reorganize the project
+or import host conversations.

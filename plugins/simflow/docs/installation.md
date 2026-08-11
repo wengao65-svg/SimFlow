@@ -290,6 +290,7 @@ matching hashes, and an explicit approval bound to the plan's
 ### Remove project state
 
 SimFlow stores compact per-project state in `.simflow/`. Historical projects
-may also contain read-only legacy registries below `.simflow/state/`. Delete
-the root only when you intentionally want to remove all local SimFlow records,
-reports, and recovery references.
+may also contain read-only legacy registries below `.simflow/state/` and legacy
+memory below `.simflow/memory/`. Delete the root only when you intentionally
+want to remove all local SimFlow notebooks, records, reports, and recovery
+references.

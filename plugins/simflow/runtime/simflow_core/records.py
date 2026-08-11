@@ -292,6 +292,9 @@ def record_event(
     details: dict[str, Any] | None = None,
     record_id: str | None = None,
     checkpoint_id: str | None = None,
+    experiment_id: str | None = None,
+    attempt_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Append one logical project event and refresh the compact summary."""
     root = resolve_project_root(project_root=project_root)
@@ -318,16 +321,26 @@ def record_event(
         "parent_ids": list(parent_ids or []),
         "details": sanitize_record_value(details or {}),
         "checkpoint_id": checkpoint_id,
+        "experiment_id": experiment_id,
+        "attempt_id": attempt_id,
+        "idempotency_key": idempotency_key,
         "created_at": _now(),
     }
     record = {key: value for key, value in record.items() if value not in (None, [], {})}
 
     with _store_lock(paths["records"]):
-        project = _load_project(root, paths)
+        if idempotency_key:
+            for existing in _read_records(paths["records"]):
+                if existing.get("idempotency_key") == idempotency_key:
+                    return {**existing, "idempotent_replay": True}
         offset = _append_record(paths["records"], record)
         record["records_offset"] = offset
-        project = _update_project(project, record)
-        _write_json_atomic(paths["project"], project)
+    try:
+        from .project_summary import rebuild_project_summary
+
+        rebuild_project_summary(str(root))
+    except Exception as error:  # Canonical record is durable even if a derived view is malformed.
+        record["summary_refresh"] = {"status": "error", "message": str(error)}
     return record
 
 
@@ -353,6 +366,11 @@ def inspect_project(
     run_id: str | None = None,
     limit: int = 20,
     include_legacy: bool = True,
+    working_directory: str | None = None,
+    query: str | None = None,
+    experiment_id: str | None = None,
+    attempt_id: str | None = None,
+    entry_type: str | None = None,
 ) -> dict[str, Any]:
     """Read compact project status and filtered recent records without writing."""
     root = resolve_project_root(project_root=project_root)
@@ -368,9 +386,33 @@ def inspect_project(
     if run_id:
         filtered = [item for item in filtered if item.get("run_id") == run_id]
     bounded_limit = max(1, min(int(limit), 200))
-    project = _read_json(paths["project"], None)
+    canonical_present = paths["records"].is_file() or any(paths["checkpoints"].glob("*.json"))
+    experiments_dir = paths["simflow"] / "experiments"
+    canonical_present = canonical_present or (experiments_dir.is_dir() and any(experiments_dir.glob("exp_*.md")))
+    stored_project = _read_json(paths["project"], None)
+    project = stored_project
+    summary_stale = False
+    experiment_memory = None
+    if canonical_present:
+        from .project_summary import (
+            build_project_summary,
+            inspect_experiment_context,
+            project_summary_is_stale,
+        )
+
+        project = build_project_summary(str(root))
+        summary_stale = project_summary_is_stale(str(root))
+        experiment_memory = inspect_experiment_context(
+            str(root),
+            working_directory=working_directory,
+            query=query,
+            experiment_id=experiment_id,
+            attempt_id=attempt_id,
+            entry_type=entry_type,
+            limit=limit,
+        )
     result = {
-        "initialized": isinstance(project, dict) and project.get("schema_version") == PROJECT_SCHEMA,
+        "initialized": canonical_present or isinstance(stored_project, dict),
         "project": project,
         "records": filtered[-bounded_limit:],
         "record_count": len(records),
@@ -379,8 +421,12 @@ def inspect_project(
             "project": ".simflow/project.json",
             "records": ".simflow/records.jsonl",
             "checkpoints": ".simflow/checkpoints",
+            "experiments": ".simflow/experiments",
         },
+        "summary_stale": summary_stale,
     }
+    if experiment_memory is not None:
+        result["experiment_memory"] = experiment_memory
     if include_legacy:
         result["legacy"] = _legacy_summary(paths)
         from .migration import build_migration_report
@@ -410,6 +456,8 @@ def create_recovery_checkpoint(
     restart_refs: list[Any] | None = None,
     resume_command: str | None = None,
     risk_notes: list[str] | None = None,
+    experiment_id: str | None = None,
+    attempt_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a compact recovery reference without copying workflow registries."""
     root = resolve_project_root(project_root=project_root)
@@ -439,6 +487,8 @@ def create_recovery_checkpoint(
             "restart_refs": _normalize_path_refs(root, restart_refs),
             "resume_command": _sanitize_text(resume_command) if resume_command else None,
             "risk_notes": sanitize_record_value(risk_notes or []),
+            "experiment_id": experiment_id,
+            "attempt_id": attempt_id,
             "created_at": _now(),
         }
         checkpoint = {key: value for key, value in checkpoint.items() if value not in (None, [], {})}
@@ -452,16 +502,19 @@ def create_recovery_checkpoint(
                 "status": normalized_status,
                 "run_id": run_id,
                 "checkpoint_id": checkpoint_id,
+                "experiment_id": experiment_id,
+                "attempt_id": attempt_id,
                 "details": {"path": str(checkpoint_path.relative_to(root)), "records_offset": records_offset},
                 "created_at": checkpoint["created_at"],
             }
             record = {key: value for key, value in record.items() if value not in (None, [], {})}
             _append_record(paths["records"], record)
-            project = _update_project(_load_project(root, paths), record)
-            _write_json_atomic(paths["project"], project)
         except Exception:
             checkpoint_path.unlink(missing_ok=True)
             raise
+    from .project_summary import rebuild_project_summary
+
+    rebuild_project_summary(str(root))
     return checkpoint
 
 

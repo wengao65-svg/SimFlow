@@ -21,6 +21,25 @@ Task and Domain Skills are pure guidance. They must not require state calls,
 own stage transitions, create checkpoints as completion conditions, enforce a
 directory layout, or decide that real execution was approved or successful.
 
+## Memory Re-entry
+
+Experiment memory is a host/runtime concern, not a Task or Domain Skill
+lifecycle. On the first SimFlow use for a project in each user request:
+
+1. call `inspect` once with explicit `project_root`, the current working
+   directory, and a concise form of the user's current request;
+2. reuse that result for the remainder of the request rather than repeatedly
+   reading state before each action;
+3. silently continue with a selected Experiment only when `inspect` returns one
+   unambiguous match;
+4. ask before a durable write or execution binding when multiple Experiments
+   remain plausible;
+5. do not create a session record, handoff, checkpoint, or fixed user-facing
+   summary merely because re-entry occurred.
+
+This read is optional when SimFlow is not being used. It is always read-only and
+must not initialize `.simflow`.
+
 ## Runtime Use
 
 Use runtime only when an event needs inspection, durable recording, approval,
@@ -29,10 +48,10 @@ require a SimFlow state write.
 
 The public state tools are:
 
-- `inspect`: read compact status, records, checkpoints, and legacy migration
-  inventory without writing;
-- `record`: append one logical milestone, run, deliverable, analysis, approval,
-  failure, note, or confirmed migration record;
+- `inspect`: read relevant Experiment memory, operational status, recovery
+  points, and legacy migration inventory without writing;
+- `record`: append either one operational record or one schema-discriminated
+  Experiment notebook entry;
 - `checkpoint`: create a compact recovery reference;
 - `recover`: validate recovery references without executing compute or rolling
   back project files.
@@ -47,8 +66,10 @@ transfer scope, destructive scope, or restricted-file metadata invalidates it.
 
 - `.simflow/` is the only SimFlow runtime root and belongs at explicit
   `project_root`.
-- New state uses `.simflow/project.json`, `.simflow/records.jsonl`,
-  `.simflow/checkpoints/`, and `.simflow/reports/`.
+- New state uses `.simflow/experiments/`, `.simflow/project.json`,
+  `.simflow/records.jsonl`, `.simflow/checkpoints/`, and `.simflow/reports/`.
+- Experiment notebooks own scientific semantics. `records.jsonl` owns
+  operational execution truth. Actual project files remain exact evidence.
 - Legacy `.simflow/state/*.json` and nested `.simflow` roots are read-only
   compatibility inputs. Never rewrite or relocate them automatically.
 - `inspect` is read-only and must not initialize a project.
@@ -66,6 +87,12 @@ transfer scope, destructive scope, or restricted-file metadata invalidates it.
 
 - Record logical runs, milestones, deliverables, analyses, approvals, and
   failures once. Do not register every intermediate file or helper action.
+- Define an Experiment by its scientific question. Temperature, element, seed,
+  retry, and resume variants are Attempts unless the question or acceptance
+  criteria change.
+- Use paired material-action entries only for persistent operations that change
+  evidence or recoverability. Ordinary parameter changes belong in an Attempt
+  or Decision entry.
 - Use file references, hashes, manifests, and `parent_ids` to preserve useful
   provenance without duplicating registries.
 - A scheduler job ID means submitted, not completed. A readable output means
@@ -76,6 +103,8 @@ transfer scope, destructive scope, or restricted-file metadata invalidates it.
 - Ordinary task or stage completion does not require a checkpoint.
 - Recovery validates references and hashes. It never restores legacy state
   snapshots or silently changes project files.
+- Experiment and Attempt IDs are operational binding metadata and never enter
+  `run_plan_hash` or invalidate approval for an otherwise unchanged plan.
 
 ## Project Organization
 

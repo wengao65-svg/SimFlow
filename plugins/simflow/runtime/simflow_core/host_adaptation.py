@@ -36,7 +36,12 @@ def build_initialize_instructions(
         "generic": "Describe the simulation task naturally and use the SimFlow MCP tools for tracked work.",
     }[host]
     invariants = (
-        " Pass explicit project_root for runtime operations. Inspect is read-only and optional."
+        " Pass explicit project_root for runtime operations. On the first SimFlow use for a project"
+        " in each user request, call read-only inspect once with project_root, working_directory,"
+        " and the current query, then reuse the result for that request."
+        " Do not create session state or print a fixed re-entry summary."
+        " Bind a selected Experiment silently only when inspect reports an unambiguous match;"
+        " resolve ambiguity before durable writes or execution binding."
         " Record only meaningful events; create checkpoints only at real recovery boundaries."
         " Real local, remote, or HPC execution remains dry-run-first and approval-gated."
         " SimFlow records runtime truth; the host remains responsible for scientific reasoning and execution."

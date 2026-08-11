@@ -126,4 +126,10 @@ The Claude adapter uses `.claude.mcp.json`, which points to the existing SimFlow
 - `simflow_state`
 - `hpc`
 
+On the first SimFlow use for a project in one user request, Claude should make
+one read-only `inspect` call with the working directory and query, then reuse
+that context. Compact Experiment notebooks preserve scientific questions and
+decisions without creating session/activity state; exact project files remain
+the evidence source.
+
 Real HPC submission remains blocked unless the existing SimFlow approval gate is explicitly passed.
