@@ -7,18 +7,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN_DIR = ROOT / "skills" / "simflow-proposal" / "scripts"
-HANDOFF_DIR = ROOT / "skills" / "simflow-handoff" / "scripts"
 
 sys.path.insert(0, str(PLAN_DIR))
-sys.path.insert(0, str(HANDOFF_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.artifacts import list_artifacts
 from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.delivery.handoff import generate_handoff
 from runtime.simflow_helpers.project.intake import init_research
 from generate_plan import generate_plan
 from runtime.simflow_helpers.stages.pipeline import run_pipeline
-from generate_handoff import generate_handoff
 
 
 def test_backbone_workflow_e2e():

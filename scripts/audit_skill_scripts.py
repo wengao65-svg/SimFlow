@@ -21,7 +21,6 @@ STAGE_RUNNER_FUNCTIONS = {
     "run_analysis_stage",
     "run_visualization_stage",
     "run_writing_stage",
-    "verify_workflow",
 }
 STATE_ADMIN_SCRIPTS: set[str] = set()
 

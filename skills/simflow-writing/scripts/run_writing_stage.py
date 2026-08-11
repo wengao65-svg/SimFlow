@@ -18,32 +18,25 @@ sys.path.insert(0, str(ROOT))
 from runtime.simflow_core.artifacts import list_artifacts, register_artifact
 from runtime.simflow_core.proposals import load_proposal_contract
 from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.delivery.final_handoff import generate_final_handoff
+from runtime.simflow_helpers.verification.final_delivery import verify_workflow
 
 
-def _load_function(relative_script: str, function_name: str, module_name: str):
-    script_path = ROOT / relative_script
-    spec = importlib.util.spec_from_file_location(module_name, script_path)
+def _load_local_writing_helper(filename: str, function_name: str):
+    script_path = Path(__file__).resolve().parent / filename
+    spec = importlib.util.spec_from_file_location(f"simflow_writing_{script_path.stem}", script_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return getattr(module, function_name)
 
 
-BUILD_REPRODUCIBILITY_PACKAGE = _load_function(
-    "skills/simflow-writing/scripts/build_reproducibility_package.py",
+BUILD_REPRODUCIBILITY_PACKAGE = _load_local_writing_helper(
+    "build_reproducibility_package.py",
     "build_reproducibility_package",
-    "simflow_build_reproducibility_package",
 )
-GENERATE_FINAL_HANDOFF = _load_function(
-    "skills/simflow-handoff/scripts/generate_final_handoff.py",
-    "generate_final_handoff",
-    "simflow_generate_final_handoff",
-)
-VERIFY_WORKFLOW = _load_function(
-    "skills/simflow-verify/scripts/verify_workflow.py",
-    "verify_workflow",
-    "simflow_verify_workflow",
-)
+GENERATE_FINAL_HANDOFF = generate_final_handoff
+VERIFY_WORKFLOW = verify_workflow
 
 
 REQUIRED_ARTIFACTS = {

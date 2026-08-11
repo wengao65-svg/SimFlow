@@ -12,14 +12,12 @@ from pathlib import Path, PureWindowsPath
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
-SCRIPT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
-from generate_handoff import generate_handoff, resolve_project_root_from_workflow_dir
 from runtime.simflow_core.artifacts import register_artifact
 from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 from runtime.simflow_core.state import read_state
+from runtime.simflow_helpers.delivery.handoff import generate_handoff, resolve_project_root_from_workflow_dir
 
 SENSITIVE_KEY_PARTS = ("password", "token", "secret", "credential", "api_key", "apikey")
 

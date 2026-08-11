@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Tests for simflow-handoff canonical registry behavior."""
+"""Tests for internal handoff compatibility behavior."""
 
 import json
 import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-handoff" / "scripts"
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.state import init_workflow, read_state, write_state
-from generate_handoff import generate_handoff
-from generate_final_handoff import generate_final_handoff
+from runtime.simflow_helpers.delivery.final_handoff import generate_final_handoff
+from runtime.simflow_helpers.delivery.handoff import generate_handoff
 
 
 DFT_STAGES = [

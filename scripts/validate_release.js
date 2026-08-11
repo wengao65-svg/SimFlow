@@ -195,6 +195,21 @@ function validateSupportMatrix() {
     removedPublicSkills.length === 0,
     removedPublicSkills.join('\n'),
   );
+  const operationalScriptDirs = ['simflow-safety-gates', 'simflow-checkpoint', 'simflow-handoff', 'simflow-verify'];
+  const remainingOperationalScripts = operationalScriptDirs.flatMap(name => {
+    const scriptsDir = path.join(ROOT, 'skills', name, 'scripts');
+    if (!fs.existsSync(scriptsDir)) {
+      return [];
+    }
+    return fs.readdirSync(scriptsDir, { recursive: true })
+      .filter(relative => relative.endsWith('.py'))
+      .map(relative => path.join('skills', name, 'scripts', relative));
+  });
+  check(
+    'operational Skill script directories contain no Python entry points',
+    remainingOperationalScripts.length === 0,
+    remainingOperationalScripts.join('\n'),
+  );
 
   const removedMcpServers = ['literature', 'structure', 'parsers', 'artifact_store', 'checkpoint_store'].filter(name => (
     fs.existsSync(path.join(ROOT, 'mcp', 'servers', name))

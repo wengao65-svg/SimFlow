@@ -10,16 +10,14 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_DIR = ROOT / "skills" / "simflow-verify" / "scripts"
 RUNTIME_TEST_DIR = ROOT / "tests" / "runtime"
-sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(RUNTIME_TEST_DIR))
 sys.path.insert(0, str(ROOT))
 
 from runtime.simflow_core.state import init_workflow
 from runtime.simflow_core.verification import REQUIRED_CHECK_NAMES
+from runtime.simflow_helpers.verification.final_delivery import verify_workflow
 from test_verification import _write_final_delivery_state
-from verify_workflow import verify_workflow
 
 
 def test_verify_workflow_generates_report_and_registers_artifact():
@@ -47,7 +45,7 @@ def test_verify_workflow_cli_runs_and_emits_json():
         completed = subprocess.run(
             [
                 sys.executable,
-                str(SCRIPT_DIR / "verify_workflow.py"),
+                str(ROOT / "runtime" / "simflow_helpers" / "verification" / "final_delivery.py"),
                 "--workflow-dir",
                 str(Path(tmpdir) / ".simflow"),
             ],

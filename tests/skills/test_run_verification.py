@@ -3,27 +3,19 @@
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "simflow-verify" / "scripts" / "run_verification.py"
 sys.path.insert(0, str(ROOT))
 
-
-def _load_module():
-    spec = importlib.util.spec_from_file_location("simflow_run_verification", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+from runtime.simflow_helpers.verification import generic as verification_helper
 
 
 def test_run_verification_zero_checks_is_pending_not_pass():
-    mod = _load_module()
+    mod = verification_helper
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = mod.run_verification(tmpdir, stage="analysis_visualization")
@@ -43,7 +35,7 @@ def test_run_verification_zero_checks_is_pending_not_pass():
 
 
 def test_run_verification_all_passed_maps_to_pass(monkeypatch):
-    mod = _load_module()
+    mod = verification_helper
 
     monkeypatch.setattr(mod, "verify_structure", lambda _: {"check": "structure_valid", "passed": True, "message": "ok"})
     monkeypatch.setattr(mod, "verify_convergence", lambda *_: {"check": "convergence", "passed": True, "message": "ok"})
@@ -64,7 +56,7 @@ def test_run_verification_all_passed_maps_to_pass(monkeypatch):
 
 
 def test_run_verification_failed_checks_map_to_fail(monkeypatch):
-    mod = _load_module()
+    mod = verification_helper
 
     monkeypatch.setattr(mod, "verify_structure", lambda _: {"check": "structure_valid", "passed": False, "message": "bad"})
 
