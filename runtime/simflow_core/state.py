@@ -257,6 +257,10 @@ def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_r
         from .checkpoints import list_checkpoints
 
         return list_checkpoints(project_root=str(root))
+    if state_file == "gates.json":
+        from .gates import build_gate_state
+
+        return build_gate_state(project_root=str(root))
     path = root / STATE_DIR / state_file
     if not path.exists():
         return {}

@@ -413,9 +413,10 @@ def test_computation_stage_emits_hpc_submit_gate_evidence():
         assert resource_estimate["status"] in {"pass", "warning"}
         assert credential_scan["findings"] == []
         assert submit_readiness["project_root"] == tmpdir
-        assert submit_readiness["dry_run_evidence"] == "compute/dry_run_report.json"
-        assert submit_readiness["script_hash"] == dry_run["script_hash"]
-        assert submit_readiness["input_artifact_hash"] == dry_run["input_artifact_hash"]
+        assert submit_readiness["next_tool"] == "hpc/plan"
+        assert submit_readiness["approval_binding"] == "run_plan_hash"
+        assert submit_readiness["run_plan_hash"] is None
+        assert submit_readiness["input_paths"]
         assert user_submit_readiness["ready_for_approval"] is True
         assert user_submit_readiness["real_submit_allowed"] is False
         assert user_submit_readiness["approval_required"] is True

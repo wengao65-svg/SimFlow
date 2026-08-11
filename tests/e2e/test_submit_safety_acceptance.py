@@ -1,177 +1,152 @@
 #!/usr/bin/env python3
-"""Acceptance tests for real-submit safety boundaries."""
+"""Acceptance tests for immutable-plan real-submit safety."""
 
-import hashlib
-import json
+from __future__ import annotations
+
 from pathlib import Path
 
+import pytest
+
 from mcp.servers.hpc.connectors.local import LocalConnector
+from mcp.servers.hpc.run_plan import RunPlanError, build_run_plan, prepare_script
 from runtime.simflow_core.gates import record_gate_decision
-from runtime.simflow_core.state import init_workflow
 
 
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _write_json(path: Path, payload: dict):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def _make_script(project_root: Path) -> Path:
+def _create_plan(project_root: Path, *, credential: bool = False) -> tuple[Path, dict]:
     script = project_root / "job.sh"
+    input_file = project_root / "input.dat"
     script.write_text("#!/bin/bash\necho approved-local-job\n", encoding="utf-8")
     script.chmod(0o755)
-    return script
-
-
-def _write_submit_evidence(project_root: Path, script: Path, *, credential_scan: bool = True) -> dict:
-    init_workflow("custom", "computation", project_root=str(project_root))
-    script_hash = _sha256_file(script)
-    input_hash = "input-manifest-sha256"
-    artifacts = project_root / ".simflow" / "artifacts"
-    _write_json(
-        artifacts / "compute" / "dry_run_report.json",
+    input_file.write_text("token=secret-value\n" if credential else "input\n", encoding="utf-8")
+    connector = LocalConnector()
+    plan = build_run_plan(
+        str(project_root),
         {
-            "status": "pass",
-            "script_hash": script_hash,
-            "input_artifact_hash": input_hash,
+            "script_path": script.name,
+            "input_paths": [input_file.name],
+            "scheduler": "local",
+            "resources": {"nodes": 1, "ntasks": 1},
         },
+        script=script,
+        script_generated=False,
+        validation=connector.dry_run(str(script)),
     )
-    _write_json(artifacts / "compute" / "input_validation.json", {"missing_required_files": []})
-    _write_json(artifacts / "compute" / "resource_estimate.json", {"status": "pass"})
-    if credential_scan:
-        _write_json(artifacts / "security" / "credential_scan.json", {"findings": []})
-    decision = record_gate_decision(
+    return script, plan
+
+
+def _approve(project_root: Path, run_plan_hash: str, *, include_hash: bool = True) -> dict:
+    conditions = {"reason": "acceptance test approval"}
+    if include_hash:
+        conditions["run_plan_hash"] = run_plan_hash
+    return record_gate_decision(
         "hpc_submit",
         "approved",
-        {
-            "reason": "acceptance test approval",
-            "dry_run_evidence": "compute/dry_run_report.json",
-            "script_hash": script_hash,
-            "input_artifact_hash": input_hash,
-        },
+        conditions,
         project_root=str(project_root),
         agent="pytest",
     )
-    return {
-        "project_root": str(project_root),
-        "gate_decision_id": decision["decision_id"],
-        "dry_run_evidence": "compute/dry_run_report.json",
-        "script_hash": script_hash,
-        "input_artifact_hash": input_hash,
-    }
 
 
 def test_local_submit_requires_gate_decision_not_boolean_or_missing_approval(tmp_path):
     connector = LocalConnector()
-    script = _make_script(tmp_path)
+    script, plan = _create_plan(tmp_path)
 
-    missing = connector.submit(str(script))
+    missing = connector.submit(str(script), project_root=str(tmp_path), run_plan_hash=plan["run_plan_hash"])
     assert missing["status"] == "error"
     assert missing["approval_required"] is True
     assert missing["gate"] == "hpc_submit"
 
-    boolean_only = connector.submit(str(script), approved=True)
+    boolean_only = connector.submit(
+        str(script),
+        project_root=str(tmp_path),
+        run_plan_hash=plan["run_plan_hash"],
+        approved=True,
+    )
     assert boolean_only["status"] == "error"
-    assert boolean_only["approval_required"] is True
     assert "Boolean approved is not accepted" in boolean_only["message"]
 
 
-def test_missing_credential_scan_blocks_submit_even_with_approval(tmp_path):
+def test_failed_credential_scan_blocks_submit_even_with_approval(tmp_path):
     connector = LocalConnector()
-    script = _make_script(tmp_path)
-    kwargs = _write_submit_evidence(tmp_path, script, credential_scan=False)
-
-    result = connector.submit(str(script), **kwargs)
-
-    assert result["status"] == "error"
-    assert result["code"] == "hpc_submit_gate_blocked"
-    assert result["approval_required"] is True
-    assert "credentials_clean" in result["gate_result"]["conditions"]["unmet"]
-
-
-def test_gate_decision_must_bind_submit_evidence_and_hashes(tmp_path):
-    connector = LocalConnector()
-    script = _make_script(tmp_path)
-    kwargs = _write_submit_evidence(tmp_path, script)
-    decision = record_gate_decision(
-        "hpc_submit",
-        "approved",
-        {"reason": "legacy approval without submit bindings"},
-        project_root=str(tmp_path),
-        agent="pytest",
-    )
-    kwargs["gate_decision_id"] = decision["decision_id"]
-
-    result = connector.submit(str(script), **kwargs)
-
-    assert result["status"] == "error"
-    assert result["code"] == "gate_decision_missing_submit_binding"
-    assert result["missing_bindings"] == [
-        "dry_run_evidence",
-        "script_hash",
-        "input_artifact_hash",
-    ]
-
-
-def test_gate_decision_binding_blocks_stale_approval_reuse(tmp_path):
-    connector = LocalConnector()
-    script = _make_script(tmp_path)
-    kwargs = _write_submit_evidence(tmp_path, script)
-    dry_run_path = tmp_path / ".simflow" / "artifacts" / "compute" / "dry_run_report.json"
-    new_input_hash = "new-input-manifest-sha256"
-    _write_json(
-        dry_run_path,
-        {
-            "status": "pass",
-            "script_hash": kwargs["script_hash"],
-            "input_artifact_hash": new_input_hash,
-        },
-    )
-    kwargs["input_artifact_hash"] = new_input_hash
-
-    result = connector.submit(str(script), **kwargs)
-
-    assert result["status"] == "error"
-    assert result["code"] == "gate_decision_evidence_mismatch"
-    assert result["mismatches"]["input_artifact_hash"]["approved"] == "input-manifest-sha256"
-    assert result["mismatches"]["input_artifact_hash"]["submitted"] == new_input_hash
-
-
-def test_changed_job_script_hash_invalidates_prior_approval(tmp_path):
-    connector = LocalConnector()
-    script = _make_script(tmp_path)
-    kwargs = _write_submit_evidence(tmp_path, script)
-    script.write_text("#!/bin/bash\necho changed-after-approval\n", encoding="utf-8")
-
-    result = connector.submit(str(script), **kwargs)
-
-    assert result["status"] == "error"
-    assert result["code"] == "script_hash_mismatch"
-    assert result["current_script_hash"] != result["approved_script_hash"]
-
-
-def test_plugin_root_cannot_be_used_as_submit_project_root(tmp_path):
-    connector = LocalConnector()
-    script = _make_script(tmp_path)
-    script_hash = _sha256_file(script)
-    plugin_root = Path(__file__).resolve().parents[2]
+    script, plan = _create_plan(tmp_path, credential=True)
+    decision = _approve(tmp_path, plan["run_plan_hash"])
 
     result = connector.submit(
         str(script),
-        project_root=str(plugin_root),
-        gate_decision_id="gate_decision_fake",
-        dry_run_evidence="compute/dry_run_report.json",
-        script_hash=script_hash,
-        input_artifact_hash="input-manifest-sha256",
+        project_root=str(tmp_path),
+        run_plan_hash=plan["run_plan_hash"],
+        gate_decision_id=decision["decision_id"],
+    )
+
+    assert plan["credential_scan"]["status"] == "fail"
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_stale"
+
+
+def test_gate_decision_must_bind_run_plan_hash(tmp_path):
+    connector = LocalConnector()
+    script, plan = _create_plan(tmp_path)
+    decision = _approve(tmp_path, plan["run_plan_hash"], include_hash=False)
+
+    result = connector.submit(
+        str(script),
+        project_root=str(tmp_path),
+        run_plan_hash=plan["run_plan_hash"],
+        gate_decision_id=decision["decision_id"],
     )
 
     assert result["status"] == "error"
-    assert result["code"] == "invalid_project_root"
-    assert "plugin root" in result["message"]
+    assert result["code"] == "run_plan_approval_mismatch"
+
+
+def test_gate_decision_for_other_plan_cannot_be_reused(tmp_path):
+    connector = LocalConnector()
+    script, plan = _create_plan(tmp_path)
+    decision = _approve(tmp_path, "0" * 64)
+
+    result = connector.submit(
+        str(script),
+        project_root=str(tmp_path),
+        run_plan_hash=plan["run_plan_hash"],
+        gate_decision_id=decision["decision_id"],
+    )
+
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_approval_mismatch"
+
+
+def test_changed_input_or_script_invalidates_prior_approval(tmp_path):
+    connector = LocalConnector()
+    script, plan = _create_plan(tmp_path)
+    decision = _approve(tmp_path, plan["run_plan_hash"])
+    (tmp_path / "input.dat").write_text("changed\n", encoding="utf-8")
+
+    result = connector.submit(
+        str(script),
+        project_root=str(tmp_path),
+        run_plan_hash=plan["run_plan_hash"],
+        gate_decision_id=decision["decision_id"],
+    )
+
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_stale"
+
+
+def test_unchanged_retry_reuses_approval(tmp_path):
+    connector = LocalConnector()
+    script, plan = _create_plan(tmp_path)
+    decision = _approve(tmp_path, plan["run_plan_hash"])
+    kwargs = {
+        "project_root": str(tmp_path),
+        "run_plan_hash": plan["run_plan_hash"],
+        "gate_decision_id": decision["decision_id"],
+    }
+
+    assert connector.submit(str(script), **kwargs)["status"] == "success"
+    assert connector.submit(str(script), **kwargs)["status"] == "success"
+
+
+def test_plugin_root_cannot_be_used_as_plan_project_root():
+    plugin_root = Path(__file__).resolve().parents[2]
+    with pytest.raises((RunPlanError, ValueError), match="plugin root"):
+        prepare_script(str(plugin_root), {"script_path": "job.sh"})

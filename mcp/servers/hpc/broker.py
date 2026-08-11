@@ -128,9 +128,8 @@ class SSHBrokerClient(BaseHPCConnector):
             project_root=kwargs.get("project_root"),
             approval_token=kwargs.get("approval_token"),
             gate_decision_id=kwargs.get("gate_decision_id"),
-            dry_run_evidence=kwargs.get("dry_run_evidence"),
-            script_hash=kwargs.get("script_hash"),
-            input_artifact_hash=kwargs.get("input_artifact_hash"),
+            run_plan_hash=kwargs.get("run_plan_hash"),
+            expected_scheduler="ssh",
             approval_bindings={
                 "target": kwargs.get("target"),
                 "remote_workdir": kwargs.get("remote_workdir"),

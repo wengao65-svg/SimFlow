@@ -334,22 +334,22 @@ def _build_user_submit_readiness(readiness: dict[str, Any], evidence_paths: dict
     }
 
 
-def _build_submit_request_template(
+def _build_run_plan_request_template(
     *,
     project_root: Path,
     scheduler: str,
     job_script_path: Path,
     readiness: dict[str, Any],
 ) -> dict[str, Any]:
-    dry_run_report = readiness["dry_run_report"]
     return {
+        "tool": "hpc/plan",
         "project_root": str(project_root),
         "script_path": _relative_path(project_root, job_script_path),
+        "input_paths": [entry["path"] for entry in readiness["input_validation"]["files"]],
         "scheduler": scheduler,
-        "dry_run_evidence": "compute/dry_run_report.json",
-        "script_hash": dry_run_report["script_hash"],
-        "input_artifact_hash": dry_run_report["input_artifact_hash"],
-        "gate_decision_id": None,
+        "resources": readiness["resource_estimate"]["resources"],
+        "run_plan_hash": None,
+        "approval_binding": "run_plan_hash",
     }
 
 
@@ -592,7 +592,7 @@ def run_compute_stage(workflow_dir: str, params: dict | None = None, dry_run: bo
     compute_plan["evidence_paths"] = evidence_paths
     compute_plan["readiness_status"] = readiness["status"]
     compute_plan["user_submit_readiness"] = _build_user_submit_readiness(readiness, evidence_paths)
-    compute_plan["submit_request_template"] = _build_submit_request_template(
+    compute_plan["run_plan_request_template"] = _build_run_plan_request_template(
         project_root=project_root,
         scheduler=scheduler,
         job_script_path=staged_script_path,

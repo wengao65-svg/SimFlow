@@ -1,153 +1,99 @@
 #!/usr/bin/env python3
-"""Tests for record_submit_job gate enforcement.
+"""Tests for compact submit records bound to immutable approvals."""
 
-Covers P2.4:
-- record_submit_job requires gate_decision_id
-- Jobs without gate are rejected
-- gate_decision_id must exist in gates.json
-- user_override=True with override_gate_id allows bypass
-"""
-
-import json
-import sys
-import tempfile
-from pathlib import Path
+from __future__ import annotations
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "runtime"))
+from runtime.simflow_core.gates import record_gate_decision
+from runtime.simflow_core.records import list_project_records
+from runtime.simflow_helpers.computation.job_records import record_submit_job
 
 
-def _init(project_root):
-    from runtime.simflow_core.state import init_workflow
-    return init_workflow("custom", "computation", project_root=project_root)
+RUN_PLAN_HASH = "a" * 64
 
 
-def test_record_submit_job_requires_gate_decision_id():
-    """record_submit_job rejects jobs without gate_decision_id."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
+def _approve(project_root, run_plan_hash: str = RUN_PLAN_HASH):
+    return record_gate_decision(
+        "hpc_submit",
+        "approved",
+        {"run_plan_hash": run_plan_hash},
+        project_root=str(project_root),
+        agent="pytest",
+    )
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
 
-        result = record_submit_job(
-            project_root=tmpdir,
+def test_record_submit_job_requires_gate_decision_id(tmp_path):
+    result = record_submit_job(
+        project_root=str(tmp_path),
+        scheduler="local",
+        job_id="job_001",
+        run_plan_hash=RUN_PLAN_HASH,
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "gate_decision_id_required"
+
+
+def test_record_submit_job_requires_run_plan_hash(tmp_path):
+    decision = _approve(tmp_path)
+    result = record_submit_job(
+        project_root=str(tmp_path),
+        scheduler="local",
+        job_id="job_001",
+        gate_decision_id=decision["decision_id"],
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_hash_required"
+
+
+def test_record_submit_job_rejects_nonexistent_gate(tmp_path):
+    result = record_submit_job(
+        project_root=str(tmp_path),
+        scheduler="local",
+        job_id="job_001",
+        run_plan_hash=RUN_PLAN_HASH,
+        gate_decision_id="gate_nonexistent",
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_not_approved"
+
+
+def test_record_submit_job_rejects_gate_for_other_plan(tmp_path):
+    decision = _approve(tmp_path, "b" * 64)
+    result = record_submit_job(
+        project_root=str(tmp_path),
+        scheduler="local",
+        job_id="job_001",
+        run_plan_hash=RUN_PLAN_HASH,
+        gate_decision_id=decision["decision_id"],
+    )
+    assert result["status"] == "error"
+    assert result["code"] == "run_plan_not_approved"
+
+
+def test_record_submit_job_appends_one_compact_run(tmp_path):
+    decision = _approve(tmp_path)
+    result = record_submit_job(
+        project_root=str(tmp_path),
+        scheduler="local",
+        job_id="job_001",
+        run_plan_hash=RUN_PLAN_HASH,
+        gate_decision_id=decision["decision_id"],
+        status="completed",
+    )
+    assert result["status"] == "success"
+    assert result["record"]["details"]["run_plan_hash"] == RUN_PLAN_HASH
+    records = list_project_records(str(tmp_path), kind="run")
+    assert len(records) == 1
+    assert records[0]["details"]["job_id"] == "job_001"
+
+
+def test_user_override_bypass_is_not_part_of_record_api(tmp_path):
+    with pytest.raises(TypeError):
+        record_submit_job(
+            project_root=str(tmp_path),
             scheduler="local",
             job_id="job_001",
-        )
-
-        assert result["status"] == "error"
-        assert result["code"] == "gate_decision_id_required"
-
-
-def test_record_submit_job_rejects_nonexistent_gate():
-    """record_submit_job rejects gate_decision_id not in gates.json."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        result = record_submit_job(
-            project_root=tmpdir,
-            scheduler="local",
-            job_id="job_001",
-            gate_decision_id="gate_nonexistent",
-        )
-
-        assert result["status"] == "error"
-        assert result["code"] == "gate_decision_not_found"
-
-
-def test_record_submit_job_succeeds_with_valid_gate():
-    """record_submit_job succeeds when gate_decision_id exists in gates.json."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
-    from runtime.simflow_core.state import write_state
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        # Add a gate to gates.json
-        write_state(
-            [{"gate_id": "gate_001_approved", "decision": "approved"}],
-            project_root=tmpdir,
-            state_file="gates.json",
-        )
-
-        result = record_submit_job(
-            project_root=tmpdir,
-            scheduler="local",
-            job_id="job_001",
-            gate_decision_id="gate_001_approved",
-        )
-
-        assert result["status"] == "success"
-        assert result["job_record"]["gate_decision_id"] == "gate_001_approved"
-
-
-def test_record_submit_job_allows_user_override():
-    """record_submit_job allows user_override with valid override_gate_id."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
-    from runtime.simflow_core.state import write_state
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        # Add a user_override gate
-        write_state(
-            [{"gate_id": "override_001", "decision": "user_override"}],
-            project_root=tmpdir,
-            state_file="gates.json",
-        )
-
-        result = record_submit_job(
-            project_root=tmpdir,
-            scheduler="local",
-            job_id="job_001",
-            user_override=True,
-            override_gate_id="override_001",
-        )
-
-        assert result["status"] == "success"
-
-
-def test_record_submit_job_rejects_override_without_gate():
-    """record_submit_job rejects user_override without override_gate_id."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        result = record_submit_job(
-            project_root=tmpdir,
-            scheduler="local",
-            job_id="job_001",
+            run_plan_hash=RUN_PLAN_HASH,
             user_override=True,
         )
-
-        assert result["status"] == "success"  # override_gate_id is optional
-
-
-def test_record_submit_job_rejects_nonexistent_override_gate():
-    """record_submit_job rejects override_gate_id not in gates.json."""
-    from runtime.simflow_helpers.computation.job_records import record_submit_job
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        _init(tmpdir)
-
-        result = record_submit_job(
-            project_root=tmpdir,
-            scheduler="local",
-            job_id="job_001",
-            user_override=True,
-            override_gate_id="override_nonexistent",
-        )
-
-        assert result["status"] == "error"
-        assert result["code"] == "override_gate_not_found"
-
-
-if __name__ == "__main__":
-    import pytest
-    sys.exit(pytest.main([__file__, "-v"]))

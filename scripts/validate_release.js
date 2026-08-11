@@ -522,7 +522,7 @@ function validateWorkflowAutomation() {
   runCheck('simflow_state tools/list exposes four compact tools', 'python', ['-c', stateToolsSmoke]);
 
   const hpcSubmitSmoke = [
-    'import hashlib, importlib.util, json, sys, tempfile',
+    'import importlib.util, json, sys, tempfile',
     'from pathlib import Path',
     `root = Path(${JSON.stringify(ROOT)})`,
     'server_dir = root / "mcp" / "servers" / "hpc"',
@@ -531,18 +531,29 @@ function validateWorkflowAutomation() {
     'spec = importlib.util.spec_from_file_location("hpc_release_smoke", server_dir / "server.py")',
     'server = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(server)',
+    'from mcp.shared.stdio_server import _list_tools',
+    'tools = {item["name"]: item["inputSchema"] for item in _list_tools(server.TOOLS, server.TOOL_DESCRIPTIONS, server.TOOL_SCHEMAS)}',
+    'assert set(tools) == {"plan", "transfer", "submit", "status"}',
+    'assert tools["plan"]["required"] == ["project_root", "script_path", "input_paths"]',
+    'assert tools["submit"]["required"] == ["project_root", "run_plan_hash"]',
+    'assert not ({"dry_run_evidence", "script_hash", "input_artifact_hash"} & set(tools["submit"]["properties"]))',
     'tmp = tempfile.TemporaryDirectory()',
     'project = Path(tmp.name)',
     'script = project / "job.sh"',
+    'input_file = project / "input.dat"',
     'script.write_text("#!/bin/bash\\necho should-not-run\\n", encoding="utf-8")',
-    'digest = hashlib.sha256(script.read_bytes()).hexdigest()',
-    'request = {"tool": "submit", "params": {"project_root": str(project), "script_path": str(script), "scheduler": "local", "approval_token": "release-smoke-token", "dry_run_evidence": "compute/dry_run_report.json", "script_hash": digest, "input_artifact_hash": "input-hash"}}',
-    'result = server.handle_request(request)',
+    'script.chmod(0o755)',
+    'input_file.write_text("input\\n", encoding="utf-8")',
+    'planned = server.handle_request({"tool": "plan", "params": {"project_root": str(project), "script_path": "job.sh", "input_paths": ["input.dat"], "scheduler": "local"}})',
+    'assert planned.get("status") == "success", planned',
+    'run_plan_hash = planned["data"]["run_plan_hash"]',
+    'result = server.handle_request({"tool": "submit", "params": {"project_root": str(project), "run_plan_hash": run_plan_hash}})',
     'tmp.cleanup()',
     'assert result.get("status") == "error", result',
-    'assert result.get("code") == "missing_workflow_state", result',
+    'assert result.get("approval_required") is True, result',
+    'assert result.get("run_plan_hash") == run_plan_hash, result',
   ].join('; ');
-  runCheck('hpc.submit rejects uninitialized projects without read bootstrap', 'python', ['-c', hpcSubmitSmoke]);
+  runCheck('hpc exposes four immutable-plan tools and requires bound approval', 'python', ['-c', hpcSubmitSmoke]);
 }
 
 function gitShow(ref, relativePath) {

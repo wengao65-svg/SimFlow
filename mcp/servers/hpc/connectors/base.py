@@ -1,14 +1,18 @@
 """Base connector for HPC schedulers."""
 
 import hashlib
-import json
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from runtime.simflow_core.gates import check_gate, get_gate_decisions
-from runtime.simflow_core.state import ProjectRootError, read_state, resolve_project_root
+from runtime.simflow_core.gates import get_gate_decisions
+from runtime.simflow_core.state import ProjectRootError, resolve_project_root
+
+try:
+    from run_plan import RunPlanError, validate_run_plan_current
+except ModuleNotFoundError:  # pragma: no cover - package import path
+    from ..run_plan import RunPlanError, validate_run_plan_current
 
 
 class BaseHPCConnector(ABC):
@@ -85,33 +89,6 @@ class BaseHPCConnector(ABC):
                 h.update(chunk)
         return h.hexdigest()
 
-    def _resolve_evidence_path(self, project_root: Path, evidence_path: str) -> Path | None:
-        candidate = Path(evidence_path).expanduser()
-        candidates = [candidate] if candidate.is_absolute() else [
-            project_root / candidate,
-            project_root / ".simflow" / candidate,
-            project_root / ".simflow" / "artifacts" / candidate,
-            project_root / ".simflow" / "reports" / candidate,
-        ]
-        for path in candidates:
-            if path.exists():
-                return path.resolve()
-        return None
-
-    def _first_present(self, payload: dict, paths: list[str]):
-        for path in paths:
-            current = payload
-            found = True
-            for part in path.split("."):
-                if isinstance(current, dict) and part in current:
-                    current = current[part]
-                else:
-                    found = False
-                    break
-            if found:
-                return current
-        return None
-
     def _approval_error(self, message: str, code: str = "approval_required", **extra) -> dict:
         result = {
             "status": "error",
@@ -130,13 +107,12 @@ class BaseHPCConnector(ABC):
         project_root: Optional[str] = None,
         approval_token: Optional[str] = None,
         gate_decision_id: Optional[str] = None,
-        dry_run_evidence: Optional[str] = None,
-        script_hash: Optional[str] = None,
-        input_artifact_hash: Optional[str] = None,
+        run_plan_hash: Optional[str] = None,
+        expected_scheduler: Optional[str] = None,
         approval_bindings: Optional[dict] = None,
         approved: Optional[bool] = None,
     ) -> dict:
-        """Validate approval, dry-run evidence, and hashes before real execution."""
+        """Validate an unchanged run plan and its recorded approval."""
         script = Path(script_path)
         if not script.exists():
             return {"status": "error", "message": f"Script not found: {script_path}"}
@@ -146,21 +122,10 @@ class BaseHPCConnector(ABC):
             if approved is not None:
                 message = "Boolean approved is not accepted; " + message
             return self._approval_error(message)
-
-        if not dry_run_evidence:
+        if not run_plan_hash:
             return self._approval_error(
-                "Submit requires dry_run_evidence recorded from the reviewed dry-run.",
-                code="dry_run_evidence_required",
-            )
-        if not script_hash:
-            return self._approval_error(
-                "Submit requires the approved job script sha256 hash.",
-                code="script_hash_required",
-            )
-        if not input_artifact_hash:
-            return self._approval_error(
-                "Submit requires the approved input artifact or manifest hash.",
-                code="input_artifact_hash_required",
+                "Submit requires an immutable run_plan_hash produced by hpc/plan.",
+                code="run_plan_hash_required",
             )
         if not project_root:
             return {
@@ -173,74 +138,24 @@ class BaseHPCConnector(ABC):
             root = resolve_project_root(project_root=project_root)
         except ProjectRootError as exc:
             return {"status": "error", "message": str(exc), "code": "invalid_project_root"}
-        if not read_state(project_root=str(root), state_file="workflow.json"):
-            return {
-                "status": "error",
-                "message": "Submit requires an initialized SimFlow workflow under project_root.",
-                "code": "missing_workflow_state",
-            }
-
-        current_script_hash = self._sha256_file(script)
-        if current_script_hash != script_hash:
-            return self._approval_error(
-                "Current job script hash does not match the approved script_hash.",
-                code="script_hash_mismatch",
-                current_script_hash=current_script_hash,
-                approved_script_hash=script_hash,
-            )
-
-        evidence_path = self._resolve_evidence_path(root, dry_run_evidence)
-        if evidence_path is None:
-            return self._approval_error(
-                "Dry-run evidence file was not found under project_root/.simflow.",
-                code="dry_run_evidence_missing",
-            )
         try:
-            dry_run = json.loads(evidence_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
+            plan = validate_run_plan_current(str(root), run_plan_hash)
+        except (RunPlanError, OSError, ValueError) as exc:
             return self._approval_error(
-                f"Dry-run evidence is not valid JSON: {exc}",
-                code="dry_run_evidence_invalid",
+                str(exc),
+                code="run_plan_stale",
+                run_plan_hash=run_plan_hash,
             )
-
-        dry_run_status = dry_run.get("status", dry_run.get("overall"))
-        if dry_run_status not in ("pass", "warning"):
+        planned_script = (root / plan["script"]["path"]).resolve()
+        if script.resolve() != planned_script:
             return self._approval_error(
-                "Dry-run evidence status does not allow real submission.",
-                code="dry_run_not_passed",
-                dry_run_status=dry_run_status,
+                "Submitted script path does not match the immutable run plan.",
+                code="run_plan_script_mismatch",
             )
-
-        dry_run_script_hash = self._first_present(dry_run, [
-            "script_hash",
-            "job_script_hash",
-            "hashes.job_script",
-            "hashes.script",
-            "script.sha256",
-            "job_script.sha256",
-        ])
-        if dry_run_script_hash != script_hash:
+        if expected_scheduler and plan.get("scheduler") != expected_scheduler:
             return self._approval_error(
-                "Job script hash does not match the dry-run evidence.",
-                code="dry_run_script_hash_mismatch",
-                dry_run_script_hash=dry_run_script_hash,
-                approved_script_hash=script_hash,
-            )
-
-        dry_run_input_hash = self._first_present(dry_run, [
-            "input_artifact_hash",
-            "input_manifest_hash",
-            "hashes.input_artifact",
-            "hashes.input_manifest",
-            "input.sha256",
-            "manifest.sha256",
-        ])
-        if dry_run_input_hash != input_artifact_hash:
-            return self._approval_error(
-                "Input artifact hash does not match the dry-run evidence.",
-                code="dry_run_input_hash_mismatch",
-                dry_run_input_hash=dry_run_input_hash,
-                approved_input_artifact_hash=input_artifact_hash,
+                "Connector scheduler does not match the immutable run plan.",
+                code="run_plan_scheduler_mismatch",
             )
 
         decisions = get_gate_decisions("hpc_submit", project_root=str(root))
@@ -265,80 +180,34 @@ class BaseHPCConnector(ABC):
         decision_conditions = matching_decision.get("conditions", {})
         if not isinstance(decision_conditions, dict):
             decision_conditions = {}
-        decision_bindings = {
-            "dry_run_evidence": self._first_present(decision_conditions, [
-                "dry_run_evidence",
-                "submit_readiness.dry_run_evidence",
-                "evidence.dry_run_evidence",
-            ]),
-            "script_hash": self._first_present(decision_conditions, [
-                "script_hash",
-                "job_script_hash",
-                "submit_readiness.script_hash",
-                "evidence.script_hash",
-            ]),
-            "input_artifact_hash": self._first_present(decision_conditions, [
-                "input_artifact_hash",
-                "input_manifest_hash",
-                "submit_readiness.input_artifact_hash",
-                "submit_readiness.input_manifest_hash",
-                "evidence.input_artifact_hash",
-                "evidence.input_manifest_hash",
-            ]),
-        }
-        missing_bindings = [
-            name for name, value in decision_bindings.items()
-            if value in (None, "")
-        ]
-        expected_bindings = {
-            "dry_run_evidence": dry_run_evidence,
-            "script_hash": script_hash,
-            "input_artifact_hash": input_artifact_hash,
-        }
-        approval_bindings = approval_bindings or {}
-        for name, value in approval_bindings.items():
-            decision_bindings[name] = decision_conditions.get(name)
-            expected_bindings[name] = value
-        missing_bindings.extend(
-            name for name in approval_bindings
-            if decision_bindings.get(name) in (None, "") and name not in missing_bindings
-        )
-        if missing_bindings:
+        if decision_conditions.get("run_plan_hash") != run_plan_hash:
             return self._approval_error(
-                "Approved hpc_submit gate decision does not bind the submitted evidence and hashes.",
-                code="gate_decision_missing_submit_binding",
+                "Approved hpc_submit gate decision is not bound to this run_plan_hash.",
+                code="run_plan_approval_mismatch",
                 gate_decision_id=matching_decision.get("decision_id"),
-                missing_bindings=missing_bindings,
             )
+        expected_bindings = approval_bindings or {}
         mismatched_bindings = {
             name: {
-                "approved": decision_bindings[name],
-                "submitted": expected_bindings[name],
+                "planned": plan.get(name),
+                "submitted": value,
             }
-            for name in expected_bindings
-            if decision_bindings[name] != expected_bindings[name]
+            for name, value in expected_bindings.items()
+            if plan.get(name) != value
         }
         if mismatched_bindings:
             return self._approval_error(
-                "Submitted evidence or hashes do not match the approved hpc_submit gate decision.",
-                code="gate_decision_evidence_mismatch",
+                "Runtime bindings do not match the immutable run plan.",
+                code="run_plan_binding_mismatch",
                 gate_decision_id=matching_decision.get("decision_id"),
                 mismatches=mismatched_bindings,
-            )
-
-        gate_result = check_gate("hpc_submit", {"project_root": str(root)})
-        if gate_result["status"] != "pass":
-            return self._approval_error(
-                "hpc_submit gate is blocked by missing or failing evidence.",
-                code="hpc_submit_gate_blocked",
-                gate_result=gate_result,
             )
 
         return {
             "status": "success",
             "project_root": str(root),
             "gate_decision_id": matching_decision.get("decision_id"),
-            "dry_run_evidence_path": str(evidence_path),
-            "script_hash": current_script_hash,
-            "input_artifact_hash": input_artifact_hash,
+            "run_plan_hash": run_plan_hash,
+            "script_hash": plan["script"]["sha256"],
+            "run_plan": plan,
         }

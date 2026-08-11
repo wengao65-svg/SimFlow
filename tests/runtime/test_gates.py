@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
 from runtime.simflow_core.gates import (
-    list_gates, load_gate, evaluate_conditions, check_gate,
+    build_gate_state, list_gates, load_gate, evaluate_conditions, check_gate,
     record_gate_decision, get_gate_decisions,
 )
 
@@ -316,9 +316,10 @@ def test_record_and_get_decisions():
         assert decisions[0]["decision_id"] == record["decision_id"]
         assert decisions[0]["agent"] == "test_agent"
         assert decisions[0]["conditions"]["dry_run_passed"] is True
-        state = json.loads((Path(tmpdir) / ".simflow" / "state" / "gates.json").read_text())
+        state = build_gate_state(project_root=tmpdir)
         assert state["hpc_submit"]["latest_decision"] == "approved"
         assert state["hpc_submit"]["latest_decision_id"] == record["decision_id"]
+        assert not (Path(tmpdir) / ".simflow" / "state" / "gates.json").exists()
     print("  record_and_get_decisions OK")
 
 

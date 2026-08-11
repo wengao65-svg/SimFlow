@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .records import record_event
-from .state import read_state, resolve_project_root, write_state
+from .records import list_project_records, record_event
+from .state import resolve_project_root
 
 GATES_DIR = Path(__file__).parent.parent.parent / "workflow" / "gates"
 GATE_STATE_FILE = ".simflow/state/gates.json"
@@ -77,6 +77,8 @@ def _candidate_evidence_paths(project_root: Path, evidence: str) -> list[Path]:
 
 
 def _load_evidence(project_root: Path, evidence: str) -> tuple[Any, Optional[Path], Optional[str]]:
+    if evidence == "state/gates.json":
+        return build_gate_state(project_root=str(project_root)), project_root / ".simflow" / "records.jsonl", None
     for path in _candidate_evidence_paths(project_root, evidence):
         if not path.exists():
             continue
@@ -287,21 +289,6 @@ def record_gate_decision(
         "agent": agent,
     }
 
-    path = root / GATE_STATE_FILE
-    existing: Any = read_state(project_root=str(root), state_file="gates.json")
-    if isinstance(existing, list):
-        existing = {"decisions": existing}
-    if not isinstance(existing, dict):
-        existing = {"decisions": []}
-    existing.setdefault("decisions", [])
-    existing["decisions"].append(record)
-    existing[gate_name] = {
-        "latest_decision": decision,
-        "latest_decision_id": decision_id,
-        "latest_decision_at": now,
-        "latest_agent": agent,
-    }
-    write_state(existing, project_root=str(root), state_file="gates.json")
     record_event(
         str(root),
         kind="approval",
@@ -312,7 +299,6 @@ def record_gate_decision(
             "gate": gate_name,
             "conditions": context,
             "agent": agent,
-            "legacy_state_path": str(path.relative_to(root)),
         },
         record_id=decision_id,
     )
@@ -337,11 +323,54 @@ def get_gate_decisions(
     """
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     path = root / GATE_STATE_FILE
-    if not path.exists():
-        return []
-    with open(path, "r", encoding="utf-8") as f:
-        payload = json.load(f)
-    decisions = payload.get("decisions", []) if isinstance(payload, dict) else payload
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        payload = []
+    legacy = payload.get("decisions", []) if isinstance(payload, dict) else payload
+    decisions = [item for item in legacy if isinstance(item, dict)] if isinstance(legacy, list) else []
+    seen = {item.get("decision_id") or item.get("gate_id") for item in decisions}
+    for item in list_project_records(str(root), kind="approval"):
+        details = item.get("details") if isinstance(item.get("details"), dict) else {}
+        decision_id = details.get("decision_id") or item.get("record_id")
+        if decision_id in seen:
+            continue
+        decisions.append({
+            "decision_id": decision_id,
+            "gate": details.get("gate"),
+            "decision": item.get("status"),
+            "conditions": details.get("conditions") or {},
+            "timestamp": item.get("created_at"),
+            "agent": details.get("agent", ""),
+            "storage": "compact_record",
+        })
+        seen.add(decision_id)
     if gate_name:
         return [d for d in decisions if d.get("gate") == gate_name]
     return decisions
+
+
+def build_gate_state(base_dir: str = ".", project_root: Optional[str] = None) -> Any:
+    """Return a compatibility view without rewriting legacy gates.json."""
+    root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    path = root / GATE_STATE_FILE
+    try:
+        legacy = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        legacy = []
+    compact_records = list_project_records(str(root), kind="approval")
+    if not compact_records:
+        return legacy
+    decisions = get_gate_decisions(base_dir=str(root), project_root=str(root))
+    state: dict[str, Any] = {"decisions": decisions}
+    for item in decisions:
+        gate_name = item.get("gate")
+        if not gate_name:
+            continue
+        state[gate_name] = {
+            "latest_decision": item.get("decision"),
+            "latest_decision_id": item.get("decision_id") or item.get("gate_id"),
+            "latest_decision_at": item.get("timestamp"),
+            "latest_agent": item.get("agent", ""),
+        }
+    return state

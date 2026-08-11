@@ -193,9 +193,7 @@ class SSHConnector(BaseHPCConnector):
         project_root: str | None = None,
         approval_token: str | None = None,
         gate_decision_id: str | None = None,
-        dry_run_evidence: str | None = None,
-        script_hash: str | None = None,
-        input_artifact_hash: str | None = None,
+        run_plan_hash: str | None = None,
         transfer_manifest: str | None = None,
         remote_workdir: str | None = None,
         target: dict | None = None,
@@ -212,9 +210,8 @@ class SSHConnector(BaseHPCConnector):
             project_root=project_root,
             approval_token=approval_token,
             gate_decision_id=gate_decision_id,
-            dry_run_evidence=dry_run_evidence,
-            script_hash=script_hash,
-            input_artifact_hash=input_artifact_hash,
+            run_plan_hash=run_plan_hash,
+            expected_scheduler="ssh",
             approval_bindings={"target": target, "remote_workdir": remote_workdir},
             approved=approved,
         )
@@ -240,6 +237,8 @@ class SSHConnector(BaseHPCConnector):
             return {"status": "error", "message": "SSH submit requires an upload transfer manifest", "code": "transfer_manifest_direction"}
         if transfer.get("target") != self.target:
             return {"status": "error", "message": "SSH target does not match transfer manifest", "code": "transfer_manifest_target_mismatch"}
+        if transfer.get("run_plan_hash") != run_plan_hash:
+            return {"status": "error", "message": "Transfer manifest does not match run plan", "code": "transfer_manifest_plan_mismatch"}
         workdir = remote_workdir or transfer.get("remote_dir")
         if not workdir:
             return {"status": "error", "message": "remote_workdir is required for SSH submit", "code": "remote_workdir_required"}
@@ -285,6 +284,7 @@ class SSHConnector(BaseHPCConnector):
                             "target": self.target,
                             "gate_decision_id": auth["gate_decision_id"],
                             "script_hash": auth["script_hash"],
+                            "run_plan_hash": auth["run_plan_hash"],
                         }
                     return {
                         "success": True,
@@ -292,8 +292,9 @@ class SSHConnector(BaseHPCConnector):
                         "job_id": proc.stdout.strip(),
                         "scheduler": "slurm",
                         "target": self.target,
-                        "gate_decision_id": auth["gate_decision_id"],
-                        "script_hash": auth["script_hash"],
+                    "gate_decision_id": auth["gate_decision_id"],
+                    "script_hash": auth["script_hash"],
+                    "run_plan_hash": auth["run_plan_hash"],
                     }
                 return {"success": False, "errors": [self._safe_error(proc.stderr, "remote sbatch failed")]}
             else:

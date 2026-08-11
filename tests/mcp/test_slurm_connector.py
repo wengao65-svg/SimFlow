@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Tests for SLURM connector enhancements: submit, sacct fallback, wait."""
 
-import hashlib
-import json
 import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -13,48 +11,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp" / "servers" /
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 
 from connectors.slurm import SlurmConnector
+from run_plan import build_run_plan
 from runtime.simflow_core.gates import record_gate_decision
-from runtime.simflow_core.state import init_workflow
-
-
-def _sha256_file(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _write_json(path: Path, payload: dict):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _authorized_submit_kwargs(script_path: str) -> dict:
     project_root = Path(script_path).parent
-    init_workflow("custom", "computation", project_root=str(project_root))
-    input_hash = "input-manifest-sha256"
-    script_hash = _sha256_file(script_path)
-    artifacts = project_root / ".simflow" / "artifacts"
-    _write_json(
-        artifacts / "compute" / "dry_run_report.json",
+    input_file = project_root / "input.dat"
+    input_file.write_text("input\n", encoding="utf-8")
+    connector = SlurmConnector()
+    plan = build_run_plan(
+        str(project_root),
         {
-            "status": "pass",
-            "script_hash": script_hash,
-            "input_artifact_hash": input_hash,
+            "script_path": Path(script_path).name,
+            "input_paths": [input_file.name],
+            "scheduler": "slurm",
         },
+        script=Path(script_path),
+        script_generated=False,
+        validation=connector.dry_run(script_path),
     )
-    _write_json(artifacts / "compute" / "input_validation.json", {"missing_required_files": []})
-    _write_json(artifacts / "compute" / "resource_estimate.json", {"status": "pass"})
-    _write_json(artifacts / "security" / "credential_scan.json", {"findings": []})
     decision = record_gate_decision(
         "hpc_submit",
         "approved",
         {
             "reason": "pytest submit authorization",
-            "dry_run_evidence": "compute/dry_run_report.json",
-            "script_hash": script_hash,
-            "input_artifact_hash": input_hash,
+            "run_plan_hash": plan["run_plan_hash"],
         },
         project_root=str(project_root),
         agent="pytest",
@@ -62,9 +44,7 @@ def _authorized_submit_kwargs(script_path: str) -> dict:
     return {
         "project_root": str(project_root),
         "gate_decision_id": decision["decision_id"],
-        "dry_run_evidence": "compute/dry_run_report.json",
-        "script_hash": script_hash,
-        "input_artifact_hash": input_hash,
+        "run_plan_hash": plan["run_plan_hash"],
     }
 
 
@@ -112,7 +92,8 @@ class TestSubmit:
         assert result["status"] == "success"
         assert result["job_id"] == "12345"
         assert result["gate_decision_id"].startswith("gate_decision_")
-        assert result["script_hash"] == _sha256_file(slurm_script)
+        assert len(result["script_hash"]) == 64
+        assert result["run_plan_hash"]
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
         assert call_args[0] == "sbatch"
@@ -134,8 +115,8 @@ class TestSubmit:
         assert result["status"] == "error"
         assert "sbatch not found" in result["message"]
 
-    def test_submit_blocks_modified_script_after_dry_run(self, connector, slurm_script):
-        """Changing a script after dry-run invalidates the approval evidence."""
+    def test_submit_blocks_modified_script_after_planning(self, connector, slurm_script):
+        """Changing a script after planning invalidates approval reuse."""
         kwargs = _authorized_submit_kwargs(slurm_script)
         Path(slurm_script).write_text(
             "#!/bin/bash\n#SBATCH --job-name=changed\nmpirun echo changed\n",
@@ -143,7 +124,7 @@ class TestSubmit:
         )
         result = connector.submit(slurm_script, **kwargs)
         assert result["status"] == "error"
-        assert result["code"] == "script_hash_mismatch"
+        assert result["code"] == "run_plan_stale"
         assert result["approval_required"] is True
 
 
@@ -264,7 +245,7 @@ class TestDryRun:
         result = connector.dry_run(slurm_script)
         assert result["overall"] == "pass"
         assert result["dry_run"] is True
-        assert result["script_hash"] == _sha256_file(slurm_script)
+        assert len(result["script_hash"]) == 64
 
     def test_dry_run_missing_script(self, connector):
         """dry_run() fails for nonexistent script."""

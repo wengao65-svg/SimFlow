@@ -440,9 +440,11 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert result["checkpoint_id"].startswith("ckpt_")
         assert stages_state["computation"]["checkpoint_id"] is None
         assert checkpoints[-1]["checkpoint_id"] == result["checkpoint_id"]
-        assert result["manifest"]["submit_request_template"]["gate_decision_id"] is None
-        assert result["manifest"]["submit_request_template"]["dry_run_evidence"] == "compute/dry_run_report.json"
-        assert result["manifest"]["submit_request_template"]["script_hash"] == result["manifest"]["submit_readiness"]["script_hash"]
+        plan_template = result["manifest"]["run_plan_request_template"]
+        assert plan_template["tool"] == "hpc/plan"
+        assert plan_template["run_plan_hash"] is None
+        assert plan_template["approval_binding"] == "run_plan_hash"
+        assert plan_template["input_paths"] == result["manifest"]["submit_readiness"]["input_paths"]
         assert workflow["current_stage"] == "computation"
         assert workflow["status"] == "in_progress"
         assert stages_state["computation"]["status"] == "completed"
@@ -495,9 +497,9 @@ def test_execute_stage_allows_direct_computation_entry_with_existing_inputs():
         assert compute_manifest["real_submit"] is False
         assert compute_manifest["approval_required_for_real_submit"] is True
         assert compute_manifest["readiness_status"] == "pass"
-        assert compute_manifest["submit_request_template"]["project_root"] == str(project_root)
-        assert compute_manifest["submit_request_template"]["scheduler"] == "slurm"
-        assert compute_manifest["submit_request_template"]["gate_decision_id"] is None
+        assert compute_manifest["run_plan_request_template"]["project_root"] == str(project_root)
+        assert compute_manifest["run_plan_request_template"]["scheduler"] == "slurm"
+        assert compute_manifest["run_plan_request_template"]["run_plan_hash"] is None
         assert {"input_manifest.json", "compute_plan.json", "dry_run_report.json"}.issubset(
             {artifact["name"] for artifact in artifacts}
         )
@@ -682,7 +684,7 @@ def test_computation_stage_preserves_explicit_user_submit_script():
         assert compute_manifest["job_script"] == "scripts/submit/vasp_submit.sh"
         assert compute_manifest["job_script_source"] == "explicit_user_path"
         assert compute_manifest["job_script_preserved_without_modification"] is True
-        assert compute_manifest["submit_request_template"]["script_path"] == "scripts/submit/vasp_submit.sh"
+        assert compute_manifest["run_plan_request_template"]["script_path"] == "scripts/submit/vasp_submit.sh"
         assert dry_run_report["job_script"] == "scripts/submit/vasp_submit.sh"
         assert dry_run_report["script_hash"] == before_hash
         assert job_script_artifact["metadata"]["source"] == "explicit_user_path"
@@ -709,7 +711,7 @@ def test_computation_stage_discovers_single_reusable_submit_script():
         assert compute_manifest["job_script_original_path"] == "scripts/submit/slurm_submit.sh"
         assert compute_manifest["job_script_preserved_without_modification"] is True
         assert compute_manifest["submit_readiness"]["script_path"] == "scripts/submit/slurm_submit.sh"
-        assert compute_manifest["submit_request_template"]["script_path"] == "scripts/submit/slurm_submit.sh"
+        assert compute_manifest["run_plan_request_template"]["script_path"] == "scripts/submit/slurm_submit.sh"
         assert not (project_root / ".simflow" / "artifacts" / "compute" / "job_script.sh").exists()
 
 
