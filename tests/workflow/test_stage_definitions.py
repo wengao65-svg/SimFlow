@@ -113,6 +113,7 @@ def test_stage_contracts_do_not_force_fixed_helpers():
         "fixed_report",
         "fixed_report_file",
         "fixed_validators",
+        "checkpoint_policy",
     }
     for path in _stage_paths():
         data = json.loads(path.read_text())

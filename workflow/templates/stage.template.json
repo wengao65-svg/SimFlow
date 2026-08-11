@@ -8,6 +8,5 @@
   "suggested_checks": ["{{ suggested_check_1 }}"],
   "approval_triggers": [],
   "handoff_notes": ["{{ handoff_note_1 }}"],
-  "risk_notes": [],
-  "checkpoint_policy": "on_completion"
+  "risk_notes": []
 }

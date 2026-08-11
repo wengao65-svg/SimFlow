@@ -41,5 +41,16 @@ def test_stage_template_uses_open_guidance_fields():
     assert "intent" in data
     assert "evidence_outputs" in data
     assert "recommended_skills" in data
-    for forbidden in ["default_agent", "default_skill", "required_inputs", "expected_outputs", "validators", "approval_gates"]:
+    for forbidden in [
+        "default_agent", "default_skill", "required_inputs", "expected_outputs",
+        "validators", "approval_gates", "checkpoint_policy",
+    ]:
         assert forbidden not in data
+
+
+def test_workflow_template_uses_event_driven_runtime_policies():
+    data = json.loads((TEMPLATES_DIR / "workflow.template.json").read_text(encoding="utf-8"))
+    policies = set(data["policies"])
+    assert {"recovery_checkpoint", "logical_event_recording", "approval_for_real_execution"}.issubset(policies)
+    assert "checkpoint_on_stage_boundary" not in policies
+    assert "artifact_versioning" not in policies

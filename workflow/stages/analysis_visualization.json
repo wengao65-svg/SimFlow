@@ -8,6 +8,5 @@
   "suggested_checks": ["input provenance", "script recorded", "environment recorded", "figure source traceability", "caption evidence", "uncertainty or missing data marked"],
   "approval_triggers": ["licensed_or_proprietary_file_handling", "destructive_file_operation"],
   "handoff_notes": ["Record which data were analyzed, which scripts or helpers were used, which figures were produced, and which conclusions are supported."],
-  "risk_notes": ["Do not force built-in parsers or present incomplete figures as final evidence when a recorded custom script is more appropriate."],
-  "checkpoint_policy": "on_completion"
+  "risk_notes": ["Do not force built-in parsers or present incomplete figures as final evidence when a recorded custom script is more appropriate."]
 }

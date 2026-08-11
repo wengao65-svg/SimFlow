@@ -88,6 +88,20 @@ def test_policy_count():
     assert len(policies) >= 5, f"Expected at least 5 policies, got {len(policies)}"
 
 
+def test_policies_use_event_driven_records_and_recovery_checkpoints():
+    names = {path.stem for path in POLICIES_DIR.glob("*.json")}
+    assert "checkpoint_on_stage_boundary" not in names
+    assert "artifact_versioning" not in names
+    assert "approval_for_external_submit" not in names
+    assert {"recovery_checkpoint", "logical_event_recording", "approval_for_real_execution"}.issubset(names)
+
+    recovery = json.loads((POLICIES_DIR / "recovery_checkpoint.json").read_text())
+    serialized = json.dumps(recovery, sort_keys=True)
+    assert "recoverable_boundary_reached" in serialized
+    assert "copy_state_registries\": false" in serialized
+    assert "stage_completed" not in serialized
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

@@ -1,17 +1,15 @@
 {
   "name": "dry_run_default",
-  "description": "默认 dry-run 策略：所有计算操作默认为 dry-run 模式",
-  "scope": "compute",
+  "description": "Real local, remote, and scheduler execution is planned and validated before submission.",
+  "scope": "real_execution",
   "rules": [
     {
-      "condition": "compute_stage_entered",
-      "action": "set_dry_run_mode",
-      "parameters": { "mode": true }
+      "condition": "real_execution_planned",
+      "action": "build_immutable_run_plan"
     },
     {
-      "condition": "user_requests_real_submit",
-      "action": "trigger_approval_gate",
-      "parameters": { "gate": "hpc_submit" }
+      "condition": "run_plan_validation_failed",
+      "action": "block_submission"
     }
   ]
 }

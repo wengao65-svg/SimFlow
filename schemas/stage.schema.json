@@ -76,10 +76,6 @@
       "type": "boolean",
       "description": "Whether this file is retained as a legacy stage alias"
     },
-    "checkpoint_policy": {
-      "type": "string",
-      "description": "Checkpoint guidance"
-    },
     "required_inputs": {
       "type": "array",
       "items": {"type": "string"},

@@ -16,8 +16,9 @@
   "gates": [],
   "policies": [
     "dry_run_default",
-    "checkpoint_on_stage_boundary",
-    "artifact_versioning",
+    "recovery_checkpoint",
+    "logical_event_recording",
+    "approval_for_real_execution",
     "no_credential_storage"
   ],
   "entry_point": "{{ first_stage }}",

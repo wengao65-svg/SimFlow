@@ -35,26 +35,25 @@ const template = {
   intent: description || `Describe the research intent for ${stageName}.`,
   acceptable_inputs: [
     "user-provided files",
-    "registered artifacts",
-    "previous checkpoint"
+    "existing project evidence",
+    "optional recovery checkpoint"
   ],
   evidence_outputs: [
-    "stage_manifest",
-    "artifact_metadata",
-    "handoff_notes"
+    "logical deliverable",
+    "provenance summary",
+    "remaining uncertainty"
   ],
   recommended_skills: skill ? [skill] : [],
   suggested_checks: [
     "inputs documented",
-    "outputs registered",
-    "lineage recorded"
+    "outputs verified",
+    "provenance documented"
   ],
   approval_triggers: [],
   handoff_notes: [
-    "Record what changed, which artifacts support the result, and what remains uncertain."
+    "Summarize what changed, which evidence supports the result, and what remains uncertain."
   ],
   risk_notes: [],
-  checkpoint_policy: "on_completion",
 };
 
 fs.writeFileSync(stageFile, JSON.stringify(template, null, 2));

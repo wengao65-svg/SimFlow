@@ -5,7 +5,6 @@ version = "0.16.0"
 [defaults]
 working_directory = "."
 sandbox = false
-auto_checkpoint = true
 
 [tools]
 allow_file_read = true
@@ -17,7 +16,6 @@ allow_hpc_submit = false
 [workflow]
 default_dry_run = true
 require_approval_for_submit = true
-max_parallel_stages = 1
 
 [logging]
 level = "info"

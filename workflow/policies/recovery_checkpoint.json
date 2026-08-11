@@ -1,0 +1,22 @@
+{
+  "name": "recovery_checkpoint",
+  "description": "Create compact checkpoints only when a real restart or recovery boundary exists.",
+  "scope": "recoverable_events",
+  "rules": [
+    {
+      "condition": "recoverable_boundary_reached",
+      "action": "create_compact_checkpoint",
+      "parameters": {
+        "include_records_offset": true,
+        "include_input_hashes": true,
+        "include_restart_references": true,
+        "include_resume_instructions": true,
+        "copy_state_registries": false
+      }
+    },
+    {
+      "condition": "ordinary_stage_or_task_completed",
+      "action": "checkpoint_not_required"
+    }
+  ]
+}

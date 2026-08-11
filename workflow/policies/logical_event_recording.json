@@ -1,0 +1,20 @@
+{
+  "name": "logical_event_recording",
+  "description": "Record meaningful runs, milestones, deliverables, approvals, analyses, and failures once at logical-event granularity.",
+  "scope": "recorded_events",
+  "rules": [
+    {
+      "condition": "logical_event_requires_traceability",
+      "action": "append_compact_record",
+      "parameters": {
+        "group_related_files": true,
+        "prefer_manifest_or_key_file_refs": true,
+        "preserve_parent_record_ids": true
+      }
+    },
+    {
+      "condition": "transient_or_duplicate_file_created",
+      "action": "do_not_create_separate_record"
+    }
+  ]
+}
