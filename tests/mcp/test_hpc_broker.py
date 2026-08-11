@@ -120,6 +120,10 @@ def test_broker_rejects_remote_path_traversal(tmp_path, monkeypatch):
 
 
 def test_broker_rejects_unapproved_peer_uid(tmp_path, monkeypatch):
+    from mcp.servers.hpc import broker_server
+
+    dispatched = []
+    monkeypatch.setattr(broker_server, "_dispatch", lambda request: dispatched.append(request))
     monkeypatch.setenv("SIMFLOW_HPC_BROKER_ALLOWED_UID", str(os.geteuid() + 1))
     server = SSHBrokerServer(tmp_path / "broker.sock")
     server.start()
@@ -129,6 +133,7 @@ def test_broker_rejects_unapproved_peer_uid(tmp_path, monkeypatch):
         result = SSHBrokerClient(host="hpc").status("123")
         assert result["status"] == "error"
         assert "peer uid" in result["message"]
+        assert dispatched == []
     finally:
         thread.join(timeout=5)
         server.close()
