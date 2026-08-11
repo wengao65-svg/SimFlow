@@ -10,6 +10,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGE_ROOT = path.resolve(process.argv[2] || path.join(ROOT, 'dist', 'opencode-plugin'));
 const OPENCODE = process.env.SIMFLOW_OPENCODE_BIN || 'opencode';
+const DEFAULT_TIMEOUT = Number(process.env.SIMFLOW_OPENCODE_SMOKE_TIMEOUT_MS) || 120000;
 const SERVER_NAMES = [
   'simflow_state', 'hpc',
 ];
@@ -25,7 +26,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd || ROOT,
     env: options.env || process.env,
     encoding: 'utf-8',
-    timeout: options.timeout || 60000,
+    timeout: options.timeout || DEFAULT_TIMEOUT,
   });
   if (result.status !== 0) {
     const output = [result.stdout, result.stderr, result.error?.message].filter(Boolean).join('\n');

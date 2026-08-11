@@ -42,8 +42,12 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "public Skill surface is exactly one Router, six Task, and five Domain Skills" in result.stdout
     assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
     assert "public Skill text contains no runtime registration or placeholder instructions" in result.stdout
-    assert "legacy experiment ledger ceremony remains absent from tracked runtime sources" in result.stdout
-    assert "legacy migration is read-only until explicit current-hash confirmation" in result.stdout
+    assert "legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources" in result.stdout
+    assert "compact Experiment notebook module, summary rebuild, and schema are release-required" in result.stdout
+    assert "tracked runtime contains no SQLite ledger implementation" in result.stdout
+    assert "project summary rebuild and six discriminated Experiment branches are operational" in result.stdout
+    assert "Experiment and Attempt bindings do not affect immutable run_plan_hash" in result.stdout
+    assert "legacy state and memory migration is metadata-only until explicit current-hash confirmation" in result.stdout
     assert "compact records redact credentials and POTCAR materialization remains metadata-only" in result.stdout
     assert "hpc exposes four immutable-plan tools, bound approval, and fail-closed credential scans" in result.stdout
     assert "operational Skill script directories contain no Python entry points" in result.stdout

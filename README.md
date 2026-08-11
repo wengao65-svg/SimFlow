@@ -1,5 +1,7 @@
 # SimFlow
 
+Current release: `1.1.0`.
+
 SimFlow is a computational-research guidance, provenance, recovery, and safety
 layer for Codex, Claude Code, OpenCode, and compatible host agents.
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.1.0 (2026-08-11) — Compact Experiment memory and operational binding
+
+- Added one append-only Markdown notebook per scientific Experiment, with six
+  discriminated entry types for questions, Attempts, observations, decisions,
+  persistent evidence changes, and recovery choices.
+- Added one read-only project-memory re-entry per project per user request,
+  ranking Experiment context from the working directory and current query
+  without creating session/activity state or importing host transcripts.
+- Made scientific files the exact evidence source, notebooks the authority for
+  scientific semantics, and `records.jsonl` the authority for operational plan,
+  approval, transfer, submit, status, and checkpoint truth.
+- Added deterministic `rebuild_project_summary()` over notebooks, operational
+  records, and checkpoints so `project.json` and `experiments/index.md` remain
+  disposable derived views.
+- Bound HPC plans, transfers, submissions, and recorded status to Experiment
+  Attempts through operational records while keeping those identifiers outside
+  immutable `run_plan_hash` identity and preserving unchanged approvals.
+- Extended read-only migration inventory to legacy `.simflow/memory/` files
+  using path, size, hash, safe JSON shape, and SQLite header metadata only;
+  source bytes and SQLite table contents remain untouched.
+- Kept the public surface at 12 Skills, four state tools, and four HPC tools;
+  no SQLite/session/activity ledger or lifecycle MCP tools were restored.
+
 ## v1.0.0 (2026-08-11) — Compact runtime and research guidance separation
 
 - Separated the Router, six Research Task Skills, five Domain Skills, and

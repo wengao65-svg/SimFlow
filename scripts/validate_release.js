@@ -109,15 +109,19 @@ function validateVersionSync() {
   const pyprojectVersion = parsePyprojectVersion();
   const codexVersion = readJson('.codex-plugin/plugin.json').version;
   const claudeVersion = readJson('.claude-plugin/plugin.json').version;
+  const codexConfig = fs.readFileSync(path.join(ROOT, '.codex', 'config.toml'), 'utf-8');
+  const codexConfigMatch = codexConfig.match(/^version\s*=\s*"([^"]+)"/m);
+  const codexConfigVersion = codexConfigMatch ? codexConfigMatch[1] : null;
   const versions = {
     'package.json': packageVersion,
     'pyproject.toml': pyprojectVersion,
     '.codex-plugin/plugin.json': codexVersion,
     '.claude-plugin/plugin.json': claudeVersion,
+    '.codex/config.toml': codexConfigVersion,
   };
   const unique = new Set(Object.values(versions));
   check(
-    'package, Python, Codex, and Claude plugin versions match',
+    'package, Python, Codex, Claude, and Codex config versions match',
     unique.size === 1 && !unique.has(null) && !unique.has(undefined),
     JSON.stringify(versions, null, 2),
   );
@@ -377,9 +381,91 @@ function validateSimplificationContract() {
       )
   ));
   check(
-    'legacy experiment ledger ceremony remains absent from tracked runtime sources',
+    'legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources',
     lifecycleFindings.length === 0,
     lifecycleFindings.join('\n'),
+  );
+
+  const requiredMemorySources = [
+    'runtime/simflow_core/experiment_notebook.py',
+    'runtime/simflow_core/project_summary.py',
+    'schemas/experiment_notebook.schema.json',
+  ];
+  check(
+    'compact Experiment notebook module, summary rebuild, and schema are release-required',
+    requiredMemorySources.every(relativePath => tracked.includes(relativePath))
+      && /def rebuild_project_summary\(/.test(fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_core', 'project_summary.py'), 'utf-8')),
+    requiredMemorySources.filter(relativePath => !tracked.includes(relativePath)).join('\n'),
+  );
+
+  const sqliteLedgerFindings = tracked.filter(relativePath => (
+    /^(?:runtime|mcp)\/.*\.py$/.test(relativePath)
+      && /(?:^|\n)\s*(?:import sqlite3|from sqlite3 import)/.test(fs.readFileSync(path.join(ROOT, relativePath), 'utf-8'))
+  ));
+  check(
+    'tracked runtime contains no SQLite ledger implementation',
+    sqliteLedgerFindings.length === 0,
+    sqliteLedgerFindings.join('\n'),
+  );
+
+  const memoryContractSmoke = [
+    'import importlib.util, json, sys, tempfile',
+    'from pathlib import Path',
+    'from runtime.simflow_core.experiment_notebook import append_experiment_entry, create_experiment',
+    'from runtime.simflow_core.project_summary import rebuild_project_summary',
+    'from runtime.simflow_core.records import record_event',
+    'tmp = tempfile.TemporaryDirectory()',
+    'root = Path(tmp.name)',
+    'experiment = create_experiment(str(root), title="Temperature scope", research_question="Exclude >= 400 K?", scope_paths=["."])',
+    'append_experiment_entry(str(root), experiment_id=experiment["experiment_id"], entry_type="decision", action="exclude", summary="Exclude high-temperature frames")',
+    'record_event(str(root), kind="note", summary="Operational evidence remains separate")',
+    'checkpoint_dir = root / ".simflow" / "checkpoints"',
+    'checkpoint_dir.mkdir(parents=True)',
+    '(checkpoint_dir / "ckpt_release.json").write_text(json.dumps({"checkpoint_id": "ckpt_release"}), encoding="utf-8")',
+    'summary = rebuild_project_summary(str(root))',
+    'assert summary["counts"]["experiments"] == 1',
+    'assert summary["counts"]["operational_total"] == 1',
+    'assert summary["counts"]["checkpoints"] == 1',
+    '(root / ".simflow" / "project.json").unlink()',
+    'rebuilt = rebuild_project_summary(str(root), write=False)',
+    'assert rebuilt["experiments"][0]["research_question"] == "Exclude >= 400 K?"',
+    'mcp_dir = Path("mcp/servers/simflow_state").resolve()',
+    'sys.path.insert(0, str(mcp_dir))',
+    'spec = importlib.util.spec_from_file_location("release_state_server", mcp_dir / "server.py")',
+    'server = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(server)',
+    'assert set(server.TOOLS) == {"inspect", "record", "checkpoint", "recover"}',
+    'branches = server.TOOL_SCHEMAS["record"]["oneOf"]',
+    'assert len(branches) == 7',
+    'assert {item["properties"]["entry_type"]["const"] for item in branches[1:]} == {"experiment", "attempt", "observation", "decision", "material_action", "recovery"}',
+    'tmp.cleanup()',
+  ].join('\n');
+  runCheck(
+    'project summary rebuild and six discriminated Experiment branches are operational',
+    'python',
+    ['-c', memoryContractSmoke],
+  );
+
+  const runPlanBindingSmoke = [
+    'import tempfile',
+    'from pathlib import Path',
+    'from mcp.servers.hpc.run_plan import build_run_plan',
+    'tmp = tempfile.TemporaryDirectory()',
+    'root = Path(tmp.name)',
+    'script = root / "job.sh"',
+    'script.write_text("#!/bin/sh\\ntrue\\n", encoding="utf-8")',
+    '(root / "input.dat").write_text("input\\n", encoding="utf-8")',
+    'base = {"scheduler": "local", "script_path": "job.sh", "input_paths": ["input.dat"]}',
+    'first = build_run_plan(str(root), {**base, "experiment_id": "exp_aaaaaaaaaaaa", "attempt_id": "att_a"}, script=script, script_generated=False, validation={"status": "pass"})',
+    'second = build_run_plan(str(root), {**base, "experiment_id": "exp_bbbbbbbbbbbb", "attempt_id": "att_b"}, script=script, script_generated=False, validation={"status": "pass"})',
+    'assert first["run_plan_hash"] == second["run_plan_hash"]',
+    'assert "experiment_id" not in first and "attempt_id" not in first',
+    'tmp.cleanup()',
+  ].join('\n');
+  runCheck(
+    'Experiment and Attempt bindings do not affect immutable run_plan_hash',
+    'python',
+    ['-c', runPlanBindingSmoke],
   );
 
   const migrationSmoke = [
@@ -392,12 +478,17 @@ function validateSimplificationContract() {
     'legacy = root / ".simflow" / "state" / "workflow.json"',
     'legacy.parent.mkdir(parents=True)',
     'legacy.write_text(json.dumps({"workflow_id": "PRIVATE_LEGACY_VALUE"}) + "\\n", encoding="utf-8")',
-    'source = legacy.read_bytes()',
+    'memory = root / ".simflow" / "memory" / "events.jsonl"',
+    'memory.parent.mkdir(parents=True)',
+    'memory.write_text(json.dumps({"event": "PRIVATE_MEMORY_VALUE"}) + "\\n", encoding="utf-8")',
+    'source = {legacy: legacy.read_bytes(), memory: memory.read_bytes()}',
     'report = build_migration_report(str(root))',
     'assert report["detected"] is True',
     'assert report["safety"]["source_files_are_read_only"] is True',
+    'assert report["safety"]["legacy_memory_content_is_not_imported"] is True',
     'assert "PRIVATE_LEGACY_VALUE" not in json.dumps(report)',
-    'assert legacy.read_bytes() == source',
+    'assert "PRIVATE_MEMORY_VALUE" not in json.dumps(report)',
+    'assert all(path.read_bytes() == content for path, content in source.items())',
     'assert not (root / ".simflow" / "project.json").exists()',
     'assert not (root / ".simflow" / "records.jsonl").exists()',
     'assert not (root / ".simflow" / "reports").exists()',
@@ -407,11 +498,11 @@ function validateSimplificationContract() {
     'applied = apply_migration(str(root), migration_report_hash=report["migration_report_hash"], confirm_migration=True)',
     'assert applied["status"] == "applied"',
     'assert len(list_project_records(str(root), kind="migration")) == 1',
-    'assert legacy.read_bytes() == source',
+    'assert all(path.read_bytes() == content for path, content in source.items())',
     'tmp.cleanup()',
   ].join('\n');
   runCheck(
-    'legacy migration is read-only until explicit current-hash confirmation',
+    'legacy state and memory migration is metadata-only until explicit current-hash confirmation',
     'python',
     ['-c', migrationSmoke],
   );

@@ -118,6 +118,10 @@ SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plug
 node scripts/smoke_opencode_plugin.js dist/opencode-plugin
 ```
 
+On unusually slow hosts, set a bounded override such as
+`SIMFLOW_OPENCODE_SMOKE_TIMEOUT_MS=180000`; the default is 120 seconds per CLI
+probe.
+
 Expected result:
 
 - Both marketplace wrappers and the OpenCode package are real directories, not symlinks.
