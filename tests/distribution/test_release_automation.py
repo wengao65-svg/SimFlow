@@ -28,6 +28,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Version Synchronization" in result.stdout
     assert "Support Matrix" in result.stdout
+    assert "Simplification Contract" in result.stdout
     assert "Restricted Artifact Scan" in result.stdout
     assert "Workflow Automation" in result.stdout
     assert "Marketplace Version Guard" in result.stdout
@@ -38,7 +39,12 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes four compact tools" in result.stdout
-    assert "hpc exposes four immutable-plan tools and requires bound approval" in result.stdout
+    assert "public Skill surface is exactly one Router, six Task, and five Domain Skills" in result.stdout
+    assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
+    assert "experiment ledger and engagement modules are absent from tracked runtime sources" in result.stdout
+    assert "legacy migration is read-only until explicit current-hash confirmation" in result.stdout
+    assert "compact records redact credentials and POTCAR materialization remains metadata-only" in result.stdout
+    assert "hpc exposes four immutable-plan tools, bound approval, and fail-closed credential scans" in result.stdout
     assert "operational Skill script directories contain no Python entry points" in result.stdout
     assert "wrapper build validation skipped" in result.stdout
     assert "Errors: 0" in result.stdout

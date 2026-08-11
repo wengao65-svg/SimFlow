@@ -19,6 +19,20 @@ const ALLOW_DIRTY = args.has('--allow-dirty') || process.env.SIMFLOW_RELEASE_ALL
 const SKIP_WRAPPERS = args.has('--skip-wrapper-build') || process.env.SIMFLOW_RELEASE_SKIP_WRAPPERS === '1';
 const RESTRICTED_NAMES = new Set(['POTCAR', 'WAVECAR', 'CHGCAR', 'OUTCAR', 'vasprun.xml']);
 const POTCAR_HEADER_RE = /PAW_PBE Si|VRHFIN =Si/;
+const EXPECTED_PUBLIC_SKILLS = [
+  'simflow',
+  'simflow-analysis-visualization',
+  'simflow-computation',
+  'simflow-cp2k',
+  'simflow-gpumd',
+  'simflow-lammps',
+  'simflow-literature-review',
+  'simflow-mlp',
+  'simflow-modeling',
+  'simflow-proposal',
+  'simflow-vasp',
+  'simflow-writing',
+];
 
 let errors = 0;
 
@@ -274,6 +288,113 @@ function validateSupportMatrix() {
   );
 }
 
+function validateSimplificationContract() {
+  console.log('\n--- Simplification Contract ---');
+  const publicSkills = fs.readdirSync(path.join(ROOT, 'skills'))
+    .filter(name => fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')))
+    .sort();
+  check(
+    'public Skill surface is exactly one Router, six Task, and five Domain Skills',
+    JSON.stringify(publicSkills) === JSON.stringify(EXPECTED_PUBLIC_SKILLS),
+    publicSkills.join('\n'),
+  );
+
+  const stateToolFiles = fs.readdirSync(path.join(ROOT, 'mcp', 'servers', 'simflow_state', 'tools'))
+    .filter(name => name.endsWith('.py'))
+    .sort();
+  check(
+    'simflow_state implementation directory contains only four public tools',
+    JSON.stringify(stateToolFiles) === JSON.stringify(['checkpoint.py', 'inspect.py', 'record.py', 'recover.py']),
+    stateToolFiles.join('\n'),
+  );
+
+  let auditReports = [];
+  try {
+    auditReports = JSON.parse(run('python', ['scripts/audit_skill_scripts.py', '--json'], { capture: true }));
+  } catch (error) {
+    fail('public Skill scripts can be audited', error.message);
+  }
+  const scriptViolations = auditReports.filter(report => (
+    report.category === 'stage_runner'
+      || report.stage_runner_functions.length > 0
+      || report.stateful_runtime_calls.length > 0
+  ));
+  check(
+    'public Skill scripts contain no stage runners or stateful runtime calls',
+    auditReports.length > 0 && scriptViolations.length === 0,
+    JSON.stringify(scriptViolations, null, 2),
+  );
+
+  const tracked = run('git', ['ls-files'], { capture: true }).split(/\r?\n/).filter(Boolean);
+  const removedLifecycleTools = new Set([
+    'begin_experiment.py',
+    'begin_iteration.py',
+    'compare_experiments.py',
+    'evaluate_iteration.py',
+    'experiment_timeline.py',
+    'finish_activity.py',
+    'finish_experiment.py',
+    'fork_experiment.py',
+    'migrate_experiment_ledger.py',
+    'rebuild_experiment_exports.py',
+    'resume_experiment.py',
+    'session_handoff.py',
+    'start_activity.py',
+    'verify_experiment_ledger.py',
+  ]);
+  const removedStateSources = new Set([
+    'runtime/simflow_core/engagement.py',
+    'runtime/simflow_core/experiment_memory.py',
+    'schemas/experiment_memory.schema.json',
+  ]);
+  const lifecycleFindings = tracked.filter(relativePath => (
+    removedStateSources.has(relativePath)
+      || (
+        relativePath.startsWith('mcp/servers/simflow_state/tools/')
+        && removedLifecycleTools.has(path.basename(relativePath))
+      )
+  ));
+  check(
+    'experiment ledger and engagement modules are absent from tracked runtime sources',
+    lifecycleFindings.length === 0,
+    lifecycleFindings.join('\n'),
+  );
+
+  const migrationSmoke = [
+    'import json, tempfile',
+    'from pathlib import Path',
+    'from runtime.simflow_core.migration import MigrationError, apply_migration, build_migration_report',
+    'from runtime.simflow_core.records import list_project_records',
+    'tmp = tempfile.TemporaryDirectory()',
+    'root = Path(tmp.name)',
+    'legacy = root / ".simflow" / "state" / "workflow.json"',
+    'legacy.parent.mkdir(parents=True)',
+    'legacy.write_text(json.dumps({"workflow_id": "PRIVATE_LEGACY_VALUE"}) + "\\n", encoding="utf-8")',
+    'source = legacy.read_bytes()',
+    'report = build_migration_report(str(root))',
+    'assert report["detected"] is True',
+    'assert report["safety"]["source_files_are_read_only"] is True',
+    'assert "PRIVATE_LEGACY_VALUE" not in json.dumps(report)',
+    'assert legacy.read_bytes() == source',
+    'assert not (root / ".simflow" / "project.json").exists()',
+    'assert not (root / ".simflow" / "records.jsonl").exists()',
+    'assert not (root / ".simflow" / "reports").exists()',
+    'blocked = False',
+    'try:\n    apply_migration(str(root), migration_report_hash=report["migration_report_hash"], confirm_migration=False)\nexcept MigrationError:\n    blocked = True',
+    'assert blocked is True',
+    'applied = apply_migration(str(root), migration_report_hash=report["migration_report_hash"], confirm_migration=True)',
+    'assert applied["status"] == "applied"',
+    'assert len(list_project_records(str(root), kind="migration")) == 1',
+    'assert legacy.read_bytes() == source',
+    'tmp.cleanup()',
+  ].join('\n');
+  runCheck(
+    'legacy migration is read-only until explicit current-hash confirmation',
+    'python',
+    ['-c', migrationSmoke],
+  );
+}
+
 function validateRestrictedArtifacts() {
   console.log('\n--- Restricted Artifact Scan ---');
   const tracked = run('git', ['ls-files'], { capture: true }).split(/\r?\n/).filter(Boolean);
@@ -314,6 +435,44 @@ function validateRestrictedArtifacts() {
     }
   }
   check('safe examples exclude real VASP artifacts and POTCAR-derived headers', exampleFindings.length === 0, exampleFindings.join('\n'));
+
+  const restrictedRuntimeSmoke = [
+    'import json, os, stat, tempfile',
+    'from pathlib import Path',
+    'tmp = tempfile.TemporaryDirectory()',
+    'root = Path(tmp.name)',
+    'os.environ.setdefault("MPLCONFIGDIR", str(root / "matplotlib"))',
+    'from runtime.simflow_core.records import record_event',
+    'from runtime.simflow_helpers.engines.vasp_potcar import generate_potcar',
+    'secret = "release-secret-value-1234567890"',
+    'record_event(str(root), kind="note", summary="sanitize", details={"password": secret, "api_key": secret, "private_key": secret, "potcar_body": secret, "message": "Bearer " + secret})',
+    'records = (root / ".simflow" / "records.jsonl").read_text(encoding="utf-8")',
+    'assert secret not in records',
+    'assert "[REDACTED]" in records',
+    'library = root / "licensed" / "PBE" / "Si"',
+    'library.mkdir(parents=True)',
+    'marker = "PRIVATE_POTCAR_MARKER"',
+    '(library / "POTCAR").write_text("PAW_PBE Si 05Jan2001\\nPOMASS = 1.0; ZVAL = 4.0\\nEnd of Dataset " + marker + "\\n", encoding="utf-8")',
+    'calc = root / "calculation" / "si"',
+    'calc.mkdir(parents=True)',
+    'poscar = calc / "POSCAR"',
+    'poscar.write_text("Test\\n1.0\\n5 0 0\\n0 5 0\\n0 0 5\\nSi\\n1\\nDirect\\n0 0 0\\n", encoding="utf-8")',
+    'result = generate_potcar(str(poscar), str(calc / "POTCAR"), potcar_root=str(root / "licensed"), setups="minimal", project_root=str(root))',
+    'assert result["status"] == "materialized", result',
+    'assert result["content_included"] is False',
+    'assert result["resolved_datasets"] == ["Si"]',
+    'assert marker not in json.dumps(result)',
+    'assert str(root / "licensed") not in json.dumps(result)',
+    'assert stat.S_IMODE((calc / "POTCAR").stat().st_mode) == 0o600',
+    'blocked = generate_potcar(str(poscar), str(root / ".simflow" / "POTCAR"), potcar_root=str(root / "licensed"), setups="minimal", project_root=str(root))',
+    'assert blocked["reason_code"] == "restricted_potcar_output_location"',
+    'tmp.cleanup()',
+  ].join('\n');
+  runCheck(
+    'compact records redact credentials and POTCAR materialization remains metadata-only',
+    'python',
+    ['-c', restrictedRuntimeSmoke],
+  );
 }
 
 function validateSafeExamples() {
@@ -569,12 +728,20 @@ function validateWorkflowAutomation() {
     'assert planned.get("status") == "success", planned',
     'run_plan_hash = planned["data"]["run_plan_hash"]',
     'result = server.handle_request({"tool": "submit", "params": {"project_root": str(project), "run_plan_hash": run_plan_hash}})',
-    'tmp.cleanup()',
     'assert result.get("status") == "error", result',
     'assert result.get("approval_required") is True, result',
     'assert result.get("run_plan_hash") == run_plan_hash, result',
+    'secret = "do-not-store-release-secret"',
+    'input_file.write_text("api_key=" + secret + "\\n", encoding="utf-8")',
+    'credential_plan = server.handle_request({"tool": "plan", "params": {"project_root": str(project), "script_path": "job.sh", "input_paths": ["input.dat"], "scheduler": "local"}})',
+    'assert credential_plan.get("status") == "error", credential_plan',
+    'assert credential_plan["data"]["credential_scan"]["status"] == "fail", credential_plan',
+    'assert secret not in json.dumps(credential_plan)',
+    'persisted = "\\n".join(path.read_text(encoding="utf-8") for path in (project / ".simflow").rglob("*.json"))',
+    'assert secret not in persisted',
+    'tmp.cleanup()',
   ].join('; ');
-  runCheck('hpc exposes four immutable-plan tools and requires bound approval', 'python', ['-c', hpcSubmitSmoke]);
+  runCheck('hpc exposes four immutable-plan tools, bound approval, and fail-closed credential scans', 'python', ['-c', hpcSubmitSmoke]);
 }
 
 function gitShow(ref, relativePath) {
@@ -659,6 +826,7 @@ function main() {
   validateVersionSync();
   validatePublicMetadata();
   validateSupportMatrix();
+  validateSimplificationContract();
   validateRestrictedArtifacts();
   validateSafeExamples();
   validateReleaseNotesCommand();
