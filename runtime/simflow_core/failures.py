@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .artifacts import register_artifact
-from .checkpoints import create_checkpoint, get_latest_recovery_checkpoint
+from .checkpoints import get_latest_recovery_checkpoint
 from .state import (
     ensure_workflow_initialized,
     resolve_project_root,
@@ -52,18 +52,8 @@ def record_stage_failure(
 ) -> dict[str, Any]:
     """Persist a complete, recoverable stage-failure evidence bundle."""
     root = resolve_project_root(project_root=project_root)
-    from .experiment_memory import require_write_context
-    ledger_context = require_write_context(
-        str(root), session_context_id=session_context_id, experiment_id=experiment_id,
-        iteration_id=iteration_id, activity_id=activity_id,
-    )
-    if ledger_context:
-        session_context_id = ledger_context.session_context_id
-        experiment_id = ledger_context.experiment_id
-        iteration_id = ledger_context.iteration_id
-        activity_id = ledger_context.activity_id
-    context = {"session_context_id": session_context_id, "experiment_id": experiment_id,
-               "iteration_id": iteration_id, "activity_id": activity_id}
+    del session_context_id, experiment_id, iteration_id, activity_id
+    context = {}
     workflow = ensure_workflow_initialized(project_root=str(root))
     now = _now_iso()
     failure_id = failure_id or f"fail_{uuid.uuid4().hex[:8]}"
@@ -97,10 +87,6 @@ def record_stage_failure(
         parent_artifacts=partial_ids,
         metadata={"failure_id": failure_id, "reason_code": reason_code},
         project_root=str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
     )
 
     report_rel = Path(".simflow") / "reports" / "errors" / f"{failure_id}.json"
@@ -118,9 +104,6 @@ def record_stage_failure(
         "partial_artifact_ids": partial_ids,
         "log_path": str(log_rel),
         "created_at": now,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
     }
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     report_artifact = register_artifact(
@@ -131,27 +114,9 @@ def record_stage_failure(
         parent_artifacts=[*partial_ids, log_artifact["artifact_id"]],
         metadata={"failure_id": failure_id, "reason_code": report["reason_code"]},
         project_root=str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
     )
 
-    recovery = None
-    if experiment_id:
-        if iteration_id:
-            recovery = get_latest_recovery_checkpoint(
-                project_root=str(root),
-                experiment_id=experiment_id,
-                iteration_id=iteration_id,
-            )
-        if recovery is None:
-            recovery = get_latest_recovery_checkpoint(
-                project_root=str(root),
-                experiment_id=experiment_id,
-            )
-    else:
-        recovery = get_latest_recovery_checkpoint(project_root=str(root))
+    recovery = get_latest_recovery_checkpoint(project_root=str(root))
     recovery_checkpoint_id = recovery.get("checkpoint_id") if recovery else None
     update_stage(
         stage_name,
@@ -164,36 +129,12 @@ def record_stage_failure(
     )
     touch_workflow(str(root), current_stage=stage_name, status="failed", **context)
 
-    failure_context = {
-        "failure_id": failure_id,
-        "failed_activity": activity,
-        "reason_code": report["reason_code"],
-        "exception_type": exception_type,
-        "message": safe_message,
-        "error_report_artifact_id": report_artifact["artifact_id"],
-        "log_artifact_ids": [log_artifact["artifact_id"]],
-        "partial_artifact_ids": partial_ids,
-        "recovery_checkpoint_id": recovery_checkpoint_id,
-    }
-    checkpoint = create_checkpoint(
-        workflow_id=workflow.get("workflow_id", "unknown"),
-        stage_id=stage_name,
-        description=f"Failure captured for {activity or stage_name}: {safe_message}",
-        status="failure",
-        job_id=job_id,
-        failure_context=failure_context,
-        project_root=str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
-    )
     verification = record_stage_failure_verification(
         stage_name,
         str(root),
         message=safe_message,
         failure_id=failure_id,
-        checkpoint_id=checkpoint["checkpoint_id"],
+        checkpoint_id=recovery_checkpoint_id,
         source_artifact_ids=[report_artifact["artifact_id"], log_artifact["artifact_id"]],
         **context,
     )
@@ -206,7 +147,7 @@ def record_stage_failure(
         "error_report": str(report_rel),
         "error_report_artifact_id": report_artifact["artifact_id"],
         "log_artifact_id": log_artifact["artifact_id"],
-        "failure_checkpoint_id": checkpoint["checkpoint_id"],
+        "failure_checkpoint_id": None,
         "recovery_checkpoint_id": recovery_checkpoint_id,
         "verification_id": verification["verification_id"],
         "suggested_action": (

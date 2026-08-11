@@ -119,7 +119,7 @@ def test_evidence_matches_by_type_name_and_metadata(tmp_path):
     assert readiness["evidence"]["missing_count"] == 0
 
 
-def test_completed_stage_requires_checkpoint(tmp_path):
+def test_completed_stage_does_not_require_checkpoint(tmp_path):
     workflow = init_workflow("custom", "literature_review", project_root=str(tmp_path))
     for evidence_key in [
         "search_log",
@@ -132,20 +132,19 @@ def test_completed_stage_requires_checkpoint(tmp_path):
         _register_evidence(tmp_path, "literature_review", evidence_key)
     update_stage("literature_review", "completed", project_root=str(tmp_path))
 
-    blocked = build_stage_readiness(str(tmp_path), stage="literature_review")
-    assert blocked["readiness_status"] == "blocked"
-    assert {blocker["code"] for blocker in blocked["blockers"]} == {"missing_checkpoint"}
+    ready_without_checkpoint = build_stage_readiness(str(tmp_path), stage="literature_review")
+    assert ready_without_checkpoint["readiness_status"] == "ready"
 
     checkpoint = create_checkpoint(
         workflow["workflow_id"],
         "literature_review",
         "Literature evidence complete",
         project_root=str(tmp_path),
+        run_id="run_literature",
     )
     ready = build_stage_readiness(str(tmp_path), stage="literature_review")
     assert ready["readiness_status"] == "ready"
     assert ready["checkpoint"]["present"] is True
-    assert ready["checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
     assert checkpoint["checkpoint_id"].startswith("ckpt_")
 
 

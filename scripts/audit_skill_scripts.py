@@ -23,9 +23,7 @@ STAGE_RUNNER_FUNCTIONS = {
     "run_writing_stage",
     "verify_workflow",
 }
-STATE_ADMIN_SCRIPTS = {
-    "skills/simflow-checkpoint/scripts/manage_checkpoint.py",
-}
+STATE_ADMIN_SCRIPTS: set[str] = set()
 
 
 def _read(path: Path) -> str:

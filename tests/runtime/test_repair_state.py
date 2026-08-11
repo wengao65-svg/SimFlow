@@ -91,7 +91,8 @@ def test_apply_backs_up_repairs_and_is_idempotent(tmp_path):
     assert stages["analysis_visualization"]["last_success_checkpoint_id"] == "ckpt_001_analysis_visualization"
     assert checkpoints[0]["status"] == "success"
     assert checkpoints[0]["legacy_status"] == "completed"
-    assert checkpoints[0]["recoverable"] is True
+    assert checkpoints[0]["recoverable"] is False
+    assert checkpoints[0]["legacy_read_only"] is True
     assert workflow["status"] == "in_progress"
     assert workflow["current_stage"] == "analysis_visualization"
 
@@ -136,7 +137,8 @@ def test_checkpoint_registry_file_status_conflict_is_audit_only(tmp_path):
     apply_state_repair(str(tmp_path))
     registry = read_state(project_root=str(tmp_path), state_file="checkpoints.json")
     stages = read_state(project_root=str(tmp_path), state_file="stages.json")
-    assert registry[0]["status"] == "completed"
+    assert registry[0]["status"] == "failure"
+    assert registry[0]["legacy_read_only"] is True
     assert stages["analysis_visualization"].get("checkpoint_id") is None
     assert stages["analysis_visualization"].get("last_success_checkpoint_id") is None
 

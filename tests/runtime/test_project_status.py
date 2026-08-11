@@ -33,6 +33,7 @@ def test_project_status_reports_progress_risks_and_next_action(tmp_path):
         "literature_review",
         "Literature review complete",
         project_root=str(tmp_path),
+        run_id="run_literature",
     )
 
     _write(tmp_path, "literature/review.md")
@@ -263,6 +264,7 @@ def test_handoff_summary_is_compact_and_read_only(tmp_path):
         "literature_review",
         "Literature review complete",
         project_root=str(tmp_path),
+        run_id="run_literature",
     )
 
     summary = build_handoff_summary(str(tmp_path))

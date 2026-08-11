@@ -87,8 +87,8 @@ def test_multiple_completions_create_multiple_records():
         assert "analysis_visualization" in stages_verified
 
 
-def test_verification_includes_checkpoint_id_when_available():
-    """Verification record includes checkpoint_id if stage has one."""
+def test_verification_does_not_require_checkpoint_binding():
+    """Stage verification remains independent from recovery persistence."""
     from runtime.simflow_core.state import init_workflow, update_stage, read_state
     from runtime.simflow_core.checkpoints import create_checkpoint
 
@@ -101,6 +101,7 @@ def test_verification_includes_checkpoint_id_when_available():
             stage_id="computation",
             description="test checkpoint",
             project_root=tmpdir,
+            run_id="run_test",
         )
 
         # Now mark stage as completed
@@ -108,7 +109,7 @@ def test_verification_includes_checkpoint_id_when_available():
 
         verification = read_state(project_root=tmpdir, state_file="verification.json")
         entry = verification[-1]
-        assert entry.get("checkpoint_id") is not None
+        assert entry.get("checkpoint_id") is None
 
 
 if __name__ == "__main__":

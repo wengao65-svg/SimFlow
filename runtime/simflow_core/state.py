@@ -276,6 +276,10 @@ def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_r
                 for parent_id in (artifact.get("lineage", {}).get("parent_artifacts", []) or [])
             ],
         }
+    if state_file == "checkpoints.json":
+        from .checkpoints import list_checkpoints
+
+        return list_checkpoints(project_root=str(root))
     path = root / STATE_DIR / state_file
     if not path.exists():
         return {}

@@ -1,208 +1,134 @@
-#!/usr/bin/env python3
-"""Tests for runtime/lib/checkpoint.py"""
+"""Tests for compact checkpoint compatibility behavior."""
 
 import json
-import shutil
-import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "runtime"))
-
-import runtime.simflow_core.checkpoints as checkpoint_module
-from runtime.simflow_core.checkpoints import create_checkpoint, list_checkpoints, restore_checkpoint, get_latest_checkpoint
-from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.state import init_workflow, read_state, update_stage
-
-
-class TestCheckpoint:
-    def setup_method(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.base_dir = self.tmpdir
-        init_workflow("dft", "literature_review", self.base_dir)
-
-    def teardown_method(self):
-        shutil.rmtree(self.tmpdir)
-
-    def test_create_checkpoint(self):
-        ckpt = create_checkpoint("wf_test1234", "literature_review", "After literature", self.base_dir)
-        assert ckpt["checkpoint_id"].startswith("ckpt_")
-        assert ckpt["workflow_id"] == "wf_test1234"
-        assert ckpt["status"] == "success"
-        assert "lineage_snapshot" in ckpt
-        assert ckpt["simflow_result"]["role"] == "state_admin"
-        assert ckpt["simflow_result"]["activity"] == "create_checkpoint"
-        assert ckpt["simflow_result"]["state_effect"] == "checkpoint_admin"
-        registry_path = Path(self.base_dir) / ".simflow" / "state" / "checkpoints.json"
-        registry = json.loads(registry_path.read_text(encoding="utf-8"))
-        assert registry[0]["checkpoint_id"] == ckpt["checkpoint_id"]
-
-    def test_legacy_checkpoint_does_not_duplicate_compact_lineage(self):
-        parent = register_artifact("input.json", "input_manifest", "computation", self.base_dir)
-        child = register_artifact(
-            "analysis.json",
-            "custom_analysis",
-            "analysis_visualization",
-            self.base_dir,
-            parent_artifacts=[parent["artifact_id"]],
-        )
-
-        ckpt = create_checkpoint("wf_test", "analysis_visualization", "After analysis", self.base_dir)
-        assert ckpt["lineage_snapshot"]["links"] == []
-        assert child["lineage"]["parent_artifacts"] == [parent["artifact_id"]]
-
-    def test_list_checkpoints(self):
-        create_checkpoint("wf_test", "literature_review", "First", self.base_dir)
-        create_checkpoint("wf_test", "writing", "Second", self.base_dir)
-        ckpts = list_checkpoints(self.base_dir)
-        assert len(ckpts) == 2
-
-    def test_restore_checkpoint(self):
-        create_checkpoint("wf_test", "literature_review", "Save point", self.base_dir)
-        ckpts = list_checkpoints(self.base_dir)
-        restored = restore_checkpoint(ckpts[0]["checkpoint_id"], self.base_dir)
-        assert restored["checkpoint_id"] == ckpts[0]["checkpoint_id"]
-        assert restored["simflow_result"]["activity"] == "restore_checkpoint"
-
-    def test_get_latest_checkpoint(self):
-        create_checkpoint("wf_test", "literature_review", "First", self.base_dir)
-        create_checkpoint("wf_test", "writing", "Second", self.base_dir)
-        latest = get_latest_checkpoint(self.base_dir)
-        assert latest["stage_id"] == "writing"
-
-    def test_create_checkpoint_rejects_noncanonical_status(self):
-        with pytest.raises(ValueError):
-            create_checkpoint("wf_test1234", "literature_review", "After literature", self.base_dir, status="warning")
-
-    def test_create_checkpoint_snapshots_stage_state_with_own_checkpoint_id(self):
-        update_stage(
-            "modeling",
-            "completed",
-            self.base_dir,
-            inputs=["art_input"],
-            outputs=["art_output"],
-        )
-
-        ckpt = create_checkpoint("wf_test1234", "modeling", "After modeling", self.base_dir)
-
-        stage_snapshot = ckpt["state_snapshot"]["stages.json"]["modeling"]
-        checkpoint_registry = ckpt["state_snapshot"]["checkpoints.json"]
-
-        assert stage_snapshot["status"] == "completed"
-        assert stage_snapshot["inputs"] == ["art_input"]
-        assert stage_snapshot["outputs"] == ["art_output"]
-        assert stage_snapshot["checkpoint_id"] == ckpt["checkpoint_id"]
-        assert checkpoint_registry[-1]["checkpoint_id"] == ckpt["checkpoint_id"]
-
-    def test_restore_checkpoint_uses_active_registry_view_without_deleting_artifact_payloads(self):
-        payload = Path(self.base_dir) / ".simflow" / "artifacts" / "modeling" / "POSCAR"
-        payload.parent.mkdir(parents=True, exist_ok=True)
-        payload.write_text("Si\n", encoding="utf-8")
-        register_artifact("POSCAR", "structure", "modeling", self.base_dir, path=".simflow/artifacts/modeling/POSCAR")
-
-        update_stage("modeling", "completed", self.base_dir, outputs=["art_model"])
-        ckpt1 = create_checkpoint("wf_test1234", "modeling", "After modeling", self.base_dir)
-
-        update_stage("computation", "completed", self.base_dir, inputs=["art_model"], outputs=["art_compute"])
-        ckpt2 = create_checkpoint("wf_test1234", "computation", "After computation", self.base_dir)
-
-        restored = restore_checkpoint(ckpt1["checkpoint_id"], self.base_dir)
-        registry = read_state(self.base_dir, "checkpoints.json")
-        listed = list_checkpoints(self.base_dir)
-
-        assert restored["checkpoint_id"] == ckpt1["checkpoint_id"]
-        assert [entry["checkpoint_id"] for entry in registry] == [ckpt1["checkpoint_id"]]
-        assert [entry["checkpoint_id"] for entry in listed] == [ckpt1["checkpoint_id"]]
-        assert (Path(self.base_dir) / ".simflow" / "checkpoints" / f"{ckpt2['checkpoint_id']}.json").is_file()
-        assert payload.is_file()
-
-    def test_restore_checkpoint_removes_future_only_state_files(self):
-        update_stage("modeling", "completed", self.base_dir, outputs=["art_model"])
-        checkpoint = create_checkpoint("wf_test1234", "modeling", "After modeling", self.base_dir)
-
-        future_only = Path(self.base_dir) / ".simflow" / "state" / "future_only.json"
-        future_only.write_text('{"future": true}\n', encoding="utf-8")
-
-        restore_checkpoint(checkpoint["checkpoint_id"], self.base_dir)
-
-        assert not future_only.exists()
-
-    def test_restore_checkpoint_rolls_back_all_state_bytes_on_replace_failure(self, monkeypatch):
-        update_stage("modeling", "completed", self.base_dir, outputs=["art_model"])
-        checkpoint = create_checkpoint("wf_test1234", "modeling", "After modeling", self.base_dir)
-
-        artifact_payload = Path(self.base_dir) / ".simflow" / "artifacts" / "modeling" / "POSCAR"
-        artifact_payload.parent.mkdir(parents=True, exist_ok=True)
-        artifact_payload.write_text("Si\n", encoding="utf-8")
-
-        update_stage("computation", "completed", self.base_dir, outputs=["art_compute"])
-        future_only = Path(self.base_dir) / ".simflow" / "state" / "future_only.json"
-        future_only.write_text('{"future": true}\n', encoding="utf-8")
-        state_dir = Path(self.base_dir) / ".simflow" / "state"
-        pre_restore_bytes = {
-            path.name: path.read_bytes()
-            for path in sorted(state_dir.glob("*.json"))
-        }
-        original_replace = checkpoint_module._ORIGINAL_OS_REPLACE
-
-        def flaky_replace(src, dst):
-            if Path(dst).name == "workflow.json":
-                raise OSError("injected workflow.json replace failure")
-            return original_replace(src, dst)
-
-        monkeypatch.setattr(checkpoint_module, "_ORIGINAL_OS_REPLACE", flaky_replace)
-
-        with pytest.raises(OSError, match="injected workflow.json replace failure"):
-            restore_checkpoint(checkpoint["checkpoint_id"], self.base_dir)
-
-        post_restore_bytes = {
-            path.name: path.read_bytes()
-            for path in sorted(state_dir.glob("*.json"))
-        }
-        assert post_restore_bytes == pre_restore_bytes
-        assert artifact_payload.read_text(encoding="utf-8") == "Si\n"
-
-    def test_create_checkpoint_rolls_back_state_and_file_on_registry_write_failure(self, monkeypatch):
-        update_stage("modeling", "completed", self.base_dir, outputs=["art_model"])
-        original_stage = read_state(self.base_dir, "stages.json")
-        original_registry = read_state(self.base_dir, "checkpoints.json")
-        original_replace = checkpoint_module.os.replace
-
-        def flaky_replace(src, dst):
-            if Path(dst).name == "checkpoints.json":
-                raise OSError("injected checkpoints.json replace failure")
-            return original_replace(src, dst)
-
-        monkeypatch.setattr(checkpoint_module.os, "replace", flaky_replace)
-
-        with pytest.raises(OSError, match="injected checkpoints.json replace failure"):
-            create_checkpoint("wf_test1234", "modeling", "After modeling", self.base_dir)
-
-        checkpoint_files = list((Path(self.base_dir) / ".simflow" / "checkpoints").glob("ckpt_*.json"))
-        assert checkpoint_files == []
-        assert read_state(self.base_dir, "stages.json") == original_stage
-        assert read_state(self.base_dir, "checkpoints.json") == original_registry
-
-    def test_restore_nonexistent(self):
-        try:
-            restore_checkpoint("ckpt_nonexistent", self.base_dir)
-            assert False, "Should have raised"
-        except FileNotFoundError:
-            pass
+from runtime.simflow_core.checkpoints import (
+    create_checkpoint,
+    get_latest_checkpoint,
+    list_checkpoints,
+    restore_checkpoint,
+)
+from runtime.simflow_core.state import init_workflow, read_state, write_state
 
 
-if __name__ == "__main__":
-    methods = ["test_create_checkpoint", "test_list_checkpoints", "test_restore_checkpoint", "test_get_latest_checkpoint", "test_restore_nonexistent"]
-    for method in methods:
-        t = TestCheckpoint()
-        t.setup_method()
-        try:
-            getattr(t, method)()
-            print(f"  PASS: {method}")
-        except Exception as e:
-            print(f"  FAIL: {method} - {e}")
-        finally:
-            t.teardown_method()
-    print("All checkpoint tests passed!")
+def test_create_recoverable_checkpoint_uses_restart_references(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    restart = tmp_path / "restart.wfn"
+    restart.write_text("restart\n", encoding="utf-8")
+
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"],
+        "computation",
+        "Resume calculation",
+        project_root=str(tmp_path),
+        restart_refs=["restart.wfn"],
+        resume_command="solver --restart restart.wfn",
+    )
+
+    assert checkpoint["status"] == "success"
+    assert checkpoint["recoverable"] is True
+    assert checkpoint["storage"] == "compact_reference"
+    assert "state_snapshot" not in checkpoint
+    assert "lineage_snapshot" not in checkpoint
+    assert checkpoint["simflow_result"]["activity"] == "create_checkpoint"
+
+
+def test_stage_boundary_without_recovery_refs_is_diagnostic(tmp_path):
+    workflow = init_workflow("dft", "modeling", project_root=str(tmp_path))
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"], "modeling", "Stage boundary", project_root=str(tmp_path)
+    )
+    assert checkpoint["status"] == "failure"
+    assert checkpoint["recovery_status"] == "diagnostic"
+    assert checkpoint["recoverable"] is False
+    with pytest.raises(ValueError, match="diagnostic-only"):
+        restore_checkpoint(checkpoint["checkpoint_id"], project_root=str(tmp_path))
+
+
+def test_list_and_latest_read_compact_files(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    first = create_checkpoint(
+        workflow["workflow_id"], "computation", "first", project_root=str(tmp_path), run_id="run_1"
+    )
+    second = create_checkpoint(
+        workflow["workflow_id"], "analysis", "second", project_root=str(tmp_path), run_id="run_2"
+    )
+    assert [item["checkpoint_id"] for item in list_checkpoints(project_root=str(tmp_path))] == [
+        first["checkpoint_id"], second["checkpoint_id"]
+    ]
+    assert get_latest_checkpoint(project_root=str(tmp_path))["checkpoint_id"] == second["checkpoint_id"]
+
+
+def test_recover_validates_hash_without_rolling_back_state(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    restart = tmp_path / "restart.dat"
+    restart.write_text("v1\n", encoding="utf-8")
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"], "computation", "resume", project_root=str(tmp_path),
+        restart_refs=["restart.dat"], resume_command="solver restart.dat",
+    )
+    workflow_state = read_state(project_root=str(tmp_path), state_file="workflow.json")
+    workflow_state["status"] = "changed_after_checkpoint"
+    write_state(workflow_state, project_root=str(tmp_path), state_file="workflow.json")
+
+    restored = restore_checkpoint(checkpoint["checkpoint_id"], project_root=str(tmp_path))
+
+    assert restored["state_restored"] is False
+    assert restored["recovery_validation"]["ready"] is True
+    assert read_state(project_root=str(tmp_path), state_file="workflow.json")["status"] == "changed_after_checkpoint"
+
+
+def test_recover_reports_hash_mismatch(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    restart = tmp_path / "restart.dat"
+    restart.write_text("v1\n", encoding="utf-8")
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"], "computation", "resume", project_root=str(tmp_path),
+        restart_refs=["restart.dat"], resume_command="solver restart.dat",
+    )
+    restart.write_text("v2\n", encoding="utf-8")
+    restored = restore_checkpoint(checkpoint["checkpoint_id"], project_root=str(tmp_path))
+    assert restored["recovery_validation"]["ready"] is False
+    assert restored["recovery_validation"]["issues"][0]["status"] == "hash_mismatch"
+
+
+def test_legacy_snapshot_checkpoint_is_listed_read_only(tmp_path):
+    checkpoint_dir = tmp_path / ".simflow" / "checkpoints"
+    checkpoint_dir.mkdir(parents=True)
+    legacy = {
+        "checkpoint_id": "ckpt_legacy",
+        "stage_id": "modeling",
+        "status": "success",
+        "state_snapshot": {"workflow.json": {"status": "old"}},
+        "created_at": "2026-01-01T00:00:00+00:00",
+    }
+    (checkpoint_dir / "ckpt_legacy.json").write_text(json.dumps(legacy), encoding="utf-8")
+    listed = list_checkpoints(project_root=str(tmp_path))
+    assert listed[0]["legacy_read_only"] is True
+    assert listed[0]["recoverable"] is False
+    with pytest.raises(ValueError, match="read-only"):
+        restore_checkpoint("ckpt_legacy", project_root=str(tmp_path))
+
+
+def test_checkpoint_does_not_mutate_legacy_registries(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    state_dir = tmp_path / ".simflow" / "state"
+    before = {name: (state_dir / name).read_bytes() for name in ("stages.json", "checkpoints.json", "lineage.json")}
+    create_checkpoint(
+        workflow["workflow_id"], "custom_stage", "compact", project_root=str(tmp_path), run_id="run_1"
+    )
+    assert {name: (state_dir / name).read_bytes() for name in before} == before
+
+
+def test_checkpoint_rejects_invalid_status(tmp_path):
+    workflow = init_workflow("dft", "computation", project_root=str(tmp_path))
+    with pytest.raises(ValueError, match="Unsupported checkpoint status"):
+        create_checkpoint(workflow["workflow_id"], "computation", "bad", project_root=str(tmp_path), status="warning")
+
+
+def test_restore_missing_checkpoint(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        restore_checkpoint("ckpt_missing", project_root=str(tmp_path))

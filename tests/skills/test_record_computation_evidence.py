@@ -75,7 +75,7 @@ def test_record_computation_evidence_completes_gpumd_needs_inputs_waiting_stage(
     assert result["checkpoint_id"] is not None
     assert result["readiness"]["readiness_status"] == "ready"
     assert stages["computation"]["status"] == "completed"
-    assert stages["computation"]["checkpoint_id"] == result["checkpoint_id"]
+    assert stages["computation"]["checkpoint_id"] is None
     assert manifest["actual_tool_used"]["support_level"] == "helper_supported"
     assert manifest["actual_tool_used"]["name"] == "gpumd"
     assert rerun["status"] == "success"

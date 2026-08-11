@@ -105,7 +105,7 @@ def test_run_pipeline_execute_updates_stages_and_checkpoint_registry():
         assert stages_state["literature_review"]["status"] == "completed"
         assert "literature" not in stages_state
         assert "review" not in stages_state
-        assert stages_state["literature_review"]["checkpoint_id"] == result["checkpoint_id"]
+        assert stages_state["literature_review"]["checkpoint_id"] is None
         assert len(checkpoints) == 1
         assert checkpoints[0]["checkpoint_id"] == result["checkpoint_id"]
         assert checkpoints[0]["stage_id"] == "literature_review"

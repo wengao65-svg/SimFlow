@@ -1,195 +1,69 @@
-#!/usr/bin/env python3
-"""Tests for checkpoint stage upsert, snapshot enforcement, and stage_id validation.
+"""Validation tests for compact recovery references."""
 
-Covers P1.2 + P1.3 + P1.4:
-- P1.2: create_checkpoint auto-upserts canonical stage into stages.json
-- P1.3: create_checkpoint enforces state_snapshot completeness
-- P1.4: stage_id validation rejects non-canonical undeclared stages
-"""
-
-import sys
-import tempfile
-from pathlib import Path
+import json
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "runtime"))
+from runtime.simflow_core.checkpoints import create_checkpoint
+from runtime.simflow_core.records import create_recovery_checkpoint, inspect_project
+from runtime.simflow_core.state import init_workflow, read_state
 
 
-def _init(project_root):
-    from runtime.simflow_core.state import init_workflow
-    return init_workflow("custom", "computation", project_root=project_root)
+def test_ready_checkpoint_requires_recovery_reference(tmp_path):
+    with pytest.raises(ValueError, match="recovery reference"):
+        create_recovery_checkpoint(str(tmp_path), summary="empty")
 
 
-# ============================================================
-# P1.2: Auto-upsert stage into stages.json
-# ============================================================
-
-def test_checkpoint_auto_upserts_canonical_stage():
-    """create_checkpoint auto-creates a canonical stage not yet in stages.json."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-    from runtime.simflow_core.state import read_state
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        # stages.json should be empty {} at this point
-        stages_before = read_state(project_root=tmpdir, state_file="stages.json")
-        assert stages_before == {}
-
-        create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="computation",
-            description="test checkpoint",
-            project_root=tmpdir,
-        )
-
-        stages_after = read_state(project_root=tmpdir, state_file="stages.json")
-        assert "computation" in stages_after
-        assert stages_after["computation"]["stage_name"] == "computation"
-        assert stages_after["computation"]["status"] == "in_progress"
-        assert stages_after["computation"]["checkpoint_id"].startswith("ckpt_001_")
+def test_diagnostic_checkpoint_allows_no_reference(tmp_path):
+    checkpoint = create_recovery_checkpoint(str(tmp_path), summary="diagnostic", status="diagnostic")
+    assert checkpoint["status"] == "diagnostic"
 
 
-def test_checkpoint_updates_existing_stage_checkpoint_id():
-    """create_checkpoint updates checkpoint_id on an already-declared stage."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-    from runtime.simflow_core.state import read_state, update_stage
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        update_stage("computation", "in_progress", project_root=tmpdir)
-
-        ckpt = create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="computation",
-            description="test checkpoint",
-            project_root=tmpdir,
-        )
-
-        stages = read_state(project_root=tmpdir, state_file="stages.json")
-        assert stages["computation"]["checkpoint_id"] == ckpt["checkpoint_id"]
+def test_legacy_adapter_accepts_custom_stage_without_stage_registry_mutation(tmp_path):
+    workflow = init_workflow("custom", "computation", project_root=str(tmp_path))
+    checkpoint = create_checkpoint(
+        workflow["workflow_id"], "custom_analysis", "resume", project_root=str(tmp_path), run_id="run_1"
+    )
+    assert checkpoint["stage_id"] == "custom_analysis"
+    assert read_state(project_root=str(tmp_path), state_file="stages.json") == {}
 
 
-# ============================================================
-# P1.3: state_snapshot enforcement
-# ============================================================
-
-def test_checkpoint_rejects_empty_snapshot():
-    """create_checkpoint rejects empty state_snapshot for non-failure status."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        # Mock _snapshot_state to return empty dict
-        from unittest.mock import patch
-        with patch("runtime.simflow_core.checkpoints._snapshot_state", return_value={}):
-            with pytest.raises(ValueError, match="state_snapshot is empty"):
-                create_checkpoint(
-                    workflow_id=state["workflow_id"],
-                    stage_id="computation",
-                    description="test",
-                    project_root=tmpdir,
-                )
+def test_checkpoint_contains_offset_and_no_registry_snapshot(tmp_path):
+    checkpoint = create_recovery_checkpoint(
+        str(tmp_path), summary="resume", run_id="run_1", resume_command="solver --resume"
+    )
+    stored = json.loads(
+        (tmp_path / ".simflow" / "checkpoints" / f"{checkpoint['checkpoint_id']}.json").read_text(encoding="utf-8")
+    )
+    assert isinstance(stored["records_offset"], int)
+    assert "state_snapshot" not in stored
+    assert "lineage_snapshot" not in stored
+    assert "artifact_versions" not in stored
 
 
-def test_failure_checkpoint_allows_empty_snapshot():
-    """create_checkpoint allows empty snapshot for failure status."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        # Mock _snapshot_state to return empty dict
-        from unittest.mock import patch
-        with patch("runtime.simflow_core.checkpoints._snapshot_state", return_value={}):
-            # Should NOT raise for failure checkpoints
-            ckpt = create_checkpoint(
-                workflow_id=state["workflow_id"],
-                stage_id="computation",
-                description="failure checkpoint",
-                status="failure",
-                project_root=tmpdir,
-            )
-            assert ckpt["status"] == "failure"
+def test_restricted_reference_stores_no_path(tmp_path):
+    restricted = tmp_path / "licensed" / "POTCAR"
+    restricted.parent.mkdir()
+    restricted.write_text("restricted\n", encoding="utf-8")
+    checkpoint = create_recovery_checkpoint(
+        str(tmp_path), summary="restricted input metadata", run_id="run_1",
+        input_refs=[{"path": "licensed/POTCAR", "restricted": True, "name": "POTCAR", "dataset": "Fe_pv"}],
+    )
+    ref = checkpoint["input_refs"][0]
+    assert ref["path"] == "[RESTRICTED PATH]"
+    assert ref["sha256"]
 
 
-def test_checkpoint_rejects_missing_workflow_json():
-    """create_checkpoint rejects snapshot missing workflow.json."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        # Mock _snapshot_state to return a snapshot missing workflow.json
-        from unittest.mock import patch
-        incomplete_snapshot = {"stages.json": {}, "checkpoints.json": []}
-        with patch("runtime.simflow_core.checkpoints._snapshot_state", return_value=dict(incomplete_snapshot)):
-            with pytest.raises(ValueError, match="missing required files"):
-                create_checkpoint(
-                    workflow_id=state["workflow_id"],
-                    stage_id="computation",
-                    description="test",
-                    project_root=tmpdir,
-                )
+def test_project_summary_tracks_latest_checkpoint(tmp_path):
+    checkpoint = create_recovery_checkpoint(
+        str(tmp_path), summary="latest", run_id="run_1", resume_command="resume"
+    )
+    project = inspect_project(str(tmp_path))["project"]
+    assert project["current"]["latest_checkpoint_id"] == checkpoint["checkpoint_id"]
 
 
-# ============================================================
-# P1.4: stage_id validation
-# ============================================================
-
-def test_checkpoint_rejects_non_canonical_undeclared_stage():
-    """create_checkpoint rejects a non-canonical stage not in stages.json."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-
-        with pytest.raises(ValueError, match="not a canonical stage"):
-            create_checkpoint(
-                workflow_id=state["workflow_id"],
-                stage_id="my_custom_stage",
-                description="test",
-                project_root=tmpdir,
-            )
-
-
-def test_checkpoint_accepts_declared_custom_stage():
-    """create_checkpoint accepts a custom stage declared via update_stage."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-    from runtime.simflow_core.state import update_stage
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-        update_stage("my_custom_stage", "in_progress", project_root=tmpdir)
-
-        ckpt = create_checkpoint(
-            workflow_id=state["workflow_id"],
-            stage_id="my_custom_stage",
-            description="test",
-            project_root=tmpdir,
-        )
-        assert ckpt["stage_id"] == "my_custom_stage"
-
-
-def test_failure_checkpoint_allows_non_canonical_stage():
-    """Failure checkpoints can use non-canonical undeclared stage_ids."""
-    from runtime.simflow_core.checkpoints import create_checkpoint
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state = _init(tmpdir)
-
-        with pytest.warns(UserWarning, match="non-canonical undeclared"):
-            ckpt = create_checkpoint(
-                workflow_id=state["workflow_id"],
-                stage_id="unknown_failure_stage",
-                description="failure checkpoint",
-                status="failure",
-                project_root=tmpdir,
-            )
-        assert ckpt["stage_id"] == "unknown_failure_stage"
-        assert ckpt["status"] == "failure"
-
-
-if __name__ == "__main__":
-    import pytest
-    sys.exit(pytest.main([__file__, "-v"]))
+def test_checkpoint_record_is_single_logical_event(tmp_path):
+    create_recovery_checkpoint(str(tmp_path), summary="one event", run_id="run_1", resume_command="resume")
+    inspected = inspect_project(str(tmp_path))
+    assert inspected["record_count"] == 1
+    assert inspected["records"][0]["kind"] == "checkpoint"

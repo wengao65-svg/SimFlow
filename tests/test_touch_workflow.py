@@ -73,8 +73,8 @@ def test_touch_workflow_regenerates_status_summary():
         assert "Checkpoints:" in content
 
 
-def test_create_checkpoint_propagates_to_summary():
-    """create_checkpoint auto-refreshes summary.json.updated_at (P1.5)."""
+def test_create_checkpoint_updates_compact_summary_not_legacy_summary():
+    """Compact checkpoints leave legacy summary timestamps unchanged."""
     from runtime.simflow_core.state import init_workflow, read_state
     from runtime.simflow_core.checkpoints import create_checkpoint
 
@@ -91,11 +91,13 @@ def test_create_checkpoint_propagates_to_summary():
             stage_id="computation",
             description="test checkpoint",
             project_root=tmpdir,
+            run_id="run_test",
         )
 
         summary_after = read_state(project_root=tmpdir, state_file="summary.json")
-        assert summary_after["updated_at"] != updated_at_before, \
-            "summary.json.updated_at should be refreshed after checkpoint creation"
+        project = json.loads((Path(tmpdir) / ".simflow" / "project.json").read_text(encoding="utf-8"))
+        assert summary_after["updated_at"] == updated_at_before
+        assert project["counts"]["by_kind"]["checkpoint"] == 1
 
 
 def test_register_artifact_updates_compact_summary_not_legacy_workflow():

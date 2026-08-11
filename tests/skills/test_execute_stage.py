@@ -181,9 +181,9 @@ def test_execute_stage_records_failure_lifecycle_for_runner_error(monkeypatch):
 
         assert result["status"] == "error"
         assert result["failure_id"].startswith("fail_")
-        assert result["failure_checkpoint_id"].startswith("ckpt_")
+        assert result["failure_checkpoint_id"] is None
         assert workflow["status"] == "failed"
-        assert stages["literature_review"]["failure_checkpoint_id"] == result["failure_checkpoint_id"]
+        assert stages["literature_review"]["failure_checkpoint_id"] is None
         assert verifications[-1]["status"] == "fail"
         assert {artifact["type"] for artifact in artifacts} == {"failure_log", "error_report"}
 
@@ -438,7 +438,7 @@ def test_execute_stage_execute_runs_compute_runner_and_registers_artifacts():
         assert result["manifest"]["dry_run"] is True
         assert result["manifest"]["real_submit"] is False
         assert result["checkpoint_id"].startswith("ckpt_")
-        assert result["checkpoint_id"] == stages_state["computation"]["checkpoint_id"]
+        assert stages_state["computation"]["checkpoint_id"] is None
         assert checkpoints[-1]["checkpoint_id"] == result["checkpoint_id"]
         assert result["manifest"]["submit_request_template"]["gate_decision_id"] is None
         assert result["manifest"]["submit_request_template"]["dry_run_evidence"] == "compute/dry_run_report.json"
