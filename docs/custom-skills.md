@@ -98,8 +98,8 @@ if __name__ == "__main__":
 Custom skills bind to workflow stages, activities, or domain labels via
 `stage_binding`.
 
-- Use a canonical stage when the custom skill is intended to participate in a
-  built-in stage boundary, for example `analysis_visualization`.
+- Use a canonical stage when the custom skill aligns with that research intent,
+  for example `analysis_visualization`.
 - Use a project-local label when the skill is narrower than a canonical stage,
   for example `analysis` or `rdf`.
 - Do not treat project-local labels as new top-level workflow stages unless the

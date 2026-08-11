@@ -62,16 +62,16 @@ helper-supported actions. Other MLP-MD tools such as `neptrainkit`,
 `deepmd`, `mace`, `nequip`, `allegro`, `ase`, and `python` are classified by
 the shared toolchain contract, not by this recipe file.
 
-When a user asks a built-in stage runner to automate a `tracked_only` or
-`unknown` tool, the stage returns a `capability_warning` and keeps the stage in
-`waiting` status. The workflow can still record user scripts, official-docs
-usage, outputs, checks, and approvals as artifacts.
+When a user asks a helper to automate a `tracked_only` or `unknown` tool, it
+returns a `capability_warning` rather than pretending to support the engine.
+The host agent can still use user scripts, official documentation, outputs,
+checks, and approvals, and may append one logical record when durable
+provenance is useful.
 
 Use the same generic computation evidence intake for DeePMD, MACE, NequIP,
 Allegro, GROMACS, QE, custom Python, or any other tracked-only tool.
-The intake is not an executor; it records user-provided calculation manifests,
-input files, validation reports, dry-run reports, resource estimates, commands,
-versions, environment, and lineage. When readiness is satisfied, the waiting
-`computation` stage can be explicitly completed and checkpointed. A
-`job_record_if_submitted` artifact is required only after a real submit is
-recorded.
+The intake is not an executor. It summarizes user-provided calculation
+manifests, inputs, validation, dry-run evidence, resources, commands, versions,
+environment, and provenance. A real submit is recorded as one compact run event
+only after immutable-plan approval and actual submission; scientific readiness
+alone never grants submit permission or requires a checkpoint.

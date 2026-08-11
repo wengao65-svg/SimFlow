@@ -1,120 +1,188 @@
 # MCP Tool Reference
 
-SimFlow MCP tools use `<server>/<tool>` names. State-changing tools require an
-explicit `project_root`; most also require `simflow_state/read_state` in the
-same session before the write is accepted.
+SimFlow exposes two MCP servers and eight composite tools. Skills do not require
+MCP engagement. Use these tools only when project truth, approval, transfer,
+execution, or recovery needs runtime support.
 
-For forward-only experiment memory, start every project session with
-`simflow_state/project_reentry`. SimFlow stores structured experimental
-summaries and operation events in canonical SQLite, not host conversation
-transcripts. JSON, JSONL, and Markdown notebook files are rebuildable exports.
+## `simflow_state`
 
-## State And Recovery
+All state tools require explicit `project_root`.
 
-| Tool | Purpose | Important behavior |
-|---|---|---|
-| `simflow_state/read_state` | Read a canonical state file | Starts the 30-minute MCP engagement session |
-| `simflow_state/project_reentry` | Open a project session context | Returns active experiments, current iteration, interrupted work, recovery point, and next action |
-| `simflow_state/begin_experiment` | Start forward-only experiment tracking | Creates an empty new history boundary; does not import legacy state |
-| `simflow_state/begin_iteration` | Start an experiment loop | Requires explicit acceptance criteria |
-| `simflow_state/start_activity` | Record work before it begins | Stores method, software, scripts, redacted command, inputs, and expected outputs |
-| `simflow_state/finish_activity` | Record activity outcome | Stores outputs, artifacts, jobs, failure, recovery point, and next action |
-| `simflow_state/evaluate_iteration` | Decide whether a loop continues | Records criterion results and accepted/rejected/failed status |
-| `simflow_state/experiment_timeline` | Query experiment history | Read-only and paginated; default limit is 50 activities |
-| `simflow_state/fork_experiment` | Branch an experiment | Records explicit parent experiment provenance |
-| `simflow_state/resume_experiment` | Resume paused work | Preserves prior events and appends a resume event |
-| `simflow_state/compare_experiments` | Compare branches | Summarizes metrics, failures, recovery points, status, and parents |
-| `simflow_state/verify_experiment_ledger` | Verify ledger integrity | Checks SQLite, event hashes, and registered references |
-| `simflow_state/rebuild_experiment_exports` | Rebuild derived views | Requires an active activity; SQLite remains authoritative |
-| `simflow_state/migrate_experiment_ledger` | Migrate structured v1 records | Requires explicit confirmation and never imports host transcripts |
-| `simflow_state/init_workflow` | Initialize `.simflow/` | Idempotent by default; `force=true` first backs up the existing tree |
-| `simflow_state/update_stage` | Change a stage status | Completion creates a pending verification record |
-| `simflow_state/workflow_status` | Read project status | Read-only; first call auto-satisfies the engagement prerequisite |
-| `simflow_state/orphan_compute_scanner` | Find unregistered calculation directories | Ledger-enabled projects require an experiment or bounded scan root; report writing is opt-in |
-| `simflow_state/record_user_override` | Record an explicitly approved bypass | Requires approver context and a risk note |
-| `simflow_state/record_stage_failure` | Persist a stage failure | Writes sanitized log/report artifacts, failed state, fail verification, and a diagnostic checkpoint |
-| `simflow_state/repair_state` | Audit or repair inconsistent state | `audit` is read-only; `apply` requires engagement, confidence above 0.8, and creates a full backup |
-| `simflow_state/session_handoff` | Generate a re-entry summary | Writes `.simflow/reports/session_handoff_<timestamp>.md` |
+### `inspect`
 
-When the ledger is enabled, linked write tools require
-`session_context_id`, `experiment_id`, and `activity_id`; `iteration_id` is
-included when applicable. The same validation exists in the core runtime, so
-calling Python helpers directly does not bypass the ledger.
+Read compact project status without writing.
 
-## Artifacts
+Required:
 
-| Tool | Purpose | Important behavior |
-|---|---|---|
-| `simflow_state/register_artifact` | Register a file, directory, or planned artifact | Atomically synchronizes artifact, lineage, and stage output state |
-| `simflow_state/list_artifacts` | List registered artifacts | Read-only |
-| `simflow_state/get_artifact` | Read one artifact record | Read-only |
+- `project_root`
 
-Directory artifacts use `sha256-path-size-content-v1`: relative paths, sizes,
-and file content hashes all contribute to the tree hash. Registration records
-the current `workflow_id` and appends the artifact ID to the producing stage's
-`outputs` without duplication.
+Optional filters:
 
-## HPC Transfers
+- `kind`: `milestone`, `run`, `artifact`, `analysis`, `approval`, `failure`,
+  `note`, `checkpoint`, `recovery`, or `migration`;
+- `status`, `record_id`, `run_id`;
+- `limit` from 1 to 200;
+- `include_legacy`, default `true`.
 
-`hpc/upload` and `hpc/download` are the supported remote transfer path. They
-require an explicit `project_root`, `scheduler: "ssh"`, an approved
-`hpc_transfer` decision, and non-empty relative `paths`. Local paths must stay
-inside `project_root`; remote directories must be absolute POSIX paths without
-`..` components.
+The result includes the derived project summary, filtered recent records, and
+record counts. With `include_legacy=true`, it also includes:
 
-Both tools expand requested directories, write a transfer manifest, and verify
-`sha256-path-size-content-v1` before returning `verified`. Partial transfers and
-hash mismatches return an error while preserving a `transfer_manifest`
-computation artifact. SSH authentication remains host-managed and no key path
-is accepted by the MCP target schema.
+- a concise legacy-state presence summary;
+- a read-only migration report covering `.simflow/state/*.json` and nested
+  `.simflow` roots;
+- `migration_report_hash` for explicit confirmation.
 
-Approved uploads may include a locally materialized VASP `POTCAR`. Such entries
-are marked `restricted_licensed_vasp_potcar`; only relative path, size, and
-SHA-256 metadata are returned or recorded.
+`inspect` does not initialize `.simflow`, update timestamps, import host
+transcripts, or modify legacy files.
 
-The SSH target requires `host` and accepts optional `user` and `port`. For
-`{"host":"hpc"}`, OpenSSH resolves the alias configuration. For
-`{"host":"192.168.5.69","user":"zxy"}`, SimFlow constructs the direct
-destination without forcing port 22.
+### `record`
 
-Real SSH operations require the internal broker configured by
-`SIMFLOW_HPC_BROKER_SOCKET`. The broker is started separately with
-`scripts/start_hpc_broker.py` and confines local files to
-`SIMFLOW_HPC_BROKER_ALLOWED_ROOTS`. A missing, non-socket, wrong-owner, or
-overly permissive broker path returns a fail-closed error.
+Append one logical project event.
 
-An SSH submit must reference the verified upload manifest through
-`transfer_manifest` and use the matching `remote_workdir`; it no longer copies
-only the script to `/tmp`.
+Required:
 
-## Checkpoints
+- `project_root`;
+- `kind`;
+- `summary`.
 
-| Tool | Purpose | Important behavior |
-|---|---|---|
-| `simflow_state/create_checkpoint` | Create a state snapshot | Success/partial snapshots require workflow and stage state |
-| `simflow_state/list_checkpoints` | List checkpoints | Read-only |
-| `simflow_state/restore_checkpoint` | Restore a checkpoint | Diagnostic-only checkpoints are rejected |
+Ordinary record kinds are `milestone`, `run`, `artifact`, `analysis`,
+`approval`, `failure`, and `note`. Optional fields include `status`, `stage`,
+`run_id`, `goal`, `next_action`, `artifacts`, `parent_ids`, and `details`.
 
-Failure checkpoints capture the failed state and error evidence. They are not
-the default recovery target. Recovery should use the most recent successful,
-recoverable checkpoint reported by `record_stage_failure` or session handoff.
+Use one record for a meaningful run or deliverable. `artifacts` are path/hash
+references inside that logical record; they are not separate registry writes.
+`parent_ids` provide event-level provenance. Sensitive values and restricted
+file bodies are sanitized before persistence.
 
-## Engagement Contract
+For an explicit legacy migration confirmation, use:
 
-Protected writes return `skill_engagement_contract_violation` until
-`simflow_state/read_state` has been called. A first read-only status/readiness
-call may bootstrap that read automatically. Protected writes never auto-grant
-their own prerequisite. The session timeout defaults to 30 minutes and is
-configured by `SIMFLOW_SESSION_TIMEOUT_MIN`.
+```json
+{
+  "project_root": "/path/to/project",
+  "kind": "migration",
+  "summary": "Index legacy SimFlow state",
+  "confirm_migration": true,
+  "migration_report_hash": "<exact hash returned by inspect>"
+}
+```
 
-After `begin_experiment` enables the ledger, existing state-write, evidence,
-gate, checkpoint, restore, and artifact tools additionally require a valid
-`session_context_id`, `experiment_id`, and active `activity_id`. This prevents
-new work from being recorded outside the experiment that explains it.
+The current inventory must match the supplied hash. Repeating the same
+confirmed hash is idempotent. Migration writes one report and one compact
+record; it never moves, renames, deletes, or rewrites scientific data.
 
-`repair_state` defaults to `audit`. Apply mode only repairs structural metadata
-with confidence at or above the requested threshold: workflow identity fields,
-lineage projections, stage declarations/outputs, known checkpoint status and
-recoverability, canonical live-path casing, and summary projection. It does not
-rewrite checkpoint snapshots, recompute scientific checksums, infer scientific
-completion, or fabricate missing lineage parents.
+### `checkpoint`
+
+Create a compact recovery reference.
+
+Required:
+
+- `project_root`;
+- `summary`.
+
+Optional:
+
+- `status`: `ready`, `partial`, or `diagnostic`;
+- `record_id`, `run_id`, `milestone_id`;
+- `input_refs`, `restart_refs`;
+- `resume_command`, `risk_notes`.
+
+A `ready` or `partial` checkpoint requires at least one recovery reference.
+Checkpoint files contain a records offset, references, hashes, restart paths,
+and instructions. They do not copy state, artifact, lineage, gate, or job
+registries. Ordinary task completion does not require a checkpoint.
+
+### `recover`
+
+Validate a compact checkpoint and return recovery readiness.
+
+Required:
+
+- `project_root`.
+
+Optional:
+
+- `checkpoint_id`; when omitted, the latest compact checkpoint from
+  `project.json` is used.
+
+`recover` checks referenced paths and hashes and returns the resume command. It
+does not execute compute, restore a legacy snapshot, or modify project files.
+
+## `hpc`
+
+### `plan`
+
+Prepare or validate a job and persist one immutable run plan.
+
+Required:
+
+- `project_root`;
+- `script_path`;
+- non-empty `input_paths`.
+
+Optional fields include `scheduler`, SSH `target`, `remote_workdir`,
+`manifest_path`, `base_dir`, `resources`, `destructive_scope`, bounded SLURM
+`generate` fields, and a transfer declaration.
+
+The resulting `run_plan_hash` covers script and input hashes, scheduler, target,
+remote directory, resources, transfer scope, destructive scope, and restricted
+file metadata. The plan performs dry-run validation and credential scanning.
+Planning does not approve or execute the job.
+
+### `transfer`
+
+Execute the upload or download declared in an approved immutable run plan.
+
+Required:
+
+- `project_root`;
+- `run_plan_hash`;
+- `direction`: `upload` or `download`.
+
+Also supply `gate_decision_id` or `approval_token` for an approval bound to the
+same hash. Transfer parameters cannot replace the plan's paths, target, or
+directories. SimFlow verifies source and destination manifests and records one
+compact run event plus a transfer report.
+
+### `submit`
+
+Submit an unchanged approved run plan.
+
+Required:
+
+- `project_root`;
+- `run_plan_hash`.
+
+Also supply an approval reference. SSH submit additionally requires the
+verified `transfer_manifest`; local execution may specify `timeout`.
+
+Submit recomputes the plan identity. Any change to script, inputs, target,
+remote directory, resources, transfer scope, destructive scope, or restricted
+metadata returns `run_plan_stale` and requires new approval. An unchanged retry
+may reuse the same approval. Every submit attempt records one compact run event.
+
+### `status`
+
+Read job status through the bounded connector abstraction.
+
+Required:
+
+- `job_id`.
+
+Optional:
+
+- `scheduler`;
+- SSH `target` when `scheduler="ssh"`.
+
+Status does not infer scientific convergence. A scheduler state and a
+scientific result are separate facts.
+
+## SSH And Restricted Files
+
+SSH targets accept only `host` plus optional `user` and `port`. Passwords,
+private keys, key paths, and arbitrary SSH options are rejected. Real SSH
+operations use the host-managed credential broker.
+
+POTCAR may be transferred only from a controlled user project according to the
+approved run plan. Reports retain relative path, restricted classification,
+size, hash, and dataset metadata only; POTCAR content never enters state or MCP
+responses.

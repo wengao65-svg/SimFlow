@@ -1,122 +1,84 @@
-# Approval Reviewer SimFlow Discipline Contract
+# Approval Reviewer SimFlow Contract
 
 ## Purpose
 
-This document defines what SimFlow state-consistency signals an approval
-reviewer (Codex guardian / Claude Code reviewer) should check when
-evaluating agent actions in projects that use SimFlow.
+Reviewers should protect real execution, scientific truth, restricted content,
+and non-destructive migration without requiring ceremonial state calls.
 
-## Problem
+Loading a SimFlow Skill without calling MCP is normal. Task and Domain Skills
+are designed to work as pure guidance. A Skill-to-MCP call-count gap is not a
+discipline violation.
 
-The deep audit of PEE_NEP and Li-O-B-Si projects revealed that approval
-reviewers (Codex's guardian subagent) systematically approved cargo-cult
-patterns — agents loading 243 SimFlow skill files but calling 0 MCP tools,
-while running compute and building ad-hoc TSV state files. The reviewer
-only evaluated compute risk (GPUMD binary, SSH, file writes) and never
-flagged workflow discipline violations.
+## Review Signals
 
-## Signals to Check
+### Real Execution Without Immutable Planning
 
-### 1. Skill-Load vs MCP-Call Gap (Cargo-Cult Detection)
+Block when local, remote, or scheduler execution is attempted without a current
+`run_plan_hash`, or when approval is not bound to that exact hash.
 
-**Signal**: Agent loaded SimFlow SKILL.md files (via `sed`/`exec_command`)
-but did not call any SimFlow MCP tools (`simflow_state/*` or `hpc/*`).
+Approval must represent an explicit user/reviewer decision. An agent-generated
+`approval` record without evidence of that decision is not sufficient.
 
-**Action**: Flag as `workflow_discipline_warning` in the reviewer rationale.
-The agent is treating SimFlow skills as documentation rather than workflow
-contracts.
+### Plan Drift
 
-**Detection**: Check if the transcript contains `SKILL.md` reads but no
-`mcp__simflow_state` / `mcp__hpc` calls.
+Block when script, inputs, target, remote workdir, resources, transfer scope,
+destructive scope, POTCAR dataset/hash, or restricted-file set differs from the
+approved plan. Unchanged retries may reuse approval; changed plans may not.
 
-### 2. State-Write Without State-Read
+### Execution Truth
 
-**Signal**: Agent called `simflow_state/register_artifact` or
-`simflow_state/create_checkpoint` without first calling `simflow_state/read_state`
-in the same session.
+Flag any claim that treats:
 
-**Action**: This is now hard-blocked by the engagement contract (P0.7).
-If the reviewer sees a `skill_engagement_contract_violation` error in the
-transcript, it means the agent tried to write state without reading first.
+- a job ID as completed calculation;
+- output existence as convergence;
+- parser success as scientific validity;
+- a planned or dry-run job as real execution;
+- failed or partial outputs as accepted results.
 
-### 3. Unregistered Compute Directories
+### Credential And Restricted Content
 
-**Signal**: The project contains directories with compute marker files
-(`train.log`, `slurm-*.out`, `OUTCAR`, `nep.in`, `run.in`) that are not
-referenced in `jobs.json` or `artifacts.json`.
+Block credentials, private-key paths, arbitrary SSH options, or POTCAR bodies
+from entering state, reports, logs, Git, packages, or MCP payloads. POTCAR
+metadata-only transfer through an approved plan is allowed.
 
-**Action**: Recommend running `simflow_state/orphan_compute_scanner` to
-identify unregistered compute. Flag if the agent ran compute without
-registering it.
+### Record Inflation
 
-### 4. Risky Directory Names
+Warn when an agent creates separate records for every file, helper call, plot
+attempt, or registration receipt. Prefer one logical run/deliverable record
+with references and parent IDs.
 
-**Signal**: Project contains directories with names containing `NoGate`,
-`Relaxed`, `Bypass`, `SkipGate`.
+### Checkpoint Misuse
 
-**Action**: Flag as `gate_bypass_suspected`. Recommend recording the
-override via `simflow_state/record_user_override` if the bypass was
-intentional.
+Warn when checkpoints are created merely because a stage or task ended. A
+recoverable checkpoint needs restart/input references, hashes, or resume
+instructions. Diagnostic checkpoints must not be presented as runnable.
 
-### 5. Stale State Timestamps
+### Directory And Migration Safety
 
-**Signal**: `workflow.json.updated_at` is more than 24 hours behind the
-latest checkpoint's `created_at`.
+Block automatic movement or renaming of user project data to satisfy the
+six-phase template. Legacy state migration must use a fresh inspected hash,
+explicit confirmation, and index-only behavior. Nested `.simflow` roots remain
+unchanged unless the user approves a separate physical migration plan.
 
-**Action**: Flag as `state_staleness_warning`. The workflow state may not
-reflect recent work. Recommend running `simflow_state/repair_state`
-(Phase 5) to refresh.
-
-### 6. Missing Stage Declarations
-
-**Signal**: Checkpoints reference `stage_id`s that are not in `stages.json`.
-
-**Action**: This is now prevented by P1.4 (stage_id validation). If
-historical checkpoints have this issue, recommend running `repair_state`.
-
-## Implementation Status
-
-- **P0.7 (engagement contract)**: Implemented — hard-blocks state-write
-  without prior read_state
-- **P2.1 (orphan_compute_scanner)**: Implemented — scans for unregistered
-  compute
-- **P2.3 (record_user_override)**: Implemented — records gate bypasses
-- **P2.4 (gate_decision_id enforcement)**: Implemented — blocks job records
-  without gate approval
-- **repair_state (Phase 5)**: Implemented — read-only audit plus backed-up,
-  confidence-gated structural repair
-- **P7.3 host adaptation**: Implemented through MCP `clientInfo`; invocation
-  guidance adapts without requiring skill-load telemetry
-- **Signal 1 (cargo-cult detection)**: Not yet automated — requires Codex/
-  Claude Code platform to expose skill-load events to SimFlow
-- **Signal 3-6**: Detectable via existing SimFlow tools but not yet
-  integrated into reviewer workflow
-
-## Platform Telemetry Boundary
-
-SimFlow does not require Codex/Claude Code skill-load hooks. MCP `clientInfo`
-supports host-specific discovery guidance, while the engagement contract
-enforces state discipline. Direct skill-load counting remains unavailable
-unless a host explicitly exposes that telemetry in the future.
-
-## Reviewer Rationale Template
-
-When reviewing actions in a SimFlow project, the reviewer should include:
+## Reviewer Summary Shape
 
 ```json
 {
-  "simflow_discipline": {
-    "skills_loaded": <count>,
-    "mcp_tools_called": <count>,
-    "cargo_cult_detected": <bool>,
-    "state_written": <bool>,
-    "state_read_first": <bool>,
-    "compute_registered": <bool|null>,
-    "risky_dirs_detected": <bool>,
-    "warnings": ["..."]
+  "simflow_review": {
+    "real_execution_requested": false,
+    "run_plan_hash_present": null,
+    "approval_bound_to_plan": null,
+    "plan_current": null,
+    "execution_truth_consistent": true,
+    "credential_or_restricted_leak": false,
+    "record_granularity_reasonable": true,
+    "checkpoint_has_recovery_value": null,
+    "migration_non_destructive": null,
+    "warnings": []
   }
 }
 ```
 
-The rationale shape remains reviewer guidance. Structural signals are available
-through SimFlow state tools; direct skill-load counts remain host-dependent.
+Direct shell activity outside SimFlow cannot be observed automatically. Host
+permissions remain responsible for preventing agents from bypassing the HPC
+broker or reading protected credential locations.

@@ -1,81 +1,62 @@
-# Artifact Schema
+# Logical Records And File References
 
-## Artifact Types
+## Record Granularity
 
-| Type | Description | Formats |
-|------|-------------|---------|
-| `structure` | Crystal/molecular structure | CIF, POSCAR, XYZ, PDB |
-| `input` | Simulation input file | INCAR, KPOINTS, pw.in, lammps.in |
-| `output` | Simulation output | vasprun.xml, qe.out, log.lammps |
-| `trajectory` | MD trajectory | XTC, TRR, DCD, dump.lammps |
-| `data` | Numerical data | JSON, CSV, NPY |
-| `plot` | Visualization | PNG, SVG, PDF |
-| `report` | Analysis report | JSON, MD |
+SimFlow records logical events and deliverables, not every file. Typical record
+kinds are milestone, run, artifact, analysis, approval, failure, and note.
 
-## Artifact Registration
+Create a record when durable project history benefits from knowing what
+happened. Do not create a record for transient logs, caches, duplicate figures,
+intermediate parser output, or helper invocation receipts.
 
-Artifacts are registered via the artifact MCP server:
+## File References
 
-```python
-register_artifact(
-    name="structure.cif",
-    artifact_type="structure",
-    stage="modeling",
-    project_root="/path/to/project",
-    path="models/structure.cif",
-    metadata={"source": "user_provided_or_transformed"}
-)
-```
-
-## Lineage Tracking
-
-Each artifact records its provenance:
+A record may contain one or more references:
 
 ```json
 {
-  "name": "energy_curve.png",
-  "type": "figure",
-  "stage": "analysis_visualization",
-  "path": "figures/energy_curve.png",
-  "checksum": "sha256:...",
-  "metadata": {
-    "caption_status": "draft",
-    "speculative": false
-  },
-  "lineage": {
-    "parent_artifacts": ["art_analysis_table", "art_plot_script"],
-    "parameters": {
-      "x": "volume",
-      "y": "energy"
-    },
-    "software": "matplotlib"
+  "path": "analysis/rdf/report.md",
+  "role": "main_report",
+  "sha256": "...",
+  "size_bytes": 1234,
+  "exists": true
+}
+```
+
+Paths are project-relative and must stay inside `project_root`. Runtime computes
+hash and size for existing files. Restricted entries use metadata-only
+references and never persist the body or an unsafe path.
+
+For a run directory or multi-file deliverable, prefer a manifest, directory
+tree hash, or a few key references instead of one record per file.
+
+## Provenance
+
+Use `parent_ids` to connect logical events:
+
+```json
+{
+  "kind": "analysis",
+  "summary": "Accepted RDF comparison",
+  "parent_ids": ["rec_source_run"],
+  "artifacts": [
+    {"path": "analysis/rdf/report.md", "role": "main_report"},
+    {"path": "analysis/rdf/figure.png", "role": "key_figure"}
+  ],
+  "details": {
+    "script": "scripts/analysis/rdf.py",
+    "units": "angstrom",
+    "normalization": "pair-density normalized"
   }
 }
 ```
 
-Artifact records should use canonical stage names. Helper activity details such
-as input generation or figure rendering belong in artifact metadata, not as
-top-level stage names.
+This preserves useful lineage without separate artifact, lineage, stage-output,
+and version registries.
 
-## Versioning
+## Legacy Schemas
 
-Artifacts are versioned by registration history. Multiple records with the same
-name receive incremented versions while retaining lineage:
-
-```text
-.simflow/state/artifacts.json
-  structure.cif v1.0.0
-  structure.cif v2.0.0
-```
-
-## Artifact Validation
-
-Each artifact type has validation rules defined in `schemas/artifact.json`:
-
-- file must exist at declared path when a path is provided
-- file size should be non-zero for file artifacts
-- metadata should describe source and stage context
-- lineage should link derived artifacts to source artifacts where possible
-
-Common artifact types are examples, not a closed enum. Custom artifact types are
-allowed when their metadata and lineage are clear.
+`schemas/artifact.json`, `schemas/checkpoint.json`, `schemas/job_record.json`,
+and `schemas/state.schema.json` are labeled read-only compatibility schemas for
+historical `.simflow/state` data. They do not define the new compact write
+model.
