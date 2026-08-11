@@ -155,10 +155,10 @@ def test_gpumd_owns_provider_files_and_delegates_generic_readiness():
     assert "troubleshooting" in text.lower()
 
 
-def test_vasp_mlp_and_gpumd_use_domain_assistant_product_terminology():
+def test_vasp_mlp_and_gpumd_use_domain_skill_product_terminology():
     for skill_name in ["simflow-vasp", "simflow-mlp", "simflow-gpumd"]:
         text = _read(ROOT / "skills" / skill_name / "SKILL.md").lower()
-        assert "domain assistant" in text, skill_name
+        assert "domain skill" in text, skill_name
 
     positioning = "\n".join(
         _read(path)
@@ -169,7 +169,7 @@ def test_vasp_mlp_and_gpumd_use_domain_assistant_product_terminology():
             ROOT / "docs" / "software-skills.md",
         ]
     )
-    assert "Domain Assistants" in positioning
+    assert "Domain Skills" in positioning
     for stale_term in [
         "Domain Helpers",
         "general MLP evidence helper",
@@ -180,11 +180,11 @@ def test_vasp_mlp_and_gpumd_use_domain_assistant_product_terminology():
         assert stale_term not in positioning
 
 
-def test_domain_assistant_helper_support_and_helper_evidence_are_separate_concepts():
+def test_domain_skill_helper_support_and_helper_evidence_are_separate_concepts():
     contract = json.loads(_read(CAPABILITIES))
     policy = contract["policy"].lower()
 
-    assert "domain assistant" in policy
+    assert "domain skill" in policy
     assert "helper support" in policy
     assert "helper-evidence" in policy
     assert {"gpumd", "nep"} <= set(contract["helper_supported_software"])

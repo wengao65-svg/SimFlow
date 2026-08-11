@@ -185,11 +185,11 @@ def test_writing_requires_evidence_traceability_without_fixed_structure():
     assert "Unsupported statements are removed, weakened, or explicitly marked" in text
 
 
-def test_engine_skills_are_domain_assistants_not_workflow_executors():
+def test_engine_skills_are_domain_skills_not_workflow_executors():
     for skill_name in ENGINE_DOMAIN_SKILLS:
         text = _skill_text(skill_name)
         lowered = text.lower()
-        assert "domain assistant" in lowered
+        assert "domain skill" in lowered
         assert "workflow progression" in lowered or "workflow state" in lowered
         assert "## domain principles" in lowered
         assert "## minimum checks" in lowered

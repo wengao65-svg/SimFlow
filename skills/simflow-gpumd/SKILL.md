@@ -7,7 +7,7 @@ description: Provide GPUMD and NEP-specific guidance for inputs, training files,
 
 ## Purpose
 
-Act as the GPUMD/NEP Domain Assistant for the current Research Task Skill without
+Act as the GPUMD/NEP Domain Skill for the current Research Task Skill without
 owning real execution, approval, workflow state, or persistence.
 
 ## Use when

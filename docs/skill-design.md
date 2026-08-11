@@ -84,7 +84,7 @@ analysis directory selects computation plus the engine Domain Skill.
 The router may identify a runtime boundary, but it does not perform runtime
 operations.
 
-## Domain Assistant Pattern
+## Domain Skill Pattern
 
 Domain Skills answer questions such as:
 

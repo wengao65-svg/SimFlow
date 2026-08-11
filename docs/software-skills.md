@@ -52,7 +52,7 @@ request as a fixed MD alias.
 
 ## GPUMD/NEP
 
-`simflow-gpumd` is the GPUMD/NEP ecosystem Domain Assistant. It owns NEP
+`simflow-gpumd` is the GPUMD/NEP ecosystem Domain Skill. It owns NEP
 trainer files and GPUMD MD inputs, outputs, version-sensitive behavior, task
 guidance, and troubleshooting. Its optional helpers currently support input
 generation, input validation, compute planning, orchestration, static input
@@ -61,13 +61,13 @@ handoff. Real execution and submit remain outside helper support.
 
 ## Machine-Learning Potentials
 
-`simflow-mlp` is a cross-tool Domain Assistant. It owns dataset, labeling,
+`simflow-mlp` is a cross-tool Domain Skill. It owns dataset, labeling,
 training-evidence, validation, active-learning, deployment, and
 production-readiness methodology without prescribing one trainer's
 implementation. Provider files and configuration syntax remain with the
-relevant software Domain Assistant.
+relevant software Domain Skill.
 
-Domain Assistant, helper support level, and helper-evidence output are distinct
+Domain Skill, helper support level, and helper-evidence output are distinct
 concepts. `workflow/toolchains/capabilities.json` is the support-level source of
 truth. Optional scripts may emit `simflow.helper_evidence.v1` records without
 turning that output format into a product category.

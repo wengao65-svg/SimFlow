@@ -7,7 +7,7 @@ description: Provide engine-independent machine-learning-potential guidance for 
 
 ## Purpose
 
-Act as the cross-tool MLP Domain Assistant for the current Research Task Skill.
+Act as the cross-tool MLP Domain Skill for the current Research Task Skill.
 It does not own workflow progression or runtime state. Provider files and
 commands remain owned by their engine-specific Domain Skill.
 

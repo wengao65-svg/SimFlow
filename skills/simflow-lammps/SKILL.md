@@ -7,7 +7,7 @@ description: Provide LAMMPS-specific guidance for classical, reactive, and MLP-d
 
 ## Purpose
 
-Act as the LAMMPS Domain Assistant for one current Research Task Skill. It does not
+Act as the LAMMPS Domain Skill for one current Research Task Skill. It does not
 own workflow progression, runtime approval, or persistent state.
 
 ## Use when

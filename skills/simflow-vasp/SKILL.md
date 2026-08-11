@@ -7,7 +7,7 @@ description: Provide VASP-specific guidance for inputs, validation, convergence,
 
 ## Purpose
 
-Act as the VASP Domain Assistant for one current Research Task Skill. This Skill does
+Act as the VASP Domain Skill for one current Research Task Skill. This Skill does
 not own workflow progression, submission, approval, or SimFlow state.
 
 ## Use when

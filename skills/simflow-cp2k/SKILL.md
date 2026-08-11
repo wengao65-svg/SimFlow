@@ -7,7 +7,7 @@ description: Provide CP2K-specific guidance for inputs, basis and potential choi
 
 ## Purpose
 
-Act as the CP2K Domain Assistant for the current Research Task Skill without owning
+Act as the CP2K Domain Skill for the current Research Task Skill without owning
 workflow state, persistence, submission, or approval.
 
 ## Use when
