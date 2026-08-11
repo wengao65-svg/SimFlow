@@ -70,7 +70,7 @@ def test_retry_clears_stale_failure_fields(tmp_path):
     assert stage["failure_id"] is None
 
 
-def test_failure_recovery_uses_latest_matching_checkpoint_without_ledger_context(tmp_path):
+def test_failure_recovery_uses_latest_recovery_checkpoint(tmp_path):
     workflow = init_workflow("custom", "computation", project_root=str(tmp_path))
     update_stage("computation", "in_progress", project_root=str(tmp_path))
     create_checkpoint(
@@ -94,9 +94,6 @@ def test_failure_recovery_uses_latest_matching_checkpoint_without_ledger_context
         project_root=str(tmp_path),
         stage_name="computation",
         message="current experiment failed",
-        experiment_id="exp_current0",
-        iteration_id="iter_current",
-        activity_id="act_failed00",
     )
     artifacts = read_state(project_root=str(tmp_path), state_file="artifacts.json")
 

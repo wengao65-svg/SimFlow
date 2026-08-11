@@ -22,7 +22,6 @@ from connectors.local import LocalConnector
 from broker import SSHBrokerClient
 from mcp.shared.transport import dispatch_request, run_server
 from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.engagement import EngagementViolation, check_prerequisites, record_tool_call
 from runtime.simflow_core.gates import check_gate, get_gate_decisions
 from runtime.simflow_helpers.computation.job_records import record_submit_job
 from transfer import (
@@ -223,9 +222,6 @@ def handle_submit(params: dict) -> dict:
             script_hash=result.get("script_hash") or params.get("script_hash"),
             input_artifact_hash=params.get("input_artifact_hash"),
             submit_result=result,
-            experiment_id=params.get("experiment_id"),
-            iteration_id=params.get("iteration_id"),
-            activity_id=params.get("activity_id"),
         )
         if record["status"] == "success":
             result["job_record_artifact_id"] = record["artifact"]["artifact_id"]
@@ -320,9 +316,6 @@ def _write_transfer_report(project_root: str, report: dict, params: dict) -> tup
             "target": report.get("target"),
             "gate_decision_id": report.get("gate_decision_id"),
         },
-        experiment_id=params.get("experiment_id"),
-        iteration_id=params.get("iteration_id"),
-        activity_id=params.get("activity_id"),
     )
     return str(report_path.relative_to(root)), artifact
 
@@ -372,9 +365,6 @@ def _handle_transfer(params: dict, direction: str) -> dict:
         "gate_decision_id": approval.get("gate_decision_id"),
         "transfer_request_hash": approval.get("transfer_request_hash"),
         "parent_artifacts": params.get("parent_artifacts", []),
-        "experiment_id": params.get("experiment_id"),
-        "iteration_id": params.get("iteration_id"),
-        "activity_id": params.get("activity_id"),
     }
     try:
         if direction == "upload":
@@ -527,10 +517,6 @@ TOOL_SCHEMAS = {
             "transfer_manifest": {"type": "string"},
             "remote_workdir": {"type": "string"},
             "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -547,10 +533,6 @@ TOOL_SCHEMAS = {
             "gate_decision_id": {"type": "string"},
             "parent_artifacts": {"type": "array", "items": {"type": "string"}},
             "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -567,10 +549,6 @@ TOOL_SCHEMAS = {
             "gate_decision_id": {"type": "string"},
             "parent_artifacts": {"type": "array", "items": {"type": "string"}},
             "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -579,49 +557,7 @@ TOOL_SCHEMAS = {
 
 def handle_request(request: dict) -> dict:
     """Dispatch a request to the appropriate tool handler."""
-    tool = request.get("tool")
-    params = request.get("params", {})
-    write_context = None
-    if tool in {"upload", "download", "submit"}:
-        project_root = params.get("project_root")
-        if not project_root:
-            return {"status": "error", "message": "project_root is required", "code": "project_root_required"}
-        from runtime.simflow_core.experiment_memory import is_ledger_enabled, require_write_context
-        if is_ledger_enabled(project_root):
-            missing_context = [
-                field for field in ("session_context_id", "experiment_id", "activity_id")
-                if not params.get(field)
-            ]
-            if missing_context:
-                return {
-                    "status": "error",
-                    "code": "experiment_context_required",
-                    "message": "Ledger-enabled HPC writes require project_reentry and an active experiment activity.",
-                    "missing": missing_context,
-                }
-            try:
-                write_context = require_write_context(
-                    project_root,
-                    session_context_id=params["session_context_id"],
-                    experiment_id=params["experiment_id"],
-                    activity_id=params["activity_id"],
-                    iteration_id=params.get("iteration_id"),
-                )
-            except ValueError as error:
-                return {"status": "error", "code": "invalid_experiment_context", "message": str(error)}
-        try:
-            check_prerequisites(f"hpc/{tool}", project_root)
-        except EngagementViolation as violation:
-            return {
-                "status": "error",
-                "code": "skill_engagement_contract_violation",
-                "message": f"Before calling {tool}, call simflow_state/read_state first in this session",
-                "required_prerequisites": violation.missing,
-            }
-        record_tool_call(f"hpc/{tool}", project_root)
-    from runtime.simflow_core.experiment_memory import experiment_write_scope
-    with experiment_write_scope(write_context):
-        return dispatch_request(request, TOOLS)
+    return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":

@@ -42,10 +42,6 @@ def record_submit_job(
     submit_result: dict[str, Any] | None = None,
     user_override: bool = False,
     override_gate_id: str | None = None,
-    session_context_id: str | None = None,
-    experiment_id: str | None = None,
-    iteration_id: str | None = None,
-    activity_id: str | None = None,
 ) -> dict[str, Any]:
     """Write and register a real-submit job record.
 
@@ -54,20 +50,6 @@ def record_submit_job(
     unless user_override=True with a corresponding override_gate_id.
     """
     root = resolve_project_root(project_root=project_root)
-    from runtime.simflow_core.experiment_memory import record_linked_write, require_write_context
-
-    ledger_context = require_write_context(
-        str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
-    )
-    if ledger_context:
-        session_context_id = ledger_context.session_context_id
-        experiment_id = ledger_context.experiment_id
-        iteration_id = ledger_context.iteration_id
-        activity_id = ledger_context.activity_id
     workflow = read_state(project_root=str(root), state_file="workflow.json")
     if not workflow:
         return {
@@ -135,9 +117,6 @@ def record_submit_job(
         "job_id": str(job_id),
         "workflow_id": workflow.get("workflow_id", "unknown"),
         "stage": "computation",
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
         "status": status,
         "dry_run": False,
         "scheduler": scheduler,
@@ -179,10 +158,6 @@ def record_submit_job(
             "real_submit": True,
             "execution_truth": job_record["execution_truth"],
         },
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
     )
 
     jobs = read_state(project_root=str(root), state_file="jobs.json")
@@ -193,22 +168,7 @@ def record_submit_job(
         "path": _relative_path(root, record_path),
         "artifact_id": artifact["artifact_id"],
     })
-    context_kwargs = {
-        "session_context_id": session_context_id,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
-    }
-    write_state(jobs, project_root=str(root), state_file="jobs.json", **context_kwargs)
-    record_linked_write(
-        str(root),
-        kind="job",
-        target_id=str(job_id),
-        path=_relative_path(root, record_path),
-        role="job_record",
-        metadata={"scheduler": scheduler, "status": status, "artifact_id": artifact["artifact_id"]},
-        **context_kwargs,
-    )
+    write_state(jobs, project_root=str(root), state_file="jobs.json")
 
     return {
         "status": "success",

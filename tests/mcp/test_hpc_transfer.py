@@ -7,7 +7,6 @@ import json
 import sys
 from pathlib import Path
 
-from runtime.simflow_core.engagement import record_tool_call
 from runtime.simflow_core.gates import record_gate_decision
 from runtime.simflow_core.state import init_workflow
 
@@ -28,9 +27,8 @@ def _load_server():
     return module
 
 
-def _engage_and_approve(project_root: Path, server, direction: str, remote_dir: str, paths: list[str]):
+def _approve(project_root: Path, server, direction: str, remote_dir: str, paths: list[str]):
     init_workflow("custom", "computation", project_root=str(project_root))
-    record_tool_call("simflow_state/read_state", str(project_root))
     fingerprint = server.request_fingerprint(direction, remote_dir, paths, TARGET)
     decision = record_gate_decision(
         "hpc_transfer",
@@ -108,7 +106,6 @@ class _PotcarConnector:
 def test_upload_requires_approval(tmp_path):
     server = _load_server()
     init_workflow("custom", "computation", project_root=str(tmp_path))
-    record_tool_call("simflow_state/read_state", str(tmp_path))
     result = server.handle_request(
         {
             "tool": "upload",
@@ -131,7 +128,7 @@ def test_upload_registers_verified_manifest(tmp_path, monkeypatch):
     local_file = tmp_path / "inputs" / "nested" / "input.txt"
     local_file.parent.mkdir(parents=True)
     local_file.write_text("input\n", encoding="utf-8")
-    _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
+    _approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
     monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: _FakeConnector(local_file))
 
     result = server.handle_request(
@@ -165,7 +162,7 @@ def test_upload_potcar_records_only_restricted_metadata(tmp_path, monkeypatch):
         f"PAW_PBE Si 05Jan2001\nPOMASS = 1.0; ZVAL = 4.0\n{marker}\n",
         encoding="utf-8",
     )
-    decision = _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["POTCAR"])
+    decision = _approve(tmp_path, server, "upload", "/scratch/job", ["POTCAR"])
     monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: _PotcarConnector(potcar))
 
     result = server.handle_request({
@@ -198,7 +195,6 @@ def test_upload_potcar_records_only_restricted_metadata(tmp_path, monkeypatch):
 def test_upload_rejects_path_escape_before_approval(tmp_path):
     server = _load_server()
     init_workflow("custom", "computation", project_root=str(tmp_path))
-    record_tool_call("simflow_state/read_state", str(tmp_path))
     result = server.handle_request(
         {
             "tool": "upload",
@@ -220,7 +216,7 @@ def test_upload_rejects_target_mismatch(tmp_path):
     local_file = tmp_path / "inputs" / "nested" / "input.txt"
     local_file.parent.mkdir(parents=True)
     local_file.write_text("input\n", encoding="utf-8")
-    decision = _engage_and_approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
+    decision = _approve(tmp_path, server, "upload", "/scratch/job", ["nested/input.txt"])
     result = server.handle_request(
         {
             "tool": "upload",
@@ -241,7 +237,6 @@ def test_upload_rejects_target_mismatch(tmp_path):
 def test_upload_rejects_secret_fields_in_target(tmp_path):
     server = _load_server()
     init_workflow("custom", "computation", project_root=str(tmp_path))
-    record_tool_call("simflow_state/read_state", str(tmp_path))
     result = server.handle_request(
         {
             "tool": "upload",

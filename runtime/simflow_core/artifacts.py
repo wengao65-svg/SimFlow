@@ -108,13 +108,9 @@ def register_artifact(
     metadata: Optional[dict] = None,
     project_root: Optional[str] = None,
     sync_stage_outputs: bool = True,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Record one logical deliverable without mutating legacy registries."""
-    del sync_stage_outputs, session_context_id, experiment_id, iteration_id, activity_id
+    del sync_stage_outputs
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
     artifact_id = f"art_{uuid.uuid4().hex[:12]}"
     artifact_metadata = dict(metadata or {})

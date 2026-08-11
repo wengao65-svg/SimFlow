@@ -73,10 +73,6 @@ def create_checkpoint(
     job_id: Optional[str] = None,
     project_root: Optional[str] = None,
     failure_context: Optional[dict[str, Any]] = None,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
     *,
     record_id: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -87,7 +83,6 @@ def create_checkpoint(
     risk_notes: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Create a compact recovery reference through the legacy Python API."""
-    del session_context_id, experiment_id, iteration_id, activity_id
     normalized = str(status).strip().lower()
     if normalized not in _STATUS_TO_COMPACT:
         raise ValueError(f"Unsupported checkpoint status: {status}")
@@ -182,11 +177,8 @@ def get_latest_checkpoint(
     *,
     status: Optional[str] = None,
     recoverable_only: bool = False,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
     """Return the latest checkpoint matching compact recovery filters."""
-    del experiment_id, iteration_id
     checkpoints = list_checkpoints(base_dir, project_root=project_root)
     if status is not None:
         checkpoints = [checkpoint for checkpoint in checkpoints if checkpoint.get("status") == status]
@@ -198,11 +190,7 @@ def get_latest_checkpoint(
 def get_latest_recovery_checkpoint(
     base_dir: str = ".",
     project_root: Optional[str] = None,
-    *,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
-    del experiment_id, iteration_id
     checkpoints = [
         checkpoint
         for checkpoint in list_checkpoints(base_dir, project_root=project_root)

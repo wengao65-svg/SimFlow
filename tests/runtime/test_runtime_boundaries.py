@@ -123,12 +123,9 @@ def test_agent_facing_hpc_server_does_not_import_direct_ssh_connector():
     assert "SSHBrokerClient" in text
 
 
-def test_engagement_contract_uses_only_current_mcp_namespaces():
-    from runtime.simflow_core.engagement import EXEMPT_TOOLS, PROTECTED_TOOLS
-
-    names = set(EXEMPT_TOOLS) | set(PROTECTED_TOOLS)
-    assert not any(name.startswith("artifact_store/") for name in names)
-    assert not any(name.startswith("checkpoint_store/") for name in names)
+def test_removed_ledger_and_engagement_modules_are_absent():
+    for name in ("engagement.py", "experiment_memory.py"):
+        assert not (REPO_ROOT / "runtime" / "simflow_core" / name).exists()
 
 
 def test_runtime_lib_directory_has_no_python_sources_if_cache_remains():

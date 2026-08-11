@@ -45,15 +45,9 @@ def record_stage_failure(
     job_id: Optional[str] = None,
     partial_artifact_ids: Optional[list[str]] = None,
     failure_id: Optional[str] = None,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Persist a complete, recoverable stage-failure evidence bundle."""
     root = resolve_project_root(project_root=project_root)
-    del session_context_id, experiment_id, iteration_id, activity_id
-    context = {}
     workflow = ensure_workflow_initialized(project_root=str(root))
     now = _now_iso()
     failure_id = failure_id or f"fail_{uuid.uuid4().hex[:8]}"
@@ -125,9 +119,8 @@ def record_stage_failure(
         error_message=safe_message,
         error_report_artifact_id=report_artifact["artifact_id"],
         failure_id=failure_id,
-        **context,
     )
-    touch_workflow(str(root), current_stage=stage_name, status="failed", **context)
+    touch_workflow(str(root), current_stage=stage_name, status="failed")
 
     verification = record_stage_failure_verification(
         stage_name,
@@ -136,7 +129,6 @@ def record_stage_failure(
         failure_id=failure_id,
         checkpoint_id=recovery_checkpoint_id,
         source_artifact_ids=[report_artifact["artifact_id"], log_artifact["artifact_id"]],
-        **context,
     )
 
     return {

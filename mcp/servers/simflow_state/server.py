@@ -1,8 +1,8 @@
 """Compact SimFlow state MCP server.
 
 The public surface deliberately contains four composite tools. Legacy state,
-artifact, checkpoint, engagement, and experiment-ledger functions remain
-internal compatibility APIs and are not advertised through MCP.
+artifact, and checkpoint readers remain internal compatibility APIs and are
+not advertised through MCP.
 """
 
 from __future__ import annotations

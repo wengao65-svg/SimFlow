@@ -531,22 +531,18 @@ function validateWorkflowAutomation() {
     'spec = importlib.util.spec_from_file_location("hpc_release_smoke", server_dir / "server.py")',
     'server = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(server)',
-    'from runtime.simflow_core.engagement import record_tool_call',
     'tmp = tempfile.TemporaryDirectory()',
     'project = Path(tmp.name)',
     'script = project / "job.sh"',
     'script.write_text("#!/bin/bash\\necho should-not-run\\n", encoding="utf-8")',
     'digest = hashlib.sha256(script.read_bytes()).hexdigest()',
     'request = {"tool": "submit", "params": {"project_root": str(project), "script_path": str(script), "scheduler": "local", "approval_token": "release-smoke-token", "dry_run_evidence": "compute/dry_run_report.json", "script_hash": digest, "input_artifact_hash": "input-hash"}}',
-    'blocked = server.handle_request(request)',
-    'assert blocked.get("code") == "skill_engagement_contract_violation", blocked',
-    'record_tool_call("simflow_state/read_state", str(project))',
     'result = server.handle_request(request)',
     'tmp.cleanup()',
     'assert result.get("status") == "error", result',
     'assert result.get("code") == "missing_workflow_state", result',
   ].join('; ');
-  runCheck('hpc.submit enforces engagement and workflow state before execution', 'python', ['-c', hpcSubmitSmoke]);
+  runCheck('hpc.submit rejects uninitialized projects without read bootstrap', 'python', ['-c', hpcSubmitSmoke]);
 }
 
 function gitShow(ref, relativePath) {
