@@ -116,7 +116,7 @@ def test_transfer_requires_plan_bound_approval(tmp_path):
     assert result["run_plan_hash"] == plan["run_plan_hash"]
 
 
-def test_upload_reuses_submit_approval_and_records_one_run(tmp_path, monkeypatch):
+def test_upload_reuses_submit_approval_and_records_plan_plus_transfer(tmp_path, monkeypatch):
     server = _load_server()
     plan = _plan_upload(tmp_path, server)
     decision = _approve(tmp_path, plan["run_plan_hash"])
@@ -135,9 +135,8 @@ def test_upload_reuses_submit_approval_and_records_one_run(tmp_path, monkeypatch
     assert result["data"]["transfer_status"] == "verified"
     assert result["data"]["report"]["run_plan_hash"] == plan["run_plan_hash"]
     records = list_project_records(str(tmp_path), kind="run")
-    assert len(records) == 1
-    assert records[0]["details"]["operation"] == "transfer"
-    assert records[0]["details"]["run_plan_hash"] == plan["run_plan_hash"]
+    assert [record["details"]["operation"] for record in records] == ["plan", "transfer"]
+    assert records[-1]["details"]["run_plan_hash"] == plan["run_plan_hash"]
 
 
 def test_transfer_accepts_dedicated_transfer_gate(tmp_path, monkeypatch):

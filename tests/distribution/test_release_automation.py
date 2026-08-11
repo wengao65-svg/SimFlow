@@ -34,8 +34,8 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "Marketplace Version Guard" in result.stdout
     assert "OpenCode source adapter exists" in result.stdout
     assert "OpenCode canonical plugin module exists" in result.stdout
-    assert "safe dry-run example writes one compact record" in result.stdout
-    assert "LAMMPS safe dry-run example writes one compact record" in result.stdout
+    assert "safe dry-run example records plan and deliverable" in result.stdout
+    assert "LAMMPS safe dry-run example records plan and deliverable" in result.stdout
     assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes four compact tools" in result.stdout

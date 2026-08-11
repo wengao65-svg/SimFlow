@@ -518,7 +518,7 @@ function validateSafeExamples() {
       }
       check('safe dry-run example completes', summary.status === 'success', result.stdout);
       check('safe dry-run example writes compact project state', fs.existsSync(path.join(exampleRoot, '.simflow', 'project.json')));
-      check('safe dry-run example writes one compact record', summary.record_count === 1 && fs.existsSync(path.join(exampleRoot, '.simflow', 'records.jsonl')), result.stdout);
+      check('safe dry-run example records plan and deliverable', summary.record_count === 2 && fs.existsSync(path.join(exampleRoot, '.simflow', 'records.jsonl')), result.stdout);
       check('safe dry-run example persists immutable run plan', fs.existsSync(path.join(exampleRoot, summary.important_paths.run_plan)), result.stdout);
       check('safe dry-run example blocks submit without approval', summary.submit_blocked === true && summary.approval_required === true, result.stdout);
       check('safe dry-run example creates no legacy registries or checkpoints', !fs.existsSync(path.join(exampleRoot, '.simflow', 'state')) && summary.checkpoint_count === 0, result.stdout);
@@ -546,7 +546,7 @@ function validateSafeExamples() {
         fail('LAMMPS safe dry-run example emits JSON summary', result.stdout);
       }
       check('LAMMPS safe dry-run example completes', summary.status === 'success', result.stdout);
-      check('LAMMPS safe dry-run example writes one compact record', summary.record_count === 1 && fs.existsSync(path.join(lammpsRoot, '.simflow', 'records.jsonl')), result.stdout);
+      check('LAMMPS safe dry-run example records plan and deliverable', summary.record_count === 2 && fs.existsSync(path.join(lammpsRoot, '.simflow', 'records.jsonl')), result.stdout);
       check('LAMMPS safe dry-run example embeds credential scan in run plan', summary.credential_scan_status === 'pass' || summary.credential_scan_status === 'warning', result.stdout);
       check('LAMMPS safe dry-run example blocks submit without approval', summary.submit_blocked === true && summary.approval_required === true, result.stdout);
       check('LAMMPS safe dry-run example creates no legacy registries or checkpoints', !fs.existsSync(path.join(lammpsRoot, '.simflow', 'state')) && summary.checkpoint_count === 0, result.stdout);

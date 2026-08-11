@@ -26,25 +26,28 @@ def _assert_compact_state(tmp_path: Path, summary: dict) -> None:
     assert summary["status"] == "success"
     assert summary["submit_blocked"] is True
     assert summary["approval_required"] is True
-    assert summary["record_count"] == 1
+    assert summary["record_count"] == 2
     assert summary["checkpoint_count"] == 0
     assert len(summary["run_plan_hash"]) == 64
     assert summary["credential_scan_status"] in {"pass", "warning"}
     assert (tmp_path / ".simflow" / "project.json").is_file()
     assert (tmp_path / ".simflow" / "records.jsonl").is_file()
+    records = [json.loads(line) for line in (tmp_path / ".simflow" / "records.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert records[0]["details"]["operation"] == "plan"
+    assert records[1]["kind"] in {"artifact", "milestone", "run"}
     assert not (tmp_path / ".simflow" / "state").exists()
     assert not (tmp_path / ".simflow" / "checkpoints").exists()
     assert (tmp_path / summary["important_paths"]["run_plan"]).is_file()
 
 
-def test_safe_dry_run_example_uses_one_compact_record(tmp_path):
+def test_safe_dry_run_example_records_plan_and_deliverable(tmp_path):
     summary = _run_example("examples/safe_dry_run/run_example.py", tmp_path)
     _assert_compact_state(tmp_path, summary)
     assert (tmp_path / "calculation" / "job.sh").is_file()
     assert (tmp_path / ".simflow" / "reports" / "safe_example_summary.json").is_file()
 
 
-def test_lammps_safe_dry_run_example_uses_one_compact_record(tmp_path):
+def test_lammps_safe_dry_run_example_records_plan_and_deliverable(tmp_path):
     summary = _run_example("examples/lammps_safe_dry_run/run_example.py", tmp_path)
     _assert_compact_state(tmp_path, summary)
     assert summary["software"] == "lammps"

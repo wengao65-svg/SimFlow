@@ -158,6 +158,9 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
         if record.get("next_action") is not None:
             latest_next_action = record.get("next_action")
         if kind == "run" and record.get("run_id"):
+            details = record.get("details") if isinstance(record.get("details"), dict) else {}
+            if details.get("operation") in {"plan", "binding_correction", "transfer"}:
+                continue
             if record.get("status") in {"planned", "prepared", "submitted", "queued", "running", "paused"}:
                 if record["run_id"] in active_run_ids:
                     active_run_ids.remove(record["run_id"])

@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
+from runtime.simflow_core.experiment_notebook import create_experiment
 from runtime.simflow_core.gates import record_gate_decision
 from runtime.simflow_core.records import list_project_records, record_event
+from runtime.simflow_helpers.computation.job_records import record_submit_job
 
 
 SERVER_DIR = Path(__file__).resolve().parents[2] / "mcp" / "servers" / "hpc"
@@ -161,7 +164,7 @@ def test_submit_rejects_approval_for_different_plan(tmp_path):
     assert result["code"] == "run_plan_approval_mismatch"
 
 
-def test_local_submit_executes_and_records_one_compact_run(tmp_path):
+def test_local_submit_executes_and_records_plan_plus_submit(tmp_path):
     server = _load_server()
     plan = _plan_local(server, tmp_path)
     decision = _approve(tmp_path, plan["run_plan_hash"])
@@ -178,9 +181,8 @@ def test_local_submit_executes_and_records_one_compact_run(tmp_path):
     assert "local-ok" in result["stdout"]
     assert result["run_plan_hash"] == plan["run_plan_hash"]
     records = list_project_records(str(tmp_path), kind="run")
-    assert len(records) == 1
-    assert records[0]["details"]["operation"] == "submit"
-    assert records[0]["details"]["run_plan_hash"] == plan["run_plan_hash"]
+    assert [record["details"]["operation"] for record in records] == ["plan", "submit"]
+    assert records[-1]["details"]["run_plan_hash"] == plan["run_plan_hash"]
     assert not (tmp_path / ".simflow" / "state" / "jobs.json").exists()
 
 
@@ -228,7 +230,119 @@ def test_unchanged_retry_reuses_same_approval(tmp_path):
     second = server.handle_request(request)
 
     assert first["status"] == second["status"] == "success"
-    assert len(list_project_records(str(tmp_path), kind="run")) == 2
+    assert len(list_project_records(str(tmp_path), kind="run")) == 3
+
+
+def test_experiment_binding_does_not_change_run_plan_hash_or_prior_approval(tmp_path):
+    server = _load_server()
+    _make_local_files(tmp_path)
+    first_experiment = create_experiment(
+        str(tmp_path), title="Question A", research_question="Does A work?", scope_paths=["."],
+    )["experiment_id"]
+    second_experiment = create_experiment(
+        str(tmp_path), title="Question B", research_question="Does B work?", scope_paths=["."],
+    )["experiment_id"]
+    params = {
+        "project_root": str(tmp_path),
+        "script_path": "job.sh",
+        "input_paths": ["input.dat"],
+        "scheduler": "local",
+    }
+    first = server.handle_request({"tool": "plan", "params": {**params, "experiment_id": first_experiment}})
+    approval = _approve(tmp_path, first["data"]["run_plan_hash"])
+    corrected = server.handle_request({"tool": "plan", "params": {**params, "experiment_id": second_experiment}})
+
+    assert corrected["data"]["run_plan_hash"] == first["data"]["run_plan_hash"]
+    assert corrected["binding"]["operation"] == "binding_correction"
+    assert corrected["binding"]["experiment_id"] == second_experiment
+    plan_payload = json.loads((tmp_path / corrected["data"]["plan_path"]).read_text(encoding="utf-8"))
+    assert "experiment_id" not in plan_payload
+    assert "attempt_id" not in plan_payload
+
+    submitted = server.handle_request({
+        "tool": "submit",
+        "params": {
+            "project_root": str(tmp_path),
+            "run_plan_hash": corrected["data"]["run_plan_hash"],
+            "gate_decision_id": approval["decision_id"],
+        },
+    })
+    assert submitted["status"] == "success"
+    submit_record = list_project_records(str(tmp_path), kind="run")[-1]
+    assert submit_record["experiment_id"] == second_experiment
+    assert submit_record["attempt_id"] == corrected["binding"]["attempt_id"]
+
+
+def test_bound_status_records_only_real_transitions(tmp_path, monkeypatch):
+    server = _load_server()
+    _make_local_files(tmp_path)
+    experiment_id = create_experiment(
+        str(tmp_path), title="Status question", research_question="Did the run finish?", scope_paths=["."],
+    )["experiment_id"]
+    planned = server.handle_request({
+        "tool": "plan",
+        "params": {
+            "project_root": str(tmp_path), "script_path": "job.sh", "input_paths": ["input.dat"],
+            "scheduler": "local", "experiment_id": experiment_id,
+        },
+    })
+    run_plan_hash = planned["data"]["run_plan_hash"]
+    approval = _approve(tmp_path, run_plan_hash)
+    record_submit_job(
+        project_root=str(tmp_path), scheduler="slurm", job_id="12345", run_plan_hash=run_plan_hash,
+        status="submitted", gate_decision_id=approval["decision_id"],
+        experiment_id=experiment_id, attempt_id=planned["binding"]["attempt_id"],
+    )
+
+    states = iter(["RUNNING", "RUNNING", "COMPLETED"])
+
+    class StatusConnector:
+        def status(self, job_id):
+            return {"status": "success", "data": {"job_id": job_id, "state": next(states)}}
+
+    monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: StatusConnector())
+    request = {
+        "tool": "status",
+        "params": {
+            "project_root": str(tmp_path), "run_plan_hash": run_plan_hash,
+            "job_id": "12345", "scheduler": "slurm",
+        },
+    }
+    first = server.handle_request(request)
+    repeated = server.handle_request(request)
+    terminal = server.handle_request(request)
+
+    assert first["recorded_transition"] is True
+    assert repeated["recorded_transition"] is False
+    assert terminal["recorded_transition"] is True
+    status_records = [
+        record for record in list_project_records(str(tmp_path), kind="run")
+        if record.get("details", {}).get("operation") == "status"
+    ]
+    assert [record["status"] for record in status_records] == ["running", "completed"]
+    assert all(record["experiment_id"] == experiment_id for record in status_records)
+
+
+def test_status_does_not_bind_an_untracked_job_to_a_requested_plan(tmp_path, monkeypatch):
+    server = _load_server()
+    plan = _plan_local(server, tmp_path)
+
+    class StatusConnector:
+        def status(self, job_id):
+            return {"status": "success", "data": {"job_id": job_id, "state": "RUNNING"}}
+
+    monkeypatch.setattr(server, "_get_connector", lambda scheduler, target=None: StatusConnector())
+    result = server.handle_request({
+        "tool": "status",
+        "params": {
+            "project_root": str(tmp_path), "run_plan_hash": plan["run_plan_hash"],
+            "job_id": "untracked", "scheduler": "slurm",
+        },
+    })
+
+    assert result["recorded_transition"] is False
+    assert "no recorded submit" in result["recording_reason"]
+    assert [record["details"]["operation"] for record in list_project_records(str(tmp_path), kind="run")] == ["plan"]
 
 
 def test_changed_input_invalidates_prior_approval(tmp_path):
