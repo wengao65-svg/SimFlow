@@ -2,148 +2,125 @@
 
 ## Purpose
 
-SimFlow is skill-first. Skills are the user-facing entry points that help a host
-agent recognize research intent, apply SimFlow evidence rules, and produce
-handoff-ready work.
+SimFlow Skills constrain how the host agent approaches computational research.
+They are reusable instruction bundles, not workflow executors or runtime user
+manuals.
 
-Skills are not workflow executors. They should not force one parser, one report
-name, one builder, one simulation engine, or one fixed DFT/AIMD/MD path.
+The architecture separates three concerns:
 
-Helper outputs are pure evidence producers by default. They may write
-requested input or report files under `project_root`, but they do not
-initialize workflow state, do not advance stages, do not register artifacts,
-and do not create checkpoints unless explicit helper-run recording is
-requested.
+```text
+Research Task Skill  -> how to do the current class of work well
+Domain Skill         -> what is specific to an engine or method
+SimFlow Runtime      -> what actually happened and what must be safeguarded
+```
 
-Default helper report paths live under project-root `reports/<engine>/`.
-`.simflow` is touched only by explicit helper-run recording.
+## Public Skill Set
 
-## Core Skill Set
+The public surface contains one router, six Research Task Skills, and five
+Domain Skills. See `skills/README.md` for the complete list.
 
-The refactored workflow layer centers on a small core set:
+Operational concerns are not Skills:
 
-- `simflow`
-- `simflow-literature-review`
-- `simflow-proposal`
-- `simflow-modeling`
-- `simflow-computation`
-- `simflow-analysis-visualization`
-- `simflow-writing`
-- `simflow-safety-gates`
+- safety policy is enforced by runtime;
+- checkpoints and recovery are persistence operations;
+- handoff is state summarization/serialization;
+- scientific verification lives in Task/Domain minimum checks;
+- execution truth, hashes, file existence, and job status live in runtime.
 
-Engine-specific skills for VASP, CP2K, LAMMPS, and GPUMD/NEP are the supported
-domain assistants in the current product build. `simflow-mlp` is a cross-tool
-Domain Assistant for machine-learning-potential dataset, training, validation,
-active-learning, deployment, and readiness methodology. These skills provide checklists,
-templates, troubleshooting, validation suggestions, official-documentation
-pointers, and artifact registration guidance. QE and Gaussian skills are
-reserved unsupported placeholders that may only record user-provided files as
-generic artifacts. Engine skills do not own workflow progression.
+Unsupported engines do not receive placeholder Skills.
 
-## Skill Contract
+## Pure Skill Contract
 
-A SimFlow skill should describe:
+Research Task Skills use this structure:
 
-- trigger conditions
-- user intent it supports
-- minimum evidence expected from the work
-- common risks
-- safety boundaries
-- handoff requirements
+```text
+Purpose
+Use when
+Do not use when
+Task principles
+Minimum checks
+Common failure modes
+Escalate uncertainty when
+Completion criteria
+Optional references
+```
 
-It should avoid hard requirements such as:
+Domain Skills use the same structure with `Domain principles`.
 
-- must use a specific parser script
-- must use a specific builder
-- must generate a fixed report filename
-- must choose a fixed software package
-- must map unknown tasks to a default known task
+Task and Domain Skills may guide, inspect, suggest, and use host tools. They
+must not:
 
-For example, an analysis skill may recommend built-in parser helpers while also
-allowing the agent to write Python, use pandas, py4vasp, MDAnalysis, ASE,
-pymatgen, matplotlib, or another appropriate tool. The hard requirement is that
-the script, inputs, outputs, environment, and figure lineage are recorded.
+- require MCP engagement;
+- own workflow stage transitions;
+- register artifacts or create checkpoints as completion conditions;
+- decide approval or real execution status;
+- enforce a project directory layout;
+- require one parser, builder, helper, report name, or software path.
 
-## Domain Assistant Pattern
+Removing every SimFlow MCP tool should not remove the scientific value of a
+Task or Domain Skill.
 
-Domain Assistant is the Skill product role. It is independent from the helper
-support level assigned to a concrete tool or capability in
-`workflow/toolchains/capabilities.json`. A Domain Assistant may call optional
-helper scripts, and those scripts may emit `simflow.helper_evidence.v1`; the
-helper-evidence envelope is an output contract rather than a product class.
+## Rule Admission
 
-Domain Assistants should answer questions such as:
+Keep the main `SKILL.md` focused on behavior the agent is likely to get wrong.
+A rule belongs in the main Skill only when at least one condition applies:
 
-- What input files are commonly needed?
-- Which checks are risky for this engine or method?
-- What errors are common and how should they be diagnosed?
-- Which artifacts should be registered?
-- Which official references are useful?
-- Which safety issues apply to proprietary files or licensed data?
+1. the failure has appeared in real sessions;
+2. the behavior is high risk and models commonly repeat it;
+3. omitting the rule materially weakens the completion criteria.
 
-They should return uncertainty when intent is unclear. For example, a VASP
-phonon, NEB, SOC, hybrid, defect, or custom analysis request must not be
-silently treated as a static calculation.
+Detailed methods, examples, parameter discussions, and long checklists belong
+under `references/`. Optional bounded utilities belong under `scripts/`.
+
+## Router Contract
+
+The router selects at most one Task Skill and one optional Domain Skill. It
+follows current user intent, not the active phase or cwd.
+
+For example, RDF interpretation inside a computation directory selects
+analysis plus the relevant Domain Skill. A newly required calculation inside an
+analysis directory selects computation plus the engine Domain Skill.
+
+The router may identify a runtime boundary, but it does not perform runtime
+operations.
+
+## Domain Skill Pattern
+
+Domain Skills answer questions such as:
+
+- Which files and engine-specific semantics matter?
+- Which input combinations are inconsistent?
+- Which warnings and failure modes are common?
+- Which official references or optional tools are useful?
+- Which uncertainty must be surfaced rather than defaulted?
+
+Domain Skill, helper support level, and helper-evidence format are separate
+concepts. `workflow/toolchains/capabilities.json` remains the support-level
+source of truth.
+
+## Helper Contract
+
+Helpers are optional scientific utilities. Their default behavior is standalone:
+they may read user files and write requested outputs inside the user-authorized
+project path without initializing SimFlow state.
+
+If a caller explicitly requests runtime recording, that behavior belongs to a
+shared runtime adapter rather than the Skill contract. Helpers must remain
+usable when recording is unavailable.
 
 ## Custom Skills
 
-Users may add project-specific skills under `.simflow/extensions/skills/`.
-Custom skills can override or supplement built-in guidance, but they inherit the
-same hard boundaries:
-
-- write state only under the explicit project `.simflow/` root
-- register artifacts with metadata and lineage
-- create checkpoints at stage boundaries
-- require approval for real compute submission
-- never store credentials
-- never fabricate literature, data, figures, or citations
+Project-specific Skills may extend Task or Domain guidance. They inherit the
+same pure Skill boundary. Runtime policies apply independently when the host
+agent performs a real tracked or risky event.
 
 ## Validation
 
-Skill contract tests should check for the presence of evidence, artifact,
-safety, and handoff language. They should also reject accidental hard-coded
-requirements that make a helper the only valid path.
+Skill validation checks:
 
-## Script Contract
-
-Skill scripts are optional helpers. They are allowed to parse files, generate
-templates, inspect outputs, or package reports, but they must not become the
-canonical workflow executor. When a helper emits a shared evidence record, use
-`simflow.helper_evidence.v1` without treating that schema as the Skill's
-product identity or support level.
-
-Canonical stage runners use this callable contract:
-
-```python
-run_<stage>_stage(workflow_dir: str, params: dict | None = None, dry_run: bool = True) -> dict
-```
-
-Executable helper CLIs must support:
-
-- `--project-root` for explicit `.simflow/` recording
-- `--stage` for the canonical evidence boundary
-- `--record-helper-run` to opt into helper-run artifact and lineage recording
-
-Without `--record-helper-run`, helper scripts should remain standalone and
-avoid writing SimFlow state. With `--record-helper-run`, they must use
-`runtime.simflow_core.helpers.record_helper_run` or the shared script-contract
-wrapper so scripts, inputs, outputs, environment, and lineage are recorded.
-`--record-helper-run` is `record_only`: it registers helper evidence and
-lineage, but it does not complete or fail a stage and does not create a
-stage-boundary checkpoint.
-
-Direct helpers do not register arbitrary report artifacts. Stage runners may
-ingest/register outputs when the canonical stage owns those artifacts.
-
-## Result Vocabulary
-
-Use `simflow.result.v1` to describe canonical nested helper, stage-runner, and
-state-admin results. Roles, outcomes, and state effects belong to that nested
-record, while top-level statuses are compatibility fields.
-
-- Helper evidence `status` describes the helper payload itself.
-- `simflow_result.outcome` describes the canonical nested result.
-- Stage status, readiness status, verification status, gate status, and
-  checkpoint status are separate vocabularies and are not interchangeable.
-- Stage runners own stage transitions.
-- Checkpoint/state-admin APIs own checkpoint operations.
+- the correct pure contract sections;
+- no mandatory MCP lifecycle language;
+- no artifact/checkpoint/stage ownership;
+- no fixed helper or report requirement;
+- no unsupported engine capability claim;
+- one Task plus one Domain routing limits.

@@ -133,10 +133,11 @@ Do not submit local, remote, or HPC jobs from this skill without the SimFlow app
 For remote execution, use this MCP sequence after the calculation package and
 dry-run evidence are ready:
 
-1. Record an approved `hpc_transfer` decision bound to the requested paths and remote directory.
-2. Call `hpc/upload` and wait for a `verified` transfer manifest.
-3. Call `hpc/submit` with that manifest and the matching `remote_workdir`.
-4. Poll with `hpc/status`, then retrieve declared outputs with `hpc/download`.
+1. Call `hpc/plan` with the script, complete input set, target, remote directory, resources, and transfer scope.
+2. Record an explicit approval bound to the returned immutable `run_plan_hash`.
+3. Call `hpc/transfer` with `direction=upload` and wait for a verified transfer report.
+4. Call `hpc/submit` with the same `run_plan_hash` and verified transfer report.
+5. Poll with `hpc/status`; create and approve a download plan before calling `hpc/transfer` with `direction=download`.
 
 Direct Agent `scp`/`ssh` is an explicit override path only and is not the
 supported tracked workflow.

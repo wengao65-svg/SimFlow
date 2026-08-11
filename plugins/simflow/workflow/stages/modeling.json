@@ -9,6 +9,5 @@
   "approval_triggers": ["licensed_or_proprietary_file_handling", "destructive_file_operation"],
   "handoff_notes": ["Record where each structure came from, how it was changed, validation status, and downstream assumptions."],
   "risk_notes": ["Do not silently replace a user-provided model with an internal builder result."],
-  "checkpoint_policy": "on_completion",
   "review_triggers": ["abnormal_geometry", "missing_source_provenance", "unsafe_transformation"]
 }

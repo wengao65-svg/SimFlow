@@ -650,20 +650,9 @@ def apply_state_repair(
     project_root: str,
     *,
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
-    session_context_id: str | None = None,
-    experiment_id: str | None = None,
-    iteration_id: str | None = None,
-    activity_id: str | None = None,
 ) -> dict[str, Any]:
     """Back up and atomically apply eligible conservative state repairs."""
     root = resolve_project_root(project_root=project_root)
-    from .experiment_memory import record_linked_write, require_write_context
-    context = require_write_context(
-        str(root), session_context_id=session_context_id, experiment_id=experiment_id,
-        iteration_id=iteration_id, activity_id=activity_id,
-    )
-    context_kwargs = ({key: value for key, value in context.as_dict().items() if key != "project_root"}
-                      if context else {})
     report, updates = _plan(project_root, min_confidence)
     report["mode"] = "apply"
     report["run_id"] = "repair_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -746,13 +735,4 @@ def apply_state_repair(
         report_path.unlink(missing_ok=True)
         report["rollback_performed"] = True
         raise
-    for name in sorted(updates):
-        record_linked_write(
-            str(root), kind="path", path=name, role="state_repair",
-            metadata={"repair_run_id": report["run_id"]}, **context_kwargs,
-        )
-    record_linked_write(
-        str(root), kind="path", path=str(report_path.relative_to(root)), role="repair_report",
-        metadata={"repair_run_id": report["run_id"], "changed_files": sorted(updates)}, **context_kwargs,
-    )
     return report

@@ -33,7 +33,8 @@ Use this reference for spin-polarized calculations, magnetic energy comparisons,
 - Treat different magnetic orderings, U/J settings, pseudopotentials, and SOC/non-SOC setups as different Hamiltonians unless explicitly justified.
 - For SOC energy differences, record k-point convergence and symmetry choices; energy scales can be very small.
 - Do not compare total energies across different U/J values as if only structure changed.
-- Register magnetic-state matrices, U/J provenance notes, convergence studies, and output summaries as artifacts.
+- Preserve magnetic-state matrices, U/J provenance notes, convergence studies,
+  and output summaries in one comparison manifest.
 
 ## Common risks
 

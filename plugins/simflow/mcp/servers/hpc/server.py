@@ -1,9 +1,6 @@
-"""HPC MCP Server.
+"""HPC MCP server with immutable planning and approval-bound execution."""
 
-Provides HPC job management tools.
-Supports multiple schedulers: slurm, pbs, local, ssh.
-Default mode: dry-run only. Real submission requires approval gate.
-"""
+from __future__ import annotations
 
 import json
 import sys
@@ -11,19 +8,26 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "runtime"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from connectors.slurm import SlurmConnector
-from connectors.pbs import PBSConnector
-from connectors.local import LocalConnector
 from broker import SSHBrokerClient
-from mcp.shared.transport import dispatch_request, run_server
-from runtime.simflow_core.artifacts import register_artifact
-from runtime.simflow_core.engagement import EngagementViolation, check_prerequisites, record_tool_call
-from runtime.simflow_core.gates import check_gate, get_gate_decisions
+from connectors.local import LocalConnector
+from connectors.pbs import PBSConnector
+from connectors.slurm import SlurmConnector
+from mcp.shared.transport import dispatch_request
+from run_plan import (
+    RunPlanError,
+    build_run_plan,
+    load_run_plan,
+    prepare_script,
+    validate_run_plan_current,
+)
+from runtime.simflow_core.gates import get_gate_decisions
+from runtime.simflow_core.records import record_event
 from runtime.simflow_helpers.computation.job_records import record_submit_job
 from transfer import (
     TransferValidationError,
@@ -31,10 +35,8 @@ from transfer import (
     file_manifest,
     manifests_match,
     normalize_target,
-    request_fingerprint,
     restricted_transfer_files,
     resolve_project_path,
-    validate_remote_dir,
 )
 
 
@@ -45,425 +47,378 @@ _CONNECTORS = {
     "ssh": SSHBrokerClient,
 }
 
-_default = None
-
 
 def _get_connector(scheduler: str = "auto", target: dict | None = None):
-    """Get a connector instance, with auto-detection and fallback.
-
-    Auto-detection order:
-    1. SIMFLOW_SLURM_HOST set -> SlurmConnector
-    2. Per-call target -> SSHBrokerClient
-    3. Fallback -> LocalConnector
-    """
+    """Return a bounded connector without inferring remote SSH credentials."""
     if target is not None:
         normalized = normalize_target(target)
         if scheduler not in ("auto", "ssh"):
             return None
         return SSHBrokerClient(**normalized)
     if scheduler == "auto":
-        # Lazy-import os to avoid global side effects at module load
-        import os as _os
-        if _os.environ.get("SIMFLOW_SLURM_HOST"):
+        import os
+
+        if os.environ.get("SIMFLOW_SLURM_HOST"):
             return SlurmConnector()
-        # Default fallback: local shell
         return LocalConnector()
     if scheduler == "ssh":
         return None
-    cls = _CONNECTORS.get(scheduler)
-    if cls is None:
+    connector = _CONNECTORS.get(scheduler)
+    if connector is None:
         return None
     try:
-        return cls()
+        return connector()
     except Exception:
-        return LocalConnector()
+        return None
 
 
-def handle_dry_run(params: dict) -> dict:
-    """Validate a job script without submitting."""
-    script_path = params.get("script_path", "")
-    manifest_path = params.get("manifest_path", "")
-    base_dir = params.get("base_dir", ".")
-    scheduler = params.get("scheduler", "auto")
-    if not script_path:
-        return {"status": "error", "message": "script_path is required"}
-    if scheduler == "ssh" and not params.get("target"):
-        return {"status": "error", "message": "target is required for SSH dry-run", "code": "target_required"}
-
-    try:
-        connector = _get_connector(scheduler, params.get("target"))
-    except TransferValidationError as exc:
-        return {"status": "error", "message": str(exc), "code": "invalid_target"}
-    if connector is None:
-        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-
-    result = connector.dry_run(script_path, manifest_path, base_dir)
-    if result.get("status") == "error" or result.get("success") is False or result.get("valid") is False:
-        return {
-            "status": "error",
-            "message": result.get("message") or "HPC dry-run validation failed",
-            "data": result,
-        }
-    return {"status": "success", "data": result}
+def _connector_scheduler(connector) -> str:
+    if isinstance(connector, SSHBrokerClient):
+        return "ssh"
+    if isinstance(connector, SlurmConnector):
+        return "slurm"
+    if isinstance(connector, PBSConnector):
+        return "pbs"
+    return "local"
 
 
-def handle_prepare(params: dict) -> dict:
-    """Prepare a job script (generate SLURM script)."""
-    from runtime.simflow_core.hpc import generate_slurm_script
+def _error(message: str, code: str, **extra) -> dict:
+    result = {"status": "error", "message": message, "code": code}
+    result.update(extra)
+    return result
 
-    job_name = params.get("job_name", "simflow_job")
-    executable = params.get("executable", "vasp_std")
-    nodes = params.get("nodes", 1)
-    ntasks = params.get("ntasks", 16)
-    walltime = params.get("walltime", "04:00:00")
 
-    script = generate_slurm_script(
-        job_name=job_name,
-        executable=executable,
-        nodes=nodes,
-        ntasks=ntasks,
-        time=walltime,
+def _approval_error(message: str, run_plan_hash: str, code: str = "approval_required") -> dict:
+    return _error(
+        message,
+        code,
+        approval_required=True,
+        gate="hpc_submit",
+        run_plan_hash=run_plan_hash,
     )
-    return {"status": "success", "data": {"script": script, "job_name": job_name}}
+
+
+def _find_run_plan_approval(
+    *,
+    project_root: str,
+    run_plan_hash: str,
+    reference: str | None,
+    allowed_gates: tuple[str, ...],
+) -> dict:
+    if not reference:
+        return _approval_error(
+            "An approval reference bound to run_plan_hash is required.",
+            run_plan_hash,
+        )
+    for gate_name in allowed_gates:
+        for decision in get_gate_decisions(gate_name, project_root=project_root):
+            conditions = decision.get("conditions") if isinstance(decision.get("conditions"), dict) else {}
+            matches_reference = (
+                decision.get("decision_id") == reference
+                or decision.get("approval_token") == reference
+                or conditions.get("approval_token") == reference
+            )
+            if not matches_reference:
+                continue
+            if decision.get("decision") != "approved":
+                return _approval_error("The matching approval decision is not approved.", run_plan_hash)
+            approved_hash = conditions.get("run_plan_hash")
+            if approved_hash != run_plan_hash:
+                return _approval_error(
+                    "The approval is bound to a different immutable run plan.",
+                    run_plan_hash,
+                    code="run_plan_approval_mismatch",
+                )
+            return {
+                "status": "success",
+                "gate": gate_name,
+                "gate_decision_id": decision.get("decision_id"),
+                "run_plan_hash": run_plan_hash,
+            }
+    return _approval_error(
+        "No approved gate decision matched the supplied approval reference.",
+        run_plan_hash,
+        code="run_plan_not_approved",
+    )
+
+
+def handle_plan(params: dict) -> dict:
+    """Prepare or inspect a script, validate inputs, and persist one run plan."""
+    project_root = params.get("project_root")
+    if not project_root:
+        return _error("project_root is required", "project_root_required")
+    try:
+        script, generated = prepare_script(project_root, params)
+        requested_scheduler = str(params.get("scheduler", "auto")).lower()
+        connector = _get_connector(requested_scheduler, params.get("target"))
+        if connector is None:
+            return _error(f"Unknown or incomplete scheduler target: {requested_scheduler}", "unknown_scheduler")
+        plan_params = dict(params)
+        plan_params["scheduler"] = _connector_scheduler(connector)
+        validation = connector.dry_run(
+            str(script),
+            params.get("manifest_path", ""),
+            params.get("base_dir", project_root),
+        )
+        plan = build_run_plan(
+            project_root,
+            plan_params,
+            script=script,
+            script_generated=generated,
+            validation=validation,
+        )
+    except (RunPlanError, TransferValidationError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return _error(str(exc), "run_plan_invalid")
+    status = "success" if plan["submit_ready"] else "error"
+    return {
+        "status": status,
+        "data": plan,
+        "approval_required": plan["submit_ready"],
+        "gate": "hpc_submit" if plan["submit_ready"] else None,
+    }
 
 
 def handle_status(params: dict) -> dict:
-    """Check job status."""
+    """Check a local, scheduler, or broker-backed job status."""
     job_id = params.get("job_id", "")
     scheduler = params.get("scheduler", "auto")
     if not job_id:
-        return {"status": "error", "message": "job_id is required"}
+        return _error("job_id is required", "job_id_required")
     if scheduler == "ssh" and not params.get("target"):
-        return {"status": "error", "message": "target is required for SSH status", "code": "target_required"}
-
+        return _error("target is required for SSH status", "target_required")
     try:
         connector = _get_connector(scheduler, params.get("target"))
     except TransferValidationError as exc:
-        return {"status": "error", "message": str(exc), "code": "invalid_target"}
+        return _error(str(exc), "invalid_target")
     if connector is None:
-        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-
-    result = connector.status(job_id)
-    return result
+        return _error(f"Unknown scheduler: {scheduler}", "unknown_scheduler")
+    return connector.status(str(job_id))
 
 
-def handle_submit(params: dict) -> dict:
-    """Submit a job after approval, dry-run evidence, and hash validation."""
-    script_path = params.get("script_path", "")
-    scheduler = params.get("scheduler", "auto")
-    if not script_path:
-        return {"status": "error", "message": "script_path is required"}
-    if not params.get("project_root"):
-        return {"status": "error", "message": "project_root is required"}
-    if not (params.get("approval_token") or params.get("gate_decision_id")):
-        return {
-            "status": "error",
-            "message": "approval_token or gate_decision_id is required",
-            "approval_required": True,
-            "gate": "hpc_submit",
-        }
-    if not params.get("dry_run_evidence"):
-        return {"status": "error", "message": "dry_run_evidence is required"}
-    if not params.get("script_hash"):
-        return {"status": "error", "message": "script_hash is required"}
-    if not params.get("input_artifact_hash"):
-        return {"status": "error", "message": "input_artifact_hash is required"}
-
-    target = params.get("target")
-    if scheduler == "ssh" and not target:
-        return {"status": "error", "message": "target is required for SSH submit", "code": "target_required"}
-    try:
-        connector = _get_connector(scheduler, target)
-    except TransferValidationError as exc:
-        return {"status": "error", "message": str(exc), "code": "invalid_target"}
-    if connector is None:
-        return {"status": "error", "message": "Unknown scheduler: {}".format(scheduler), "code": "unknown_scheduler"}
-    if isinstance(connector, SSHBrokerClient) and not params.get("transfer_manifest"):
-        return {
-            "status": "error",
-            "message": "SSH submit requires a verified transfer_manifest from hpc/upload",
-            "code": "transfer_manifest_required",
-        }
-
-    submit_kwargs = {
-        "project_root": params.get("project_root"),
-        "approval_token": params.get("approval_token"),
-        "gate_decision_id": params.get("gate_decision_id"),
-        "dry_run_evidence": params.get("dry_run_evidence"),
-        "script_hash": params.get("script_hash"),
-        "input_artifact_hash": params.get("input_artifact_hash"),
-    }
-    if isinstance(connector, SSHBrokerClient):
-        try:
-            remote_workdir = validate_remote_dir(params.get("remote_workdir", ""))
-        except TransferValidationError as exc:
-            return {"status": "error", "message": str(exc), "code": "remote_workdir_invalid"}
-        submit_kwargs["transfer_manifest"] = params.get("transfer_manifest")
-        submit_kwargs["remote_workdir"] = remote_workdir
-        submit_kwargs["target"] = connector.target
-    if scheduler == "local":
-        submit_kwargs["timeout"] = params.get("timeout", 3600)
-    result = connector.submit(script_path, **submit_kwargs)
-    if result.get("status") == "success" or result.get("success") is True:
-        job_id = result.get("job_id")
-        effective_scheduler = result.get("scheduler") or scheduler
-        if not job_id:
-            script_hash = result.get("script_hash") or params.get("script_hash") or "unknown"
-            job_id = f"local_{script_hash[:12]}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-            result["job_id"] = job_id
-        record_status = "completed" if effective_scheduler == "local" and result.get("returncode") is not None else "submitted"
-        record = record_submit_job(
-            project_root=params["project_root"],
-            scheduler=effective_scheduler,
-            job_id=str(job_id),
-            status=record_status,
-            script_path=script_path,
-            gate_decision_id=result.get("gate_decision_id") or params.get("gate_decision_id"),
-            dry_run_evidence=params.get("dry_run_evidence"),
-            script_hash=result.get("script_hash") or params.get("script_hash"),
-            input_artifact_hash=params.get("input_artifact_hash"),
-            submit_result=result,
-            experiment_id=params.get("experiment_id"),
-            iteration_id=params.get("iteration_id"),
-            activity_id=params.get("activity_id"),
-        )
-        if record["status"] == "success":
-            result["job_record_artifact_id"] = record["artifact"]["artifact_id"]
-            result["job_record_path"] = record["path"]
-        else:
-            result["job_record_error"] = record
-    return result
+def _transfer_report_path(project_root: str, transfer_id: str) -> Path:
+    root = Path(project_root).expanduser().resolve()
+    return root / ".simflow" / "reports" / "hpc" / "transfers" / f"{transfer_id}.json"
 
 
-def _transfer_decision(params: dict, direction: str, remote_dir: str, paths: list[str], target: dict) -> dict:
-    """Require a recorded hpc_transfer approval bound to this request."""
-    project_root = params["project_root"]
-    reference = params.get("gate_decision_id") or params.get("approval_token")
-    fingerprint = request_fingerprint(direction, remote_dir, paths, target)
-    if not reference:
-        return {
-            "status": "error",
-            "message": "upload/download requires an approved hpc_transfer gate decision",
-            "approval_required": True,
-            "gate": "hpc_transfer",
-            "transfer_request_hash": fingerprint,
-        }
-
-    matching = None
-    for decision in get_gate_decisions("hpc_transfer", project_root=project_root):
-        conditions = decision.get("conditions", {})
-        if (
-            decision.get("decision_id") == reference
-            or conditions.get("approval_token") == reference
-        ):
-            matching = decision
-            break
-    if not matching or matching.get("decision") != "approved":
-        return {
-            "status": "error",
-            "message": "No approved hpc_transfer decision matched the supplied approval reference",
-            "approval_required": True,
-            "gate": "hpc_transfer",
-            "code": "transfer_gate_not_approved",
-        }
-
-    conditions = matching.get("conditions", {})
-    if conditions.get("direction") not in (None, direction):
-        return {"status": "error", "message": "Transfer direction does not match approval", "code": "transfer_approval_mismatch"}
-    if conditions.get("remote_dir") not in (None, remote_dir):
-        return {"status": "error", "message": "Remote directory does not match approval", "code": "transfer_approval_mismatch"}
-    approved_paths = conditions.get("paths")
-    if approved_paths is not None and sorted(approved_paths) != sorted(paths):
-        return {"status": "error", "message": "Transfer paths do not match approval", "code": "transfer_approval_mismatch"}
-    if conditions.get("target") != target:
-        return {"status": "error", "message": "SSH target does not match approval", "code": "transfer_approval_mismatch"}
-    approved_hash = conditions.get("transfer_request_hash")
-    if approved_hash not in (None, fingerprint):
-        return {"status": "error", "message": "Transfer request hash does not match approval", "code": "transfer_approval_mismatch"}
-
-    gate = check_gate("hpc_transfer", {"project_root": project_root})
-    if gate.get("status") != "pass":
-        return {
-            "status": "error",
-            "message": "hpc_transfer gate is blocked by missing or failing evidence",
-            "approval_required": True,
-            "gate": "hpc_transfer",
-            "code": "transfer_gate_blocked",
-            "gate_result": gate,
-        }
-    return {"status": "success", "gate_decision_id": matching.get("decision_id"), "transfer_request_hash": fingerprint}
-
-
-def _write_transfer_report(project_root: str, report: dict, params: dict) -> tuple[str, dict]:
-    transfer_id = report["transfer_id"]
-    root = Path(project_root).resolve()
-    report_path = root / ".simflow" / "reports" / "compute" / "transfers" / f"{transfer_id}.json"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    artifact = register_artifact(
-        report_path.name,
-        "transfer_manifest",
-        "computation",
-        project_root=str(root),
-        path=str(report_path.relative_to(root)),
-        parent_artifacts=report.get("parent_artifacts", []),
-        parameters={
+def _record_transfer(project_root: str, report: dict) -> dict:
+    root = Path(project_root).expanduser().resolve()
+    path = _transfer_report_path(project_root, report["transfer_id"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    record = record_event(
+        str(root),
+        kind="run",
+        summary=f"HPC {report['direction']} {report['status']}",
+        status="completed" if report["status"] == "verified" else "failed",
+        stage="computation",
+        run_id=report["transfer_id"],
+        artifacts=[{
+            "path": str(path.relative_to(root)),
+            "role": "transfer_report",
+        }],
+        details={
+            "operation": "transfer",
             "direction": report["direction"],
-            "remote_dir": report["remote_dir"],
-            "transfer_id": transfer_id,
-        },
-        software="SimFlow hpc transfer",
-        metadata={
-            "evidence_keys": ["transfer_manifest"],
-            "transfer_status": report["status"],
-            "target_schema": report.get("target_schema"),
-            "target": report.get("target"),
+            "run_plan_hash": report["run_plan_hash"],
             "gate_decision_id": report.get("gate_decision_id"),
+            "target": report.get("target"),
+            "remote_dir": report.get("remote_dir"),
+            "source_manifest_sha256": (report.get("source_manifest") or {}).get("manifest_sha256"),
+            "restricted_files": report.get("restricted_files", []),
+            "error": report.get("error"),
         },
-        experiment_id=params.get("experiment_id"),
-        iteration_id=params.get("iteration_id"),
-        activity_id=params.get("activity_id"),
     )
-    return str(report_path.relative_to(root)), artifact
+    return {"path": str(path.relative_to(root)), "record": record}
 
 
-def _handle_transfer(params: dict, direction: str) -> dict:
+def handle_transfer(params: dict) -> dict:
+    """Execute the transfer declared by an approved immutable run plan."""
     project_root = params.get("project_root")
-    local_dir = params.get("local_dir")
-    remote_dir = params.get("remote_dir")
-    paths = params.get("paths")
-    scheduler = params.get("scheduler", "ssh")
-    target = params.get("target")
-    if not project_root or not local_dir or not remote_dir or not isinstance(paths, list) or not paths:
-        return {"status": "error", "message": "project_root, local_dir, remote_dir and non-empty paths are required"}
-    if scheduler != "ssh":
-        return {"status": "error", "message": "Transfers require scheduler='ssh'", "code": "ssh_scheduler_required"}
-
+    run_plan_hash = params.get("run_plan_hash")
+    direction = params.get("direction")
+    if not project_root or not run_plan_hash or direction not in {"upload", "download"}:
+        return _error(
+            "project_root, run_plan_hash, and direction=upload|download are required",
+            "transfer_params_required",
+        )
     try:
-        target = normalize_target(target)
-        remote_dir = validate_remote_dir(remote_dir)
-        local_root = resolve_project_path(project_root, local_dir, "local_dir")
-        safe_paths = sorted({str(path) for path in paths})
-        # Validate all paths before any external command is started.
-        from transfer import _safe_relative
-        safe_paths = sorted({_safe_relative(path) for path in safe_paths})
-    except TransferValidationError as exc:
-        return {"status": "error", "message": str(exc), "code": "transfer_validation_error"}
-
-    connector = _get_connector("ssh", target)
-    if connector is None:
-        return {"status": "error", "message": "SSH connector is unavailable"}
-
-    approval = _transfer_decision(params, direction, remote_dir, safe_paths, target)
+        plan = validate_run_plan_current(project_root, run_plan_hash)
+    except (RunPlanError, TransferValidationError, OSError, ValueError) as exc:
+        return _error(str(exc), "run_plan_stale", approval_required=True, run_plan_hash=run_plan_hash)
+    transfer = plan.get("transfer")
+    if not isinstance(transfer, dict) or transfer.get("direction") != direction:
+        return _error("direction does not match the immutable run plan", "run_plan_transfer_mismatch")
+    target = plan.get("target")
+    if not target:
+        return _error("run plan does not declare an SSH target", "target_required")
+    approval = _find_run_plan_approval(
+        project_root=project_root,
+        run_plan_hash=run_plan_hash,
+        reference=params.get("gate_decision_id") or params.get("approval_token"),
+        allowed_gates=("hpc_submit", "hpc_transfer"),
+    )
     if approval["status"] != "success":
         return approval
+    try:
+        local_root = resolve_project_path(project_root, transfer["local_dir"], "transfer.local_dir")
+        connector = _get_connector("ssh", target)
+    except TransferValidationError as exc:
+        return _error(str(exc), "transfer_validation_error")
+    if connector is None:
+        return _error("SSH connector is unavailable", "hpc_broker_unavailable")
 
     transfer_id = f"transfer_{uuid.uuid4().hex[:12]}"
     report = {
         "transfer_id": transfer_id,
         "direction": direction,
-        "status": "blocked",
-        "project_root": str(Path(project_root).resolve()),
+        "status": "failed",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "run_plan_hash": run_plan_hash,
         "local_dir": str(local_root.relative_to(Path(project_root).resolve())),
-        "remote_dir": remote_dir,
-        "paths_requested": safe_paths,
+        "remote_dir": transfer["remote_dir"],
+        "paths_requested": transfer["paths"],
         "target_schema": "ssh-target-v2",
         "target": target,
-        "gate_decision_id": approval.get("gate_decision_id"),
-        "transfer_request_hash": approval.get("transfer_request_hash"),
-        "parent_artifacts": params.get("parent_artifacts", []),
-        "experiment_id": params.get("experiment_id"),
-        "iteration_id": params.get("iteration_id"),
-        "activity_id": params.get("activity_id"),
+        "gate_decision_id": approval["gate_decision_id"],
+        "destructive_scope": plan.get("destructive_scope", []),
     }
     try:
         if direction == "upload":
-            local_files = expand_local_paths(local_root, safe_paths)
+            local_files = expand_local_paths(local_root, transfer["paths"])
             if not local_files:
                 raise TransferValidationError("transfer paths contain no regular files")
             expected = file_manifest(local_files)
             report["source_manifest"] = expected
             report["restricted_files"] = restricted_transfer_files(expected)
-            result = connector.upload_files(str(local_root), remote_dir, [rel for rel, _ in local_files])
+            result = connector.upload_files(str(local_root), transfer["remote_dir"], [rel for rel, _ in local_files])
             report["transport"] = result
-            if result.get("status") != "success":
-                report["status"] = "failed"
-            else:
-                remote_result = connector.remote_file_manifest(remote_dir, [rel for rel, _ in local_files])
+            if result.get("status") == "success":
+                remote_result = connector.remote_file_manifest(
+                    transfer["remote_dir"], [rel for rel, _ in local_files]
+                )
                 report["remote_manifest"] = remote_result.get("manifest")
-                if remote_result.get("status") != "success" or not manifests_match(expected, remote_result["manifest"]):
-                    report["status"] = "blocked"
-                    report["error"] = "Remote manifest does not match local manifest"
-                else:
+                if remote_result.get("status") == "success" and manifests_match(expected, remote_result["manifest"]):
                     report["status"] = "verified"
-        else:
-            listing = connector.list_remote_files(remote_dir, safe_paths)
-            if listing.get("status") != "success":
-                report["status"] = "failed"
-                report["transport"] = listing
-            else:
-                remote_files = listing["files"]
-                if not remote_files:
-                    raise TransferValidationError("remote transfer paths contain no regular files")
-                before = connector.remote_file_manifest(remote_dir, remote_files)
-                if before.get("status") != "success":
-                    report["status"] = "failed"
-                    report["transport"] = before
                 else:
+                    report["error"] = "Remote manifest does not match local manifest"
+            else:
+                report["error"] = result.get("message") or "upload failed"
+        else:
+            listing = connector.list_remote_files(transfer["remote_dir"], transfer["paths"])
+            report["transport"] = listing
+            if listing.get("status") == "success" and listing.get("files"):
+                remote_files = listing["files"]
+                before = connector.remote_file_manifest(transfer["remote_dir"], remote_files)
+                if before.get("status") == "success":
                     report["source_manifest"] = before["manifest"]
                     report["restricted_files"] = restricted_transfer_files(before["manifest"])
-                    result = connector.download_files(remote_dir, str(local_root), remote_files)
+                    result = connector.download_files(transfer["remote_dir"], str(local_root), remote_files)
                     report["transport"] = result
-                    local_files = [(rel, local_root / rel) for rel in remote_files]
-                    if result.get("status") != "success":
-                        report["status"] = "failed"
-                    else:
-                        actual = file_manifest(local_files)
+                    if result.get("status") == "success":
+                        actual = file_manifest([(rel, local_root / rel) for rel in remote_files])
                         report["local_manifest"] = actual
-                        report["status"] = "verified" if manifests_match(before["manifest"], actual) else "blocked"
-                        if report["status"] == "blocked":
+                        if manifests_match(before["manifest"], actual):
+                            report["status"] = "verified"
+                        else:
                             report["error"] = "Downloaded manifest does not match remote manifest"
+                    else:
+                        report["error"] = result.get("message") or "download failed"
+                else:
+                    report["error"] = before.get("message") or "remote manifest failed"
+            else:
+                report["error"] = listing.get("message") or "remote transfer paths contain no regular files"
     except (TransferValidationError, OSError, ValueError) as exc:
-        report["status"] = "failed"
         report["error"] = str(exc)
 
-    report_path, artifact = _write_transfer_report(project_root, report, params)
+    recorded = _record_transfer(project_root, report)
     return {
         "status": "success" if report["status"] == "verified" else "error",
         "data": {
             "transfer_id": transfer_id,
             "transfer_status": report["status"],
-            "manifest_path": report_path,
-            "artifact_id": artifact["artifact_id"],
+            "manifest_path": recorded["path"],
+            "run_record_id": recorded["record"]["record_id"],
             "report": report,
         },
     }
 
 
-def handle_upload(params: dict) -> dict:
-    return _handle_transfer(params, "upload")
+def handle_submit(params: dict) -> dict:
+    """Submit an approved immutable run plan without accepting mutable bindings."""
+    project_root = params.get("project_root")
+    run_plan_hash = params.get("run_plan_hash")
+    if not project_root or not run_plan_hash:
+        return _error("project_root and run_plan_hash are required", "submit_params_required")
+    try:
+        plan = validate_run_plan_current(project_root, run_plan_hash)
+    except (RunPlanError, TransferValidationError, OSError, ValueError) as exc:
+        return _error(str(exc), "run_plan_stale", approval_required=True, run_plan_hash=run_plan_hash)
+    approval = _find_run_plan_approval(
+        project_root=project_root,
+        run_plan_hash=run_plan_hash,
+        reference=params.get("gate_decision_id") or params.get("approval_token"),
+        allowed_gates=("hpc_submit",),
+    )
+    if approval["status"] != "success":
+        return approval
+    scheduler = plan["scheduler"]
+    target = plan.get("target")
+    connector = _get_connector(scheduler, target)
+    if connector is None:
+        return _error(f"Unknown or incomplete scheduler target: {scheduler}", "unknown_scheduler")
+    script_path = str(Path(project_root).resolve() / plan["script"]["path"])
+    submit_kwargs = {
+        "project_root": project_root,
+        "run_plan_hash": run_plan_hash,
+        "approval_token": params.get("approval_token"),
+        "gate_decision_id": approval["gate_decision_id"],
+    }
+    if isinstance(connector, SSHBrokerClient):
+        if not params.get("transfer_manifest"):
+            return _error(
+                "SSH submit requires a verified transfer manifest from hpc/transfer",
+                "transfer_manifest_required",
+            )
+        submit_kwargs.update({
+            "transfer_manifest": params["transfer_manifest"],
+            "remote_workdir": plan.get("remote_workdir"),
+            "target": target,
+        })
+    if scheduler == "local":
+        submit_kwargs["timeout"] = params.get("timeout", 3600)
+    result = connector.submit(script_path, **submit_kwargs)
 
-
-def handle_download(params: dict) -> dict:
-    return _handle_transfer(params, "download")
+    succeeded = result.get("status") == "success" or result.get("success") is True
+    job_id = result.get("job_id")
+    if succeeded and not job_id:
+        job_id = f"local_{run_plan_hash[:12]}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        result["job_id"] = job_id
+    record = record_submit_job(
+        project_root=project_root,
+        scheduler=result.get("scheduler") or scheduler,
+        job_id=str(job_id or f"submit_{uuid.uuid4().hex[:12]}"),
+        status=("completed" if scheduler == "local" and succeeded else "submitted" if succeeded else "failed"),
+        script_path=plan["script"]["path"],
+        gate_decision_id=approval["gate_decision_id"],
+        run_plan_hash=run_plan_hash,
+        submit_result=result,
+    )
+    result["run_record_id"] = record["record"]["record_id"]
+    return result
 
 
 TOOLS = {
-    "dry_run": handle_dry_run,
-    "prepare": handle_prepare,
-    "status": handle_status,
+    "plan": handle_plan,
+    "transfer": handle_transfer,
     "submit": handle_submit,
-    "upload": handle_upload,
-    "download": handle_download,
+    "status": handle_status,
 }
 
 TOOL_DESCRIPTIONS = {
-    "dry_run": "Validate an HPC job script without submitting it.",
-    "prepare": "Prepare a scheduler job script for review.",
-    "status": "Check scheduler job status through safe connector abstractions.",
-    "submit": "Submit a job only when SimFlow approval and safety gates allow it.",
-    "upload": "Upload approved files to an SSH HPC host and verify SHA-256 manifests.",
-    "download": "Download approved files from an SSH HPC host and verify SHA-256 manifests.",
+    "plan": "Prepare or validate a job and persist an immutable approval-bound run plan.",
+    "transfer": "Execute the upload or download declared by an approved run plan and verify manifests.",
+    "submit": "Submit an unchanged approved run plan to local, scheduler, or broker-backed execution.",
+    "status": "Check job status through bounded connector abstractions.",
 }
 
 SSH_TARGET_SCHEMA = {
@@ -478,26 +433,66 @@ SSH_TARGET_SCHEMA = {
 }
 
 TOOL_SCHEMAS = {
-    "dry_run": {
+    "plan": {
         "type": "object",
-        "required": ["script_path"],
+        "required": ["project_root", "script_path", "input_paths"],
         "properties": {
+            "project_root": {"type": "string"},
             "script_path": {"type": "string"},
+            "input_paths": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "scheduler": {"type": "string", "enum": ["auto", "local", "slurm", "pbs", "ssh"]},
+            "target": SSH_TARGET_SCHEMA,
+            "remote_workdir": {"type": "string"},
             "manifest_path": {"type": "string"},
             "base_dir": {"type": "string"},
-            "scheduler": {"type": "string"},
-            "target": SSH_TARGET_SCHEMA,
+            "resources": {"type": "object"},
+            "destructive_scope": {"type": "array", "items": {"type": "string"}},
+            "generate": {
+                "type": "object",
+                "properties": {
+                    "job_name": {"type": "string"},
+                    "executable": {"type": "string"},
+                    "nodes": {"type": "integer", "minimum": 1},
+                    "ntasks": {"type": "integer", "minimum": 1},
+                    "walltime": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "transfer": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "enum": ["upload", "download"]},
+                    "local_dir": {"type": "string"},
+                    "remote_dir": {"type": "string"},
+                    "paths": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                },
+                "additionalProperties": False,
+            },
         },
         "additionalProperties": False,
     },
-    "prepare": {
+    "transfer": {
         "type": "object",
+        "required": ["project_root", "run_plan_hash", "direction"],
         "properties": {
-            "job_name": {"type": "string"},
-            "executable": {"type": "string"},
-            "nodes": {"type": "integer"},
-            "ntasks": {"type": "integer"},
-            "walltime": {"type": "string"},
+            "project_root": {"type": "string"},
+            "run_plan_hash": {"type": "string"},
+            "direction": {"type": "string", "enum": ["upload", "download"]},
+            "approval_token": {"type": "string"},
+            "gate_decision_id": {"type": "string"},
+        },
+        "additionalProperties": False,
+    },
+    "submit": {
+        "type": "object",
+        "required": ["project_root", "run_plan_hash"],
+        "properties": {
+            "project_root": {"type": "string"},
+            "run_plan_hash": {"type": "string"},
+            "approval_token": {"type": "string"},
+            "gate_decision_id": {"type": "string"},
+            "timeout": {"type": "integer", "minimum": 1},
+            "transfer_manifest": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -506,71 +501,8 @@ TOOL_SCHEMAS = {
         "required": ["job_id"],
         "properties": {
             "job_id": {"type": "string"},
-            "scheduler": {"type": "string"},
+            "scheduler": {"type": "string", "enum": ["auto", "local", "slurm", "pbs", "ssh"]},
             "target": SSH_TARGET_SCHEMA,
-        },
-        "additionalProperties": False,
-    },
-    "submit": {
-        "type": "object",
-        "required": ["project_root", "script_path", "dry_run_evidence", "script_hash", "input_artifact_hash"],
-        "properties": {
-            "project_root": {"type": "string"},
-            "script_path": {"type": "string"},
-            "scheduler": {"type": "string"},
-            "approval_token": {"type": "string"},
-            "gate_decision_id": {"type": "string"},
-            "dry_run_evidence": {"type": "string"},
-            "script_hash": {"type": "string"},
-            "input_artifact_hash": {"type": "string"},
-            "timeout": {"type": "integer"},
-            "transfer_manifest": {"type": "string"},
-            "remote_workdir": {"type": "string"},
-            "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
-        },
-        "additionalProperties": False,
-    },
-    "upload": {
-        "type": "object",
-        "required": ["project_root", "local_dir", "remote_dir", "paths", "target"],
-        "properties": {
-            "project_root": {"type": "string"},
-            "local_dir": {"type": "string"},
-            "remote_dir": {"type": "string"},
-            "paths": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-            "scheduler": {"type": "string", "enum": ["ssh"]},
-            "approval_token": {"type": "string"},
-            "gate_decision_id": {"type": "string"},
-            "parent_artifacts": {"type": "array", "items": {"type": "string"}},
-            "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
-        },
-        "additionalProperties": False,
-    },
-    "download": {
-        "type": "object",
-        "required": ["project_root", "local_dir", "remote_dir", "paths", "target"],
-        "properties": {
-            "project_root": {"type": "string"},
-            "local_dir": {"type": "string"},
-            "remote_dir": {"type": "string"},
-            "paths": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-            "scheduler": {"type": "string", "enum": ["ssh"]},
-            "approval_token": {"type": "string"},
-            "gate_decision_id": {"type": "string"},
-            "parent_artifacts": {"type": "array", "items": {"type": "string"}},
-            "target": SSH_TARGET_SCHEMA,
-            "session_context_id": {"type": "string"},
-            "experiment_id": {"type": "string"},
-            "iteration_id": {"type": "string"},
-            "activity_id": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -578,50 +510,7 @@ TOOL_SCHEMAS = {
 
 
 def handle_request(request: dict) -> dict:
-    """Dispatch a request to the appropriate tool handler."""
-    tool = request.get("tool")
-    params = request.get("params", {})
-    write_context = None
-    if tool in {"upload", "download", "submit"}:
-        project_root = params.get("project_root")
-        if not project_root:
-            return {"status": "error", "message": "project_root is required", "code": "project_root_required"}
-        from runtime.simflow_core.experiment_memory import is_ledger_enabled, require_write_context
-        if is_ledger_enabled(project_root):
-            missing_context = [
-                field for field in ("session_context_id", "experiment_id", "activity_id")
-                if not params.get(field)
-            ]
-            if missing_context:
-                return {
-                    "status": "error",
-                    "code": "experiment_context_required",
-                    "message": "Ledger-enabled HPC writes require project_reentry and an active experiment activity.",
-                    "missing": missing_context,
-                }
-            try:
-                write_context = require_write_context(
-                    project_root,
-                    session_context_id=params["session_context_id"],
-                    experiment_id=params["experiment_id"],
-                    activity_id=params["activity_id"],
-                    iteration_id=params.get("iteration_id"),
-                )
-            except ValueError as error:
-                return {"status": "error", "code": "invalid_experiment_context", "message": str(error)}
-        try:
-            check_prerequisites(f"hpc/{tool}", project_root)
-        except EngagementViolation as violation:
-            return {
-                "status": "error",
-                "code": "skill_engagement_contract_violation",
-                "message": f"Before calling {tool}, call simflow_state/read_state first in this session",
-                "required_prerequisites": violation.missing,
-            }
-        record_tool_call(f"hpc/{tool}", project_root)
-    from runtime.simflow_core.experiment_memory import experiment_write_scope
-    with experiment_write_scope(write_context):
-        return dispatch_request(request, TOOLS)
+    return dispatch_request(request, TOOLS)
 
 
 if __name__ == "__main__":

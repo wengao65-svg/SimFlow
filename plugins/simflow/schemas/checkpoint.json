@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Checkpoint",
-  "description": "Workflow checkpoint for recovery",
+  "title": "Legacy Snapshot Checkpoint",
+  "description": "Read-only compatibility schema for historical snapshot checkpoints. New checkpoints use compact recovery references without state or lineage snapshots.",
   "type": "object",
   "required": [
     "checkpoint_id",

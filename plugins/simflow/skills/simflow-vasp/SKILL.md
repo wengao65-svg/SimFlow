@@ -1,137 +1,108 @@
 ---
 name: simflow-vasp
-description: Provide VASP domain assistance for official-documentation lookup, input preparation, validation, dry-run planning, troubleshooting, output parsing, analysis/visualization, and artifact recording. Use when Codex works with VASP, INCAR, POSCAR, POTCAR metadata, KPOINTS, OUTCAR, OSZICAR, vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, NEB, phonons, AIMD, SOC, hybrid functionals, DFT+U, GW/BSE/RPA, defects, surfaces, adsorption, py4vasp, VASPKIT, or VASP-related SimFlow handoff.
+description: Provide VASP-specific guidance for inputs, validation, convergence, troubleshooting, output interpretation, and licensed POTCAR handling.
 ---
 
-## Cross-Session Experiment Memory
+# VASP Domain Skill
 
-For work inside an existing user project, call `simflow_state/project_reentry` with the explicit canonical `project_root` before inspecting project files or performing work. Do not read or import host session transcripts as normal project memory. If the forward-only ledger has not started, call `begin_experiment` before new tracked work. Call `start_activity` before every project mutation, computation, analysis, transfer, or state change, and call `finish_activity` with outputs, outcome, failure/recovery details, and `next_action` afterward. Once the ledger is enabled, linked SimFlow writes must carry `session_context_id`, `experiment_id`, and `activity_id`. End with `session_handoff` when possible; an unclosed activity is intentionally surfaced as interrupted work on the next re-entry.
+## Purpose
 
-`.simflow/memory/ledger.sqlite3` is authoritative; JSON, JSONL, and Markdown files are derived views. Enabled-ledger writes fail closed in the core runtime, including direct runtime/helper calls. Propagate `SIMFLOW_SESSION_CONTEXT_ID`, `SIMFLOW_EXPERIMENT_ID`, optional `SIMFLOW_ITERATION_ID`, and `SIMFLOW_ACTIVITY_ID` to child processes. Treat the ledger as a human-readable electronic lab notebook backed by an immutable provenance DAG, not as a replacement for Git.
+Act as the VASP Domain Skill for one current Research Task Skill. This Skill does
+not own workflow progression, submission, approval, or SimFlow state.
 
-# SimFlow VASP
+## Use when
 
-`simflow-vasp` is a domain assistant. It helps the host agent use VASP official documentation, local evidence, SimFlow state, optional helper scripts, and conservative scientific checks. It is not a central workflow executor and does not define the full VASP capability surface.
+- The task involves INCAR, POSCAR, KPOINTS, POTCAR metadata, OUTCAR, OSZICAR,
+  vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, or VASP errors.
+- VASP-specific choices affect setup, convergence, parsing, or interpretation.
 
-## Trigger conditions
+## Do not use when
 
-- User mentions VASP, INCAR, POSCAR, POTCAR metadata, KPOINTS, OUTCAR, OSZICAR, vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, NEB, phonons, AIMD, SOC, hybrid functionals, DFT+U, GW/BSE/RPA, defects, surfaces, or adsorption.
-- A computation, modeling, analysis, visualization, troubleshooting, or writing task needs VASP-specific context.
-- User asks to inspect, prepare, validate, troubleshoot, parse, analyze, visualize, or hand off VASP-related artifacts.
+- The task is engine-independent and does not require VASP semantics.
+- Another Domain Skill more directly matches the actual software.
 
-## Input conditions
+## Domain principles
 
-- Natural-language VASP intent, local files, artifact ids, calculation directory, or previous checkpoint.
-- Optional user-selected task type, software version, script, parser, template, or external tool.
-- Unknown or unlisted tasks should return candidates and missing information, not a forced alias such as `static`.
-- For ambiguous setup, clarify at least calculation intent, available predecessors, structure/source files, spin/charge/SOC/DFT+U/hybrid choices, intended accuracy, and whether any real execution is requested.
+- Infer the calculation class from explicit intent and files. Do not default
+  unknown VASP tasks to `static`.
+- Keep scientific model choices separate from INCAR/KPOINTS syntax.
+- Preserve existing validated inputs unless a change is justified.
+- Distinguish process completion, electronic convergence, ionic convergence,
+  and scientific adequacy.
+- Prefer official VASP documentation for parameter semantics.
+- Treat py4vasp, VASPKIT, pymatgen, ASE, and custom scripts as optional tools.
 
-## Output artifacts
+## Minimum checks
 
-- Optional official-source note, input manifest, validation report, dry-run/compute-plan note, analysis/troubleshooting report, figure/caption, reproducibility note, or handoff note.
-- Optional helper-run manifest when using SimFlow parsers, py4vasp, VASPKIT, custom Python, shell commands, or user scripts.
-- Artifact metadata should record source files, command/tool choice, parameters, assumptions, task uncertainty, environment, hashes when available, and lineage.
+- POSCAR species, counts, cell, coordinates, and intended periodicity agree.
+- INCAR settings are internally consistent with relaxation, MD, NEB, phonon,
+  DOS/band, hybrid, SOC, DFT+U, GW/BSE/RPA, defect, or surface intent.
+- KPOINTS and smearing choices match dimensionality and calculation purpose.
+- Restart dependencies such as WAVECAR or CHGCAR are available and compatible.
+- OUTCAR/OSZICAR completion and convergence evidence are inspected before any
+  success claim.
+- Warnings, force/stress thresholds, energy drift, and task-specific evidence
+  are reviewed.
 
-## Status write rules
+## Licensed POTCAR boundary
 
-- Resolve explicit `project_root` before writing `.simflow/` state, artifacts, checkpoints, reports, or lineage.
-- Write reports only as evidence records; do not advance a fixed VASP workflow automatically.
-- Helper outputs are pure evidence producers by default. They may write
-  requested VASP inputs or reports under `project_root`, but they do not
-  initialize or advance stages, do not register artifacts, and do not create
-  checkpoints unless explicit helper-run recording is requested.
-- Default helper report paths live under project-root `reports/<engine>/`.
-  `.simflow` is touched only by explicit helper-run recording.
-- `--record-helper-run` is `record_only`: it records helper evidence and
-  lineage only. Canonical stage runners own stage transitions, and
-  checkpoint/state-admin APIs own checkpoint operations.
-- Direct helpers do not register arbitrary report artifacts. Canonical stage
-  runners may ingest/register outputs when the workflow stage owns them.
-- Use open stages such as `modeling`, `computation`, or `analysis_visualization` according to research intent.
-- Keep recipe/tag values such as `dft`, `aimd`, `neb`, `phonon`, `defect`, or `custom` separate from workflow stage.
-- Do not write under `.omx/`; it belongs to the host session, not SimFlow workflow state.
+- POTCAR content is licensed material and must never be printed, quoted,
+  committed, packaged, or stored as ordinary evidence.
+- Resolve exact datasets in POSCAR order; never use wildcard fallback among
+  variants such as `Fe`, `Fe_pv`, or `Fe_sv`.
+- Only the SimFlow runtime may read and concatenate exact datasets from a
+  user-owned POTCAR library into a controlled calculation directory. Fixed
+  setup profiles may use `minimal`, `recommended`, or `gw` plus explicit
+  element overrides.
+- Do not return, print, snapshot, register as a normal artifact, commit,
+  package, or redistribute POTCAR content.
+- Guidance and returned evidence are metadata-only: element, exact dataset,
+  ZVAL when available, size, SHA-256, and validation status.
+- Any real transfer or execution involving POTCAR must be handed to runtime
+  safety controls.
 
-## Working procedure
+## Common failure modes
 
-1. Read `.simflow/state/` before acting and resolve `project_root` explicitly before any SimFlow write.
-2. Classify the request as preparation, validation, dry-run planning, troubleshooting, parsing, analysis/visualization, writing, or handoff. Return uncertainty when the task does not match a known safe pattern.
-3. Prefer official VASP sources for parameter or workflow claims. Load `references/vasp_official_sources.md` for documentation navigation, `references/vasp_task_checklists.md` for task-specific checks, `references/vasp_parameters.md` for parameter policies, and `references/vasp_troubleshooting.md` for convergence/error diagnosis.
-4. For a concrete calculation class, load only the matching `references/vasp_calc_*.md` file listed below. Avoid loading all calculation references unless the user asks for a broad VASP workflow audit.
-5. Inspect local inputs before generating or interpreting results. Preserve user-provided files and report missing predecessors instead of inventing them.
-6. Default compute work to dry-run/static inspection. Real local, remote, or HPC execution requires the same approval gate evidence used by `simflow-computation`.
-7. Register outputs as artifacts with metadata and lineage only when explicit helper-run recording is requested or when a canonical stage runner ingests those outputs.
+- Treating an unknown task as a static SCF calculation.
+- Reusing incompatible WAVECAR/CHGCAR files.
+- Declaring convergence from file existence or the last OSZICAR line alone.
+- Applying bulk k-point or dipole assumptions to slabs, molecules, or defects.
+- Silently changing pseudopotential variants or DFT+U conventions.
+- Exposing POTCAR contents while trying to preserve provenance.
 
-## Calculation-class references
+## Escalate uncertainty when
 
-- `references/vasp_calc_electronic_minimization.md`: SCF/static electronic minimization, molecules, bulk ground states, and dry-run setup review.
-- `references/vasp_calc_structure_optimization.md`: ionic/cell relaxation, equation-of-state, volume relaxation, Pulay-stress review.
-- `references/vasp_calc_dos_band.md`: DOS, projected DOS, DFT band structures, hybrid band structures, Fermi-level handling.
-- `references/vasp_calc_magnetism_dftu_soc.md`: collinear magnetism, DFT+U, noncollinear magnetism, SOC, spin spirals.
-- `references/vasp_calc_aimd_mlff.md`: ab-initio MD, thermostats, enhanced/constrained MD, thermodynamic integration, MLFF training/application.
-- `references/vasp_calc_neb_transition_states.md`: NEB, dimer, IRC, static/dynamic transition-state workflows.
-- `references/vasp_calc_phonons_electron_phonon.md`: finite-displacement phonons, DFPT phonons, phonon DOS/dispersion, electron-phonon calculations.
-- `references/vasp_calc_surfaces_adsorption_stm.md`: slabs, adsorption, work functions, dipole corrections, partial charge density, STM.
-- `references/vasp_calc_defects_charged_systems.md`: point defects, charged cells, electrostatic corrections, potential alignment.
-- `references/vasp_calc_hybrid_meta_vdw.md`: hybrid functionals, meta-GGA, van der Waals and dispersion corrections.
-- `references/vasp_calc_gw_rpa_bse.md`: GW, RPA/ACFDT, BSE, quasiparticles, excitons.
-- `references/vasp_calc_optics_dielectric_eels.md`: optical spectra, static dielectric response, Born charges, EELS.
-- `references/vasp_calc_xas_core_spectroscopy.md`: XAS, supercell core-hole, BSE core excitations.
-- `references/vasp_calc_nmr_efg_response.md`: NMR shielding, electric-field gradients, hyperfine coupling, response calculations.
-- `references/vasp_calc_wannier_postprocessing.md`: Wannier orbitals, partial/band-decomposed charges, py4vasp/VASPKIT/custom post-processing.
-- `references/vasp_tools.md`: VASP-specific third-party tools (py4vasp, VASPKIT) with command patterns, prerequisite files, and SimFlow context. For general tools (ASE, pymatgen, packmol), see `simflow-analysis-visualization/references/tooling_index.md`.
+- The calculation class, magnetic state, charge state, reference energy, or
+  pseudopotential dataset is ambiguous.
+- Real execution, remote access, licensed files, or destructive cleanup is
+  requested.
+- Convergence or physical interpretation changes with a scientific parameter.
 
-## Recommended checks
+## Completion criteria
 
-- Input set: `POSCAR`, `INCAR`, `KPOINTS`, and licensed local `POTCAR` metadata are present and mutually consistent for the requested task.
-- For MLP labeling datasets (N jobs feeding one MLP training set), additionally consult `simflow-mlp/references/mlp_dft_labeling_consistency.md` for the single-protocol contract and dataset-scope consistency requirements.
-- Structure: POSCAR species/counts, lattice, selective dynamics, surface vacuum, defect supercell, adsorption geometry, and charge/spin assumptions are explicit.
-- POTCAR: element order, resolved dataset sequence, ZVAL evidence, size, and SHA-256 are checked without returning, printing, snapshotting, or redistributing POTCAR content. A configured user-owned library may be materialized only by the SimFlow runtime into a controlled calculation directory.
-- KPOINTS: mesh density, Gamma/Monkhorst choice, line-mode paths for bands, and finite-size/k-point convergence are appropriate for the system.
-- INCAR: task labels match `NSW`, `IBRION`, `ISIF`, `ISMEAR`, `SIGMA`, `EDIFF`, `EDIFFG`, `ISPIN`, `MAGMOM`, `LREAL`, `LASPH`, and any advanced tags.
-- Predecessors: DOS/band workflows have a prior static SCF charge density; NEB has endpoint/images; phonons have a displacement or DFPT plan; restart/continuation has compatible `WAVECAR`/`CHGCAR`/`CONTCAR` evidence.
-- Advanced methods: DFT+U, SOC, noncollinear magnetism, hybrid functionals, GW/BSE/RPA, optics, AIMD, defects, surfaces, and adsorption include method-specific provenance and convergence risks.
-- Outputs: convergence, warnings, final structure, forces/stress, energies, k-point path, Fermi level, occupations, and figure lineage are traceable to inputs and commands.
-- Reproducibility: VASP version, executable family, pseudopotential flavor/date metadata, relevant environment/module information, helper versions, and source URLs are recorded when available.
+- VASP-specific inputs and outputs have been checked against the explicit task.
+- Uncertainty and unsupported conclusions are visible.
+- POTCAR handling remains exact, metadata-only, and non-redistributive.
 
-## Optional helper scripts
+## Optional references
 
-- `scripts/generate_vasp_inputs.py`: Generate a conservative VASP input set from a structure using pymatgen. With a configured licensed library and controlled calculation directory, SimFlow may materialize POTCAR locally using fixed ASE-style `minimal`, `recommended`, or `gw` setup tables plus element overrides. Returned and recorded evidence remains metadata-only.
-- `scripts/orchestrate_vasp_task.py`: Build SimFlow VASP reports, dry-run plans, and helper-run evidence for common tasks without submitting jobs.
-- `scripts/validate_vasp_outputs.py`: Inspect VASP outputs for convergence and obvious warning/error evidence.
-- `scripts/troubleshoot_vasp.py`: Produce source-backed troubleshooting notes using official VASP/py4vasp documentation links.
-
-These helpers are optional domain tools, not the only valid parser, builder, analysis path, or report format. User scripts, py4vasp, VASPKIT, pymatgen, ASE, notebooks, shell commands, or custom Python are acceptable when evidence, lineage, assumptions, and risks are recorded.
-
-Per the SimFlow domain-skill script boundary (see `skills/README.md`), this skill
-ships only `generate_*_inputs` / `validate_*` / `orchestrate_*` / `troubleshoot_*`
-helpers. Band-structure plotting (formerly `plot_band_structure.py`) now lives
-under `simflow-analysis-visualization/scripts/`, since figure construction is an
-analysis_visualization-stage concern; it still parses `EIGENVAL`/`KPOINTS` via
-the shared `VASPParser`.
-
-## Checkpoint rules
-
-- VASP helpers do not create stage-boundary checkpoints by default.
-- Helper-run recording remains `record_only`; use canonical stage runners or
-  checkpoint/state-admin APIs when checkpoint operations are explicitly needed.
-
-## Prohibited actions
-
-- Do not default unknown VASP tasks to `static`.
-- Do not treat common aliases as the full VASP capability surface.
-- Do not require py4vasp, VASPKIT, SimFlow parsers, fixed report names, or generated templates as the only valid path.
-- Do not return, print, snapshot, register as a normal artifact, commit, package,
-  or redistribute POTCAR content. Do not invoke ASE or VASPKIT to perform
-  restricted materialization; only the SimFlow runtime may read and concatenate
-  an explicitly configured user-owned library into a controlled calculation
-  directory.
-- Do not fabricate VASP results, literature, figures, citations, convergence status, or completed calculations.
-- Do not record unfinished or failed calculations as completed results.
-- Do not submit real local, remote, or HPC jobs from this skill without the relevant approval gate.
-
-## Manual confirmation scenarios
-
-- Task intent, predecessors, charge/spin/SOC/DFT+U/hybrid/phonon/NEB setup, or validation standard is ambiguous.
-- Real execution, licensed files, proprietary files, credentials, remote systems, or high-cost resources are involved.
-- Existing user inputs would be overwritten or interpreted in a way that changes scientific meaning.
-- The requested analysis method would materially affect a scientific conclusion, figure, or manuscript claim.
+- `references/vasp_official_sources.md`
+- `references/vasp_parameters.md`
+- `references/vasp_task_checklists.md`
+- `references/vasp_troubleshooting.md`
+- `references/vasp_tools.md`
+- `references/vasp_calc_electronic_minimization.md`
+- `references/vasp_calc_structure_optimization.md`
+- `references/vasp_calc_dos_band.md`
+- `references/vasp_calc_magnetism_dftu_soc.md`
+- `references/vasp_calc_aimd_mlff.md`
+- `references/vasp_calc_neb_transition_states.md`
+- `references/vasp_calc_phonons_electron_phonon.md`
+- `references/vasp_calc_surfaces_adsorption_stm.md`
+- `references/vasp_calc_defects_charged_systems.md`
+- `references/vasp_calc_hybrid_meta_vdw.md`
+- `references/vasp_calc_gw_rpa_bse.md`
+- `references/vasp_calc_optics_dielectric_eels.md`
+- `references/vasp_calc_xas_core_spectroscopy.md`
+- `references/vasp_calc_nmr_efg_response.md`
+- `references/vasp_calc_wannier_postprocessing.md`

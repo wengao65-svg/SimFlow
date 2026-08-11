@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "SimFlowState",
-  "description": "Unified SimFlow state file schema (.simflow/state/*.json)",
+  "title": "Legacy SimFlow State",
+  "description": "Read-only compatibility schema for historical .simflow/state/*.json registries. The compact store uses .simflow/project.json and .simflow/records.jsonl.",
   "type": ["object", "array"],
   "anyOf": [
     { "$ref": "#/definitions/projectState" },

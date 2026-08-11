@@ -81,9 +81,7 @@ class SlurmConnector(BaseHPCConnector):
         project_root: str | None = None,
         approval_token: str | None = None,
         gate_decision_id: str | None = None,
-        dry_run_evidence: str | None = None,
-        script_hash: str | None = None,
-        input_artifact_hash: str | None = None,
+        run_plan_hash: str | None = None,
         approved: bool | None = None,
     ) -> dict:
         """Submit a job to SLURM via sbatch.
@@ -93,9 +91,7 @@ class SlurmConnector(BaseHPCConnector):
             project_root: User project root containing .simflow state
             approval_token: Approval token recorded by the hpc_submit gate
             gate_decision_id: Gate decision id recorded by the hpc_submit gate
-            dry_run_evidence: Dry-run report path used for approval
-            script_hash: Approved SHA256 hash of the job script
-            input_artifact_hash: Approved SHA256 hash of the input artifact/manifest
+            run_plan_hash: Immutable plan hash produced by hpc/plan
 
         Returns:
             dict with status, job_id (on success), or approval_required
@@ -105,9 +101,8 @@ class SlurmConnector(BaseHPCConnector):
             project_root=project_root,
             approval_token=approval_token,
             gate_decision_id=gate_decision_id,
-            dry_run_evidence=dry_run_evidence,
-            script_hash=script_hash,
-            input_artifact_hash=input_artifact_hash,
+            run_plan_hash=run_plan_hash,
+            expected_scheduler="slurm",
             approved=approved,
         )
         if auth["status"] != "success":
@@ -137,6 +132,7 @@ class SlurmConnector(BaseHPCConnector):
                 "message": f"Submitted batch job {job_id}",
                 "gate_decision_id": auth["gate_decision_id"],
                 "script_hash": auth["script_hash"],
+                "run_plan_hash": auth["run_plan_hash"],
             }
 
         except FileNotFoundError:

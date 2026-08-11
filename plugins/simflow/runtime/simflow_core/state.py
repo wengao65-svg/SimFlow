@@ -1,5 +1,6 @@
 """Workflow state management."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -38,15 +39,6 @@ CANONICAL_ARTIFACT_STAGE_DIRS = [
     "analysis_visualization",
     "writing",
 ]
-ARTIFACT_CATEGORY_DIRS = [
-    "literature",
-    "models",
-    "compute",
-    "analysis",
-    "figures",
-]
-
-
 class ProjectRootError(ValueError):
     """Raised when a SimFlow state operation targets an invalid project root."""
 
@@ -193,14 +185,10 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
     dirs = [
         sf / "state",
         sf / "plans",
-        sf / "artifacts",
-        *[sf / "artifacts" / name for name in CANONICAL_ARTIFACT_STAGE_DIRS],
-        *[sf / "artifacts" / name for name in ARTIFACT_CATEGORY_DIRS],
         sf / "checkpoints",
         sf / "reports",
         sf / "logs",
         sf / "extensions" / "skills",
-        sf / "memory",
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
@@ -213,42 +201,66 @@ def write_report(
     base_dir: str = ".",
     report_file: str = "status_summary.md",
     project_root: Optional[str] = None,
-    *,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
 ) -> Path:
     """Write a report file under .simflow/reports/."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    from .experiment_memory import record_linked_write, require_write_context
-
-    context = require_write_context(
-        str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
-    )
     ensure_simflow_dir(project_root=str(root))
     path = root / SIMFLOW_DIR / "reports" / report_file
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
-    record_linked_write(
-        str(root),
-        kind="path",
-        path=str(path.relative_to(root)),
-        role="report_write",
-        metadata={"report_file": report_file},
-        **({key: value for key, value in context.as_dict().items() if key != "project_root"} if context else {}),
-    )
     return path
 
 
 def read_state(base_dir: str = ".", state_file: str = "workflow.json", project_root: Optional[str] = None) -> Any:
     """Read a state file from .simflow/state/."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
+    if state_file == "artifacts.json":
+        from .artifacts import list_artifacts
+
+        return list_artifacts(project_root=str(root))
+    if state_file == "lineage.json":
+        from .artifacts import list_artifacts
+
+        artifacts = list_artifacts(project_root=str(root))
+        return {
+            "artifacts": [
+                {
+                    "artifact_id": artifact.get("artifact_id"),
+                    "name": artifact.get("name"),
+                    "type": artifact.get("type"),
+                    "stage": artifact.get("stage"),
+                    "version": artifact.get("version"),
+                    "path": artifact.get("path"),
+                    "checksum": artifact.get("checksum"),
+                    "updated_at": artifact.get("created_at"),
+                }
+                for artifact in artifacts
+            ],
+            "links": [
+                {
+                    "link_id": "lin_" + hashlib.sha256(
+                        f"{artifact.get('artifact_id')}:{parent_id}".encode("utf-8")
+                    ).hexdigest()[:12],
+                    "child_artifact_id": artifact.get("artifact_id"),
+                    "parent_artifact_id": parent_id,
+                    "relationship": "derived_from",
+                    "stage": artifact.get("stage"),
+                    "parameters": artifact.get("lineage", {}).get("parameters", {}),
+                    "created_at": artifact.get("created_at"),
+                }
+                for artifact in artifacts
+                for parent_id in (artifact.get("lineage", {}).get("parent_artifacts", []) or [])
+            ],
+        }
+    if state_file == "checkpoints.json":
+        from .checkpoints import list_checkpoints
+
+        return list_checkpoints(project_root=str(root))
+    if state_file == "gates.json":
+        from .gates import build_gate_state
+
+        return build_gate_state(project_root=str(root))
     path = root / STATE_DIR / state_file
     if not path.exists():
         return {}
@@ -261,35 +273,13 @@ def write_state(
     base_dir: str = ".",
     state_file: str = "workflow.json",
     project_root: Optional[str] = None,
-    *,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
 ) -> Path:
     """Write a state file to .simflow/state/."""
     root = resolve_project_root(project_root=project_root, base_dir=base_dir)
-    from .experiment_memory import record_linked_write, require_write_context
-
-    context = require_write_context(
-        str(root),
-        session_context_id=session_context_id,
-        experiment_id=experiment_id,
-        iteration_id=iteration_id,
-        activity_id=activity_id,
-    )
     ensure_simflow_dir(project_root=str(root))
     path = root / STATE_DIR / state_file
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    record_linked_write(
-        str(root),
-        kind="path",
-        path=str(path.relative_to(root)),
-        role="state_write",
-        metadata={"state_file": state_file},
-        **({key: value for key, value in context.as_dict().items() if key != "project_root"} if context else {}),
-    )
     return path
 
 
@@ -490,10 +480,6 @@ def touch_workflow(
     *,
     current_stage: Optional[str] = None,
     status: Optional[str] = None,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
 ) -> None:
     """Refresh workflow.json, summary.json, and status_summary.md timestamps.
 
@@ -517,13 +503,7 @@ def touch_workflow(
         wf["current_stage"] = current_stage
     if status is not None:
         wf["status"] = status
-    context = {
-        "session_context_id": session_context_id,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
-    }
-    write_state(wf, project_root=str(root), state_file="workflow.json", **context)
+    write_state(wf, project_root=str(root), state_file="workflow.json")
 
     # Update summary.json
     summary = read_state(project_root=str(root), state_file="summary.json") or {}
@@ -538,11 +518,11 @@ def touch_workflow(
         summary["workflow_type"] = wf["workflow_type"]
     summary.setdefault("state_root", ".simflow")
     summary.setdefault("summary_report", ".simflow/reports/status_summary.md")
-    write_state(summary, project_root=str(root), state_file="summary.json", **context)
+    write_state(summary, project_root=str(root), state_file="summary.json")
 
     # Regenerate status_summary.md
     report_content = _build_status_summary_md(root)
-    write_report(report_content, project_root=str(root), **context)
+    write_report(report_content, project_root=str(root))
 
 
 def update_stage(
@@ -550,10 +530,6 @@ def update_stage(
     status: str,
     base_dir: str = ".",
     project_root: Optional[str] = None,
-    session_context_id: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    iteration_id: Optional[str] = None,
-    activity_id: Optional[str] = None,
     **kwargs: Any,
 ) -> dict:
     """Update a stage's state."""
@@ -595,18 +571,11 @@ def update_stage(
             stages[stage_name][k] = v
     if normalized_status == "completed":
         stages[stage_name]["error_message"] = None
-    context = {
-        "session_context_id": session_context_id,
-        "experiment_id": experiment_id,
-        "iteration_id": iteration_id,
-        "activity_id": activity_id,
-    }
-    write_state(stages, project_root=str(root), state_file="stages.json", **context)
+    write_state(stages, project_root=str(root), state_file="stages.json")
     # Auto-refresh workflow.json/summary.json/status_summary.md
     touch_workflow(
         str(root),
         current_stage=stage_name if normalized_status == "in_progress" else None,
-        **context,
     )
     # P3.3: Auto-create verification record when stage is marked completed
     if normalized_status == "completed":
@@ -615,7 +584,6 @@ def update_stage(
             checkpoint_id = stages[stage_name].get("checkpoint_id")
             record_stage_completion_verification(
                 stage_name, str(root), checkpoint_id=checkpoint_id,
-                **context,
             )
         except Exception:
             pass  # Don't fail update_stage if verification recording fails

@@ -223,12 +223,14 @@ def build_computation_readiness(
         "real_submit": False,
     }
     submit_readiness = {
+        "next_tool": "hpc/plan",
         "project_root": str(root),
         "script_path": _relative_path(root, job_script_path),
         "scheduler": scheduler,
-        "dry_run_evidence": "compute/dry_run_report.json",
-        "script_hash": script_hash,
-        "input_artifact_hash": input_hash,
+        "input_paths": [entry["path"] for entry in input_validation["files"]],
+        "resources": resource_report["resources"],
+        "approval_binding": "run_plan_hash",
+        "run_plan_hash": None,
         "approval_required": True,
     }
     return {
