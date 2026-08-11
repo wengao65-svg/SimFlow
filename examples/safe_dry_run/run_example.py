@@ -1,104 +1,113 @@
 #!/usr/bin/env python3
-"""Run a redistributable SimFlow dry-run example.
-
-The example writes all generated state under the user-provided project root.
-It never submits a local, remote, or HPC job.
-"""
+"""Exercise the compact SimFlow dry-run path without executing a job."""
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+HPC_SERVER_DIR = REPO_ROOT / "mcp" / "servers" / "hpc"
 sys.path.insert(0, str(REPO_ROOT))
 
-from runtime.simflow_core.artifacts import list_artifacts
-from runtime.simflow_core.gates import check_gate
-from runtime.simflow_core.readiness import build_stage_readiness
-from runtime.simflow_core.state import read_state
-from runtime.simflow_core.status import build_handoff_summary, build_project_status
-from runtime.simflow_helpers.project.intake import init_research
-from runtime.simflow_helpers.stages.pipeline import run_pipeline
+from runtime.simflow_core.records import inspect_project, record_event
 
 
-SAFE_INPUT = "\n".join([
-    "goal: prepare a traceable Si dry-run evidence package",
-    "material: Si diamond",
-    "software: vasp",
-    "method: dft",
-    'parameters: {"encut": 520, "kppa": 100, "structure_type": "diamond", "lattice_param": 5.43, "elements": ["Si"]}',
-    "note: This safe example uses synthetic literature metadata and dry-run computation evidence only.",
-])
+def _load_hpc_server():
+    sys.path.insert(0, str(HPC_SERVER_DIR))
+    spec = importlib.util.spec_from_file_location("simflow_safe_example_hpc", HPC_SERVER_DIR / "server.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
-def run_safe_example(project_root: Path, target_stage: str = "writing") -> dict:
+def run_safe_example(project_root: Path) -> dict:
     project_root = project_root.expanduser().resolve()
-    project_root.mkdir(parents=True, exist_ok=True)
+    calc_dir = project_root / "calculation"
+    calc_dir.mkdir(parents=True, exist_ok=True)
+    script = calc_dir / "job.sh"
+    input_file = calc_dir / "input.json"
+    script.write_text("#!/bin/bash\nset -euo pipefail\necho should-not-run\n", encoding="utf-8")
+    script.chmod(0o755)
+    input_file.write_text(
+        json.dumps({"material": "Si", "mode": "redistributable_dry_run"}, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
-    init_result = init_research(input_text=SAFE_INPUT, output_dir=str(project_root))
-    pipeline_result = run_pipeline(str(project_root / ".simflow"), target_stage=target_stage, dry_run=False)
-    if pipeline_result.get("status") != "success":
-        return {
-            "status": "error",
+    server = _load_hpc_server()
+    planned = server.handle_request({
+        "tool": "plan",
+        "params": {
             "project_root": str(project_root),
-            "init": init_result,
-            "pipeline": pipeline_result,
-        }
+            "script_path": "calculation/job.sh",
+            "input_paths": ["calculation/input.json"],
+            "scheduler": "local",
+            "resources": {"nodes": 1, "ntasks": 1, "walltime": "00:01:00"},
+        },
+    })
+    if planned.get("status") != "success":
+        return {"status": "error", "project_root": str(project_root), "plan": planned}
 
-    workflow = read_state(project_root=str(project_root), state_file="workflow.json")
-    status = build_project_status(str(project_root))
-    handoff = build_handoff_summary(str(project_root))
-    computation_readiness = build_stage_readiness(str(project_root), stage="computation")
-    hpc_submit_gate = check_gate("hpc_submit", {"project_root": str(project_root)})
-    dry_run_report_path = project_root / ".simflow" / "artifacts" / "compute" / "dry_run_report.json"
-    dry_run_status = None
-    if dry_run_report_path.exists():
-        dry_run_status = json.loads(dry_run_report_path.read_text(encoding="utf-8")).get("status")
-    artifacts = list_artifacts(project_root=str(project_root))
-    checkpoints = read_state(project_root=str(project_root), state_file="checkpoints.json")
-
+    plan = planned["data"]
+    blocked_submit = server.handle_request({
+        "tool": "submit",
+        "params": {"project_root": str(project_root), "run_plan_hash": plan["run_plan_hash"]},
+    })
+    record = record_event(
+        str(project_root),
+        kind="milestone",
+        summary="Redistributable dry-run plan prepared",
+        status="planned",
+        artifacts=[
+            {"path": "calculation/job.sh", "role": "job_script"},
+            {"path": "calculation/input.json", "role": "input"},
+            {"path": plan["plan_path"], "role": "immutable_run_plan"},
+        ],
+        next_action="request approval only if real execution is desired",
+        details={
+            "run_plan_hash": plan["run_plan_hash"],
+            "scheduler": plan["scheduler"],
+            "credential_scan_status": plan["credential_scan"]["status"],
+            "real_submit": False,
+        },
+    )
+    inspected = inspect_project(str(project_root), include_legacy=False)
     summary = {
         "status": "success",
         "project_root": str(project_root),
-        "workflow_id": workflow.get("workflow_id"),
-        "current_stage": workflow.get("current_stage"),
-        "workflow_status": workflow.get("status"),
-        "target_stage": target_stage,
-        "artifact_count": len(artifacts),
-        "checkpoint_count": len(checkpoints),
-        "computation_readiness": computation_readiness.get("readiness_status"),
-        "dry_run_status": dry_run_status,
-        "hpc_submit_gate_status": hpc_submit_gate.get("status"),
-        "latest_checkpoint": status.get("checkpoints", {}).get("latest"),
-        "next_actions": status.get("next_actions", []),
-        "handoff": handoff,
+        "run_plan_hash": plan["run_plan_hash"],
+        "run_plan_status": plan["status"],
+        "credential_scan_status": plan["credential_scan"]["status"],
+        "submit_blocked": blocked_submit.get("status") == "error",
+        "approval_required": blocked_submit.get("approval_required") is True,
+        "record_id": record["record_id"],
+        "record_count": inspected["record_count"],
+        "checkpoint_count": inspected["project"]["counts"]["by_kind"].get("checkpoint", 0),
         "important_paths": {
-            "state": ".simflow/state/workflow.json",
-            "artifacts": ".simflow/state/artifacts.json",
-            "dry_run_report": ".simflow/artifacts/compute/dry_run_report.json",
-            "credential_scan": ".simflow/artifacts/security/credential_scan.json",
-            "handoff": ".simflow/reports/handoff/final_handoff.md",
+            "project": ".simflow/project.json",
+            "records": ".simflow/records.jsonl",
+            "run_plan": plan["plan_path"],
+            "script": "calculation/job.sh",
+            "input": "calculation/input.json",
         },
     }
-
     report_path = project_root / ".simflow" / "reports" / "safe_example_summary.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    summary["important_paths"]["safe_example_summary"] = ".simflow/reports/safe_example_summary.json"
+    report_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    summary["important_paths"]["summary"] = ".simflow/reports/safe_example_summary.json"
     return summary
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the SimFlow safe dry-run example")
-    parser.add_argument("--project-root", required=True, help="Disposable project directory for generated .simflow state")
-    parser.add_argument("--target-stage", default="writing", help="Canonical target stage to run through")
+    parser = argparse.ArgumentParser(description="Run the compact SimFlow safe dry-run example")
+    parser.add_argument("--project-root", required=True)
     args = parser.parse_args()
-
-    result = run_safe_example(Path(args.project_root), target_stage=args.target_stage)
+    result = run_safe_example(Path(args.project_root))
     print(json.dumps(result, indent=2, ensure_ascii=False))
     if result.get("status") != "success":
         raise SystemExit(1)

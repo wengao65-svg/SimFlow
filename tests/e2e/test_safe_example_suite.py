@@ -1,4 +1,4 @@
-"""Safe redistributable example coverage."""
+"""Safe redistributable compact-runtime example coverage."""
 
 from __future__ import annotations
 
@@ -10,78 +10,48 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_safe_dry_run_example_produces_state_artifacts_checkpoints_and_handoff(tmp_path):
+def _run_example(script: str, tmp_path: Path) -> dict:
     result = subprocess.run(
-        [
-            "python",
-            "examples/safe_dry_run/run_example.py",
-            "--project-root",
-            str(tmp_path),
-        ],
+        ["python", script, "--project-root", str(tmp_path)],
         cwd=ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
-
     assert result.returncode == 0, result.stdout + result.stderr
-    summary = json.loads(result.stdout)
+    return json.loads(result.stdout)
+
+
+def _assert_compact_state(tmp_path: Path, summary: dict) -> None:
     assert summary["status"] == "success"
-    assert summary["current_stage"] == "writing"
-    assert summary["workflow_status"] == "completed"
-    assert summary["artifact_count"] >= 10
-    assert summary["checkpoint_count"] >= 1
-    assert summary["computation_readiness"] in {"blocked", "incomplete", "ready"}
-    assert summary["dry_run_status"] in {"pass", "warning"}
-    assert summary["hpc_submit_gate_status"] == "block"
+    assert summary["submit_blocked"] is True
+    assert summary["approval_required"] is True
+    assert summary["record_count"] == 1
+    assert summary["checkpoint_count"] == 0
+    assert len(summary["run_plan_hash"]) == 64
+    assert summary["credential_scan_status"] in {"pass", "warning"}
+    assert (tmp_path / ".simflow" / "project.json").is_file()
+    assert (tmp_path / ".simflow" / "records.jsonl").is_file()
+    assert not (tmp_path / ".simflow" / "state").exists()
+    assert not (tmp_path / ".simflow" / "checkpoints").exists()
+    assert (tmp_path / summary["important_paths"]["run_plan"]).is_file()
 
-    jobs_path = tmp_path / ".simflow" / "state" / "jobs.json"
-    jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
-    assert jobs == []
 
-    assert (tmp_path / ".simflow" / "state" / "workflow.json").is_file()
-    assert (tmp_path / ".simflow" / "state" / "artifacts.json").is_file()
-    assert (tmp_path / ".simflow" / "state" / "checkpoints.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "dry_run_report.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "security" / "credential_scan.json").is_file()
-    assert (tmp_path / ".simflow" / "reports" / "handoff" / "final_handoff.md").is_file()
+def test_safe_dry_run_example_uses_one_compact_record(tmp_path):
+    summary = _run_example("examples/safe_dry_run/run_example.py", tmp_path)
+    _assert_compact_state(tmp_path, summary)
+    assert (tmp_path / "calculation" / "job.sh").is_file()
     assert (tmp_path / ".simflow" / "reports" / "safe_example_summary.json").is_file()
 
 
-def test_lammps_safe_dry_run_example_records_computation_evidence(tmp_path):
-    result = subprocess.run(
-        [
-            "python",
-            "examples/lammps_safe_dry_run/run_example.py",
-            "--project-root",
-            str(tmp_path),
-        ],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    summary = json.loads(result.stdout)
-    assert summary["status"] == "success"
+def test_lammps_safe_dry_run_example_uses_one_compact_record(tmp_path):
+    summary = _run_example("examples/lammps_safe_dry_run/run_example.py", tmp_path)
+    _assert_compact_state(tmp_path, summary)
     assert summary["software"] == "lammps"
     assert summary["real_submit"] is False
-    assert summary["artifact_count"] >= 7
-    assert summary["hpc_submit_gate_status"] == "block"
-
-    jobs_path = tmp_path / ".simflow" / "state" / "jobs.json"
-    jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
-    assert jobs == []
-
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "in.lammps").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "lammps_safe" / "data.lammps").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "calculation_manifest.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "input_validation.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "resource_estimate.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "compute" / "dry_run_report.json").is_file()
-    assert (tmp_path / ".simflow" / "artifacts" / "security" / "credential_scan.json").is_file()
-    assert (tmp_path / ".simflow" / "reports" / "handoff" / "lammps_safe_handoff.md").is_file()
+    assert (tmp_path / "calculation" / "lammps_safe" / "in.lammps").is_file()
+    assert (tmp_path / "calculation" / "lammps_safe" / "data.lammps").is_file()
+    assert (tmp_path / ".simflow" / "reports" / "lammps_safe_example_summary.json").is_file()
 
 
 def test_safe_examples_do_not_use_removed_runtime_lib_imports():

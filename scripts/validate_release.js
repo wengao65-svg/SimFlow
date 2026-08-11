@@ -178,8 +178,14 @@ function validateSupportMatrix() {
   const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
   const prd = fs.readFileSync(path.join(ROOT, 'docs', 'PRD.md'), 'utf-8');
   const softwareSkills = fs.readFileSync(path.join(ROOT, 'docs', 'software-skills.md'), 'utf-8');
-  check('README states unsupported engines have no placeholder Skill', /Other engines \| No placeholder Skill/.test(readme));
-  check('PRD states supported engine helpers explicitly', /Supported engine helpers \| VASP, CP2K, LAMMPS, GPUMD, and NEP/.test(prd));
+  check(
+    'README states unsupported engines have no placeholder Skill',
+    /Unsupported engines do not receive placeholder Skills\./.test(readme),
+  );
+  check(
+    'PRD states supported Domain Skills explicitly',
+    /Built-in Domain Skills cover VASP, CP2K, LAMMPS, GPUMD\/NEP, and general MLP\s+methodology\./.test(prd),
+  );
   check('software skills document no-placeholder policy', /Unsupported engines do not receive placeholder Skills/.test(softwareSkills));
 
   const removedPublicSkills = [
@@ -243,7 +249,11 @@ function validateSupportMatrix() {
   );
 
   const targetStructure = fs.readFileSync(path.join(ROOT, 'docs', 'target-repo-structure.md'), 'utf-8');
-  check('target repo structure documents mlp_md recipe', /mlp_md\.json/.test(targetStructure));
+  check(
+    'target repo structure documents optional recipes and ships mlp_md',
+    /recipes\/\s+# Optional reference paths/.test(targetStructure)
+      && fs.existsSync(path.join(ROOT, 'workflow', 'recipes', 'mlp_md.json')),
+  );
 
   const customSkillDoc = fs.readFileSync(path.join(ROOT, 'docs', 'custom-skills.md'), 'utf-8');
   const skillContractSchema = readJson('schemas/skill-contract.schema.json');
@@ -326,13 +336,11 @@ function validateSafeExamples() {
         fail('safe dry-run example emits JSON summary', result.stdout);
       }
       check('safe dry-run example completes', summary.status === 'success', result.stdout);
-      check('safe dry-run example writes workflow state', fs.existsSync(path.join(exampleRoot, '.simflow', 'state', 'workflow.json')));
-      check('safe dry-run example writes dry-run evidence', fs.existsSync(path.join(exampleRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
-      check('safe dry-run example writes handoff report', fs.existsSync(path.join(exampleRoot, '.simflow', 'reports', 'handoff', 'final_handoff.md')));
-      check('safe dry-run example keeps submit gate blocked', summary.hpc_submit_gate_status === 'block', result.stdout);
-      const jobsPath = path.join(exampleRoot, '.simflow', 'state', 'jobs.json');
-      const jobs = fs.existsSync(jobsPath) ? JSON.parse(fs.readFileSync(jobsPath, 'utf-8')) : [];
-      check('safe dry-run example does not write job records', Array.isArray(jobs) && jobs.length === 0, JSON.stringify(jobs, null, 2));
+      check('safe dry-run example writes compact project state', fs.existsSync(path.join(exampleRoot, '.simflow', 'project.json')));
+      check('safe dry-run example writes one compact record', summary.record_count === 1 && fs.existsSync(path.join(exampleRoot, '.simflow', 'records.jsonl')), result.stdout);
+      check('safe dry-run example persists immutable run plan', fs.existsSync(path.join(exampleRoot, summary.important_paths.run_plan)), result.stdout);
+      check('safe dry-run example blocks submit without approval', summary.submit_blocked === true && summary.approval_required === true, result.stdout);
+      check('safe dry-run example creates no legacy registries or checkpoints', !fs.existsSync(path.join(exampleRoot, '.simflow', 'state')) && summary.checkpoint_count === 0, result.stdout);
     }
   } finally {
     fs.rmSync(exampleRoot, { recursive: true, force: true });
@@ -357,12 +365,10 @@ function validateSafeExamples() {
         fail('LAMMPS safe dry-run example emits JSON summary', result.stdout);
       }
       check('LAMMPS safe dry-run example completes', summary.status === 'success', result.stdout);
-      check('LAMMPS safe dry-run example records dry-run evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'compute', 'dry_run_report.json')));
-      check('LAMMPS safe dry-run example records credential scan evidence', fs.existsSync(path.join(lammpsRoot, '.simflow', 'artifacts', 'security', 'credential_scan.json')));
-      check('LAMMPS safe dry-run example keeps submit gate blocked', summary.hpc_submit_gate_status === 'block', result.stdout);
-      const jobsPath = path.join(lammpsRoot, '.simflow', 'state', 'jobs.json');
-      const jobs = fs.existsSync(jobsPath) ? JSON.parse(fs.readFileSync(jobsPath, 'utf-8')) : [];
-      check('LAMMPS safe dry-run example does not write job records', Array.isArray(jobs) && jobs.length === 0, JSON.stringify(jobs, null, 2));
+      check('LAMMPS safe dry-run example writes one compact record', summary.record_count === 1 && fs.existsSync(path.join(lammpsRoot, '.simflow', 'records.jsonl')), result.stdout);
+      check('LAMMPS safe dry-run example embeds credential scan in run plan', summary.credential_scan_status === 'pass' || summary.credential_scan_status === 'warning', result.stdout);
+      check('LAMMPS safe dry-run example blocks submit without approval', summary.submit_blocked === true && summary.approval_required === true, result.stdout);
+      check('LAMMPS safe dry-run example creates no legacy registries or checkpoints', !fs.existsSync(path.join(lammpsRoot, '.simflow', 'state')) && summary.checkpoint_count === 0, result.stdout);
     }
   } finally {
     fs.rmSync(lammpsRoot, { recursive: true, force: true });
