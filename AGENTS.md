@@ -10,9 +10,9 @@ SimFlow is a workflow layer, not a workflow executor. Codex, Claude Code, or the
 
 1. **Skill-first**: All user interactions enter through skills. Never bypass the skill layer.
 2. **Workflow-layer driven**: Use declared stages, recipes, gates, and policies as research contracts, not as a centralized executor.
-3. **State-aware**: Always read `.simflow/state/` before acting. Always write state after changes.
-4. **Artifact-tracked**: Every output must be registered as an artifact with metadata and lineage.
-5. **Checkpoint-resilient**: Create checkpoints at stage boundaries. Support recovery from any checkpoint.
+3. **Event-driven state**: Read or write SimFlow runtime only when a real event must be inspected, recorded, safeguarded, or recovered.
+4. **Logical records**: Record meaningful runs, milestones, deliverables, approvals, and failures; do not register every file or helper action.
+5. **Recovery-focused checkpoints**: Create compact checkpoints only for real recovery boundaries with restart references.
 6. **Dry-run first**: All compute operations default to dry-run. Real HPC submission requires explicit approval.
 7. **No LLM implementation**: SimFlow does not implement or configure LLM models. The host (Codex/OMX) handles inference.
 
@@ -40,38 +40,20 @@ SimFlow is a workflow layer, not a workflow executor. Codex, Claude Code, or the
 
 ## User Project Layout
 
-The user's `project_root` (where `.simflow/` lives) must follow the two-layer naming convention defined in `docs/user-project-layout.md`.
+SimFlow respects existing project organization. The six `phaseN_*` directories
+and optional `stageN_*` names are a recommended template for new projects, not
+a runtime requirement or migration trigger.
 
-- **Top level uses six fixed `phaseN_<canonical_stage>/` directories**:
-  `phase1_literature_review/`, `phase2_proposal/`, `phase3_modeling/`,
-  `phase4_computation/`, `phase5_analysis_visualization/`,
-  `phase6_writing/`. Numbers are fixed to the canonical stage and must not
-  be renumbered when a phase is skipped; a computation-only project keeps
-  `phase4_computation/` and `phase6_writing/`, not `phase1_*` / `phase2_*`.
-- **Second level uses `stageN_<snake_case_descriptor>/`** inside a phase.
-  Numbering is local to the parent phase. One `stageN_*` equals one logical
-  sub-activity; temperature/method variants belong as subdirectories of one
-  stage, not as same-prefixed siblings. Prep and run must be separated
-  (`dataset_prep/` vs `run_step1/`, `run_step2/`).
-- **Bare `stageN_*` directories at the project root are forbidden.** They
-  must live inside a `phaseN_*` directory.
-- **Cross-stage shared directories** (`scripts/`, `reference/`, `config/`,
-  `templates/`, `tests/`, `docs/`, `archives/`, `legacy/`, `scratch/`) live
-  at the project root and are not numbered. `tests/` is the single test
-  location; `archives/` holds all backups, tarballs, and quarantined
-  experiments.
-- **Root file allowlist**: only `README.md`, `workflow.md`, `.gitignore`,
-  `.git/`, `.simflow/`, the six `phaseN_*` directories, and the nine shared
-  directories. Pseudopotential files, archives, frozen models, process IDs,
-  scripts, logs, and `*.bak.*` are forbidden at the root.
-- **`.simflow/` is the only workflow state root.** Nested `.simflow/`
-  directories inside `phaseN_*/stageN_*/` are forbidden. Gate markers
-  (`APPROVE_*`) belong in `.simflow/state/gates.json`, not scattered in
-  stage directories.
+- Never move, rename, or rebuild an existing project merely to match the template.
+- Directory checks are advisory and must not block analysis, computation, or delivery.
+- Keep one root `.simflow/`; report nested historical roots without modifying them automatically.
+- Place analysis from one calculation unit near that unit.
+- Place comparisons across runs at their meaningful stage-level analysis entry.
+- Place comparisons across stages at their meaningful phase-level analysis entry.
+- Use `phase5_analysis_visualization/` physically only for project-level synthesis.
+- Maintain a shallow README/index with relative links; do not copy or symlink results to create a second source of truth.
 
-The host agent should consult `docs/user-project-layout.md` for the full
-contract, including stage run-directory minimums, NEP/MLP version naming,
-analysis placement rules, and `.simflow/artifacts/` stage-name allowlist.
+Consult `docs/user-project-layout.md` for the advisory resolver and analysis navigation rules.
 
 ## Prohibited Actions
 

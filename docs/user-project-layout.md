@@ -1,43 +1,25 @@
-# User Project Layout Convention
+# User Project Layout Guidance
 
-This document defines the directory naming convention for SimFlow user
-projects (the `project_root` where `.simflow/` lives). It is a research-stage
-contract: it tells the host agent where to place new artifacts so that the
-on-disk tree stays 1:1 with `.simflow/state/stages.json` and so that humans
-can find things later without an index.
+SimFlow respects the user's existing project layout. Directory structure is
+project organization, not runtime state, and it must not determine Skill
+selection, block scientific work, or trigger an automatic migration.
 
-It does not change SimFlow's runtime state schema, MCP tool signatures, or
-the plugin repository's own structure (see `docs/target-repo-structure.md`
-for the plugin layout). Existing projects are not required to migrate; this
-is the contract for new work and for any future reorganization.
+## Hard Boundaries
 
-## Motivation
+Only three directory rules are enforced by runtime:
 
-Two real projects were inspected and both show the same failure mode: the
-project root accumulates dozens of flat sibling directories that do not map
-to the SimFlow canonical stages, a single canonical stage collapses into
-many same-prefixed siblings doing different things, and backups, scripts,
-logs, and stray files leak into the production namespace. This document
-codifies the fixes so future projects avoid those traps.
+1. `.simflow/` has one canonical root at the explicit `project_root`.
+2. Credentials and restricted file contents must not enter `.simflow/`, Git,
+   logs, checkpoints, or distribution packages.
+3. SimFlow writes stay inside the user-authorized project path.
 
-Reference counter-examples (names cited for illustration only; the projects
-themselves are not modified):
+Nested historical `.simflow/` directories are reported as migration risks but
+are not moved or deleted automatically.
 
-- `PEE_NEP/` — 95 root entries, 30+ top-level `stage0_*`..`stage18_*`
-  siblings, 10 `stage3_*` siblings doing different things, 12
-  `vasp_label_jobs_*` siblings, stray `.simflow/` roots inside two stage
-  directories, `POTCAR.test` and `*.tar.gz` at the root.
-- `Li-O-B-Si/` — 30 root directories with no stage numbering at all,
-  `NEP_Training_*` overloaded for both dataset-prep and actual runs, bare
-  integers `2050/2100/2118/2120` encoding iteration counts that look like
-  temperatures, 527 MB `DFT_DataSets.zip` at the root.
+## Recommended New-Project Template
 
-## Two-Layer Naming
-
-### Top level — `phaseN_<canonical_stage_name>/`
-
-The top level of a user project uses exactly the six canonical SimFlow
-stages, each prefixed with a fixed phase number:
+For a new project with no established organization, the following phase names
+are a useful template:
 
 ```text
 phase1_literature_review/
@@ -48,250 +30,106 @@ phase5_analysis_visualization/
 phase6_writing/
 ```
 
-Rules:
+Create only the phases that are useful. Fixed phase numbers preserve shared
+vocabulary, but phases are not mandatory workflow transitions. A project may
+also use descriptive directories, an existing lab convention, or an external
+workflow system.
 
-1. **Fixed numbering, no renumbering.** `phase1` is always
-   `literature_review`, `phase4` is always `computation`, and so on. If a
-   project does not perform a stage, that directory is simply absent; the
-   remaining phases keep their canonical numbers. A computation-only
-   project has `phase4_computation/` and `phase6_writing/` — it does not
-   renumber them to `phase1_*` / `phase2_*`.
-2. **Only create a phase directory when the work is actually being done.**
-   Do not pre-create empty phase skeletons.
-3. **No bare `stageN_*` at the top level.** The `stageN_*` form is the
-   second-layer name and must live inside a `phaseN_*` directory. A
-   top-level `stage3_aimd/` is a violation; it must be
-   `phase4_computation/stage3_aimd/`.
-4. **No descriptive-only top-level experiment directories.** A top-level
-   `NEP_Training_LBS_Transport_DFT_2120/` is a violation; it must live
-   under `phase4_computation/stageN_*/`.
+Inside a phase, `stageN_<descriptor>/` can be useful for ordered activities,
+but it is optional. Existing bare `stage*` directories, method names, material
+names, or campaign folders remain valid. SimFlow must not rename them merely to
+match the template.
 
-### Second level — `stageN_<snake_case_descriptor>/`
+Shared directories such as `scripts/`, `reference/`, `config/`, `tests/`,
+`docs/`, `archives/`, and `scratch/` are recommendations, not a root allowlist.
+Do not pre-create empty trees or require fixed README, manifest, status, or
+protocol filenames before work can proceed.
 
-Inside a phase, sub-activities use a locally numbered stage name:
+## Existing-Layout-First Resolution
 
-```text
-phase4_computation/
-├── stage1_initial_models/
-├── stage2_vasp_relax/
-├── stage3_aimd/
-│   ├── 300K/
-│   ├── 500K/
-│   ├── constrained/
-│   └── analysis/
-├── stage4_dft_labels/
-│   ├── round01_nepv3_neptrainkit/
-│   └── round02_nepv4_active/
-└── stage5_mlp_training/
-    └── nepv5/
-        ├── dataset_prep/
-        ├── run_step1_from_scratch/
-        └── run_step2_finetune/
-```
+Before suggesting a location, inspect:
 
-Rules:
+- current directories and naming conventions;
+- script-relative paths and scheduler working directories;
+- existing `analysis/`, `results/`, README, and workflow indexes;
+- the actual set of inputs consumed by the new work.
 
-1. **Numbering is local to the parent phase.** `phase3_modeling/stage1_*`
-   and `phase4_computation/stage1_*` are independent number spaces.
-2. **One `stageN_*` equals one logical sub-activity.** Do not split a
-   single activity into many same-prefixed siblings. The `PEE_NEP`
-   pattern of `stage3_aimd`, `stage3_500K`, `stage3_700K`,
-   `stage3_constrained`, `stage3_npt_i`, `stage3_cutoff_convergence`,
-   `stage3_aimd_analysis` all sitting at the same level is a violation:
-   temperature and method variants belong as subdirectories of one
-   `stage3_aimd/`.
-3. **Stage numbers are contiguous.** Do not leave gaps. If a stage is
-   abandoned, renumber the later siblings or collapse the abandoned one
-   into a sibling subdirectory.
-4. **Prep and run must be separate directories.** If a stage produces both
-   a dataset and a run on that dataset, the same `stageN_*` directory
-   may hold a `dataset_prep/` subdirectory and `run_step1/`,
-   `run_step2/` subdirectories. The `Li-O-B-Si` pattern of
-   `NEP_Training_LBS_Transport_DFT_2050/` (prep) sitting next to
-   `NEP_Training_LBS_Transport_DFT_2050_Training/` (run) with the same
-   prefix overloaded for both is a violation.
-5. **Iteration uses `vN_<desc>_<YYYYMMDD>/`, not bare integers.** The
-   `Li-O-B-Si` pattern of `2050`, `2100`, `2118`, `2120` as directory
-   names is a violation: those look like temperatures or years and the
-   `2118` one is internally rounded to 1920. Use
-   `v1_2050frames_20260722/`, `v2_2120frames_20260723/`.
-6. **NEP / MLP version names are lowercase with underscores.** Use
-   `nepv1`, `nepv2`, `nepv3`, `nepv3p5`, `nepv3p6_lafix`, `nepv4`,
-   `nepv5`. Do not mix `NEPv1`, `nep89_reeohcl`, `NEPv3p6_LaFix`,
-   `nep89_20250409` capitalizations in the same tree.
+Prefer an existing equivalent directory name. Do not move, rename, duplicate,
+or replace existing files unless the user explicitly approves a migration.
+Layout diagnostics are advisory reports only.
 
 ## Analysis Placement
 
-Analysis output placement depends on its scope:
+Analysis placement balances physical provenance with discoverability. Determine
+the inputs first, then choose their nearest meaningful scientific scope.
 
-- **Single-stage analysis** — nest it inside the source stage as
-  `analysis/`. The `PEE_NEP` pattern of `stage3_aimd_analysis/` sitting
-  as a sibling next to `stage3_aimd/`, while
-  `stage3_aimd_400k_from_sm_final/analysis/` is nested, is a violation.
-  Pick the nested form; do not use the `_analysis` suffix to make a
-  sibling.
-- **Cross-stage analysis** — place it under
-  `phase5_analysis_visualization/stageN_<topic>/`. For example, a
-  comparison of NEPv2 vs NEPv3 model similarity belongs at
-  `phase5_analysis_visualization/stage1_nep_version_similarity/`, not at
-  the project root as `nepv2_nepv3_similarity_pca_analysis/`.
+1. **One calculation unit:** use that unit's existing `analysis/`, `results/`,
+   or equivalent directory.
+2. **Multiple runs or cases in one stage:** use one stage-level analysis entry;
+   do not create a user-facing `analysis/` under every run.
+3. **Multiple stages in one phase:** use a phase-level analysis entry such as
+   `phase4_computation/analysis/<topic>/`.
+4. **Cross-phase but not project-level work:** use the nearest meaningful common
+   parent. Do not promote it to phase 5 automatically.
+5. **Project-level synthesis:** only analysis supporting project-wide or paper
+   conclusions belongs physically in `phase5_analysis_visualization/`.
 
-## Stage Run-Directory Contract
+Technical containers such as `runs/`, `cases/`, `outputs/`, `raw/`, and `data/`
+are not automatically scientific scopes.
 
-Every `stageN_*` directory that runs a calculation should contain at
-minimum:
+## Shallow Analysis Entry
 
-```text
-stageN_xxx/
-├── README.md                  # what this stage does
-├── protocol.json              # parameters
-├── input_manifest.tsv         # input listing
-├── output_check_summary.tsv   # output verification
-├── run_status.tsv             # per-case run status
-├── run_serial.sh              # driver script (generic ones live in scripts/submit/)
-└── static_validation.json     # static validation
-```
+One authoritative location does not require the user to search deep trees.
+For analysis that SimFlow creates or takes responsibility for maintaining:
 
-Task-specific scripts stay with the calculation. Reusable submit scripts
-belong under `scripts/submit/` (see `docs/user_guide.md`).
+- place a `README.md` or existing equivalent index at the analysis scope root;
+- link the purpose, consumed inputs, current conclusion, main report, key
+  figures, and key tables directly from that entry;
+- keep the main report at the root or one level below it;
+- place per-case tables, caches, arrays, and debug output under `details/` or
+  `work/`;
+- keep reusable scripts under the project's existing analysis-script location;
+- use relative Markdown links for project navigation;
+- never copy results or add cross-platform-fragile symlinks to create a second
+  apparent source of truth.
 
-## Cross-Stage Shared Directories
+When a phase-5 directory exists, its README may link local stage/phase analyses
+without moving them. For projects without a suitable root index, the fallback
+navigation file is `.simflow/reports/analysis_index.md`.
 
-The following live at the project root and are shared across phases. They
-are not numbered:
+## REE Force-Field Example
 
-```text
-scripts/        # cross-stage shared scripts; submit/ is the reusable submit-script library
-reference/      # reference papers, author baseline models, external structures
-config/         # cross-stage shared input templates (vasp/, cp2k/, packmol/, ...)
-templates/      # cross-stage shared structure templates
-tests/          # the single test location; do not duplicate test_*.py under scripts/
-docs/           # project documentation (README, workflow.md, conventions)
-archives/       # all .zip / .tar.gz / physical backups / quarantined failed experiments
-legacy/         # author legacy files preserved for reference
-scratch/        # all temp_* / experimental directories consolidated
-```
+For a stage containing both `analysis/stage0_results/report.md` and
+`tests_2ns/analysis/report.md`, the immediate problem is fragmented navigation,
+not the existence of local analysis.
 
-Rules:
-
-1. `scripts/` is the single shared script directory. If a project already
-   uses `tools/` for the same purpose, pick one and collapse the other;
-   do not maintain both.
-2. `tests/` is the single test location. The `PEE_NEP` pattern of 42
-   `test_*.py` under `tests/` plus 14 more under `scripts/` is a
-   violation.
-3. `archives/` holds all backups and tarballs. Timestamped backups use
-   `archives/YYYYMMDD_<short_desc>/`. Quarantined failed experiments use
-   `archives/quarantined_YYYYMMDD_<desc>/`. The `PEE_NEP` pattern of
-   `stage3_npt_i.local_before_remote_sync_20260513_113230/` sitting next
-   to the live `stage3_npt_i/` is a violation.
-
-## Root File Allowlist
-
-The project root may contain only:
-
-- `README.md`, `workflow.md`, `.gitignore`
-- `.git/`, `.simflow/`
-- The six `phaseN_*` directories (only those in active use)
-- The nine shared directories listed above
-
-The following are **forbidden** at the project root (real
-counter-examples from the inspected projects):
-
-- Pseudopotential / potential files: `POTCAR.test`
-- Archives: `*.tar.gz`, `*.zip` (527 MB `DFT_DataSets.zip`)
-- Frozen models: `*.pb`, `*.xyz` bulk reference structures
-  (`reference-structures-LiLaZrO-PBEsol.xyz` — a 40 MB file belonging to
-  a different material system)
-- Process state: `train.pid`
-- Scripts: `*.py`, `*.sh` (`vasp_convergence_analysis.py`,
-  `submit_vasp_label_jobs_slurm.sh`)
-- Logs and status: `*.log`, `*.tsv`, `*.stdout`, `*.stderr`,
-  `status.tsv`, `driver.*`
-- Backups: `*.bak.*`, `workflow.md.bak_*`
-- Planning docs that belong in `docs/`:
-  `stage3_hpc_submit_plan_*.md`
-
-All of these belong inside the relevant `stageN_*` directory, or under
-`scripts/`, `docs/`, `archives/`, or `legacy/` as appropriate.
-
-A licensed VASP `POTCAR` is permitted only inside the relevant
-`phase4_computation/stageN_*/` calculation directory for real execution. It is
-still forbidden at project root, under `.simflow`, in Git, and in distributable
-packages.
-
-## Relationship With `.simflow/`
-
-1. **`.simflow/` is the only workflow state root.** It lives at
-   `project_root` and nowhere else. A `phaseN_*/stageN_*/.simflow/` or
-   any nested `.simflow/` is a violation of `AGENTS.md` State Boundary.
-   The `PEE_NEP` pattern of `stage14_*/.simflow/` and
-   `stage15_*/.simflow/` is a violation.
-2. **`stages.json` should record the on-disk path** of each stage as
-   `phaseN_<canonical>/stageN_<descriptor>` so that state and disk stay
-   1:1.
-3. **`.simflow/artifacts/<stage>/` uses the canonical stage name
-   allowlist only:** `literature_review/`, `proposal/`, `modeling/`,
-   `computation/`, `analysis_visualization/`, `writing/`, `figures/`,
-   `security/`. The duplicated non-canonical names `compute/`,
-   `analysis/`, `literature/`, `models/` are forbidden. Both inspected
-   projects had these duplicate empty directories.
-4. **Real product files stay in their source `stageN_*` directory.**
-   `.simflow/artifacts/<stage>/` is for lightweight metadata snapshots
-   and deliverables that must be detached from the source tree — not a
-   second copy of every output. Reference outputs through
-   `artifacts.json` `path` fields.
-5. **Gate markers live in `.simflow/state/gates.json`.** Scattered
-   `APPROVE_*` files inside `stageN_*` directories are a violation. The
-   `PEE_NEP` pattern of `APPROVE_MACE_PRODUCTION` inside `stage14_*`
-   and `APPROVE_STAGE17_GPU_EXECUTION` inside `stage17_*` is a
-   violation.
-
-## Minimal Project Example
-
-A computation-heavy project that skips literature review and proposal:
+The non-destructive recommendation is:
 
 ```text
-my_project/
-├── .simflow/
-├── .git/
-├── phase3_modeling/
-│   └── stage1_initial_models/
-│       └── La/  Ce/  ...  Lu/
-├── phase4_computation/
-│   ├── stage1_vasp_relax/
-│   ├── stage2_aimd/
-│   │   ├── 300K/
-│   │   ├── 500K/
-│   │   └── analysis/
-│   ├── stage3_mlp_training/
-│   │   └── nepv5/
-│   │       ├── dataset_prep/
-│   │       │   └── v1_2050frames_20260722/
-│   │       ├── run_step1_from_scratch/
-│   │       └── run_step2_finetune/
-│   └── stage4_mlp_md_validation/
-├── phase5_analysis_visualization/
-│   └── stage1_nep_version_similarity/
-├── phase6_writing/
-├── scripts/
-│   └── submit/
-├── reference/
-├── config/
-├── tests/
-├── docs/
-├── archives/
+stage1_force_field_validation/
 ├── README.md
-├── workflow.md
-└── .gitignore
+├── analysis/
+│   ├── README.md        # links stage0, 2 ns, and future comparisons
+│   ├── figures/
+│   ├── tables/
+│   └── details/
+├── runs/
+└── tests_2ns/           # existing inputs and outputs remain in place
 ```
 
-Note `phase1_literature_review/` and `phase2_proposal/` are absent (work
-not performed) and the remaining phases keep their canonical numbers.
+The stage analysis README identifies the recommended main result. A phase-5
+README may link it, while phase 5 contains only genuine project-level synthesis.
+Moving existing reports is a separate, user-approved migration after checking
+all relative references.
 
-## Advisory Use
+## Runtime Helper
 
-This layout is a recommended template for new projects, not a runtime
-requirement. SimFlow should respect an existing project layout and may report
-non-blocking organization suggestions when the user asks for them. Directory
-shape must not block scientific work or force an automatic migration.
+`runtime.simflow_core.layout` provides read-only advisory functions:
+
+- `inspect_layout(project_root)` describes the existing shape and migration
+  signals without writing;
+- `recommend_analysis_location(project_root, input_paths, ...)` returns one
+  authoritative location plus shallow navigation targets.
+
+The helper never creates directories, changes state, copies results, or blocks
+work.
