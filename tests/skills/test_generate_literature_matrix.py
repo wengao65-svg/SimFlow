@@ -62,6 +62,7 @@ def test_generate_literature_matrix_writes_json_csv_and_registry_entries():
         assert search_log["source_policy"] == "user_provided_or_agent_selected_sources"
         assert search_log["provider_constraints"] == "none_fixed_by_simflow"
         assert search_log["sources"][0]["access_status"] == "full_text_provided_by_user"
+        assert search_log["sources"][0]["evidence_level"] == "full_text_available"
         assert matrix["source_counts"] == {"pdf": 1, "bibtex": 1, "doi": 1, "note": 1}
         assert matrix["row_count"] == 4
         assert matrix["rows"][0]["source_type"] == "pdf"
@@ -69,6 +70,10 @@ def test_generate_literature_matrix_writes_json_csv_and_registry_entries():
         assert matrix["rows"][2]["locator"] == "10.1000/alpha"
         assert matrix["rows"][3]["notes"] == "Focus on dimer buckling evidence"
         assert citation_map["entries"][2]["locator"] == "10.1000/alpha"
+        assert citation_map["entries"][0]["evidence_level"] == "full_text_available"
+        assert citation_map["entries"][1]["evidence_level"] == "metadata_only"
+        assert citation_map["entries"][2]["evidence_level"] == "metadata_only"
+        assert citation_map["entries"][3]["evidence_level"] == "not_scholarly_evidence"
         assert {
             "search_log.json",
             "literature_matrix.json",
@@ -162,11 +167,7 @@ def test_generate_literature_matrix_ignores_legacy_metadata_file():
 
 
 def test_generate_literature_matrix_degrades_when_enrichment_backend_is_unknown():
-    """Unknown backend falls back to mock (returns mock_unverified data).
-
-    After P0.3, _get_connector falls back to MockLiteratureConnector for
-    unknown backends, returning data tagged with status='mock_unverified'.
-    """
+    """Unknown backends fail closed instead of injecting mock metadata."""
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         pdf_path = project_root / "papers" / "surface.pdf"
@@ -189,10 +190,10 @@ def test_generate_literature_matrix_degrades_when_enrichment_backend_is_unknown(
 
         assert result["status"] == "success"
         assert matrix["enrichment"]["backend"] == "unknown"
-        # Mock fallback returns data (enriched=1) but tagged as mock_unverified
-        assert matrix["enrichment"]["enriched"] == 1
-        assert matrix["enrichment"]["failed"] == 0
-        assert doi_row["title"] == "First-principles study of silicon crystal structure"
+        assert matrix["enrichment"]["enriched"] == 0
+        assert matrix["enrichment"]["failed"] == 1
+        assert matrix["enrichment"]["errors"] == ["Unknown backend: unknown"]
+        assert doi_row["title"] == ""
 
 
 

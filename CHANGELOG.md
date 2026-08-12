@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Marked the active source tree as development version `1.2.0-dev.0`.
+- Replaced the single literature-backend fallback with coordinated OpenAlex,
+  Crossref, arXiv, and Semantic Scholar search and metadata observations.
+- Added conservative paper identity, deduplication, DOI/title metadata checks,
+  citation references/cited-by snowballing, and structured provider failures.
+- Added local PDF/BibTeX corpus-first intake, legal OA/full-text candidates, and
+  explicit metadata/full-text/claim evidence boundaries.
+- Removed automatic mock fallback for unknown or failing literature backends;
+  mock data remains available only when explicitly requested for tests.
+
 ## v1.1.1 (2026-08-12) — Experiment memory ontology boundary
 
 - Removed the unused legacy workflow notification policy and message templates;

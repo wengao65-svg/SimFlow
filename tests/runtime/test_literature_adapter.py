@@ -1,6 +1,6 @@
 """Tests for the optional runtime literature enrichment adapter."""
 
-from runtime.simflow_core.literature import enrich_research_sources
+from runtime.simflow_core.literature import enrich_research_sources, search_literature
 
 
 def test_enrich_research_sources_uses_mock_backend_for_doi_items():
@@ -36,9 +36,16 @@ def test_enrich_research_sources_degrades_for_unknown_backend():
     assert result["backend"] == "unknown"
     assert result["enabled"] is True
     assert result["attempted"] == 1
-    assert result["enriched"] == 1
-    assert result["failed"] == 0
-    assert result["errors"] == []
-    meta = result["metadata_by_source"]["src_doi_001"]
-    assert meta["status"] == "mock_unverified"
-    assert meta["usable_as_evidence"] is False
+    assert result["enriched"] == 0
+    assert result["failed"] == 1
+    assert result["metadata_by_source"] == {}
+    assert result["errors"] == ["Unknown backend: unknown"]
+
+
+def test_search_literature_rejects_unknown_backend_without_mock_data():
+    result = search_literature("silicon", backend="unknown")
+
+    assert result["status"] == "error"
+    assert result["papers"] == []
+    assert result["errors"][0]["provider"] == "unknown"
+    assert "Unknown backend" in result["errors"][0]["error"]

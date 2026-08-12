@@ -75,6 +75,18 @@ def _access_status(item: dict) -> str:
     return "unknown"
 
 
+def _evidence_level(item: dict) -> str:
+    """Map source availability to the highest evidence boundary actually reached."""
+    source_type = item.get("type")
+    if source_type == "pdf":
+        return "full_text_available"
+    if source_type in {"doi", "bibtex"}:
+        return "metadata_only"
+    if source_type == "note":
+        return "not_scholarly_evidence"
+    return "unknown"
+
+
 def _safe_note_name(source_id: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", source_id or "source").strip("_")
     return f"{safe or 'source'}.md"
@@ -104,6 +116,7 @@ def build_search_log(research_sources: dict, metadata: dict, enrichment: dict) -
                 "label": item.get("label", ""),
                 "locator": _source_locator(item),
                 "access_status": _access_status(item),
+                "evidence_level": _evidence_level(item),
                 "selection_reason": "seed_source_from_user_or_agent_intake",
             }
             for item in research_sources.get("items", [])
@@ -171,6 +184,7 @@ def build_screening_record(matrix: dict) -> dict:
 def build_citation_map(matrix: dict, search_log: dict) -> dict:
     """Build citation metadata and access-status map."""
     access_by_source = {item.get("source_id"): item.get("access_status") for item in search_log.get("sources", [])}
+    evidence_by_source = {item.get("source_id"): item.get("evidence_level") for item in search_log.get("sources", [])}
     entries = []
     for row in matrix.get("rows", []):
         title = row.get("title") or row.get("label") or row.get("source_id")
@@ -185,6 +199,7 @@ def build_citation_map(matrix: dict, search_log: dict) -> dict:
             "journal": row.get("journal"),
             "url": row.get("url"),
             "access_status": access_by_source.get(row.get("source_id"), "unknown"),
+            "evidence_level": evidence_by_source.get(row.get("source_id"), "unknown"),
             "verification_status": "enriched_metadata" if row.get("title") else "needs_citation_verification",
         })
     return {

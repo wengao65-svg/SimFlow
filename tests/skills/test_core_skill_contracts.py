@@ -229,6 +229,32 @@ def test_research_task_skills_match_pure_skill_validator_sections():
             assert section in text, f"{skill_name} missing {section}"
 
 
+def test_literature_review_uses_progressive_disclosure_and_evidence_boundaries():
+    skill_dir = SKILLS / "simflow-literature-review"
+    text = _skill_text("simflow-literature-review")
+    normalized = " ".join(text.split())
+    references = [
+        "discovery-and-verification.md",
+        "evidence-and-full-text.md",
+    ]
+
+    assert "Screen usable local PDF, BibTeX, Zotero" in text
+    assert "first successful backend" in text
+    assert "full text was inspected" in text
+    assert "does not require helper use or own runtime state" in normalized
+    for reference in references:
+        assert f"references/{reference}" in text
+        assert (skill_dir / "references" / reference).is_file()
+
+    evidence = (skill_dir / "references" / "evidence-and-full-text.md").read_text(encoding="utf-8")
+    assert "metadata_only" in evidence
+    assert "full_text_available" in evidence
+    assert "full_text_inspected" in evidence
+    assert "claim_verified" in evidence
+    assert "Sci-Hub" in evidence
+    assert "LibGen" in evidence
+
+
 def test_engine_skills_do_not_default_unknown_tasks_to_common_aliases():
     vasp_text = _normalized_skill_text("simflow-vasp")
     cp2k_text = _normalized_skill_text("simflow-cp2k")

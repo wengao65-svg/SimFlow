@@ -5,8 +5,9 @@
 1. **Host-managed storage**: SSH credentials remain in OpenSSH or a host-managed agent
 2. **Never write credentials**: Not to records, reports, checkpoints, scripts, or logs
 3. **Never expose in errors**: Credential values never appear in error messages
-4. **Graceful fallback**: Missing optional credentials use an open connector or
-   a clearly marked unverified fallback; they never fabricate verified evidence
+4. **Graceful degradation**: Missing optional credentials leave open providers
+   available and surface provider-specific failures; they never inject mock or
+   fabricated metadata into automatic results
 5. **Sanitize logs**: `sanitize_for_logging()` strips potential tokens from output
 
 ## Supported Credentials
@@ -14,6 +15,9 @@
 | Environment Variable | Service | Required | Purpose |
 |---------------------|---------|----------|---------|
 | `S2_API_KEY` | Semantic Scholar | No | Literature search |
+| `OPENALEX_API_KEY` | OpenAlex | No | Higher API limits |
+| `SIMFLOW_OPENALEX_EMAIL` | OpenAlex | No | Polite API contact identity |
+| `SIMFLOW_CROSSREF_EMAIL` | Crossref | No | Polite API contact identity |
 | `SIMFLOW_VASP_POTCAR_PATH` | User-owned VASP library | No | Controlled local POTCAR materialization |
 | `SIMFLOW_VASP_POTCAR_FLAVOR` | VASP dataset selection | No | Functional family such as PBE or LDA |
 
@@ -21,9 +25,10 @@
 
 | Service | With Credentials | Without Credentials |
 |---------|-----------------|---------------------|
-| Semantic Scholar | Live API queries | OpenAlex; mock only as `mock_unverified` degraded fallback |
+| Semantic Scholar | Higher-rate authenticated queries | Unauthenticated query is attempted and any failure is reported alongside other providers |
+| OpenAlex | Optional polite contact identity | Public API remains available within current service limits |
 | arXiv | Always available | Public API, no key needed |
-| Crossref | Always available | Public API, no key needed |
+| Crossref | Optional polite contact identity | Public API remains available within current service limits |
 | SSH HPC | Host OpenSSH/agent authenticates approved broker operations | Remote operations fail closed |
 | SLURM/PBS | Approved immutable plan may be submitted | Planning and script validation remain available |
 | Local execution | Approved immutable plan may be executed | Unapproved execution remains blocked |
@@ -33,6 +38,8 @@
 ```bash
 # In shell profile (~/.bashrc, ~/.zshrc)
 export S2_API_KEY="your-api-key-here"
+export SIMFLOW_OPENALEX_EMAIL="researcher@example.edu"
+export SIMFLOW_CROSSREF_EMAIL="researcher@example.edu"
 
 # A host may load an untracked .env before starting the plugin.
 # SimFlow itself reads credentials only from the process environment.
