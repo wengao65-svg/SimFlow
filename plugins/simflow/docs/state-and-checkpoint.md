@@ -46,34 +46,39 @@ One Experiment represents one scientific question. Parameter axes such as
 temperature, element, seed, retry, and resume belong to Attempts unless they
 change the question or acceptance criteria.
 
-Notebook entry types are `experiment`, `attempt`, `observation`, `decision`,
-`material_action`, and `recovery`. Notebook files own scientific semantics;
-actual project files own exact evidence. A path/hash reference identifies
-evidence content but does not establish completion, convergence, or scientific
-validity.
+Notebook entry types are limited to `experiment`, `attempt`, `observation`, and
+`decision`. This is the Experiment Memory v1 ontology ceiling: Experiment is
+the question, Attempt is a scientific strategy, Observation is what was seen,
+and Decision is what follows. Notebook files own scientific semantics; actual
+project files own exact evidence. A path/hash reference identifies evidence
+content but does not establish completion, convergence, or scientific validity.
 
 The public `record` input uses a discriminated contract. Existing operational
 calls keep the operational `kind` schema. `channel="experiment"` uses a separate
 `entry_type` schema and cannot fall back to operational kinds or a generic note.
 
-Material actions are limited to persistent operations that change the evidence
-set or recoverability, such as deletion, filtering, deduplication, overwrite,
-truncation, persistent movement, or replacement of a dataset. Ordinary
-scientific parameter changes are Attempt or Decision entries, not paired
-material actions.
+An Attempt is not a Run. One Attempt may reference multiple training,
+validation, retry, or resume Runs. Operational execution does not create an
+Attempt.
 
 ## Logical Records
 
 Operational record kinds are:
 
 ```text
-milestone  run  artifact  analysis  approval  failure  note
+milestone  run  artifact  analysis  evidence_change  approval  failure  note
 checkpoint  recovery  migration
 ```
 
 The public `record` tool writes the first seven plus explicit migration
 confirmation. Checkpoint and recovery records are written by their runtime
 operations.
+
+`evidence_change` is one immutable fact event for a completed, partial, or
+failed filter, delete, overwrite, replacement, deduplication, move, or other
+persistent evidence change. It has no planned/open/terminal/reverted or
+recoverability lifecycle. Plans belong to approvals or run plans. A later undo
+is another `evidence_change` linked to the earlier event with `parent_ids`.
 
 One record represents one logical event or deliverable. Related files belong in
 the record's `artifacts` references or a manifest. `parent_ids` express useful

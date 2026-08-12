@@ -74,7 +74,7 @@ _EXPERIMENT_PAYLOAD_SCHEMAS = {
         "properties": {
             "attempt_id": {"type": "string"}, "method": {"type": "string"},
             "parameters": {"type": "object"}, "acceptance_criteria": {"type": ["array", "object", "string"]},
-            "software": {"type": ["string", "object"]}, "status": {"type": "string"},
+            "software": {"type": ["string", "object"]},
             "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
             "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
         },
@@ -83,7 +83,7 @@ _EXPERIMENT_PAYLOAD_SCHEMAS = {
     "observation": {
         "type": "object",
         "properties": {
-            "attempt_id": {"type": "string"}, "status": {"type": "string"},
+            "attempt_id": {"type": "string"},
             "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
             "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
             "uncertainty": {"type": ["string", "object", "array"]},
@@ -93,35 +93,9 @@ _EXPERIMENT_PAYLOAD_SCHEMAS = {
     "decision": {
         "type": "object",
         "properties": {
-            "attempt_id": {"type": "string"}, "status": {"type": "string"},
+            "attempt_id": {"type": "string"},
             "outcome": {"type": ["string", "object"]}, "rationale": {"type": "string"},
             "alternatives": {"type": "array"}, "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
-            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
-        },
-        "additionalProperties": False,
-    },
-    "material_action": {
-        "type": "object",
-        "required": ["status", "operation"],
-        "properties": {
-            "attempt_id": {"type": "string"},
-            "status": {"type": "string", "enum": ["planned", "completed", "partial", "failed", "reverted"]},
-            "operation": {"type": "string", "enum": ["delete", "filter", "deduplicate", "overwrite", "truncate", "move", "replace_dataset", "clean_trajectory", "other_evidence_change"]},
-            "material_action_id": {"type": "string"}, "targets": {"type": "array", "items": {"type": "string"}},
-            "reason": {"type": "string"}, "selection_criteria": {"type": ["string", "object", "array"]},
-            "recoverability": {"type": "string", "enum": ["reversible", "partially_reversible", "irreversible"]},
-            "outcome": {"type": ["string", "object", "array"]}, "actual_scope": {"type": ["string", "object", "array"]},
-            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
-            "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
-        },
-        "additionalProperties": False,
-    },
-    "recovery": {
-        "type": "object",
-        "properties": {
-            "attempt_id": {"type": "string"}, "status": {"type": "string"},
-            "checkpoint_id": {"type": "string"}, "decision": {"type": ["string", "object"]},
-            "evidence": {"type": "array", "items": _PATH_REF_SCHEMA},
             "next_action": {"type": ["string", "object", "array"]}, "details": {"type": "object"},
         },
         "additionalProperties": False,
@@ -130,19 +104,26 @@ _EXPERIMENT_PAYLOAD_SCHEMAS = {
 
 _OPERATIONAL_RECORD_PROPERTIES = {
     "project_root": {"type": "string"}, "channel": {"type": "string", "const": "operational"},
-    "kind": {"type": "string", "enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note", "migration"]},
+    "kind": {"type": "string", "enum": ["milestone", "run", "artifact", "analysis", "evidence_change", "approval", "failure", "note", "migration"]},
     "summary": {"type": "string", "minLength": 1}, "status": {"type": "string"},
     "stage": {"type": "string"}, "run_id": {"type": "string"}, "goal": {"type": "string"},
     "next_action": {"type": ["string", "object", "array"]}, "artifacts": {"type": "array", "items": _PATH_REF_SCHEMA},
     "parent_ids": {"type": "array", "items": {"type": "string"}}, "details": {"type": "object"},
+    "checkpoint_id": {"type": "string"},
     "migration_report_hash": {"type": "string"}, "confirm_migration": {"type": "boolean", "default": False},
     "experiment_id": {"type": "string"}, "attempt_id": {"type": "string"}, "idempotency_key": {"type": "string"},
+    "operation": {"type": "string", "enum": ["filter", "delete", "overwrite", "replace", "deduplicate", "move", "other"]},
+    "targets": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "before_refs": {"type": "array", "items": _PATH_REF_SCHEMA},
+    "after_refs": {"type": "array", "items": _PATH_REF_SCHEMA},
+    "outcome": {"type": "string", "enum": ["completed", "partial", "failed"]},
+    "approval_id": {"type": "string"},
 }
 
 _EXPERIMENT_RECORD_PROPERTIES = {
     "project_root": {"type": "string"}, "channel": {"type": "string", "const": "experiment"},
     "entry_type": {"type": "string", "enum": list(_EXPERIMENT_PAYLOAD_SCHEMAS)},
-    "action": {"type": "string", "minLength": 1}, "summary": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
     "experiment_id": {"type": "string", "pattern": "^exp_[0-9a-f]{12}$"},
     "parent_entry_ids": {"type": "array", "items": {"type": "string"}},
     "runtime_record_ids": {"type": "array", "items": {"type": "string"}},
@@ -152,7 +133,7 @@ _EXPERIMENT_RECORD_PROPERTIES = {
 
 _EXPERIMENT_RECORD_VARIANTS = [
     {
-        "required": ["project_root", "channel", "entry_type", "action", "summary", "payload"],
+        "required": ["project_root", "channel", "entry_type", "summary", "payload"],
         "properties": {
             "channel": {"const": "experiment"},
             "entry_type": {"const": entry_type},
@@ -171,7 +152,7 @@ TOOL_SCHEMAS = {
             "kind": {
                 "type": "string",
                 "enum": [
-                    "milestone", "run", "artifact", "analysis", "approval",
+                    "milestone", "run", "artifact", "analysis", "evidence_change", "approval",
                     "failure", "note", "checkpoint", "recovery", "migration",
                 ],
             },
@@ -192,7 +173,34 @@ TOOL_SCHEMAS = {
         "type": "object",
         "properties": {**_OPERATIONAL_RECORD_PROPERTIES, **_EXPERIMENT_RECORD_PROPERTIES},
         "oneOf": [
-            {"required": ["project_root", "kind", "summary"], "properties": {"channel": {"enum": ["operational"]}}},
+            {
+                "required": ["project_root", "kind", "summary"],
+                "properties": {
+                    "channel": {"enum": ["operational"]},
+                    "kind": {"enum": ["milestone", "run", "artifact", "analysis", "approval", "failure", "note", "migration"]},
+                    "operation": False,
+                    "targets": False,
+                    "before_refs": False,
+                    "after_refs": False,
+                    "outcome": False,
+                    "approval_id": False,
+                },
+            },
+            {
+                "required": ["project_root", "kind", "summary", "operation", "targets", "outcome"],
+                "properties": {
+                    "channel": {"enum": ["operational"]},
+                    "kind": {"const": "evidence_change"},
+                    "status": False,
+                    "stage": False,
+                    "run_id": False,
+                    "goal": False,
+                    "next_action": False,
+                    "artifacts": False,
+                    "details": False,
+                    "checkpoint_id": False,
+                },
+            },
             *_EXPERIMENT_RECORD_VARIANTS,
         ],
         "additionalProperties": False,

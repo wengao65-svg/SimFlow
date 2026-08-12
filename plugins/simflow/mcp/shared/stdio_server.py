@@ -12,6 +12,7 @@ from runtime.simflow_core.host_adaptation import build_initialize_instructions
 
 
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
+SERVER_NOT_INITIALIZED = -32002
 
 
 def _json_text(data: dict) -> str:
@@ -103,6 +104,9 @@ def run_mcp_server(
     resources/list and prompts/list responses.
     """
 
+    initialize_received = False
+    initialized = False
+
     for line in sys.stdin:
         raw = line.strip()
         if not raw:
@@ -133,23 +137,28 @@ def run_mcp_server(
             _write(legacy_result)
             continue
 
-        request_id = request.get("id") if isinstance(request, dict) else None
+        has_request_id = isinstance(request, dict) and "id" in request
+        request_id = request.get("id") if has_request_id else None
         method = request.get("method") if isinstance(request, dict) else None
         params = request.get("params", {}) if isinstance(request, dict) else {}
 
-        # Notifications have no id and must not receive a response.
-        if request_id is None and isinstance(method, str) and method.startswith("notifications/"):
+        # Legacy MCP notifications have no id and must not receive a response.
+        if not has_request_id and method == "notifications/initialized":
+            if initialize_received:
+                initialized = True
+            continue
+        if not has_request_id and isinstance(method, str):
             continue
 
         try:
             if method == "initialize":
-                client_version = None
                 client_info = None
                 if isinstance(params, dict):
-                    client_version = params.get("protocolVersion")
                     client_info = params.get("clientInfo")
+                initialize_received = True
+                initialized = False
                 result = {
-                    "protocolVersion": client_version or DEFAULT_PROTOCOL_VERSION,
+                    "protocolVersion": DEFAULT_PROTOCOL_VERSION,
                     "capabilities": {"tools": {"listChanged": False}},
                     "serverInfo": {"name": server_name, "version": version},
                 }
@@ -167,6 +176,12 @@ def run_mcp_server(
             elif method == "shutdown":
                 _write(_success_response(request_id, {}))
                 break
+            elif not initialized:
+                _write(_error_response(
+                    request_id,
+                    SERVER_NOT_INITIALIZED,
+                    "Server not initialized: send notifications/initialized after initialize",
+                ))
             elif method == "tools/list":
                 _write(_success_response(request_id, {"tools": _list_tools(tools, descriptions, schemas)}))
             elif method == "tools/call":

@@ -31,6 +31,7 @@ from runtime.simflow_core.records import record_event
 from runtime.simflow_core.run_bindings import (
     bind_run_plan,
     find_job_run_plan_hash,
+    find_job_run_id,
     get_run_plan_binding,
     latest_job_status,
 )
@@ -255,7 +256,7 @@ def handle_status(params: dict) -> dict:
         summary=f"Scheduler job {job_id} is {normalized}",
         status=normalized,
         stage="computation",
-        run_id=binding.get("attempt_id") or f"{scheduler}_{job_id}",
+        run_id=find_job_run_id(project_root, str(job_id)) or f"{scheduler}_{job_id}",
         experiment_id=binding.get("experiment_id"),
         attempt_id=binding.get("attempt_id"),
         details={

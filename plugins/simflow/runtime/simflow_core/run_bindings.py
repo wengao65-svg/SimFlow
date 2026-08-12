@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
-from .experiment_notebook import experiment_notebook_path
+from .experiment_notebook import experiment_notebook_path, get_attempt_entry
 from .records import list_project_records, record_event
 from .state import resolve_project_root
-
-
-def _attempt_id() -> str:
-    return f"att_{uuid.uuid4().hex[:12]}"
 
 
 def get_run_plan_binding(project_root: str, run_plan_hash: str) -> dict[str, Any] | None:
@@ -48,17 +43,13 @@ def bind_run_plan(
     """Record a plan once and append a correction when only its research binding changes."""
     root = resolve_project_root(project_root=project_root)
     if attempt_id and not experiment_id:
-        raise ValueError("attempt_id requires experiment_id")
+        raise ValueError("HPC binding requires experiment_id with attempt_id")
     if experiment_id and not experiment_notebook_path(str(root), experiment_id).is_file():
         raise ValueError(f"Unknown experiment_id for run plan binding: {experiment_id}")
+    if attempt_id and get_attempt_entry(str(root), experiment_id, attempt_id) is None:
+        raise ValueError(f"Unknown attempt_id for Experiment {experiment_id}: {attempt_id}")
 
     current = get_run_plan_binding(str(root), run_plan_hash)
-    if experiment_id and not attempt_id:
-        if current and current.get("experiment_id") == experiment_id and current.get("attempt_id"):
-            attempt_id = current["attempt_id"]
-        else:
-            attempt_id = _attempt_id()
-
     desired = {"experiment_id": experiment_id, "attempt_id": attempt_id}
     if current is None:
         record = record_event(
@@ -67,7 +58,6 @@ def bind_run_plan(
             summary="Immutable HPC run plan prepared" if submit_ready else "HPC run plan validation failed",
             status="prepared" if submit_ready else "failed",
             stage="computation",
-            run_id=attempt_id or f"plan_{run_plan_hash[:12]}",
             experiment_id=experiment_id,
             attempt_id=attempt_id,
             idempotency_key=f"hpc-plan:{run_plan_hash}",
@@ -98,7 +88,6 @@ def bind_run_plan(
         summary="Correct immutable run-plan research binding",
         status="prepared" if submit_ready else "failed",
         stage="computation",
-        run_id=attempt_id or f"plan_{run_plan_hash[:12]}",
         experiment_id=experiment_id,
         attempt_id=attempt_id,
         idempotency_key=f"hpc-binding:{run_plan_hash}:{experiment_id}:{attempt_id}",
@@ -123,6 +112,16 @@ def find_job_run_plan_hash(project_root: str, job_id: str) -> str | None:
     return None
 
 
+def find_job_run_id(project_root: str, job_id: str) -> str | None:
+    """Find the independent operational run identifier for a scheduler job."""
+    root = resolve_project_root(project_root=project_root)
+    for record in reversed(list_project_records(str(root), kind="run")):
+        details = record.get("details") if isinstance(record.get("details"), dict) else {}
+        if str(details.get("job_id", "")) == str(job_id) and record.get("run_id"):
+            return str(record["run_id"])
+    return None
+
+
 def latest_job_status(project_root: str, job_id: str) -> str | None:
     """Return the latest recorded status for one scheduler job."""
     root = resolve_project_root(project_root=project_root)
@@ -131,4 +130,3 @@ def latest_job_status(project_root: str, job_id: str) -> str | None:
         if str(details.get("job_id", "")) == str(job_id):
             return record.get("status")
     return None
-
