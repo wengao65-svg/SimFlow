@@ -56,6 +56,7 @@ class TestState:
         ]:
             assert path.exists()
         assert not (sf / "artifacts").exists()
+        assert not (sf / "extensions").exists()
         assert not (sf / "metadata.json").exists()
         assert not (sf / "workflow_state.json").exists()
 
@@ -83,6 +84,7 @@ class TestState:
         ]:
             assert path.exists()
         assert not (sf / "artifacts").exists()
+        assert not (sf / "extensions").exists()
         assert read_state(self.base_dir, "stages.json") == {}
         assert read_state(self.base_dir, "artifacts.json") == []
         assert read_state(self.base_dir, "checkpoints.json") == []

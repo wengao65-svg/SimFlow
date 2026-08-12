@@ -78,7 +78,7 @@ def test_load_gate():
     assert gate["conditions"][0]["id"] == "dry_run_passed"
     assert gate["conditions"][0]["evidence"] == "compute/dry_run_report.json"
     assert gate["conditions"][-1]["id"] == "approval_present"
-    assert "submit_job" in gate["actions_on_approve"]
+    assert gate["actions_on_approve"] == []
     assert gate["auto_approve"] is False
     print("  load_gate OK")
 
@@ -267,7 +267,7 @@ def test_check_gate_pass():
     assert result["status"] == "pass"
     assert result["gate"] == "convergence_failure"
     assert "actions_on_approve" in result
-    assert "accept_with_warning" in result["actions_on_approve"]
+    assert "record_convergence_exception_review" in result["actions_on_approve"]
     print("  check_gate_pass OK")
 
 
@@ -281,9 +281,10 @@ def test_check_gate_block():
     }
     result = check_gate("hpc_submit", context)
     assert result["status"] == "block"
+    assert result["runtime_owned"] is True
     assert "actions_on_reject" in result
-    assert "suggest_fixes" in result["actions_on_reject"]
-    assert "dry_run_passed" in result["conditions"]["unmet"]
+    assert "use_public_hpc_plan_and_bound_approval" in result["actions_on_reject"]
+    assert result["conditions"]["unmet"] == ["public_hpc_runtime_required"]
     print("  check_gate_block OK")
 
 
@@ -342,24 +343,26 @@ def test_all_gate_definitions_loadable():
     print("  all_gate_definitions_loadable OK")
 
 
-def test_hpc_submit_gate_realistic():
-    """Simulate HPC submit gate from dry-run evidence through approval."""
+def test_hpc_submit_gate_never_authorizes_execution():
+    """The compatibility gate never replaces the public immutable-plan runtime."""
     with tempfile.TemporaryDirectory() as tmpdir:
         project_root = Path(tmpdir)
         _write_hpc_evidence(project_root)
 
         result = check_gate("hpc_submit", {"project_root": tmpdir})
         assert result["status"] == "block"
-        assert "approval_present" in result["conditions"]["unmet"]
+        assert result["runtime_owned"] is True
+        assert result["conditions"]["unmet"] == ["public_hpc_runtime_required"]
 
         record_gate_decision(
             "hpc_submit", "approved", {"reason": "reviewed evidence"},
             project_root=tmpdir, agent="test_agent",
         )
         result = check_gate("hpc_submit", {"project_root": tmpdir})
-    assert result["status"] == "pass"
-    assert result["conditions"]["all_met"] is True
-    print("  hpc_submit_gate_realistic OK")
+    assert result["status"] == "block"
+    assert result["runtime_owned"] is True
+    assert result["conditions"]["all_met"] is False
+    print("  hpc_submit_gate_never_authorizes_execution OK")
 
 
 if __name__ == "__main__":

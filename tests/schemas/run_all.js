@@ -172,6 +172,10 @@ canonical = {
 artifact_path = root / "literature" / "summary.txt"
 artifact_path.parent.mkdir(parents=True, exist_ok=True)
 artifact_path.write_text("summary\\n", encoding="utf-8")
+legacy_artifacts_path = root / ".simflow" / "state" / "artifacts.json"
+legacy_checkpoints_path = root / ".simflow" / "state" / "checkpoints.json"
+legacy_artifacts_before = legacy_artifacts_path.read_bytes()
+legacy_checkpoints_before = legacy_checkpoints_path.read_bytes()
 update_stage(
     "literature_review",
     "completed",
@@ -192,6 +196,10 @@ checkpoint = create_checkpoint(
     "Checkpoint after literature review",
     project_root=str(root),
 )
+records_path = root / ".simflow" / "records.jsonl"
+records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines()]
+compact_checkpoint_path = root / checkpoint["path"]
+compact_checkpoint = json.loads(compact_checkpoint_path.read_text(encoding="utf-8"))
 produced = {
     "workflow": read_state(project_root=str(root), state_file="workflow.json"),
     "stages": read_state(project_root=str(root), state_file="stages.json"),
@@ -199,6 +207,10 @@ produced = {
     "checkpoints": read_state(project_root=str(root), state_file="checkpoints.json"),
     "artifact": artifact,
     "checkpoint": checkpoint,
+    "records": records,
+    "compact_checkpoint": compact_checkpoint,
+    "legacy_artifacts_unchanged": legacy_artifacts_path.read_bytes() == legacy_artifacts_before,
+    "legacy_checkpoints_unchanged": legacy_checkpoints_path.read_bytes() == legacy_checkpoints_before,
 }
 print(json.dumps({"initialized": initialized, "canonical": canonical, "produced": produced}))
 `;
@@ -354,13 +366,11 @@ test('actual init_workflow canonical state files validate by file name', () => {
   }
 });
 
-test('actual runtime-produced workflow, stages, artifact, and checkpoint records validate against schemas', () => {
+test('current artifact and checkpoint adapters persist compact records without mutating legacy registries', () => {
   const runtimeState = buildActualRuntimeState();
   const stateSchema = compileSchema('state.schema.json');
   const workflowSchema = compileSchema('workflow_state.json');
   const stageSchema = compileSchema('stage_state.json');
-  const artifactSchema = compileSchema('artifact.json');
-  const checkpointSchema = compileSchema('checkpoint.json');
 
   if (!stateSchema(runtimeState.produced.workflow)) {
     throw new Error(`workflow.json rejected: ${JSON.stringify(stateSchema.errors)}`);
@@ -368,23 +378,32 @@ test('actual runtime-produced workflow, stages, artifact, and checkpoint records
   if (!stateSchema(runtimeState.produced.stages)) {
     throw new Error(`stages.json rejected: ${JSON.stringify(stateSchema.errors)}`);
   }
-  if (!stateSchema(runtimeState.produced.artifacts)) {
-    throw new Error(`artifacts.json rejected: ${JSON.stringify(stateSchema.errors)}`);
-  }
-  if (!stateSchema(runtimeState.produced.checkpoints)) {
-    throw new Error(`checkpoints.json rejected: ${JSON.stringify(stateSchema.errors)}`);
-  }
   if (!workflowSchema(runtimeState.produced.workflow)) {
     throw new Error(`workflow_state.json rejected: ${JSON.stringify(workflowSchema.errors)}`);
   }
   if (!stageSchema(runtimeState.produced.stages.literature_review)) {
     throw new Error(`stage_state.json rejected: ${JSON.stringify(stageSchema.errors)}`);
   }
-  if (!artifactSchema(runtimeState.produced.artifact)) {
-    throw new Error(`artifact.json rejected: ${JSON.stringify(artifactSchema.errors)}`);
+  if (!runtimeState.produced.legacy_artifacts_unchanged) {
+    throw new Error('register_artifact mutated the legacy artifacts registry');
   }
-  if (!checkpointSchema(runtimeState.produced.checkpoint)) {
-    throw new Error(`checkpoint.json rejected: ${JSON.stringify(checkpointSchema.errors)}`);
+  if (!runtimeState.produced.legacy_checkpoints_unchanged) {
+    throw new Error('create_checkpoint mutated the legacy checkpoints registry');
+  }
+  if (!/^art_[0-9a-f]{12}$/.test(runtimeState.produced.artifact.artifact_id)) {
+    throw new Error(`unexpected compact artifact id: ${runtimeState.produced.artifact.artifact_id}`);
+  }
+  const artifactRecord = runtimeState.produced.records.find(record => (
+    record.kind === 'artifact' && record.record_id === runtimeState.produced.artifact.artifact_id
+  ));
+  if (!artifactRecord) {
+    throw new Error('compact artifact record was not appended to records.jsonl');
+  }
+  if (runtimeState.produced.compact_checkpoint.schema_version !== 'simflow.checkpoint.v1') {
+    throw new Error(`unexpected checkpoint schema: ${runtimeState.produced.compact_checkpoint.schema_version}`);
+  }
+  if (runtimeState.produced.checkpoint.storage !== 'compact_reference') {
+    throw new Error(`unexpected checkpoint adapter storage: ${runtimeState.produced.checkpoint.storage}`);
   }
 });
 
@@ -535,63 +554,6 @@ test('helper_evidence.schema.json defines common soft evidence envelope', () => 
       throw new Error(`Missing parser status: ${status}`);
     }
   });
-});
-
-test('skill-contract.schema.json supports built-in and custom skill frontmatter', () => {
-  const validate = compileSchema('skill-contract.schema.json');
-  const builtin = {
-    skill_name: 'simflow-computation',
-    description: 'Prepare, validate, dry-run, or submit simulation jobs.',
-    stage_binding: ['computation'],
-  };
-  const custom = {
-    skill_name: 'my-custom-analysis:run_analysis',
-    description: 'Project-local RDF analysis helper.',
-    stage_binding: 'analysis',
-  };
-  if (!validate(builtin)) {
-    throw new Error(`Built-in skill contract rejected: ${JSON.stringify(validate.errors)}`);
-  }
-  if (!validate(custom)) {
-    throw new Error(`Custom skill contract rejected: ${JSON.stringify(validate.errors)}`);
-  }
-});
-
-test('custom-skill-metadata.schema.json permits project-local activity labels', () => {
-  const validate = compileSchema('custom-skill-metadata.schema.json');
-  const metadata = {
-    name: 'my-custom-analysis',
-    version: '1.0.0',
-    description: 'Custom RDF analysis with publication-quality plots',
-    author: 'researcher@university.edu',
-    stage_binding: 'analysis',
-  };
-  if (!validate(metadata)) {
-    throw new Error(`Custom metadata rejected: ${JSON.stringify(validate.errors)}`);
-  }
-});
-
-test('custom-skill-binding.schema.json remains scoped to built-in SimFlow skill overrides', () => {
-  const validate = compileSchema('custom-skill-binding.schema.json');
-  const binding = {
-    skill_name: 'simflow-computation',
-    binding_type: 'extend',
-    extends: {
-      additional_scripts: ['scripts/custom_submit_readiness.py'],
-    },
-  };
-  const metadataShape = {
-    name: 'my-custom-analysis',
-    version: '1.0.0',
-    description: 'Custom RDF analysis',
-    stage_binding: 'analysis',
-  };
-  if (!validate(binding)) {
-    throw new Error(`Built-in binding rejected: ${JSON.stringify(validate.errors)}`);
-  }
-  if (validate(metadataShape)) {
-    throw new Error('Custom skill metadata must not validate as an override binding');
-  }
 });
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);

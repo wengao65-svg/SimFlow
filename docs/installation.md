@@ -228,18 +228,13 @@ points.
 
 | Variable | Purpose |
 | --- | --- |
-| `MP_API_KEY` | Materials Project API key |
 | `SIMFLOW_PYTHON` | Python executable used by OpenCode MCP commands |
 | `S2_API_KEY` | Semantic Scholar API key |
-| `SIMFLOW_HPC_HOST` | Optional host alias used by legacy/example scripts |
-| `SIMFLOW_HPC_BASE` | Optional remote directory used by legacy/example scripts |
 | `SIMFLOW_HPC_BROKER_SOCKET` | Unix socket for isolated SSH operations |
 | `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS` | Path-separated project roots accessible to the broker |
 | `SIMFLOW_HPC_BROKER_ALLOWED_UID` | Optional permitted MCP peer UID; defaults to broker UID |
 | `SIMFLOW_HPC_BROKER_UID` | Optional expected broker process UID; defaults to MCP UID |
 | `SIMFLOW_HPC_BROKER_TIMEOUT` | Optional broker client timeout in seconds |
-| `SIMFLOW_PARTITION` | Optional partition used by example scripts |
-| `SIMFLOW_NTASKS` | Optional task count used by example scripts |
 
 SSH MCP targets are supplied per call. Authentication remains in OpenSSH
 configuration or a host-managed agent and must not be written to `.simflow/`,

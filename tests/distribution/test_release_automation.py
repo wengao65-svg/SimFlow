@@ -37,7 +37,13 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "OpenCode canonical plugin module exists" in result.stdout
     assert "safe dry-run example records plan and deliverable" in result.stdout
     assert "LAMMPS safe dry-run example records plan and deliverable" in result.stdout
-    assert "hpc_submit is the only gate allowed to expose submit_job action" in result.stdout
+    assert "H2O CP2K input-only example completes without runtime state" in result.stdout
+    assert "examples contain no direct SSH, SCP, sbatch, or submit bypass path" in result.stdout
+    assert "unused custom Skill extension surface remains removed" in result.stdout
+    assert "public product docs do not advertise custom Skill discovery or overrides" in result.stdout
+    assert "current docs describe four-entry memory and only implemented credential integrations" in result.stdout
+    assert "workflow review gates expose no execution actions" in result.stdout
+    assert "compatibility HPC gates cannot authorize execution" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes four compact tools" in result.stdout
     assert "public Skill surface is exactly one Router, six Task, and five Domain Skills" in result.stdout

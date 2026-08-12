@@ -186,7 +186,6 @@ simflow/
 
 | Variable | Purpose |
 | --- | --- |
-| `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
 | `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 | `SIMFLOW_HPC_BROKER_SOCKET` | Unix socket for isolated SSH operations |

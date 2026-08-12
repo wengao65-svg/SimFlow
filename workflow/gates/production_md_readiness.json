@@ -82,7 +82,7 @@
     }
   ],
   "actions_on_approve": ["record_production_md_readiness_approval", "record_production_md_decision"],
-  "actions_on_reject": ["block_production_md", "return_to_active_learning_or_validation"],
+  "actions_on_reject": ["record_production_md_not_ready"],
   "auto_approve": false,
   "timeout_minutes": 60
 }

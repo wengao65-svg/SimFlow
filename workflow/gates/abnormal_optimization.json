@@ -18,8 +18,8 @@
       "value": ["pass", "warning"]
     }
   ],
-  "actions_on_approve": ["accept_structure", "record_modeling_decision"],
-  "actions_on_reject": ["suggest_remodeling", "iterate_to_modeling"],
+  "actions_on_approve": ["record_modeling_review"],
+  "actions_on_reject": ["record_remodeling_recommendation"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

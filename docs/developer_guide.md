@@ -47,7 +47,7 @@ Use the canonical stores according to ownership:
 
 `record` has two strict branches. Operational writes use `kind` and must reject
 Experiment-only fields. Experiment writes use `channel="experiment"`, one of
-the six entry types, and an entry-specific payload; they must reject `kind`.
+the four entry types, and an entry-specific payload; they must reject `kind`.
 Keep actual scientific files authoritative and rebuild `project.json` with
 `rebuild_project_summary()` from notebooks, records, and checkpoints.
 

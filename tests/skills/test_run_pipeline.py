@@ -433,7 +433,9 @@ def test_computation_stage_emits_hpc_submit_gate_evidence():
             project_root=tmpdir,
             agent="test_agent",
         )
-        assert check_gate("hpc_submit", {"project_root": tmpdir})["status"] == "pass"
+        reviewed = check_gate("hpc_submit", {"project_root": tmpdir})
+        assert reviewed["status"] == "block"
+        assert reviewed["runtime_owned"] is True
 
 
 @pytest.mark.skipif(not H2O_CIF.exists(), reason="H2O.cif not available")

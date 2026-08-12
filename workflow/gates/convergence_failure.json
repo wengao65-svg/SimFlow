@@ -18,8 +18,8 @@
       "value": true
     }
   ],
-  "actions_on_approve": ["accept_with_warning", "proceed_to_analysis_visualization"],
-  "actions_on_reject": ["suggest_parameter_adjustment", "revise_computation_plan"],
+  "actions_on_approve": ["record_convergence_exception_review"],
+  "actions_on_reject": ["record_computation_revision_request"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

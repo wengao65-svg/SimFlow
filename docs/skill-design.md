@@ -108,12 +108,6 @@ If a caller explicitly requests runtime recording, that behavior belongs to a
 shared runtime adapter rather than the Skill contract. Helpers must remain
 usable when recording is unavailable.
 
-## Custom Skills
-
-Project-specific Skills may extend Task or Domain guidance. They inherit the
-same pure Skill boundary. Runtime policies apply independently when the host
-agent performs a real tracked or risky event.
-
 ## Validation
 
 Skill validation checks:

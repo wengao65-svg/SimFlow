@@ -56,7 +56,8 @@ tmpdir="$(mktemp -d)"
 python examples/safe_dry_run/run_example.py --project-root "$tmpdir"
 python examples/si_band_structure/validate_inputs.py
 python examples/lammps_safe_dry_run/run_example.py --project-root "$tmpdir-lammps"
-python examples/h2o/run_cp2k_workflow.py --dry-run
+tmpcp2k="$(mktemp -d)"
+python examples/h2o/run_cp2k_workflow.py --dry-run --output-dir "$tmpcp2k"
 ```
 
 Expected result:
@@ -70,7 +71,8 @@ Expected result:
   POTCAR content.
 - The LAMMPS example stores inputs in a normal calculation directory, records
   one logical deliverable, and keeps submit blocked.
-- The H2O CP2K example can run in dry-run mode without HPC credentials.
+- The H2O CP2K example generates inputs only, contains no direct remote or
+  scheduler execution path, and needs no HPC credentials.
 - The Experiment-memory E2E test recovers the correct scientific question and
   completed material-action outcome from one later read-only `inspect` call.
 

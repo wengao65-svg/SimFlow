@@ -41,6 +41,5 @@ with the user and architecture documents below.
 - [Developer Guide](developer_guide.md)
 - [Target Repository Structure](target-repo-structure.md)
 - [Software Skills](software-skills.md)
-- [Custom Skills](custom-skills.md)
 - [Artifact And Record Guidance](artifact-schema.md)
 - [MLP-MD Recipe](mlp-md-workflow.md)

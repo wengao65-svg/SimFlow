@@ -18,8 +18,8 @@
       "value": 0
     }
   ],
-  "actions_on_approve": ["accept_conclusions"],
-  "actions_on_reject": ["revise_conclusions", "request_additional_analysis"],
+  "actions_on_approve": ["record_conclusion_review"],
+  "actions_on_reject": ["record_additional_analysis_request"],
   "auto_approve": false,
   "timeout_minutes": 60
 }

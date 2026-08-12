@@ -46,28 +46,25 @@ description: ${description || 'Describe when this SimFlow skill should be used.'
 
 ## 输入条件
 
-- TODO: 列出可接受的输入、已有 artifact、用户提供文件或 checkpoint
+- TODO: 列出可接受的输入、用户提供文件和必要上下文
 
-## 输出 Artifact
+## 输出指导
 
-- TODO: 列出最低 evidence/artifact 要求
-- TODO: 说明脚本、输入、输出、环境和 lineage 如何记录
+- TODO: 描述该 Skill 应提供的建议、检查或可选 helper
+- TODO: 说明结论应如何受现有证据约束
 
-## 状态写入规则
+## Runtime 边界
 
-- 写入必须使用显式 project_root 下的 \`.simflow/\`
-- 不要从 plugin root、MCP cwd 或 \`.omx/\` 推断 workflow state
-
-## Checkpoint 规则
-
-- TODO: 描述阶段边界、失败恢复或人工交接时的 checkpoint 策略
+- Skill 本身不要求状态写入、阶段转换、artifact 注册或 checkpoint
+- 仅当真实事件需要检查、持久记录、审批或恢复时，由 host 调用 runtime
+- runtime 操作必须接收显式 project_root，不得从 plugin root、MCP cwd 或 \`.omx/\` 推断
 
 ## 禁止事项
 
 - 不要把某个 parser、builder、report 文件名或软件包声明为唯一合法路径
 - 不要伪造文献、数据、计算结果、图表或 citation
 - 不要保存 credentials 或受限许可文件
-- 不要绕过 dry-run、approval gate 或 artifact lineage
+- 不要绕过 immutable run plan、绑定审批或 public HPC runtime
 
 ## 需要人工确认的场景
 

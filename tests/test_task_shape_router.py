@@ -7,41 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _schema() -> dict:
-    return json.loads((ROOT / "schemas" / "skill-contract.schema.json").read_text())
-
-
 def _contract() -> dict:
     return json.loads((ROOT / "skills" / "simflow" / "router_contract.json").read_text())
-
-
-def test_skill_contract_has_public_skill_types():
-    schema = _schema()
-    assert schema["required"] == ["skill_name", "description"]
-    assert schema["properties"]["skill_type"]["enum"] == [
-        "router",
-        "research_task",
-        "domain",
-    ]
-
-
-def test_skill_contract_does_not_bind_skills_to_mcp_or_approval():
-    properties = _schema()["properties"]
-    for removed in [
-        "mcp_tools",
-        "required_mcp_tools",
-        "minimum_mcp_engagement",
-        "requires_approval",
-        "policies",
-    ]:
-        assert removed not in properties
-
-
-def test_stage_binding_is_optional_compatibility_metadata():
-    schema = _schema()
-    assert "stage_binding" not in schema["required"]
-    assert "current intent" in schema["properties"]["stage_binding"]["description"]
-    assert "intent_binding" in schema["properties"]
 
 
 def test_router_contract_has_one_task_one_domain_policy():

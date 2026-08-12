@@ -60,6 +60,30 @@ function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(ROOT, relativePath), 'utf-8'));
 }
 
+function listFilesRecursive(relativeRoot, predicate = () => true) {
+  const absoluteRoot = path.join(ROOT, relativeRoot);
+  if (!fs.existsSync(absoluteRoot)) {
+    return [];
+  }
+  const files = [];
+  const stack = [absoluteRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile()) {
+        const relativePath = path.relative(ROOT, fullPath);
+        if (predicate(relativePath)) {
+          files.push(relativePath);
+        }
+      }
+    }
+  }
+  return files.sort();
+}
+
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     cwd: options.cwd || ROOT,
@@ -172,6 +196,14 @@ function validateSupportMatrix() {
     'docs/skill-design.md',
     'skills/README.md',
   ];
+  const currentDocumentationFiles = [
+    'README.md',
+    'AGENTS.md',
+    ...listFilesRecursive('docs', relativePath => relativePath.endsWith('.md')),
+    ...listFilesRecursive('skills', relativePath => relativePath.endsWith('.md')),
+  ].filter((relativePath, index, items) => (
+    relativePath !== 'CHANGELOG.md' && items.indexOf(relativePath) === index
+  ));
   const forbiddenClaims = [
     /optional\s+VASP,\s*CP2K,\s*QE/i,
     /Quantum ESPRESSO\s*\|\s*Plane-wave DFT input and output guidance/i,
@@ -273,22 +305,51 @@ function validateSupportMatrix() {
       && fs.existsSync(path.join(ROOT, 'workflow', 'recipes', 'mlp_md.json')),
   );
 
-  const customSkillDoc = fs.readFileSync(path.join(ROOT, 'docs', 'custom-skills.md'), 'utf-8');
-  const skillContractSchema = readJson('schemas/skill-contract.schema.json');
+  const removedCustomSkillSurface = [
+    'docs/custom-skills.md',
+    'schemas/custom-skill-binding.schema.json',
+    'schemas/custom-skill-metadata.schema.json',
+    'schemas/skill-contract.schema.json',
+  ].filter(relativePath => fs.existsSync(path.join(ROOT, relativePath)));
   check(
-    'custom skill docs distinguish metadata from built-in override bindings',
-    customSkillDoc.includes('custom-skill-metadata.schema.json')
-      && customSkillDoc.includes('custom-skill-binding.schema.json')
-      && customSkillDoc.includes('project-local activity/domain labels'),
+    'unused custom Skill extension surface remains removed',
+    removedCustomSkillSurface.length === 0,
+    removedCustomSkillSurface.join('\n'),
   );
+
+  const customSkillClaims = [];
+  for (const relativePath of currentDocumentationFiles) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
+    if (/custom skills?|\.simflow\/extensions\/skills|custom-skill-(?:binding|metadata)/i.test(content)) {
+      customSkillClaims.push(relativePath);
+    }
+  }
   check(
-    'custom skill metadata schema exists',
-    fs.existsSync(path.join(ROOT, 'schemas', 'custom-skill-metadata.schema.json')),
+    'public product docs do not advertise custom Skill discovery or overrides',
+    customSkillClaims.length === 0,
+    customSkillClaims.join('\n'),
   );
+
+  const staleMemoryOrCredentialClaims = [];
+  const staleClaimPatterns = [
+    /six[- ](?:entry|entries|entry types?)/i,
+    /\bMP_API_KEY\b/,
+    /Materials Project/i,
+    /Crystallography Open Database/i,
+    /\bCOD\b.{0,40}(?:connector|credential|API)/i,
+  ];
+  for (const relativePath of currentDocumentationFiles) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
+    for (const pattern of staleClaimPatterns) {
+      if (pattern.test(content)) {
+        staleMemoryOrCredentialClaims.push(`${relativePath}: ${pattern}`);
+      }
+    }
+  }
   check(
-    'skill contract schema allows custom entrypoint names and string bindings',
-    skillContractSchema.properties.skill_name.pattern.includes(':')
-      && !!skillContractSchema.properties.stage_binding.oneOf,
+    'current docs describe four-entry memory and only implemented credential integrations',
+    staleMemoryOrCredentialClaims.length === 0,
+    staleMemoryOrCredentialClaims.join('\n'),
   );
 }
 
@@ -628,6 +689,28 @@ function validateRestrictedArtifacts() {
 
 function validateSafeExamples() {
   console.log('\n--- Safe Examples ---');
+  const directExecutionPatterns = [
+    /subprocess\.(?:run|Popen)\s*\(\s*\[\s*["'](?:ssh|scp)["']/,
+    /(?:^|[;&|]\s*)ssh\s+[^\n]+/m,
+    /(?:^|[;&|]\s*)scp\s+[^\n]+/m,
+    /\bsbatch\b/,
+    /--submit\b/,
+  ];
+  const directExecutionFindings = [];
+  for (const relativePath of listFilesRecursive('examples', item => /\.(?:py|sh)$/.test(item))) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
+    for (const pattern of directExecutionPatterns) {
+      if (pattern.test(content)) {
+        directExecutionFindings.push(`${relativePath}: ${pattern}`);
+      }
+    }
+  }
+  check(
+    'examples contain no direct SSH, SCP, sbatch, or submit bypass path',
+    directExecutionFindings.length === 0,
+    directExecutionFindings.join('\n'),
+  );
+
   const exampleRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'simflow-safe-example-'));
   try {
     const result = spawnSync('python', ['examples/safe_dry_run/run_example.py', '--project-root', exampleRoot], {
@@ -682,6 +765,41 @@ function validateSafeExamples() {
     }
   } finally {
     fs.rmSync(lammpsRoot, { recursive: true, force: true });
+  }
+
+  const cp2kRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'simflow-cp2k-safe-example-'));
+  try {
+    const result = spawnSync(
+      'python',
+      ['examples/h2o/run_cp2k_workflow.py', '--dry-run', '--output-dir', cp2kRoot],
+      {
+        cwd: ROOT,
+        env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      },
+    );
+    if (result.status !== 0) {
+      fail('H2O CP2K input-only example completes', [result.stdout, result.stderr].filter(Boolean).join('\n'));
+    } else {
+      let summary = {};
+      try {
+        summary = JSON.parse(result.stdout);
+      } catch (error) {
+        fail('H2O CP2K input-only example emits JSON summary', result.stdout);
+      }
+      check(
+        'H2O CP2K input-only example completes without runtime state',
+        summary.status === 'prepared'
+          && summary.real_execution === false
+          && fs.existsSync(path.join(cp2kRoot, 'aimd', 'aimd_nvt.inp'))
+          && fs.existsSync(path.join(cp2kRoot, 'dry_run_summary.json'))
+          && !fs.existsSync(path.join(cp2kRoot, '.simflow')),
+        result.stdout,
+      );
+    }
+  } finally {
+    fs.rmSync(cp2kRoot, { recursive: true, force: true });
   }
 }
 
@@ -802,15 +920,22 @@ function validateWorkflowAutomation() {
     productionGate.actions_on_approve.join('\n'),
   );
   const gateDir = path.join(ROOT, 'workflow', 'gates');
-  const submitActionGates = fs.readdirSync(gateDir)
+  const executionActionGates = fs.readdirSync(gateDir)
     .filter(file => file.endsWith('.json'))
     .map(file => [file, JSON.parse(fs.readFileSync(path.join(gateDir, file), 'utf-8'))])
-    .filter(([, gate]) => (gate.actions_on_approve || []).includes('submit_job'))
+    .filter(([, gate]) => (gate.actions_on_approve || []).some(action => /submit|execute|transfer_files|record_job_id/i.test(action)))
     .map(([file, gate]) => gate.name || gate.gate_name || file);
   check(
-    'hpc_submit is the only gate allowed to expose submit_job action',
-    submitActionGates.join(',') === 'hpc_submit',
-    submitActionGates.join('\n'),
+    'workflow review gates expose no execution actions',
+    executionActionGates.length === 0,
+    executionActionGates.join('\n'),
+  );
+
+  const gateRuntime = fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_core', 'gates.py'), 'utf-8');
+  check(
+    'compatibility HPC gates cannot authorize execution',
+    gateRuntime.includes('RUNTIME_OWNED_GATES = {"hpc_submit", "hpc_transfer"}')
+      && gateRuntime.includes('public_hpc_runtime_required'),
   );
   const mlpEvidenceValidator = fs.readFileSync(path.join(ROOT, 'skills', 'simflow-mlp', 'scripts', 'validate_mlp_evidence.py'), 'utf-8');
   check(
@@ -949,7 +1074,20 @@ function validateMarketplaceWrappers() {
     ok('wrapper build validation skipped by explicit local option');
     return;
   }
+  const sourceVersion = readJson('package.json').version;
+  const checkBuiltVersion = (label, relativePath) => {
+    try {
+      const builtVersion = readJson(relativePath).version;
+      check(label, builtVersion === sourceVersion, `source=${sourceVersion} built=${builtVersion}`);
+    } catch (error) {
+      fail(label, error.message);
+    }
+  };
   runCheck('Codex marketplace wrapper builds', 'npm', ['run', 'build:codex-marketplace']);
+  checkBuiltVersion(
+    'built Codex marketplace version matches source',
+    'dist/codex-marketplace/plugins/simflow/.codex-plugin/plugin.json',
+  );
   runCheck(
     'Codex marketplace wrapper validates',
     'npm',
@@ -957,6 +1095,10 @@ function validateMarketplaceWrappers() {
     { env: { SIMFLOW_MARKETPLACE_ROOT: 'dist/codex-marketplace' } },
   );
   runCheck('Claude marketplace wrapper builds', 'npm', ['run', 'build:claude-marketplace']);
+  checkBuiltVersion(
+    'built Claude marketplace version matches source',
+    'dist/claude-marketplace/plugins/simflow/.claude-plugin/plugin.json',
+  );
   runCheck(
     'Claude marketplace wrapper validates',
     'npm',
@@ -964,6 +1106,10 @@ function validateMarketplaceWrappers() {
     { env: { SIMFLOW_CLAUDE_MARKETPLACE_ROOT: 'dist/claude-marketplace' } },
   );
   runCheck('OpenCode npm package builds', 'npm', ['run', 'build:opencode-plugin']);
+  checkBuiltVersion(
+    'built OpenCode package version matches source',
+    'dist/opencode-plugin/package.json',
+  );
   runCheck(
     'OpenCode npm package validates',
     'npm',

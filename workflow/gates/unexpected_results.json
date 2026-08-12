@@ -18,8 +18,8 @@
       "value": true
     }
   ],
-  "actions_on_approve": ["accept_results", "proceed_to_analysis_visualization"],
-  "actions_on_reject": ["investigate_cause", "revise_computation_plan"],
+  "actions_on_approve": ["record_unexpected_result_review"],
+  "actions_on_reject": ["record_diagnostic_request"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

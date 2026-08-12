@@ -24,7 +24,7 @@ activity lifecycle calls, handoff tools, or separate upload/download tools.
 - hosts perform at most one initial `inspect` per project per user request and
   reuse its Experiment selection context;
 - `record` has a strict operational `kind` branch and a separate discriminated
-  `channel="experiment"` branch with six entry types;
+  `channel="experiment"` branch with four entry types;
 - `record` appends one logical operational event or one scientific notebook
   entry and refreshes the derived summary;
 - `checkpoint` creates only a compact recovery reference.

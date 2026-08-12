@@ -8,14 +8,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_skill_scaffold_generates_frontmatter_and_workflow_layer_sections():
+def test_skill_scaffold_generates_frontmatter_and_pure_guidance_sections():
     text = (ROOT / "scripts" / "scaffold_skill.js").read_text(encoding="utf-8")
 
     assert "const template = `---" in text
     assert "name: ${skillName}" in text
     assert "description: ${description" in text
     assert "显式 project_root" in text
-    assert "artifact lineage" in text
+    assert "Skill 本身不要求状态写入" in text
+    assert "绑定审批" in text
     assert "唯一合法路径" in text
 
 
