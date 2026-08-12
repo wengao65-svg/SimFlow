@@ -23,23 +23,8 @@ EXPERIMENT_ENTRY_TYPES = {
     "attempt",
     "observation",
     "decision",
-    "material_action",
-    "recovery",
 }
 EXPERIMENT_STATUSES = {"active", "paused", "completed", "abandoned", "superseded"}
-MATERIAL_ACTION_STATUSES = {"planned", "completed", "partial", "failed", "reverted"}
-MATERIAL_OPERATIONS = {
-    "delete",
-    "filter",
-    "deduplicate",
-    "overwrite",
-    "truncate",
-    "move",
-    "replace_dataset",
-    "clean_trajectory",
-    "other_evidence_change",
-}
-RECOVERABILITY = {"reversible", "partially_reversible", "irreversible"}
 
 _HEADER_RE = re.compile(r"<!-- simflow-experiment:v1\n(.*?)\n-->", re.DOTALL)
 _ENTRY_RE = re.compile(r"<!-- simflow-entry:v1\n(.*?)\n-->", re.DOTALL)
@@ -163,7 +148,7 @@ def _render_entry(entry: dict[str, Any]) -> str:
         "<!-- simflow-entry:v1",
         _canonical_json(entry),
         "-->",
-        f"## {entry['created_at']} | {entry['entry_type']} | {entry['action']}",
+        f"## {entry['created_at']} | {entry['entry_type']}",
         "",
         f"**Summary:** {entry['summary']}",
     ]
@@ -224,9 +209,13 @@ def parse_experiment_notebook(path: Path) -> dict[str, Any]:
             if key in seen_keys:
                 raise NotebookFormatError(f"Duplicate idempotency_key in {path}")
             seen_keys.add(key)
+        try:
+            _validate_entry(entry, entries)
+        except ExperimentNotebookError as error:
+            raise NotebookFormatError(f"Invalid experiment entry in {path}: {error}") from error
         entries.append(entry)
-    if not entries or entries[0].get("entry_type") != "experiment" or entries[0].get("action") != "create":
-        raise NotebookFormatError(f"Notebook lacks an initial experiment/create entry: {path}")
+    if not entries or entries[0].get("entry_type") != "experiment":
+        raise NotebookFormatError(f"Notebook lacks an initial experiment entry: {path}")
     return {"header": header, "entries": entries, "path": path}
 
 
@@ -236,45 +225,23 @@ def _validate_entry(entry: dict[str, Any], existing: list[dict[str, Any]]) -> No
         raise ExperimentNotebookError(f"Unsupported experiment entry_type: {entry_type}")
     if not entry["summary"].strip():
         raise ExperimentNotebookError("summary is required")
+    if "action" in entry:
+        raise ExperimentNotebookError("Experiment entries do not support action")
     if entry_type == "experiment" and entry.get("status") and entry["status"] not in EXPERIMENT_STATUSES:
         raise ExperimentNotebookError(f"Unsupported experiment status: {entry['status']}")
-    if entry_type != "material_action":
-        return
-
-    status = entry.get("status")
-    details = entry.get("details", {})
-    if status not in MATERIAL_ACTION_STATUSES:
-        raise ExperimentNotebookError("material_action requires a supported status")
-    operation = details.get("operation")
-    if operation not in MATERIAL_OPERATIONS:
-        raise ExperimentNotebookError(
-            "material_action operation must change persistent evidence or recoverability"
-        )
-    material_action_id = details.get("material_action_id")
-    if not material_action_id:
-        raise ExperimentNotebookError("material_action_id is required")
-    if status == "planned":
-        if not details.get("targets") or not details.get("reason"):
-            raise ExperimentNotebookError("planned material_action requires targets and reason")
-        if details.get("recoverability") not in RECOVERABILITY:
-            raise ExperimentNotebookError("planned material_action requires recoverability")
-        if any(
-            item.get("entry_type") == "material_action"
-            and item.get("details", {}).get("material_action_id") == material_action_id
-            for item in existing
-        ):
-            raise ExperimentNotebookError(f"material_action_id already exists: {material_action_id}")
-        return
-    planned = [
-        item for item in existing
-        if item.get("entry_type") == "material_action"
-        and item.get("status") == "planned"
-        and item.get("details", {}).get("material_action_id") == material_action_id
-    ]
-    if not planned:
-        raise ExperimentNotebookError("terminal material_action requires a matching planned entry")
-    if not details.get("outcome"):
-        raise ExperimentNotebookError("terminal material_action requires outcome")
+    if entry_type != "experiment" and entry.get("status") is not None:
+        raise ExperimentNotebookError("Only experiment entries may carry status")
+    attempt_id = entry.get("attempt_id")
+    if entry_type == "attempt":
+        if not attempt_id:
+            raise ExperimentNotebookError("attempt entries require attempt_id")
+        if any(item.get("entry_type") == "attempt" and item.get("attempt_id") == attempt_id for item in existing):
+            raise ExperimentNotebookError(f"Attempt already exists in experiment: {attempt_id}")
+    elif attempt_id and not any(
+        item.get("entry_type") == "attempt" and item.get("attempt_id") == attempt_id
+        for item in existing
+    ):
+        raise ExperimentNotebookError(f"Unknown attempt_id for experiment: {attempt_id}")
 
 
 def create_experiment(
@@ -306,7 +273,6 @@ def create_experiment(
         "entry_id": _id("ent"),
         "experiment_id": experiment_id,
         "entry_type": "experiment",
-        "action": "create",
         "status": "active",
         "summary": str(summary or title).strip(),
         "details": {
@@ -337,7 +303,6 @@ def append_experiment_entry(
     *,
     experiment_id: str,
     entry_type: str,
-    action: str,
     summary: str,
     status: str | None = None,
     attempt_id: str | None = None,
@@ -360,22 +325,18 @@ def append_experiment_entry(
             for existing in parsed["entries"]:
                 if existing.get("idempotency_key") == idempotency_key:
                     return {"entry": existing, "path": path, "idempotent_replay": True}
-        normalized_details = sanitize_record_value(details or {})
-        if entry_type == "material_action" and status == "planned":
-            normalized_details.setdefault("material_action_id", _id("mat"))
         entry = {
             "schema_version": ENTRY_SCHEMA,
             "entry_id": entry_id or _id("ent"),
             "experiment_id": experiment_id,
             "entry_type": str(entry_type).strip(),
-            "action": str(action).strip(),
             "summary": str(summary).strip(),
             "status": str(status).strip().lower() if status else None,
             "attempt_id": str(attempt_id) if attempt_id else None,
             "parent_entry_ids": list(parent_entry_ids or []),
             "runtime_record_ids": list(runtime_record_ids or []),
             "evidence": _normalize_evidence(root, evidence),
-            "details": normalized_details,
+            "details": sanitize_record_value(details or {}),
             "next_action": sanitize_record_value(next_action),
             "idempotency_key": str(idempotency_key) if idempotency_key else None,
             "created_at": _now(),
@@ -397,3 +358,17 @@ def list_experiment_notebooks(project_root: str) -> list[dict[str, Any]]:
         return []
     return [parse_experiment_notebook(path) for path in sorted(directory.glob("exp_*.md"))]
 
+
+def get_attempt_entry(project_root: str, experiment_id: str, attempt_id: str) -> dict[str, Any] | None:
+    """Return one explicitly defined Attempt from an Experiment notebook."""
+    path = experiment_notebook_path(project_root, experiment_id)
+    if not path.is_file():
+        return None
+    entries = parse_experiment_notebook(path)["entries"]
+    return next(
+        (
+            entry for entry in entries
+            if entry.get("entry_type") == "attempt" and entry.get("attempt_id") == attempt_id
+        ),
+        None,
+    )

@@ -90,9 +90,16 @@ transfer scope, destructive scope, or restricted-file metadata invalidates it.
 - Define an Experiment by its scientific question. Temperature, element, seed,
   retry, and resume variants are Attempts unless the question or acceptance
   criteria change.
-- Use paired material-action entries only for persistent operations that change
-  evidence or recoverability. Ordinary parameter changes belong in an Attempt
-  or Decision entry.
+- Experiment notebooks have a fixed four-entry ontology: Experiment states the
+  question, Attempt states a scientific strategy, Observation states what was
+  seen, and Decision states what follows. Do not add lifecycle entry types.
+- Record a completed, partial, or failed persistent evidence change as one
+  immutable `evidence_change` operational event. It is never a lifecycle
+  controller; plans belong to approval or run-plan records, and a later undo is
+  a new event linked with `parent_ids`.
+- An Attempt is a scientific strategy and may reference multiple operational
+  Runs. A Run is one actual execution. HPC may bind existing Experiment and
+  Attempt IDs but must never create either entity.
 - Use file references, hashes, manifests, and `parent_ids` to preserve useful
   provenance without duplicating registries.
 - A scheduler job ID means submitted, not completed. A readable output means

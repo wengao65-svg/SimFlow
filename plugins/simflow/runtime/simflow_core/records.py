@@ -35,6 +35,7 @@ RECORD_KINDS = (
     "run",
     "artifact",
     "analysis",
+    "evidence_change",
     "approval",
     "failure",
     "note",
@@ -45,7 +46,16 @@ RECORD_KINDS = (
 ACTIVE_RUN_STATUSES = {"planned", "prepared", "submitted", "queued", "running", "paused"}
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled", "abandoned"}
 CHECKPOINT_STATUSES = ("ready", "partial", "diagnostic")
-
+EVIDENCE_CHANGE_OPERATIONS = {
+    "filter",
+    "delete",
+    "overwrite",
+    "replace",
+    "deduplicate",
+    "move",
+    "other",
+}
+EVIDENCE_CHANGE_OUTCOMES = {"completed", "partial", "failed"}
 _PRIVATE_KEY_PATTERN = re.compile(
     r"-----BEGIN (?:OPENSSH|RSA|DSA|EC|ENCRYPTED) PRIVATE KEY-----",
     re.IGNORECASE,
@@ -224,6 +234,14 @@ def _normalize_path_refs(root: Path, refs: list[Any] | None) -> list[dict[str, A
     return normalized
 
 
+def _normalize_target_paths(root: Path, targets: list[str] | None) -> list[str]:
+    normalized = []
+    for target in targets or []:
+        resolved = resolve_project_path(target, project_root=str(root))
+        normalized.append(resolved.relative_to(root).as_posix() or ".")
+    return sorted(set(normalized))
+
+
 def _append_record(path: Path, record: dict[str, Any]) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     line = (_canonical_json(record) + "\n").encode("utf-8")
@@ -295,6 +313,12 @@ def record_event(
     experiment_id: str | None = None,
     attempt_id: str | None = None,
     idempotency_key: str | None = None,
+    operation: str | None = None,
+    targets: list[str] | None = None,
+    before_refs: list[Any] | None = None,
+    after_refs: list[Any] | None = None,
+    outcome: str | None = None,
+    approval_id: str | None = None,
 ) -> dict[str, Any]:
     """Append one logical project event and refresh the compact summary."""
     root = resolve_project_root(project_root=project_root)
@@ -305,6 +329,44 @@ def record_event(
         raise ValueError("summary is required")
     if normalized_kind == "run" and not run_id:
         run_id = _id("run")
+    evidence_change = None
+    if normalized_kind == "evidence_change":
+        normalized_operation = str(operation or "").strip().lower()
+        normalized_outcome = str(outcome or "").strip().lower()
+        if normalized_operation not in EVIDENCE_CHANGE_OPERATIONS:
+            raise ValueError(f"Unsupported evidence_change operation: {operation}")
+        if normalized_outcome not in EVIDENCE_CHANGE_OUTCOMES:
+            raise ValueError(f"Unsupported evidence_change outcome: {outcome}")
+        unsupported = {
+            "status": status,
+            "stage": stage,
+            "run_id": run_id,
+            "goal": goal,
+            "next_action": next_action,
+            "artifacts": artifacts,
+            "details": details,
+            "checkpoint_id": checkpoint_id,
+        }
+        provided = sorted(key for key, value in unsupported.items() if value not in (None, [], {}))
+        if provided:
+            raise ValueError(f"evidence_change does not support operational lifecycle fields: {provided}")
+        normalized_targets = _normalize_target_paths(root, targets)
+        if not normalized_targets:
+            raise ValueError("evidence_change requires at least one target")
+        evidence_change = {
+            "operation": normalized_operation,
+            "targets": normalized_targets,
+            "before_refs": _normalize_path_refs(root, before_refs),
+            "after_refs": _normalize_path_refs(root, after_refs),
+            "outcome": normalized_outcome,
+            "approval_id": str(approval_id).strip() if approval_id else None,
+        }
+        evidence_change = {
+            key: value for key, value in evidence_change.items()
+            if value not in (None, [], {})
+        }
+    elif any(value not in (None, []) for value in (operation, targets, before_refs, after_refs, outcome, approval_id)):
+        raise ValueError("Evidence-change fields require kind=evidence_change")
 
     paths = _paths(root)
     record = {
@@ -325,6 +387,7 @@ def record_event(
         "attempt_id": attempt_id,
         "idempotency_key": idempotency_key,
         "created_at": _now(),
+        **(evidence_change or {}),
     }
     record = {key: value for key, value in record.items() if value not in (None, [], {})}
 

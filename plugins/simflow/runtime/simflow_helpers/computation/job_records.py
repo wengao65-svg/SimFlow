@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -59,7 +60,7 @@ def record_submit_job(
         }
 
     now = _now_iso()
-    run_id = attempt_id or f"{scheduler}_{job_id}"
+    run_id = f"run_{uuid.uuid4().hex[:12]}"
     record = record_event(
         str(root),
         kind="run",

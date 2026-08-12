@@ -58,14 +58,13 @@ def _current_experiment(entries: list[dict[str, Any]]) -> dict[str, Any]:
     latest_decision = None
     next_action = None
     attempts: set[str] = set()
-    material: dict[str, dict[str, Any]] = {}
 
     for entry in entries:
         entry_details = entry.get("details", {})
         if entry.get("entry_type") == "experiment":
             if entry.get("status"):
                 status = entry["status"]
-            if entry.get("action") == "scope_update":
+            if entry is not initial:
                 scope_paths = list(entry_details.get("scope_paths", scope_paths))
                 title = entry_details.get("title", title)
                 research_question = entry_details.get("research_question", research_question)
@@ -78,15 +77,6 @@ def _current_experiment(entries: list[dict[str, Any]]) -> dict[str, Any]:
             latest_decision = entry["entry_id"]
         if entry.get("next_action") is not None:
             next_action = entry["next_action"]
-        if entry.get("entry_type") == "material_action":
-            action_id = entry_details.get("material_action_id")
-            if action_id:
-                material[action_id] = entry
-
-    open_material = [
-        action_id for action_id, entry in material.items()
-        if entry.get("status") == "planned"
-    ]
     return {
         "experiment_id": initial["experiment_id"],
         "title": title,
@@ -100,7 +90,6 @@ def _current_experiment(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "latest_entry_at": entries[-1]["created_at"],
         "latest_observation_id": latest_observation,
         "latest_decision_id": latest_decision,
-        "open_material_action_ids": sorted(open_material),
         "next_action": next_action,
     }
 
@@ -176,10 +165,6 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
         ] if value
     ]
     active_experiments = [item["experiment_id"] for item in experiments if item["status"] == "active"]
-    open_material = [
-        {"experiment_id": item["experiment_id"], "material_action_id": action_id}
-        for item in experiments for action_id in item["open_material_action_ids"]
-    ]
     latest_experiment = max(experiments, key=lambda item: item["latest_entry_at"], default=None)
     latest_record = records[-1] if records else None
     summary = {
@@ -198,7 +183,6 @@ def build_project_summary(project_root: str) -> dict[str, Any]:
             "latest_failure_id": latest_failure_id,
             "latest_checkpoint_id": latest_checkpoint_id,
             "next_action": latest_experiment.get("next_action") if latest_experiment and latest_experiment.get("next_action") is not None else latest_next_action,
-            "open_material_actions": open_material,
         },
         "counts": {
             "total": len(records),
@@ -346,7 +330,6 @@ def _render_index(summary: dict[str, Any]) -> str:
             f"- Status: `{item['status']}`",
             f"- Research question: {item.get('research_question') or 'unspecified'}",
             f"- Notebook: `{item['experiment_id']}.md`",
-            f"- Open material actions: {len(item['open_material_action_ids'])}",
             "",
         ])
     return "\n".join(lines)
