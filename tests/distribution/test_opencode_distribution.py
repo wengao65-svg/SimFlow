@@ -63,6 +63,7 @@ def test_opencode_package_builds_canonical_surface(tmp_path):
 
     for forbidden in [
         "tests",
+        "notifications",
         ".simflow",
         ".omx",
         ".codex-plugin",

@@ -174,7 +174,7 @@ function validateBuiltPackage(pluginRoot) {
   for (const skill of PACKAGED_SKILLS) {
     check(`OpenCode package includes ${skill}`, fs.existsSync(path.join(pluginRoot, 'skills', skill, 'SKILL.md')));
   }
-  for (const forbidden of ['tests', '.simflow', '.omx', '.codex-plugin', '.claude-plugin', '.mcp.json', '.claude.mcp.json']) {
+  for (const forbidden of ['tests', 'notifications', '.simflow', '.omx', '.codex-plugin', '.claude-plugin', '.mcp.json', '.claude.mcp.json']) {
     check(`OpenCode package excludes ${forbidden}`, !fs.existsSync(path.join(pluginRoot, forbidden)));
   }
   check('OpenCode package excludes restricted simulation artifacts', findRestricted(pluginRoot).length === 0);

@@ -29,6 +29,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "Version Synchronization" in result.stdout
     assert "Support Matrix" in result.stdout
     assert "Simplification Contract" in result.stdout
+    assert "legacy workflow notification templates remain absent from the source tree" in result.stdout
     assert "Restricted Artifact Scan" in result.stdout
     assert "Workflow Automation" in result.stdout
     assert "Marketplace Version Guard" in result.stdout

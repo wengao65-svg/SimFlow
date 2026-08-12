@@ -43,12 +43,20 @@ def _run_from_non_plugin_cwd(
     env: dict[str, str] | None = None,
     client_name: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    return _run_payload_from_non_plugin_cwd(server_name, _mcp_payload(client_name), env=env)
+
+
+def _run_payload_from_non_plugin_cwd(
+    server_name: str,
+    payload: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     with tempfile.TemporaryDirectory() as tmpdir:
         return subprocess.run(
             [sys.executable, str(STARTER), server_name],
             cwd=tmpdir,
             env=env,
-            input=_mcp_payload(client_name),
+            input=payload,
             text=True,
             capture_output=True,
             timeout=5,
@@ -80,6 +88,55 @@ def test_stdio_schema_fallback_is_strict():
         "additionalProperties": False,
         "properties": {},
     }
+
+
+def test_legacy_mcp_requires_initialized_notification_before_tool_requests():
+    payload = "\n".join([
+        json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2099-01-01"},
+        }),
+        json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "method": "notifications/progress", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "method": "custom/event", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 5, "method": "shutdown", "params": {}}),
+        "",
+    ])
+
+    result = _run_payload_from_non_plugin_cwd("simflow_state", payload)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    responses = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    assert [response["id"] for response in responses] == [1, 2, 3, 4, 5]
+    assert responses[0]["result"]["protocolVersion"] == "2024-11-05"
+    for response in responses[1:3]:
+        assert response["error"]["code"] == -32002
+        assert "Server not initialized" in response["error"]["message"]
+    assert len(responses[3]["result"]["tools"]) > 0
+    assert responses[4]["result"] == {}
+
+
+def test_initialized_notification_before_initialize_does_not_unlock_server():
+    payload = "\n".join([
+        json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 2, "method": "shutdown", "params": {}}),
+        "",
+    ])
+
+    result = _run_payload_from_non_plugin_cwd("simflow_state", payload)
+
+    assert result.returncode == 0, result.stderr
+    responses = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    assert responses[0]["id"] == 1
+    assert responses[0]["error"]["code"] == -32002
+    assert responses[1] == {"jsonrpc": "2.0", "id": 2, "result": {}}
 
 
 def test_state_server_initialization_adapts_to_mcp_client_info():

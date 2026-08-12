@@ -294,6 +294,11 @@ function validateSupportMatrix() {
 
 function validateSimplificationContract() {
   console.log('\n--- Simplification Contract ---');
+  check(
+    'legacy workflow notification templates remain absent from the source tree',
+    !fs.existsSync(path.join(ROOT, 'notifications')),
+    'notifications/',
+  );
   const publicSkills = fs.readdirSync(path.join(ROOT, 'skills'))
     .filter(name => fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')))
     .sort();

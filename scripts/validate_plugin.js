@@ -46,7 +46,6 @@ const REQUIRED_DIRS = [
   'runtime/simflow_helpers',
   'schemas',
   'hooks',
-  'notifications',
   'templates',
   'scripts',
 ];
@@ -73,6 +72,7 @@ const PACKAGED_SKILLS = [
 ];
 const FORBIDDEN_SOURCE_PATHS = [
   'agents',
+  'notifications',
   'workflow/workflows',
   'workflow/stages/literature.json',
   'workflow/stages/review.json',

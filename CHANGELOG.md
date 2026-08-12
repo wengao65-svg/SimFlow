@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Removed the unused legacy workflow notification policy and message templates;
+  user-facing status, approval, failure, and handoff communication remains a
+  host responsibility.
+- Tightened the legacy MCP `2024-11-05` lifecycle so tool requests are accepted
+  only after `initialize` and `notifications/initialized`, while unsupported
+  client protocol versions are no longer echoed as server support.
+
 ## v1.1.0 (2026-08-11) — Compact Experiment memory and operational binding
 
 - Added one append-only Markdown notebook per scientific Experiment, with six
