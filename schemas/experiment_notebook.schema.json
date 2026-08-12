@@ -3,16 +3,15 @@
   "title": "SimFlow Experiment Notebook Entry",
   "description": "Structured metadata embedded in one canonical append-only Experiment Markdown notebook.",
   "type": "object",
-  "required": ["schema_version", "entry_id", "experiment_id", "entry_type", "action", "summary", "created_at"],
+  "required": ["schema_version", "entry_id", "experiment_id", "entry_type", "summary", "created_at"],
   "properties": {
     "schema_version": { "const": "simflow.experiment_entry.v1" },
     "entry_id": { "type": "string", "pattern": "^ent_[0-9a-f]{12}$" },
     "experiment_id": { "type": "string", "pattern": "^exp_[0-9a-f]{12}$" },
     "entry_type": {
       "type": "string",
-      "enum": ["experiment", "attempt", "observation", "decision", "material_action", "recovery"]
+      "enum": ["experiment", "attempt", "observation", "decision"]
     },
-    "action": { "type": "string", "minLength": 1 },
     "summary": { "type": "string", "minLength": 1 },
     "status": { "type": "string" },
     "attempt_id": { "type": "string" },

@@ -413,6 +413,27 @@ function validateSimplificationContract() {
     sqliteLedgerFindings.join('\n'),
   );
 
+  const notebookSource = fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_core', 'experiment_notebook.py'), 'utf-8');
+  const bindingSource = fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_core', 'run_bindings.py'), 'utf-8');
+  const jobRecordSource = fs.readFileSync(path.join(ROOT, 'runtime', 'simflow_helpers', 'computation', 'job_records.py'), 'utf-8');
+  const notebookSchema = readJson('schemas/experiment_notebook.schema.json');
+  const ontology = notebookSchema.properties.entry_type.enum;
+  check(
+    'Experiment Memory v1 ontology is capped at four entry types with no action field',
+    JSON.stringify(ontology) === JSON.stringify(['experiment', 'attempt', 'observation', 'decision'])
+      && !Object.prototype.hasOwnProperty.call(notebookSchema.properties, 'action')
+      && !notebookSchema.required.includes('action')
+      && !/material_action|MATERIAL_ACTION|RECOVERABILITY/.test(notebookSource),
+    JSON.stringify({ ontology, properties: Object.keys(notebookSchema.properties) }),
+  );
+  check(
+    'HPC consumes existing Attempt references and Run identity remains independent',
+    /get_attempt_entry\(/.test(bindingSource)
+      && !/def _attempt_id\(|uuid\.uuid4\(\).*att_/.test(bindingSource)
+      && !/run_id\s*=\s*attempt_id|attempt_id\s+or\s+f["']/.test(`${bindingSource}\n${jobRecordSource}`),
+    'run_bindings.py or job_records.py can synthesize an Attempt or reuse it as run_id',
+  );
+
   const memoryContractSmoke = [
     'import importlib.util, json, sys, tempfile',
     'from pathlib import Path',
@@ -422,8 +443,12 @@ function validateSimplificationContract() {
     'tmp = tempfile.TemporaryDirectory()',
     'root = Path(tmp.name)',
     'experiment = create_experiment(str(root), title="Temperature scope", research_question="Exclude >= 400 K?", scope_paths=["."])',
-    'append_experiment_entry(str(root), experiment_id=experiment["experiment_id"], entry_type="decision", action="exclude", summary="Exclude high-temperature frames")',
-    'record_event(str(root), kind="note", summary="Operational evidence remains separate")',
+    'attempt = append_experiment_entry(str(root), experiment_id=experiment["experiment_id"], entry_type="attempt", attempt_id="att_release", summary="Evaluate the exclusion strategy")',
+    'append_experiment_entry(str(root), experiment_id=experiment["experiment_id"], entry_type="decision", attempt_id=attempt["entry"]["attempt_id"], summary="Exclude high-temperature frames")',
+    '(root / "before.xyz").write_text("before\\n", encoding="utf-8")',
+    '(root / "after.xyz").write_text("after\\n", encoding="utf-8")',
+    'change = record_event(str(root), kind="evidence_change", summary="Filtered dataset", operation="filter", targets=["before.xyz"], before_refs=["before.xyz"], after_refs=["after.xyz"], outcome="completed", experiment_id=experiment["experiment_id"], attempt_id=attempt["entry"]["attempt_id"])',
+    'assert change["kind"] == "evidence_change" and "status" not in change',
     'checkpoint_dir = root / ".simflow" / "checkpoints"',
     'checkpoint_dir.mkdir(parents=True)',
     '(checkpoint_dir / "ckpt_release.json").write_text(json.dumps({"checkpoint_id": "ckpt_release"}), encoding="utf-8")',
@@ -441,12 +466,20 @@ function validateSimplificationContract() {
     'spec.loader.exec_module(server)',
     'assert set(server.TOOLS) == {"inspect", "record", "checkpoint", "recover"}',
     'branches = server.TOOL_SCHEMAS["record"]["oneOf"]',
-    'assert len(branches) == 7',
-    'assert {item["properties"]["entry_type"]["const"] for item in branches[1:]} == {"experiment", "attempt", "observation", "decision", "material_action", "recovery"}',
+    'assert len(branches) == 6',
+    'assert branches[1]["properties"]["kind"]["const"] == "evidence_change"',
+    'assert all(branches[1]["properties"][field] is False for field in ("status", "stage", "run_id", "goal", "next_action", "artifacts", "details", "checkpoint_id"))',
+    'assert {item["properties"]["entry_type"]["const"] for item in branches[2:]} == {"experiment", "attempt", "observation", "decision"}',
+    'assert "action" not in server.TOOL_SCHEMAS["record"]["properties"]',
+    'removed = server.handle_request({"tool": "record", "params": {"project_root": str(root), "channel": "experiment", "entry_type": "material_action", "summary": "removed", "payload": {}}})',
+    'assert removed["status"] == "error"',
+    'uninitialized = Path(tmp.name) / "uninitialized"',
+    'inspected = server.handle_request({"tool": "inspect", "params": {"project_root": str(uninitialized)}})',
+    'assert inspected["status"] == "success" and not (uninitialized / ".simflow").exists()',
     'tmp.cleanup()',
   ].join('\n');
   runCheck(
-    'project summary rebuild and six discriminated Experiment branches are operational',
+    'four-entry Experiment memory, immutable evidence changes, and read-only inspect are operational',
     'python',
     ['-c', memoryContractSmoke],
   );
@@ -814,7 +847,7 @@ function validateWorkflowAutomation() {
     'assert set(tools) == {"inspect", "record", "checkpoint", "recover"}',
     'assert tools["inspect"]["required"] == ["project_root"]',
     'assert tools["record"]["oneOf"][0]["required"] == ["project_root", "kind", "summary"]',
-    'assert len(tools["record"]["oneOf"]) == 7',
+    'assert len(tools["record"]["oneOf"]) == 6',
     'assert tools["checkpoint"]["required"] == ["project_root", "summary"]',
     'assert tools["recover"]["required"] == ["project_root"]',
   ].join('; ');

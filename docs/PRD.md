@@ -42,8 +42,10 @@ uncertainty. Placeholder Skills are not shipped.
 
 - ordinary read-only research produces zero SimFlow writes;
 - ordinary file preparation or analysis needs at most one logical record;
-- experiment notebooks preserve scientific intent, observations, decisions,
-  material evidence changes, uncertainty, and next actions across host sessions;
+- experiment notebooks preserve scientific questions, Attempts, observations,
+  decisions, uncertainty, and next actions across host sessions;
+- persistent evidence changes are single immutable operational facts rather
+  than notebook lifecycles;
 - exact scientific files remain the evidence source and are referenced by
   project-relative path and hash rather than copied into notebooks;
 - each task selects at most one Task Skill and one Domain Skill;

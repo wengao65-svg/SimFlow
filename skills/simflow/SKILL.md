@@ -83,10 +83,12 @@ recovered. High-risk events include real local or remote execution, scheduler
 submission, credentials, licensed or proprietary files, VASP POTCAR material,
 destructive actions, and state recovery.
 
-Experiment notebooks preserve scientific questions, Attempts, observations,
-decisions, material evidence changes, and recovery decisions. Operational
-records preserve plan, approval, transfer, submit, scheduler status, and
-checkpoint truth. Actual scientific files remain exact evidence.
+Experiment notebooks preserve only scientific questions, Attempts,
+observations, and decisions. Operational records preserve plan, approval,
+transfer, submit, scheduler status, evidence-change, and checkpoint truth.
+Actual scientific files remain exact evidence. An Attempt is a scientific
+strategy, not an HPC Run, and runtime tools must not create Experiments or
+Attempts.
 
 The router identifies the boundary but does not approve, submit, transfer,
 record, checkpoint, or recover anything itself.

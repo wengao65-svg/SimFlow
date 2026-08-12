@@ -55,8 +55,10 @@ never reorganizes or imports source content.
 There is no SQLite/session/activity ledger, Experiment lifecycle controller,
 per-file artifact registry, automatic session handoff, or automatic stage
 checkpoint. Compact Experiment notebooks are intentionally retained to prevent
-loss of scientific questions, decisions, evidence-changing actions, and next
-steps across host sessions.
+loss of scientific questions, Attempts, observations, decisions, and next steps
+across host sessions. Their ontology is capped at those four entry types.
+Persistent evidence changes and technical recovery remain operational facts,
+not notebook lifecycles.
 
 ## Execution Boundary
 

@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from runtime.simflow_core.experiment_notebook import create_experiment
+from runtime.simflow_core.experiment_notebook import append_experiment_entry, create_experiment
 from runtime.simflow_core.gates import record_gate_decision
 from runtime.simflow_core.records import list_project_records, record_event
 from runtime.simflow_helpers.computation.job_records import record_submit_job
@@ -60,6 +60,16 @@ def _approve(root: Path, run_plan_hash: str, gate: str = "hpc_submit") -> dict:
         project_root=str(root),
         agent="pytest",
     )
+
+
+def _create_attempt(root: Path, experiment_id: str, attempt_id: str) -> str:
+    return append_experiment_entry(
+        str(root),
+        experiment_id=experiment_id,
+        entry_type="attempt",
+        attempt_id=attempt_id,
+        summary=f"Scientific strategy {attempt_id}",
+    )["entry"]["attempt_id"]
 
 
 def test_tools_surface_is_exactly_four_composite_actions():
@@ -270,7 +280,41 @@ def test_experiment_binding_does_not_change_run_plan_hash_or_prior_approval(tmp_
     assert submitted["status"] == "success"
     submit_record = list_project_records(str(tmp_path), kind="run")[-1]
     assert submit_record["experiment_id"] == second_experiment
-    assert submit_record["attempt_id"] == corrected["binding"]["attempt_id"]
+    assert "attempt_id" not in submit_record
+    assert corrected["binding"]["attempt_id"] is None
+
+
+def test_hpc_only_consumes_explicit_attempt_references(tmp_path):
+    server = _load_server()
+    _make_local_files(tmp_path)
+    experiment_id = create_experiment(
+        str(tmp_path), title="Question", research_question="Which strategy works?", scope_paths=["."],
+    )["experiment_id"]
+    attempt_id = _create_attempt(tmp_path, experiment_id, "att_expanded_training")
+    params = {
+        "project_root": str(tmp_path), "script_path": "job.sh", "input_paths": ["input.dat"],
+        "scheduler": "local",
+    }
+
+    experiment_only = server.handle_request({
+        "tool": "plan", "params": {**params, "experiment_id": experiment_id},
+    })
+    bound = server.handle_request({
+        "tool": "plan", "params": {**params, "experiment_id": experiment_id, "attempt_id": attempt_id},
+    })
+    attempt_only = server.handle_request({
+        "tool": "plan", "params": {**params, "attempt_id": attempt_id},
+    })
+    unknown_attempt = server.handle_request({
+        "tool": "plan", "params": {**params, "experiment_id": experiment_id, "attempt_id": "att_missing"},
+    })
+
+    assert experiment_only["binding"]["attempt_id"] is None
+    assert bound["binding"]["attempt_id"] == attempt_id
+    assert attempt_only["status"] == "error"
+    assert "requires experiment_id" in attempt_only["message"]
+    assert unknown_attempt["status"] == "error"
+    assert "Unknown attempt_id" in unknown_attempt["message"]
 
 
 def test_bound_status_records_only_real_transitions(tmp_path, monkeypatch):
@@ -279,11 +323,12 @@ def test_bound_status_records_only_real_transitions(tmp_path, monkeypatch):
     experiment_id = create_experiment(
         str(tmp_path), title="Status question", research_question="Did the run finish?", scope_paths=["."],
     )["experiment_id"]
+    attempt_id = _create_attempt(tmp_path, experiment_id, "att_status_validation")
     planned = server.handle_request({
         "tool": "plan",
         "params": {
             "project_root": str(tmp_path), "script_path": "job.sh", "input_paths": ["input.dat"],
-            "scheduler": "local", "experiment_id": experiment_id,
+            "scheduler": "local", "experiment_id": experiment_id, "attempt_id": attempt_id,
         },
     })
     run_plan_hash = planned["data"]["run_plan_hash"]
@@ -291,7 +336,7 @@ def test_bound_status_records_only_real_transitions(tmp_path, monkeypatch):
     record_submit_job(
         project_root=str(tmp_path), scheduler="slurm", job_id="12345", run_plan_hash=run_plan_hash,
         status="submitted", gate_decision_id=approval["decision_id"],
-        experiment_id=experiment_id, attempt_id=planned["binding"]["attempt_id"],
+        experiment_id=experiment_id, attempt_id=attempt_id,
     )
 
     states = iter(["RUNNING", "RUNNING", "COMPLETED"])
@@ -321,6 +366,35 @@ def test_bound_status_records_only_real_transitions(tmp_path, monkeypatch):
     ]
     assert [record["status"] for record in status_records] == ["running", "completed"]
     assert all(record["experiment_id"] == experiment_id for record in status_records)
+    assert all(record["attempt_id"] == attempt_id for record in status_records)
+    submit_record = next(
+        record for record in list_project_records(str(tmp_path), kind="run")
+        if record.get("details", {}).get("operation") == "submit"
+    )
+    assert all(record["run_id"] == submit_record["run_id"] for record in status_records)
+    assert submit_record["run_id"] != attempt_id
+
+
+def test_one_attempt_can_reference_multiple_independent_runs(tmp_path):
+    experiment_id = create_experiment(
+        str(tmp_path), title="Validation strategy", research_question="Is the model stable?", scope_paths=["."],
+    )["experiment_id"]
+    attempt_id = _create_attempt(tmp_path, experiment_id, "att_multirun_validation")
+    run_plan_hash = "a" * 64
+    approval = _approve(tmp_path, run_plan_hash)
+
+    first = record_submit_job(
+        project_root=str(tmp_path), scheduler="slurm", job_id="1001", run_plan_hash=run_plan_hash,
+        gate_decision_id=approval["decision_id"], experiment_id=experiment_id, attempt_id=attempt_id,
+    )["record"]
+    second = record_submit_job(
+        project_root=str(tmp_path), scheduler="slurm", job_id="1002", run_plan_hash=run_plan_hash,
+        gate_decision_id=approval["decision_id"], experiment_id=experiment_id, attempt_id=attempt_id,
+    )["record"]
+
+    assert first["attempt_id"] == second["attempt_id"] == attempt_id
+    assert first["run_id"] != second["run_id"]
+    assert attempt_id not in {first["run_id"], second["run_id"]}
 
 
 def test_status_does_not_bind_an_untracked_job_to_a_requested_plan(tmp_path, monkeypatch):

@@ -53,14 +53,21 @@ Skill selection does not imply a runtime write.
 Each Experiment is defined by one scientific question. Temperature, element,
 seed, retry, and resume variations are Attempts unless the scientific question,
 acceptance criteria, or interpretation target changes. Notebook entries cover
-experiment scope, attempt intent, observations, decisions, material evidence
-changes, recovery decisions, uncertainty, and next action.
+experiment scope, attempt intent, observations, decisions, uncertainty, and
+next action. The writable ontology is capped at those four entry types and has
+no generic action taxonomy or lifecycle entries.
 
 `records.jsonl` is authoritative for immutable plan, approval, transfer,
-submission, scheduler status, and checkpoint events. Experiment and Attempt IDs
+submission, scheduler status, evidence-change, and checkpoint events.
+`evidence_change` is a single immutable fact event, never a lifecycle
+controller. Experiment and Attempt IDs
 are binding metadata on those records and never participate in
 `run_plan_hash`. Exact structures, trajectories, models, outputs, and logs remain
 scientific evidence files; notebooks retain references and hashes, not copies.
+
+An Attempt is one scientific strategy and may reference multiple operational
+Runs. A Run is one actual execution. HPC may validate and bind existing
+Experiment and Attempt references but never creates either entity.
 
 `project.json` and `experiments/index.md` are rebuilt deterministic views over
 both canonical stores and checkpoints. They are caches, not additional sources

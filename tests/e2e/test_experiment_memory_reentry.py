@@ -46,7 +46,6 @@ def test_later_request_recovers_temperature_filter_decision_and_outcome(tmp_path
         "project_root": str(tmp_path),
         "channel": "experiment",
         "entry_type": "experiment",
-        "action": "create",
         "summary": "Define the NEPv3 temperature-domain dataset question",
         "payload": {
             "title": "NEPv3 temperature-domain dataset",
@@ -60,7 +59,6 @@ def test_later_request_recovers_temperature_filter_decision_and_outcome(tmp_path
         "project_root": str(tmp_path),
         "channel": "experiment",
         "entry_type": "attempt",
-        "action": "define",
         "summary": "Evaluate the 400 K exclusion criterion",
         "experiment_id": experiment_id,
         "payload": {
@@ -70,24 +68,6 @@ def test_later_request_recovers_temperature_filter_decision_and_outcome(tmp_path
         },
     })
     attempt_id = attempt["entry"]["attempt_id"]
-    planned = _record(server, {
-        "project_root": str(tmp_path),
-        "channel": "experiment",
-        "entry_type": "material_action",
-        "action": "filter_dataset",
-        "summary": "Plan exclusion of frames at or above 400 K",
-        "experiment_id": experiment_id,
-        "payload": {
-            "attempt_id": attempt_id,
-            "status": "planned",
-            "operation": "filter",
-            "targets": [str(source.relative_to(tmp_path))],
-            "reason": "Keep training evidence within the accepted temperature domain",
-            "selection_criteria": "temperature_k >= 400",
-            "recoverability": "reversible",
-            "evidence": [str(source.relative_to(tmp_path))],
-        },
-    })
 
     retained_frames = [frame for frame in frames if frame["temperature_k"] < 400]
     retained.write_text(
@@ -98,23 +78,42 @@ def test_later_request_recovers_temperature_filter_decision_and_outcome(tmp_path
     assert len(frames) - len(retained_frames) == 19
     assert len(retained_frames) == 196
 
-    material_action_id = planned["entry"]["details"]["material_action_id"]
+    change = _record(server, {
+        "project_root": str(tmp_path),
+        "kind": "evidence_change",
+        "summary": "Removed 19 high-temperature frames and retained 196 frames",
+        "operation": "filter",
+        "targets": [str(source.relative_to(tmp_path))],
+        "before_refs": [str(source.relative_to(tmp_path))],
+        "after_refs": [str(retained.relative_to(tmp_path))],
+        "outcome": "completed",
+        "experiment_id": experiment_id,
+        "attempt_id": attempt_id,
+    })
     _record(server, {
         "project_root": str(tmp_path),
         "channel": "experiment",
-        "entry_type": "material_action",
-        "action": "filter_dataset",
-        "summary": "Removed 19 high-temperature frames and retained 196 frames",
+        "entry_type": "observation",
+        "summary": "The 400 K criterion removed 19 frames and retained 196",
         "experiment_id": experiment_id,
+        "runtime_record_ids": [change["record_id"]],
         "payload": {
             "attempt_id": attempt_id,
-            "status": "completed",
-            "operation": "filter",
-            "material_action_id": material_action_id,
-            "outcome": {"before": 215, "removed": 19, "after": 196},
-            "actual_scope": [str(retained.relative_to(tmp_path))],
             "evidence": [str(retained.relative_to(tmp_path))],
-            "next_action": "Use the retained 196-frame dataset for NEPv3 training",
+            "details": {"before": 215, "removed": 19, "after": 196},
+        },
+    })
+    decision = _record(server, {
+        "project_root": str(tmp_path),
+        "channel": "experiment",
+        "entry_type": "decision",
+        "summary": "Use the retained 196-frame dataset for NEPv3 training",
+        "experiment_id": experiment_id,
+        "runtime_record_ids": [change["record_id"]],
+        "payload": {
+            "attempt_id": attempt_id,
+            "rationale": "The excluded frames were outside the accepted training temperature domain",
+            "next_action": "Train NEPv3 with the retained dataset",
         },
     })
 
@@ -131,13 +130,11 @@ def test_later_request_recovers_temperature_filter_decision_and_outcome(tmp_path
     assert recovered["status"] == "success"
     memory = recovered["data"]["experiment_memory"]
     assert memory["selected_experiment_id"] == experiment_id
-    completed = [
-        entry for entry in memory["entries"]
-        if entry["entry_type"] == "material_action" and entry.get("status") == "completed"
-    ]
-    assert len(completed) == 1
-    assert completed[0]["details"]["material_action_id"] == material_action_id
-    assert completed[0]["details"]["outcome"] == {"before": 215, "removed": 19, "after": 196}
-    assert completed[0]["evidence"][0]["path"] == str(retained.relative_to(tmp_path))
-    assert recovered["data"]["project"]["current"]["open_material_actions"] == []
-    assert recovered["data"]["project"]["current"]["next_action"].startswith("Use the retained 196")
+    assert {entry["entry_type"] for entry in memory["entries"]} == {
+        "experiment", "attempt", "observation", "decision",
+    }
+    assert memory["entries"][-1]["runtime_record_ids"] == [change["record_id"]]
+    assert memory["operational_records"][-1]["kind"] == "evidence_change"
+    assert memory["operational_records"][-1]["after_refs"][0]["path"] == str(retained.relative_to(tmp_path))
+    assert recovered["data"]["project"]["current"]["next_action"] == "Train NEPv3 with the retained dataset"
+    assert decision["entry"]["runtime_record_ids"] == [change["record_id"]]

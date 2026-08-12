@@ -67,8 +67,15 @@ strict JSON schemas and explicit `project_root` where project access is needed.
 
 Real execution must be derived from a persisted run plan and approval bound to
 its `run_plan_hash`. Experiment and Attempt bindings belong to operational plan
-records and must not participate in that hash. Submit inputs must not accept
-mutable replacement hashes.
+records and must not participate in that hash. HPC may bind only existing
+Experiment and Attempt references and must never create either. An Attempt is a
+scientific strategy; a Run is one actual execution, and one Attempt may bind
+multiple Runs. Submit inputs must not accept mutable replacement hashes.
+
+Experiment Memory v1 has a fixed ontology ceiling of Experiment, Attempt,
+Observation, and Decision. Do not add lifecycle entry types or a generic action
+taxonomy. Persistent evidence changes are single immutable operational
+`evidence_change` events and never expose planned/open/reverted state.
 
 ## Workflow Contracts
 

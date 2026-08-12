@@ -46,7 +46,9 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources" in result.stdout
     assert "compact Experiment notebook module, summary rebuild, and schema are release-required" in result.stdout
     assert "tracked runtime contains no SQLite ledger implementation" in result.stdout
-    assert "project summary rebuild and six discriminated Experiment branches are operational" in result.stdout
+    assert "Experiment Memory v1 ontology is capped at four entry types with no action field" in result.stdout
+    assert "HPC consumes existing Attempt references and Run identity remains independent" in result.stdout
+    assert "four-entry Experiment memory, immutable evidence changes, and read-only inspect are operational" in result.stdout
     assert "Experiment and Attempt bindings do not affect immutable run_plan_hash" in result.stdout
     assert "legacy state and memory migration is metadata-only until explicit current-hash confirmation" in result.stdout
     assert "compact records redact credentials and POTCAR materialization remains metadata-only" in result.stdout

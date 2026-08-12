@@ -3,7 +3,8 @@
 ## Record Granularity
 
 SimFlow records logical events and deliverables, not every file. Typical record
-kinds are milestone, run, artifact, analysis, approval, failure, and note.
+kinds are milestone, run, artifact, analysis, evidence_change, approval,
+failure, and note.
 
 Create a record when durable project history benefits from knowing what
 happened. Do not create a record for transient logs, caches, duplicate figures,

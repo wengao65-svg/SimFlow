@@ -46,22 +46,30 @@ not need a state call merely because a Skill was used.
    boundary exist.
 
 The compact summary exposes active Experiments, current goal, active run,
-recent milestone, failure, checkpoint, open material actions, and next action.
+recent milestone, failure, checkpoint, and next action.
 No session, iteration, activity, or mandatory handoff lifecycle is required.
 
 ## Experiment Memory
 
 Use `record(channel="experiment")` for durable scientific semantics that a
 later request must recover: the scientific question, Attempts, observations,
-decisions, material evidence changes, recovery choices, uncertainty, and next
-action. Do not mirror raw trajectories, structures, outputs, or logs into the
-notebook; those files remain exact evidence and are referenced by path/hash.
+decisions, uncertainty, and next action. Do not mirror raw trajectories,
+structures, outputs, logs, operational evidence changes, or technical recovery
+events into the notebook; those remain exact files or operational records and
+may be referenced by path, hash, or runtime record ID.
 
 An Experiment follows one scientific question. Parameter variants such as
 temperature, element, seed, retry, and resume are Attempts unless they change
 the question or acceptance criteria. Ordinary parameter edits are Attempts or
-Decisions. Use `material_action` only for persistent changes to evidence or
-recoverability, and record both the planned action and terminal outcome.
+Decisions. The writable ontology is fixed at Experiment, Attempt, Observation,
+and Decision. An Attempt is a scientific strategy and may contain multiple
+operational Runs; it is not a scheduler job or submit attempt.
+
+Use an operational `evidence_change` record only after a persistent change has
+actually completed, partially completed, or failed. It is a single immutable
+fact event, never a planned/open/reverted lifecycle. Technical recovery stays
+in checkpoint, recover, and resume Run records; write a Decision only when the
+recovery choice has scientific significance.
 
 ## Records
 

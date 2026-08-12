@@ -19,7 +19,7 @@ Required:
 Optional filters:
 
 - `kind`: `milestone`, `run`, `artifact`, `analysis`, `approval`, `failure`,
-  `note`, `checkpoint`, `recovery`, or `migration`;
+  `evidence_change`, `note`, `checkpoint`, `recovery`, or `migration`;
 - `status`, `record_id`, `run_id`;
 - `working_directory` and `query` for Experiment re-entry ranking;
 - `experiment_id`, `attempt_id`, and `entry_type` for explicit filtering;
@@ -53,6 +53,12 @@ Ordinary record kinds are `milestone`, `run`, `artifact`, `analysis`,
 `approval`, `failure`, and `note`. Optional fields include `status`, `stage`,
 `run_id`, `goal`, `next_action`, `artifacts`, `parent_ids`, and `details`.
 
+`evidence_change` is a dedicated single-event branch. It requires `operation`,
+`targets`, and `outcome=completed|partial|failed`; it may include before/after
+references, an approval ID, Experiment/Attempt bindings, and `parent_ids`.
+It does not accept status, run, stage, next-action, artifact, details, planned,
+open, reverted, or recoverability lifecycle fields. An undo is a new event.
+
 Use one record for a meaningful run or deliverable. `artifacts` are path/hash
 references inside that logical record; they are not separate registry writes.
 `parent_ids` provide event-level provenance. Sensitive values and restricted
@@ -83,17 +89,18 @@ record; it never moves, renames, deletes, or rewrites scientific data.
 Scientific memory uses a separate discriminated input:
 
 - `channel="experiment"`;
-- one of `entry_type`: `experiment`, `attempt`, `observation`, `decision`,
-  `material_action`, or `recovery`;
-- `action`, `summary`, and the entry-specific `payload`;
-- `experiment_id` for every entry except `experiment/create`.
+- one of `entry_type`: `experiment`, `attempt`, `observation`, or `decision`;
+- `summary` and the entry-specific `payload`;
+- `experiment_id` for every entry except initial Experiment creation.
 
 This branch does not accept operational `kind`, and the operational branch does
 not accept Experiment-only fields. One Experiment is defined by a scientific
 question; temperature, element, seed, retry, and resume variants are Attempts.
-Material actions require planned/terminal pairing and are reserved for durable
-changes to evidence or recoverability. Exact evidence remains in project files;
-notebooks retain bounded scientific semantics and path/hash references.
+The four entry types are the writable ontology ceiling and there is no generic
+`action` field. An Attempt is a scientific strategy, not an operational Run;
+one Attempt may reference multiple Runs. Exact evidence remains in project
+files; notebooks retain bounded scientific semantics and path/hash or runtime
+record references.
 
 ### `checkpoint`
 

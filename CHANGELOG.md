@@ -2,14 +2,24 @@
 
 ## Unreleased
 
+## v1.1.1 (2026-08-12) — Experiment memory ontology boundary
+
 - Removed the unused legacy workflow notification policy and message templates;
   user-facing status, approval, failure, and handoff communication remains a
   host responsibility.
 - Tightened the legacy MCP `2024-11-05` lifecycle so tool requests are accepted
   only after `initialize` and `notifications/initialized`, while unsupported
   client protocol versions are no longer echoed as server support.
+- Narrowed the unadopted Experiment Notebook v1 contract before external use to
+  four entry types: Experiment, Attempt, Observation, and Decision. Removed the
+  generic `action`, notebook material-action/recovery lifecycles, and open
+  material-action derived state.
+- Added `evidence_change` as one immutable operational fact event with no
+  planned/open/reverted or recoverability lifecycle.
+- Prevented HPC from creating Attempt IDs and separated scientific Attempt
+  identity from independent operational Run identity.
 
-## v1.1.0 (2026-08-11) — Compact Experiment memory and operational binding
+## v1.1.0 (2026-08-12) — Compact Experiment memory and operational binding
 
 - Added one append-only Markdown notebook per scientific Experiment, with six
   discriminated entry types for questions, Attempts, observations, decisions,
@@ -32,7 +42,7 @@
 - Kept the public surface at 12 Skills, four state tools, and four HPC tools;
   no SQLite/session/activity ledger or lifecycle MCP tools were restored.
 
-## v1.0.0 (2026-08-11) — Compact runtime and research guidance separation
+## v1.0.0 (2026-08-12) — Compact runtime and research guidance separation
 
 - Separated the Router, six Research Task Skills, five Domain Skills, and
   compact runtime into explicit product layers. Public Skills no longer own

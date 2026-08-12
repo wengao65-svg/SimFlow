@@ -61,60 +61,45 @@ def test_experiment_creation_is_idempotent_for_same_id_and_key(tmp_path):
     assert repeated["entry"]["entry_id"] == created["entry"]["entry_id"]
 
 
-def test_material_action_requires_planned_and_terminal_pair(tmp_path):
+def test_notebook_ontology_is_limited_to_four_entry_types(tmp_path):
     experiment_id = _create(tmp_path)["experiment_id"]
-    planned = append_experiment_entry(
-        str(tmp_path),
-        experiment_id=experiment_id,
-        entry_type="material_action",
-        action="filter_dataset",
-        status="planned",
-        summary="Exclude structures at or above 400 K",
-        details={
-            "operation": "filter",
-            "targets": ["train.xyz"],
-            "reason": "Keep the target training temperature domain bounded",
-            "selection_criteria": "temperature >= 400 K",
-            "recoverability": "reversible",
-        },
-    )["entry"]
-
-    action_id = planned["details"]["material_action_id"]
-    terminal = append_experiment_entry(
-        str(tmp_path),
-        experiment_id=experiment_id,
-        entry_type="material_action",
-        action="filter_dataset",
-        status="completed",
-        summary="Removed 19 frames and retained 196 frames",
-        details={
-            "operation": "filter",
-            "material_action_id": action_id,
-            "outcome": {"before": 215, "removed": 19, "after": 196},
-        },
-    )["entry"]
-
-    assert terminal["details"]["material_action_id"] == action_id
-    assert build_project_summary(str(tmp_path))["current"]["open_material_actions"] == []
+    for entry_type in ("material_action", "recovery", "validation", "failure"):
+        with pytest.raises(ExperimentNotebookError, match="Unsupported experiment entry_type"):
+            append_experiment_entry(
+                str(tmp_path),
+                experiment_id=experiment_id,
+                entry_type=entry_type,
+                summary="Not part of the scientific-memory ontology",
+            )
 
 
-def test_material_action_rejects_ordinary_parameter_change(tmp_path):
+def test_attempts_are_explicit_and_references_must_resolve(tmp_path):
     experiment_id = _create(tmp_path)["experiment_id"]
-    with pytest.raises(ExperimentNotebookError, match="persistent evidence"):
+    with pytest.raises(ExperimentNotebookError, match="Unknown attempt_id"):
         append_experiment_entry(
             str(tmp_path),
             experiment_id=experiment_id,
-            entry_type="material_action",
-            action="change_parameter",
-            status="planned",
-            summary="Change ENCUT",
-            details={
-                "operation": "parameter_change",
-                "targets": ["INCAR"],
-                "reason": "convergence test",
-                "recoverability": "reversible",
-            },
+            entry_type="observation",
+            attempt_id="att_missing",
+            summary="This reference must not be accepted",
         )
+
+    attempt = append_experiment_entry(
+        str(tmp_path),
+        experiment_id=experiment_id,
+        entry_type="attempt",
+        attempt_id="att_expanded_training",
+        summary="Train NEPv3 with the expanded high-temperature dataset",
+    )["entry"]
+    observation = append_experiment_entry(
+        str(tmp_path),
+        experiment_id=experiment_id,
+        entry_type="observation",
+        attempt_id=attempt["attempt_id"],
+        summary="Validation remains stable at 800 K",
+    )["entry"]
+
+    assert observation["attempt_id"] == "att_expanded_training"
 
 
 def test_append_is_idempotent_and_redacts_restricted_content(tmp_path):
@@ -123,7 +108,6 @@ def test_append_is_idempotent_and_redacts_restricted_content(tmp_path):
         str(tmp_path),
         experiment_id=experiment_id,
         entry_type="decision",
-        action="accept",
         summary="Accept filtered dataset",
         details={"password": "hidden", "potcar_content": "restricted"},
         idempotency_key="accept-filtered-dataset",
@@ -132,7 +116,6 @@ def test_append_is_idempotent_and_redacts_restricted_content(tmp_path):
         str(tmp_path),
         experiment_id=experiment_id,
         entry_type="decision",
-        action="accept",
         summary="duplicate",
         idempotency_key="accept-filtered-dataset",
     )
@@ -152,13 +135,21 @@ def test_malformed_notebook_fails_closed(tmp_path):
         parse_experiment_notebook(path)
 
 
+def test_notebook_with_action_field_fails_closed(tmp_path):
+    path = _create(tmp_path)["path"]
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace('"entry_type":"experiment"', '"action":"create","entry_type":"experiment"'), encoding="utf-8")
+
+    with pytest.raises(NotebookFormatError, match="do not support action"):
+        parse_experiment_notebook(path)
+
+
 def test_project_summary_rebuilds_from_notebooks_records_and_checkpoints(tmp_path):
     experiment_id = _create(tmp_path)["experiment_id"]
     append_experiment_entry(
         str(tmp_path),
         experiment_id=experiment_id,
         entry_type="observation",
-        action="record",
         summary="The retained dataset contains 196 frames",
         next_action="train NEPv3",
     )
@@ -197,8 +188,6 @@ def test_summary_detects_stale_cache_after_new_entry(tmp_path):
         str(tmp_path),
         experiment_id=experiment_id,
         entry_type="decision",
-        action="retry",
         summary="Run another diagnostic attempt",
     )
     assert project_summary_is_stale(str(tmp_path)) is True
-
