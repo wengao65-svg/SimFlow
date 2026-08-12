@@ -178,11 +178,35 @@ def test_modeling_preserves_user_provided_models():
     assert "Builders such as ASE or pymatgen are optional tools" in text
 
 
-def test_writing_requires_evidence_traceability_without_fixed_structure():
-    text = _skill_text("simflow-writing")
+def test_writing_combines_manuscript_strategy_with_evidence_traceability():
+    text = _normalized_skill_text("simflow-writing")
     assert "Every substantive claim must be supportable" in text
     assert "Describe methods as executed" in text
     assert "Unsupported statements are removed, weakened, or explicitly marked" in text
+    assert "method, physical-problem" in text
+    assert '"We show/introduce X, which enables Y by overcoming Z."' in text
+    assert "Prefer figure-first planning" in text
+    assert "Separate method validation from physical discovery" in text
+    assert 'Do not let "DFT accuracy with MD efficiency" stand as the whole novelty' in text
+    assert "energy, force, and stress errors as necessary but insufficient" in text
+
+    references = [
+        "method-paper.md",
+        "physical-problem-paper.md",
+        "scale-breakthrough-paper.md",
+        "reliability-statistics-paper.md",
+        "section-templates.md",
+        "abstracts.md",
+        "introductions.md",
+        "results.md",
+        "discussions.md",
+        "methods.md",
+        "figure-captions.md",
+        "reviewer-checklist.md",
+    ]
+    for reference in references:
+        assert reference in text
+        assert (SKILLS / "simflow-writing" / "references" / reference).is_file()
 
 
 def test_engine_skills_are_domain_skills_not_workflow_executors():
