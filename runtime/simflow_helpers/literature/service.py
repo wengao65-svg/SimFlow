@@ -46,6 +46,7 @@ class LiteratureService:
         *,
         max_results: int = 20,
         seed_records: list[dict[str, Any]] | None = None,
+        include_diagnostics: bool = False,
     ) -> dict[str, Any]:
         """Search every provider and merge results with explicit degradation."""
         provider_results = [
@@ -57,8 +58,15 @@ class LiteratureService:
             observations.extend(result.records)
         papers = merge_paper_records(observations)
         papers.sort(key=_search_sort_key)
-        papers = papers[:max_results]
-        return _operation_result("search", provider_results, papers)
+        selected_papers = papers[:max_results]
+        return _operation_result(
+            "search",
+            provider_results,
+            selected_papers,
+            observation_count=len(observations),
+            metrics_papers=papers,
+            include_diagnostics=include_diagnostics,
+        )
 
     def search_with_corpus(
         self,
@@ -68,9 +76,20 @@ class LiteratureService:
         project_root: str,
         max_results: int = 20,
         extract_pdf_metadata: bool = True,
+        max_metadata_queries: int | None = None,
+        max_external_search_rounds: int = 2,
+        include_diagnostics: bool = False,
     ) -> dict[str, Any]:
         """Screen local corpus first and query providers only for the remaining gap."""
         from .corpus import ingest_research_sources, records_relevant_to_query
+
+        if max_results < 1:
+            raise ValueError("max_results must be positive")
+        if max_external_search_rounds < 0:
+            raise ValueError("max_external_search_rounds cannot be negative")
+        metadata_budget = max_results if max_metadata_queries is None else max_metadata_queries
+        if metadata_budget < 0:
+            raise ValueError("max_metadata_queries cannot be negative")
 
         corpus = ingest_research_sources(
             research_sources,
@@ -80,30 +99,41 @@ class LiteratureService:
         relevant = records_relevant_to_query(corpus["records"], query)
         provider_results: list[ProviderResult] = []
         verified_observations = list(relevant)
-        verified_identifiers: set[tuple[str, str]] = set()
-        for record in relevant:
+        verified_identifiers: set[str] = set()
+        metadata_queries = 0
+        verification_candidates = sorted(relevant, key=_corpus_verification_sort_key)
+        for record in verification_candidates:
             identifier = _best_identifier(record)
-            if not identifier:
+            if not identifier or identifier in verified_identifiers:
                 continue
-            identity_key = (canonical_paper_id(record), identifier)
-            if identity_key in verified_identifiers:
-                continue
-            verified_identifiers.add(identity_key)
+            verified_identifiers.add(identifier)
             for connector in self.connectors:
+                if metadata_queries >= metadata_budget:
+                    break
                 metadata_result = connector.metadata_result(identifier)
                 provider_results.append(metadata_result)
                 verified_observations.extend(metadata_result.records)
+                metadata_queries += metadata_result.query_count
+            if metadata_queries >= metadata_budget:
+                break
 
         local_papers = records_relevant_to_query(merge_paper_records(verified_observations), query)
         verified_observations = [
             observation
-            for observation in verified_observations
-            if any(match_records(paper, observation)["match"] for paper in local_papers)
+            for paper in local_papers
+            for observation in paper.get("observations", [])
         ]
         gap = max(0, max_results - len(local_papers))
         observations = list(verified_observations)
-        if gap:
-            provider_limit = min(max_results, max(5, gap * 2))
+        external_search_rounds = 0
+        papers = merge_paper_records(observations)
+        papers.sort(key=_search_sort_key)
+        while gap and external_search_rounds < max_external_search_rounds and self.connectors:
+            round_number = external_search_rounds + 1
+            provider_limit = min(
+                max(5, max_results * 4),
+                max(5 * round_number, gap * (2 ** round_number)),
+            )
             search_results = [
                 connector.search_result(query, max_results=provider_limit)
                 for connector in self.connectors
@@ -111,10 +141,28 @@ class LiteratureService:
             provider_results.extend(search_results)
             for result in search_results:
                 observations.extend(result.records)
+            external_search_rounds += 1
+            papers = merge_paper_records(observations)
+            papers.sort(key=_search_sort_key)
+            gap = max(0, max_results - len(papers))
 
-        papers = merge_paper_records(observations)
-        papers.sort(key=_search_sort_key)
-        result = _operation_result("corpus_first_search", provider_results, papers[:max_results])
+        selected_papers = papers[:max_results]
+        result = _operation_result(
+            "corpus_first_search",
+            provider_results,
+            selected_papers,
+            observation_count=len(observations),
+            metrics_papers=papers,
+            include_diagnostics=include_diagnostics,
+        )
+        local_result_count = sum(
+            1
+            for paper in selected_papers
+            if any(
+                observation.get("source", "").startswith("local_")
+                for observation in paper.get("observations", [])
+            )
+        )
         result["corpus"] = {
             "record_count": corpus["record_count"],
             "relevant_record_count": len(relevant),
@@ -122,9 +170,27 @@ class LiteratureService:
             "issues": corpus["issues"],
             "source_results": corpus["source_results"],
         }
-        result["gap_before_external_search"] = gap
-        result["external_search_performed"] = bool(gap)
-        result["metadata_cross_checks"] = len(verified_identifiers) * len(self.connectors)
+        initial_gap = max(0, max_results - len(local_papers))
+        result["gap_before_external_search"] = initial_gap
+        result["gap_after_external_search"] = max(0, max_results - len(selected_papers))
+        result["external_search_performed"] = external_search_rounds > 0
+        result["external_search_rounds"] = external_search_rounds
+        result["metadata_cross_checks"] = metadata_queries
+        result["metrics"].update({
+            "metadata_query_count": sum(
+                item.query_count for item in provider_results if item.operation == "metadata"
+            ),
+            "search_query_count": sum(
+                item.query_count for item in provider_results if item.operation == "search"
+            ),
+            "local_corpus_record_count": corpus["record_count"],
+            "local_relevant_record_count": len(relevant),
+            "local_paper_count": len(local_papers),
+            "local_result_count": local_result_count,
+            "local_corpus_hit_rate": len(relevant) / corpus["record_count"] if corpus["record_count"] else 0.0,
+            "local_target_coverage": min(len(local_papers), max_results) / max_results,
+            "local_result_share": local_result_count / len(selected_papers) if selected_papers else 0.0,
+        })
         if not provider_results and papers:
             result["status"] = "success"
         return result
@@ -134,20 +200,28 @@ class LiteratureService:
         identifier: str,
         *,
         expected: dict[str, Any] | None = None,
+        include_diagnostics: bool = False,
     ) -> dict[str, Any]:
         """Cross-check one identifier and retain field-level conflicts."""
         provider_results = [
             connector.metadata_result(identifier)
             for connector in self.connectors
         ]
-        observations = [expected] if expected else []
+        observations = []
         for result in provider_results:
             observations.extend(result.records)
-        papers = merge_paper_records([item for item in observations if item])
-        result = _operation_result("metadata", provider_results, papers)
+        papers = merge_paper_records(observations)
+        result = _operation_result(
+            "metadata",
+            provider_results,
+            papers,
+            observation_count=len(observations),
+            include_diagnostics=include_diagnostics,
+        )
         if expected and papers:
-            result["expected_match"] = match_records(expected, papers[0])
-            result["expected_validation"] = _validate_expected_metadata(expected, papers[0])
+            observed = _paper_for_expected(expected, papers)
+            result["expected_match"] = match_records(expected, observed)
+            result["expected_validation"] = _validate_expected_metadata(expected, observed)
         return result
 
     def snowball(
@@ -156,11 +230,31 @@ class LiteratureService:
         *,
         directions: tuple[str, ...] = ("references", "citations"),
         depth: int = 1,
-        max_results_per_provider: int = 20,
+        max_results_per_provider: int = 10,
+        mode: str = "focused",
+        max_papers: int = 50,
+        max_edges: int = 100,
+        max_provider_operations: int = 16,
+        max_external_queries: int = 32,
+        max_frontier: int = 25,
+        include_diagnostics: bool = False,
     ) -> dict[str, Any]:
         """Expand references and cited-by edges with cycle and depth limits."""
         if depth < 1 or depth > 3:
             raise ValueError("Snowball depth must be between 1 and 3")
+        if mode not in {"focused", "systematic_review", "method_lineage"}:
+            raise ValueError(f"Unsupported snowball mode: {mode}")
+        if depth > 1 and mode == "focused":
+            raise ValueError("Snowball depth above one requires systematic_review or method_lineage mode")
+        for name, value in {
+            "max_papers": max_papers,
+            "max_edges": max_edges,
+            "max_provider_operations": max_provider_operations,
+            "max_external_queries": max_external_queries,
+            "max_frontier": max_frontier,
+        }.items():
+            if value < 1:
+                raise ValueError(f"{name} must be positive")
         invalid = set(directions) - {"references", "citations"}
         if invalid:
             raise ValueError(f"Unsupported snowball direction: {sorted(invalid)[0]}")
@@ -172,8 +266,16 @@ class LiteratureService:
         collected: list[dict[str, Any]] = []
         edges: list[CitationEdge] = []
         provider_results: list[ProviderResult] = []
+        external_queries = 0
+        truncated_reasons: set[str] = set()
 
         while queue:
+            if len(provider_results) >= max_provider_operations:
+                truncated_reasons.add("provider_operation_budget")
+                break
+            if external_queries >= max_external_queries:
+                truncated_reasons.add("external_query_budget")
+                break
             current, current_id, current_depth = queue.popleft()
             if current_depth >= depth:
                 continue
@@ -182,14 +284,34 @@ class LiteratureService:
                 continue
             for connector in self.connectors:
                 for direction in directions:
+                    if len(provider_results) >= max_provider_operations:
+                        truncated_reasons.add("provider_operation_budget")
+                        break
+                    remaining_queries = max_external_queries - external_queries
+                    if remaining_queries <= 0:
+                        truncated_reasons.add("external_query_budget")
+                        break
                     operation = "references" if direction == "references" else "citations"
+                    operation_limit = _graph_result_limit(
+                        connector,
+                        operation,
+                        max_results_per_provider,
+                        remaining_queries,
+                    )
+                    if operation_limit is None:
+                        truncated_reasons.add("external_query_budget")
+                        continue
                     result = (
-                        connector.references_result(identifier, max_results_per_provider)
+                        connector.references_result(identifier, operation_limit)
                         if direction == "references"
-                        else connector.citations_result(identifier, max_results_per_provider)
+                        else connector.citations_result(identifier, operation_limit)
                     )
                     provider_results.append(result)
+                    external_queries += result.query_count
                     for record in result.records:
+                        if len(edges) >= max_edges:
+                            truncated_reasons.add("edge_budget")
+                            break
                         target_id = canonical_paper_id(record)
                         if direction == "references":
                             edge = CitationEdge(current_id, target_id, "references", result.provider, current_depth + 1)
@@ -207,19 +329,54 @@ class LiteratureService:
                                 "depth": current_depth + 1,
                             },
                         })
-                        if target_id not in visited:
+                        if target_id not in visited and len(visited) - 1 < max_papers:
                             visited.add(target_id)
-                            queue.append((record, target_id, current_depth + 1))
+                            if len(queue) < max_frontier:
+                                queue.append((record, target_id, current_depth + 1))
+                            else:
+                                truncated_reasons.add("frontier_budget")
+                        elif target_id not in visited:
+                            truncated_reasons.add("paper_budget")
+                    if len(edges) >= max_edges:
+                        break
+                if (
+                    len(provider_results) >= max_provider_operations
+                    or external_queries >= max_external_queries
+                    or len(edges) >= max_edges
+                ):
+                    break
 
-        papers = merge_paper_records(collected)
+        all_papers = merge_paper_records(collected)
         edge_map = {
             (edge.source_paper_id, edge.target_paper_id, edge.relation, edge.provider, edge.depth): edge
             for edge in edges
         }
-        result = _operation_result("snowball", provider_results, papers)
+        all_papers.sort(key=_search_sort_key)
+        papers = all_papers
+        if len(all_papers) > max_papers:
+            papers = all_papers[:max_papers]
+            truncated_reasons.add("paper_budget")
+        result = _operation_result(
+            "snowball",
+            provider_results,
+            papers,
+            observation_count=len(collected),
+            metrics_papers=all_papers,
+            include_diagnostics=include_diagnostics,
+        )
         result["seed_paper_id"] = seed_id
-        result["edges"] = [edge.to_dict() for edge in edge_map.values()]
+        result["edges"] = [edge.to_dict() for edge in list(edge_map.values())[:max_edges]]
         result["depth"] = depth
+        result["mode"] = mode
+        result["truncated"] = bool(truncated_reasons)
+        result["truncation_reasons"] = sorted(truncated_reasons)
+        result["budgets"] = {
+            "max_papers": max_papers,
+            "max_edges": max_edges,
+            "max_provider_operations": max_provider_operations,
+            "max_external_queries": max_external_queries,
+            "max_frontier": max_frontier,
+        }
         return result
 
 
@@ -359,6 +516,10 @@ def _operation_result(
     operation: str,
     provider_results: list[ProviderResult],
     papers: list[dict[str, Any]],
+    *,
+    observation_count: int = 0,
+    metrics_papers: list[dict[str, Any]] | None = None,
+    include_diagnostics: bool = False,
 ) -> dict[str, Any]:
     errors = [result for result in provider_results if result.status == "error"]
     successful = [result for result in provider_results if result.status == "success"]
@@ -370,17 +531,147 @@ def _operation_result(
         status = "error"
     else:
         status = "empty"
-    return {
+    compact_papers = [_paper_result(paper, include_diagnostics=include_diagnostics) for paper in papers]
+    result = {
         "schema_version": "simflow.literature_result.v1",
         "operation": operation,
         "status": status,
-        "papers": papers,
-        "provider_results": [result.to_dict() for result in provider_results],
+        "papers": compact_papers,
+        "providers": _provider_summary(provider_results),
         "errors": [
             {"provider": result.provider, "error": result.error, "retryable": result.retryable}
             for result in errors
         ],
+        "metrics": _operation_metrics(
+            provider_results,
+            metrics_papers if metrics_papers is not None else papers,
+            observation_count,
+        ),
     }
+    if include_diagnostics:
+        result["provider_results"] = [
+            provider_result.to_dict(include_records=True)
+            for provider_result in provider_results
+        ]
+    return result
+
+
+def _paper_result(paper: dict[str, Any], *, include_diagnostics: bool) -> dict[str, Any]:
+    result = dict(paper)
+    observations = list(result.pop("observations", []))
+    field_sources = result.pop("field_sources", {})
+    conflicts = list(result.pop("conflicts", []))
+    sources = sorted({str(item.get("source") or "unknown") for item in observations})
+    metadata_state = (result.get("evidence") or {}).get("metadata")
+    result["provenance"] = {
+        "sources": sources,
+        "cross_checked_by": sources if metadata_state == "cross_checked" else [],
+        "conflict_fields": sorted({item.get("field") for item in conflicts if item.get("field")}),
+    }
+    result["local_full_text"] = [
+        dict(item["full_text"])
+        for item in observations
+        if item.get("full_text") and item["full_text"].get("verified")
+    ]
+    if include_diagnostics:
+        result["observations"] = observations
+        result["field_sources"] = field_sources
+        result["conflicts"] = conflicts
+    return result
+
+
+def _operation_metrics(
+    provider_results: list[ProviderResult],
+    papers: list[dict[str, Any]],
+    observation_count: int,
+) -> dict[str, Any]:
+    unique_count = len(papers)
+    duplicate_count = max(0, observation_count - unique_count)
+    cross_checked = sum(
+        1 for paper in papers if (paper.get("evidence") or {}).get("metadata") == "cross_checked"
+    )
+    return {
+        "external_query_count": sum(max(0, result.query_count) for result in provider_results),
+        "provider_operation_count": len(provider_results),
+        "metadata_query_count": sum(
+            result.query_count for result in provider_results if result.operation == "metadata"
+        ),
+        "search_query_count": sum(
+            result.query_count for result in provider_results if result.operation == "search"
+        ),
+        "graph_query_count": sum(
+            result.query_count
+            for result in provider_results
+            if result.operation in {"references", "citations"}
+        ),
+        "input_observation_count": observation_count,
+        "unique_paper_count": unique_count,
+        "duplicate_count": duplicate_count,
+        "duplicate_rate": duplicate_count / observation_count if observation_count else 0.0,
+        "cross_checked_count": cross_checked,
+        "cross_checked_ratio": cross_checked / unique_count if unique_count else 0.0,
+    }
+
+
+def _provider_summary(provider_results: list[ProviderResult]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[ProviderResult]] = {}
+    for result in provider_results:
+        grouped.setdefault(result.provider, []).append(result)
+    summaries = []
+    for provider, results in grouped.items():
+        statuses = {item.status for item in results}
+        if "success" in statuses and "error" in statuses:
+            status = "partial"
+        elif "success" in statuses:
+            status = "success"
+        elif "error" in statuses:
+            status = "error"
+        elif statuses == {"unsupported"}:
+            status = "unsupported"
+        else:
+            status = "empty"
+        summaries.append({
+            "provider": provider,
+            "status": status,
+            "operations": sorted({item.operation for item in results}),
+            "query_count": sum(item.query_count for item in results),
+            "record_count": sum(len(item.records) for item in results),
+        })
+    return summaries
+
+
+def _corpus_verification_sort_key(record: dict[str, Any]) -> tuple[int, int]:
+    title = normalize_title(record.get("title"))
+    source = _source_key(record.get("source"))
+    needs_metadata = not title or source == "local_doi"
+    return (0 if needs_metadata else 1, 0 if source == "local_pdf" else 1)
+
+
+def _paper_for_expected(expected: dict[str, Any], papers: list[dict[str, Any]]) -> dict[str, Any]:
+    ranked = sorted(
+        papers,
+        key=lambda paper: match_records(expected, paper).get("confidence", 0.0),
+        reverse=True,
+    )
+    return ranked[0]
+
+
+def _graph_result_limit(
+    connector: Any,
+    operation: str,
+    requested: int,
+    remaining_queries: int,
+) -> int | None:
+    provider = str(getattr(connector, "provider_name", ""))
+    if provider != "openalex":
+        return requested
+    if operation == "references":
+        if remaining_queries < 1:
+            return None
+        return max(0, min(requested, remaining_queries - 1))
+    if operation == "citations" and remaining_queries < 2:
+        return None
+    return requested
 
 
 def _source_key(value: Any) -> str:

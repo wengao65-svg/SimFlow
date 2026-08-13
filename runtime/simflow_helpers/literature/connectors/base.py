@@ -16,8 +16,15 @@ class BaseLiteratureConnector(ABC):
     def last_error(self) -> Exception | None:
         return getattr(self, "_last_error", None)
 
+    @property
+    def last_query_count(self) -> int:
+        return int(getattr(self, "_last_query_count", 1))
+
     def _set_error(self, error: Exception | None) -> None:
         self._last_error = error
+
+    def _set_query_count(self, count: int) -> None:
+        self._last_query_count = max(0, int(count))
 
     @abstractmethod
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
@@ -40,6 +47,7 @@ class BaseLiteratureConnector(ABC):
                 status="error",
                 error=str(error),
                 retryable=is_retryable(error),
+                query_count=self.last_query_count,
             )
         error = self.last_error
         if error is not None:
@@ -49,12 +57,14 @@ class BaseLiteratureConnector(ABC):
                 status="error",
                 error=str(error),
                 retryable=is_retryable(error),
+                query_count=self.last_query_count,
             )
         return ProviderResult(
             provider=self.provider_name,
             operation="search",
             status="success" if records else "empty",
             records=records,
+            query_count=self.last_query_count,
         )
 
     def metadata_result(self, identifier: str) -> ProviderResult:
@@ -68,6 +78,7 @@ class BaseLiteratureConnector(ABC):
                 status="error",
                 error=str(error),
                 retryable=is_retryable(error),
+                query_count=self.last_query_count,
             )
         error = self.last_error
         if error is not None:
@@ -77,12 +88,14 @@ class BaseLiteratureConnector(ABC):
                 status="error",
                 error=str(error),
                 retryable=is_retryable(error),
+                query_count=self.last_query_count,
             )
         return ProviderResult(
             provider=self.provider_name,
             operation="metadata",
             status="success" if record else "empty",
             records=[record] if record else [],
+            query_count=self.last_query_count,
         )
 
     def references_result(self, identifier: str, max_results: int = 20) -> ProviderResult:
@@ -91,6 +104,7 @@ class BaseLiteratureConnector(ABC):
             provider=self.provider_name,
             operation="references",
             status="unsupported",
+            query_count=0,
         )
 
     def citations_result(self, identifier: str, max_results: int = 20) -> ProviderResult:
@@ -99,4 +113,5 @@ class BaseLiteratureConnector(ABC):
             provider=self.provider_name,
             operation="citations",
             status="unsupported",
+            query_count=0,
         )

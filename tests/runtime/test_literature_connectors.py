@@ -33,6 +33,21 @@ def test_mock_connector_get_metadata_tags_as_unverified():
     assert meta["source"] == "mock"
 
 
+def test_mock_and_cache_hits_do_not_count_as_external_queries(monkeypatch):
+    mock_result = MockLiteratureConnector().search_result("silicon")
+    assert mock_result.query_count == 0
+
+    connector = OpenAlexConnector()
+    payload = '{"results": [{"id": "https://openalex.org/W1", "title": "Paper"}]}'
+    monkeypatch.setattr(connector, "_fetch", lambda url: payload)
+
+    first = connector.search_result("paper", max_results=1)
+    second = connector.search_result("paper", max_results=1)
+
+    assert first.query_count == 1
+    assert second.query_count == 0
+
+
 def test_openalex_normalize_work():
     work = {
         "id": "https://openalex.org/W123456789",

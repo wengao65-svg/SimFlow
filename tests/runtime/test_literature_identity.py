@@ -54,14 +54,35 @@ def test_non_latin_titles_retain_searchable_identity():
     assert normalize_title("第一性原理计算") == "第一性原理计算"
 
 
-def test_title_author_year_can_merge_without_identifiers():
+def test_title_author_year_is_only_a_possible_duplicate_without_identifiers():
     result = match_records(
         {"title": "A reliable simulation workflow", "authors": ["Alice Smith"], "year": 2024},
         {"title": "A Reliable Simulation Workflow", "authors": ["A. Smith"], "year": 2025},
     )
 
-    assert result["match"] is True
-    assert result["reason"] == "title_author_year"
+    assert result["match"] is False
+    assert result["possible_duplicate"] is True
+    assert result["reason"] == "title_author_year_candidate"
+
+
+def test_distinct_strong_identifiers_never_merge_through_title_similarity():
+    result = match_records(
+        {
+            "doi": "10.1000/published",
+            "title": "A reliable simulation workflow",
+            "authors": ["Alice Smith"],
+            "year": 2024,
+        },
+        {
+            "arxiv_id": "2401.01234",
+            "title": "A Reliable Simulation Workflow",
+            "authors": ["A. Smith"],
+            "year": 2025,
+        },
+    )
+
+    assert result["match"] is False
+    assert result["possible_duplicate"] is True
 
 
 def test_author_compatibility_accepts_surname_only_and_initials():

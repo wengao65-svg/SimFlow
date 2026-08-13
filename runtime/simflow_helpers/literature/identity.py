@@ -130,11 +130,17 @@ def match_records(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]
     author_compatible = _authors_compatible(left_author, right_author)
 
     if title_score >= 0.96 and author_compatible and year_compatible:
-        return {"match": True, "confidence": title_score, "reason": "title_author_year"}
+        return {
+            "match": False,
+            "confidence": title_score,
+            "reason": "title_author_year_candidate",
+            "possible_duplicate": True,
+        }
     return {
         "match": False,
         "confidence": title_score,
         "reason": "title_only_candidate" if title_score >= 0.90 else "different",
+        "possible_duplicate": title_score >= 0.90,
     }
 
 

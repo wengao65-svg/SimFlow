@@ -16,16 +16,31 @@ class CountingConnector(BaseLiteratureConnector):
         self.search_records = list(search_records or [])
         self.metadata_records = dict(metadata_records or {})
         self.search_calls = 0
+        self.search_limits = []
         self.metadata_calls = 0
         self._last_error = None
 
     def search(self, query, max_results=20, **kwargs):
         self.search_calls += 1
+        self.search_limits.append(max_results)
         return self.search_records[:max_results]
 
     def get_metadata(self, identifier):
         self.metadata_calls += 1
         return self.metadata_records.get(identifier)
+
+
+class BatchedSearchConnector(CountingConnector):
+    def __init__(self, search_batches, **kwargs):
+        super().__init__(**kwargs)
+        self.search_batches = list(search_batches)
+
+    def search(self, query, max_results=20, **kwargs):
+        self.search_calls += 1
+        self.search_limits.append(max_results)
+        if not self.search_batches:
+            return []
+        return self.search_batches.pop(0)[:max_results]
 
 
 def test_parse_bibtex_preserves_nested_braces_and_multiple_entries():
@@ -219,6 +234,75 @@ def test_preprint_to_doi_upgrade_preserves_local_full_text_observation(tmp_path)
     assert paper["paper_id"] == "doi:10.1000/published"
     assert paper["identifiers"] == {"arxiv": "2301.01234", "doi": "10.1000/published"}
     assert paper["evidence_level"] == "full_text_available"
-    assert {observation["source"] for observation in paper["observations"]} == {"local_pdf", "openalex"}
-    local_observation = next(item for item in paper["observations"] if item["source"] == "local_pdf")
-    assert local_observation["full_text"]["verified"] is True
+    assert paper["provenance"]["sources"] == ["local_pdf", "openalex"]
+    assert paper["local_full_text"][0]["verified"] is True
+
+
+def test_large_pdf_corpus_caps_metadata_queries_and_avoids_keyword_search(tmp_path):
+    fitz = pytest.importorskip("fitz")
+    items = []
+    for index in range(100):
+        pdf = tmp_path / f"paper-{index:03d}.pdf"
+        document = fitz.open()
+        page = document.new_page()
+        page.insert_text((72, 72), f"Silicon DFT paper {index}\nDOI: 10.1000/local-{index:03d}")
+        document.set_metadata({"title": f"Silicon DFT paper {index}", "author": f"Author {index}"})
+        document.save(pdf)
+        document.close()
+        items.append({"source_id": f"pdf-{index:03d}", "type": "pdf", "path": pdf.name})
+
+    connectors = [CountingConnector(), CountingConnector()]
+    result = LiteratureService(connectors).search_with_corpus(
+        "silicon DFT",
+        {"items": items},
+        project_root=str(tmp_path),
+        max_results=20,
+    )
+
+    assert result["corpus"]["record_count"] == 100
+    assert result["corpus"]["local_paper_count"] == 100
+    assert len(result["papers"]) == 20
+    assert sum(connector.metadata_calls for connector in connectors) == 20
+    assert sum(connector.search_calls for connector in connectors) == 0
+    assert result["metrics"]["local_target_coverage"] == 1.0
+    assert result["metrics"]["local_result_share"] == 1.0
+    assert result["metrics"]["duplicate_rate"] == 0.0
+
+
+def test_gap_search_refills_after_first_round_returns_only_local_duplicate(tmp_path):
+    bib = tmp_path / "references.bib"
+    bib.write_text(
+        "@article{one,title={Silicon DFT convergence},author={Alice Smith},year={2024},doi={10.1000/one}}",
+        encoding="utf-8",
+    )
+    duplicate = {
+        "doi": "10.1000/one",
+        "title": "Silicon DFT convergence",
+        "authors": ["Alice Smith"],
+        "year": 2024,
+        "source": "OpenAlex",
+    }
+    new_paper = {
+        "doi": "10.1000/two",
+        "title": "Silicon DFT surfaces",
+        "authors": ["Bob Jones"],
+        "year": 2023,
+        "source": "OpenAlex",
+    }
+    connector = BatchedSearchConnector([[duplicate], [new_paper]])
+
+    result = LiteratureService([connector]).search_with_corpus(
+        "silicon DFT",
+        {"items": [{"source_id": "bib", "type": "bibtex", "path": bib.name}]},
+        project_root=str(tmp_path),
+        max_results=2,
+    )
+
+    assert connector.search_calls == 2
+    assert connector.search_limits == [5, 8]
+    assert result["external_search_rounds"] == 2
+    assert result["gap_after_external_search"] == 0
+    assert {paper["paper_id"] for paper in result["papers"]} == {
+        "doi:10.1000/one",
+        "doi:10.1000/two",
+    }

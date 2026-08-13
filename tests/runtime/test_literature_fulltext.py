@@ -5,7 +5,7 @@ from http.client import RemoteDisconnected
 import pytest
 
 from runtime.simflow_helpers.literature import fulltext
-from runtime.simflow_helpers.literature.fulltext import collect_full_text_candidates, download_full_text
+from runtime.simflow_helpers.literature.fulltext import acquire_full_text, collect_full_text_candidates, download_full_text
 from runtime.simflow_helpers.literature.retry import is_retryable
 
 
@@ -26,6 +26,19 @@ def test_full_text_candidates_prefer_local_then_open_access():
 
     assert [item["access_basis"] for item in result["candidates"]] == ["user_provided", "open_access"]
     assert result["issues"] == []
+
+
+def test_full_text_candidates_accept_compact_local_provenance():
+    result = collect_full_text_candidates({
+        "local_full_text": [{
+            "path": "papers/paper.pdf",
+            "source": "local_pdf",
+            "verified": True,
+            "is_pdf": True,
+        }],
+    })
+
+    assert result["candidates"][0]["path"] == "papers/paper.pdf"
 
 
 def test_optional_institutional_adapter_requires_declared_entitlement():
@@ -108,3 +121,27 @@ def test_remote_disconnect_is_retryable_and_download_recovers(monkeypatch, tmp_p
     assert is_retryable(RemoteDisconnected("temporary")) is True
     assert calls["count"] == 2
     assert result["status"] == "success"
+
+
+def test_acquisition_failure_is_structured_and_does_not_mutate_discovery_result(monkeypatch, tmp_path):
+    discovery = {
+        "status": "success",
+        "papers": [{"paper_id": "doi:10.1000/example", "evidence_level": "metadata_only"}],
+    }
+
+    def fail_download(url):
+        raise TimeoutError("repository timeout")
+
+    monkeypatch.setattr(fulltext, "_download_bytes", fail_download)
+    monkeypatch.setattr("runtime.simflow_helpers.literature.retry.time.sleep", lambda seconds: None)
+
+    acquisition = acquire_full_text(
+        {"url": "https://example.org/paper.pdf", "source": "repository", "access_basis": "open_access"},
+        tmp_path / "paper.pdf",
+    )
+
+    assert acquisition["status"] == "error"
+    assert acquisition["retryable"] is True
+    assert acquisition["metrics"] == {"attempts": 1, "successes": 0}
+    assert discovery["status"] == "success"
+    assert discovery["papers"][0]["evidence_level"] == "metadata_only"

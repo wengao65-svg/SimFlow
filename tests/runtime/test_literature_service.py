@@ -60,9 +60,53 @@ def test_multi_source_search_merges_duplicate_doi_and_retains_field_provenance()
     assert len(result["papers"]) == 1
     paper = result["papers"][0]
     assert paper["paper_id"] == "doi:10.1000/example"
-    assert {item["source"] for item in paper["observations"]} == {"openalex", "crossref"}
+    assert paper["provenance"] == {
+        "sources": ["crossref", "openalex"],
+        "cross_checked_by": ["crossref", "openalex"],
+        "conflict_fields": [],
+    }
+    assert "observations" not in paper
+    assert "provider_results" not in result
     assert paper["evidence"]["metadata"] == "cross_checked"
     assert paper["venue"] == "Journal of Tests"
+    assert result["metrics"]["duplicate_rate"] == 0.5
+    assert result["metrics"]["cross_checked_ratio"] == 1.0
+
+
+def test_diagnostics_mode_exposes_detailed_provider_and_observation_records():
+    service = LiteratureService([
+        FakeConnector("openalex", search_records=[{
+            "doi": "10.1000/example",
+            "title": "Unified Paper",
+            "source": "OpenAlex",
+        }]),
+    ])
+
+    result = service.search_papers("unified", include_diagnostics=True)
+
+    assert result["provider_results"][0]["records"][0]["doi"] == "10.1000/example"
+    assert result["papers"][0]["observations"][0]["source"] == "openalex"
+
+
+def test_default_conflict_output_exposes_fields_not_provider_debug_values():
+    service = LiteratureService([
+        FakeConnector("crossref", search_records=[{
+            "doi": "10.1000/example",
+            "title": "Correct title",
+            "source": "Crossref",
+        }]),
+        FakeConnector("openalex", search_records=[{
+            "doi": "10.1000/example",
+            "title": "Different title",
+            "source": "OpenAlex",
+        }]),
+    ])
+
+    result = service.search_papers("paper")
+
+    assert result["papers"][0]["provenance"]["conflict_fields"] == ["title"]
+    assert result["papers"][0]["provenance"]["cross_checked_by"] == []
+    assert "conflicts" not in result["papers"][0]
 
 
 def test_multi_source_search_reports_partial_success_when_one_provider_fails():
@@ -116,6 +160,30 @@ def test_bridge_record_coalesces_existing_doi_and_arxiv_groups():
         "crossref",
         "arxiv",
         "openalex",
+    }
+
+
+def test_similar_doi_and_arxiv_records_remain_separate_without_explicit_bridge():
+    papers = merge_paper_records([
+        {
+            "doi": "10.1000/published",
+            "title": "A highly accurate simulation method",
+            "authors": ["Alice Smith"],
+            "year": 2024,
+            "source": "Crossref",
+        },
+        {
+            "arxiv_id": "2401.01234",
+            "title": "A Highly Accurate Simulation Method",
+            "authors": ["A. Smith"],
+            "year": 2025,
+            "source": "arXiv",
+        },
+    ])
+
+    assert {paper["paper_id"] for paper in papers} == {
+        "doi:10.1000/published",
+        "arxiv:2401.01234",
     }
 
 
@@ -182,6 +250,37 @@ def test_metadata_verification_detects_doi_title_mismatch():
     assert set(result["expected_validation"]["mismatches"]) == {"title", "year", "first_author"}
 
 
+def test_expected_metadata_is_not_counted_as_provider_provenance_or_self_validated():
+    service = LiteratureService([
+        FakeConnector("crossref", metadata_record={
+            "doi": "10.1000/example",
+            "title": "Observed title",
+            "authors": ["Alice Smith"],
+            "year": 2024,
+            "source": "Crossref",
+        }),
+        FakeConnector("openalex", metadata_record={
+            "doi": "10.1000/example",
+            "title": "Observed title",
+            "authors": ["Alice Smith"],
+            "year": 2024,
+            "source": "OpenAlex",
+        }),
+    ])
+
+    result = service.verify_metadata(
+        "10.1000/example",
+        expected={"title": "Expected but incorrect title", "authors": ["Bob Jones"], "year": 2018},
+    )
+
+    assert len(result["papers"]) == 1
+    assert result["papers"][0]["provenance"]["sources"] == ["crossref", "openalex"]
+    assert "unknown" not in result["papers"][0]["provenance"]["sources"]
+    assert result["expected_validation"]["status"] == "conflicted"
+    assert result["metrics"]["input_observation_count"] == 2
+    assert result["metrics"]["unique_paper_count"] == 1
+
+
 def test_snowball_deduplicates_edges_and_prevents_cycles():
     cited = {"doi": "10.1000/cited", "title": "Cited", "source": "OpenAlex"}
     citing = {"doi": "10.1000/citing", "title": "Citing", "source": "OpenAlex"}
@@ -199,3 +298,43 @@ def test_snowball_deduplicates_edges_and_prevents_cycles():
     assert {paper["paper_id"] for paper in result["papers"]} == {"doi:10.1000/cited", "doi:10.1000/citing"}
     assert len(result["edges"]) == 2
     assert {edge["relation"] for edge in result["edges"]} == {"references", "cites"}
+
+
+def test_snowball_depth_above_one_requires_explicit_review_mode():
+    service = LiteratureService([FakeConnector("openalex")])
+
+    import pytest
+
+    with pytest.raises(ValueError, match="requires systematic_review or method_lineage"):
+        service.snowball("10.1000/seed", depth=2)
+
+
+def test_snowball_global_budgets_truncate_provider_expansion():
+    references = [
+        {"doi": f"10.2000/{index}", "title": f"Reference {index}", "source": "OpenAlex"}
+        for index in range(20)
+    ]
+    citations = [
+        {"doi": f"10.3000/{index}", "title": f"Citation {index}", "source": "OpenAlex"}
+        for index in range(20)
+    ]
+    service = LiteratureService([
+        FakeConnector(f"provider_{index}", references=references, citations=citations)
+        for index in range(4)
+    ])
+
+    result = service.snowball(
+        "10.1000/seed",
+        max_results_per_provider=20,
+        max_papers=25,
+        max_edges=30,
+        max_provider_operations=4,
+        max_external_queries=3,
+    )
+
+    assert result["truncated"] is True
+    assert len(result["papers"]) <= 25
+    assert len(result["edges"]) <= 30
+    assert result["metrics"]["provider_operation_count"] <= 4
+    assert result["metrics"]["external_query_count"] <= 3
+    assert set(result["truncation_reasons"]) & {"edge_budget", "paper_budget", "provider_operation_budget"}

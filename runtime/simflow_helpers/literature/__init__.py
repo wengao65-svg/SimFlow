@@ -8,7 +8,7 @@ from .evidence import (
     mark_full_text_available,
     mark_full_text_inspected,
 )
-from .fulltext import collect_full_text_candidates, download_full_text
+from .fulltext import acquire_full_text, collect_full_text_candidates, download_full_text
 from .identity import (
     authors_compatible,
     canonical_paper_id,
@@ -19,9 +19,11 @@ from .identity import (
 )
 from .registry import get_connector, get_connectors
 from .service import LiteratureService, merge_paper_records
+from .metrics import summarize_literature_metrics
 
 __all__ = [
     "LiteratureService",
+    "acquire_full_text",
     "authors_compatible",
     "canonical_paper_id",
     "collect_full_text_candidates",
@@ -42,4 +44,5 @@ __all__ = [
     "normalize_title",
     "parse_bibtex",
     "records_relevant_to_query",
+    "summarize_literature_metrics",
 ]

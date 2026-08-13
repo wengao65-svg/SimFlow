@@ -33,6 +33,16 @@ def collect_full_text_candidates(
                 verified=bool(full_text.get("verified")),
             ))
 
+    for full_text in paper.get("local_full_text", []):
+        if full_text.get("path") and full_text.get("verified"):
+            candidates.append(FullTextCandidate(
+                path=full_text["path"],
+                source=full_text.get("source") or "local_pdf",
+                access_basis="user_provided",
+                is_pdf=bool(full_text.get("is_pdf", True)),
+                verified=True,
+            ))
+
     for location in paper.get("open_access_locations", []):
         if not location.get("is_oa"):
             continue
@@ -118,6 +128,24 @@ def download_full_text(candidate: dict[str, Any], output_path: str | Path) -> di
     }
 
 
+def acquire_full_text(candidate: dict[str, Any], output_path: str | Path) -> dict[str, Any]:
+    """Attempt one download without turning acquisition failure into task failure."""
+    try:
+        result = download_full_text(candidate, output_path)
+    except Exception as error:
+        return {
+            "status": "error",
+            "path": str(Path(output_path).expanduser()),
+            "source": candidate.get("source"),
+            "access_basis": candidate.get("access_basis"),
+            "error": str(error),
+            "retryable": _retryable(error),
+            "metrics": {"attempts": 1, "successes": 0},
+        }
+    result["metrics"] = {"attempts": 1, "successes": 1}
+    return result
+
+
 def _download_bytes(url: str) -> bytes:
     request = urllib.request.Request(
         url,
@@ -145,4 +173,10 @@ def _disallowed_source(value: Any) -> bool:
     return any(marker in text for marker in DISALLOWED_SOURCE_MARKERS)
 
 
-__all__ = ["collect_full_text_candidates", "download_full_text"]
+def _retryable(error: Exception) -> bool:
+    from .retry import is_retryable
+
+    return is_retryable(error)
+
+
+__all__ = ["acquire_full_text", "collect_full_text_candidates", "download_full_text"]

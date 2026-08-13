@@ -11,6 +11,9 @@
   explicit metadata/full-text/claim evidence boundaries.
 - Removed automatic mock fallback for unknown or failing literature backends;
   mock data remains available only when explicitly requested for tests.
+- Tightened literature identity merging to strong identifiers, added bounded
+  snowball expansion, budgeted corpus-first verification/refill, compact
+  provenance, optional acquisition failures, and stateless task metrics.
 
 ## v1.1.1 (2026-08-12) — Experiment memory ontology boundary
 

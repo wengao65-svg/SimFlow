@@ -24,11 +24,13 @@ class ArxivConnector(BaseLiteratureConnector):
     def __init__(self):
         self._cache = TTLCache(max_size=128, ttl_seconds=900)
         self._last_error = None
+        self._last_query_count = 0
         self._last_request_at = 0.0
 
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search arXiv for papers."""
         self._set_error(None)
+        self._set_query_count(0)
         cache_key = "search:{}:{}".format(query, max_results)
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -43,6 +45,7 @@ class ArxivConnector(BaseLiteratureConnector):
         })
         url = "{}?{}".format(ARXIV_API, params)
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch(url)
         )
@@ -57,6 +60,7 @@ class ArxivConnector(BaseLiteratureConnector):
     def get_metadata(self, arxiv_id: str) -> Optional[dict]:
         """Get metadata for a specific arXiv paper."""
         self._set_error(None)
+        self._set_query_count(0)
         arxiv_id = normalize_arxiv_id(arxiv_id, keep_version=True)
         if not arxiv_id:
             return None
@@ -71,6 +75,7 @@ class ArxivConnector(BaseLiteratureConnector):
         })
         url = "{}?{}".format(ARXIV_API, params)
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch(url)
         )

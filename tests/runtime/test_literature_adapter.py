@@ -47,5 +47,8 @@ def test_search_literature_rejects_unknown_backend_without_mock_data():
 
     assert result["status"] == "error"
     assert result["papers"] == []
+    assert result["providers"] == []
+    assert "provider_results" not in result
+    assert result["metrics"]["external_query_count"] == 0
     assert result["errors"][0]["provider"] == "unknown"
     assert "Unknown backend" in result["errors"][0]["error"]

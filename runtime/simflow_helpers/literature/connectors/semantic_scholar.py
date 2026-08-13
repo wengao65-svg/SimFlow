@@ -24,10 +24,12 @@ class SemanticScholarConnector(BaseLiteratureConnector):
         self.api_key = os.environ.get("S2_API_KEY")
         self._cache = TTLCache(max_size=128, ttl_seconds=900)
         self._last_error = None
+        self._last_query_count = 0
 
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search Semantic Scholar for papers."""
         self._set_error(None)
+        self._set_query_count(0)
         cache_key = "search:{}:{}".format(query, max_results)
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -40,6 +42,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
         })
         url = "{}/paper/search?{}".format(S2_API, params)
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch_json(url)
         )
@@ -54,6 +57,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
     def get_metadata(self, paper_id: str) -> Optional[dict]:
         """Get metadata for a specific paper by Semantic Scholar ID or DOI."""
         self._set_error(None)
+        self._set_query_count(0)
         paper_id = self._paper_id(paper_id)
 
         cache_key = "meta:{}".format(paper_id)
@@ -65,6 +69,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
             S2_API, urllib.parse.quote(paper_id, safe="")
         )
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch_json(url)
         )
@@ -90,6 +95,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
         fields = "title,authors,abstract,year,externalIds,url,citationCount,venue,openAccessPdf"
         url = f"{S2_API}/paper/{urllib.parse.quote(paper_id, safe='')}/{operation}?limit={max_results}&fields={fields}"
         self._set_error(None)
+        self._set_query_count(1)
         success, result = retry_with_backoff(lambda: self._fetch_json(url))
         if not success:
             self._set_error(result)
@@ -98,6 +104,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
                 operation=operation,
                 status="error",
                 error=str(result),
+                query_count=1,
             )
         records = []
         for item in result.get("data", []):
@@ -109,6 +116,7 @@ class SemanticScholarConnector(BaseLiteratureConnector):
             operation=operation,
             status="success" if records else "empty",
             records=records,
+            query_count=1,
         )
 
     @staticmethod

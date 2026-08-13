@@ -24,11 +24,13 @@ class CrossrefConnector(BaseLiteratureConnector):
     def __init__(self):
         self._cache = TTLCache(max_size=128, ttl_seconds=900)
         self._last_error = None
+        self._last_query_count = 0
         self._email = os.environ.get("SIMFLOW_CROSSREF_EMAIL", "")
 
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search Crossref for works."""
         self._set_error(None)
+        self._set_query_count(0)
         cache_key = "search:{}:{}".format(query, max_results)
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -41,6 +43,7 @@ class CrossrefConnector(BaseLiteratureConnector):
         })
         url = "{}/works?{}".format(CROSSREF_API, params)
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch_json(url)
         )
@@ -55,6 +58,7 @@ class CrossrefConnector(BaseLiteratureConnector):
     def get_metadata(self, doi: str) -> Optional[dict]:
         """Get metadata for a specific DOI."""
         self._set_error(None)
+        self._set_query_count(0)
         doi = normalize_doi(doi)
         if not doi:
             return None
@@ -66,6 +70,7 @@ class CrossrefConnector(BaseLiteratureConnector):
 
         url = "{}/works/{}".format(CROSSREF_API, urllib.parse.quote(doi, safe=""))
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(
             lambda: self._fetch_json(url)
         )
@@ -89,6 +94,7 @@ class CrossrefConnector(BaseLiteratureConnector):
                 status=metadata.status,
                 error=metadata.error,
                 retryable=metadata.retryable,
+                query_count=metadata.query_count,
             )
         references = list(metadata.records[0].get("references") or [])[:max_results]
         return ProviderResult(
@@ -96,6 +102,7 @@ class CrossrefConnector(BaseLiteratureConnector):
             operation="references",
             status="success" if references else "empty",
             records=references,
+            query_count=metadata.query_count,
         )
 
     @staticmethod

@@ -16,9 +16,14 @@ class ProviderResult:
     records: list[dict[str, Any]] = field(default_factory=list)
     error: str = ""
     retryable: bool = False
+    query_count: int = 1
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_dict(self, *, include_records: bool = True) -> dict[str, Any]:
+        result = asdict(self)
+        result["record_count"] = len(self.records)
+        if not include_records:
+            result.pop("records", None)
+        return result
 
 
 @dataclass

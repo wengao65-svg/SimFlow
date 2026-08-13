@@ -29,10 +29,12 @@ class OpenAlexConnector(BaseLiteratureConnector):
         self._email = os.environ.get("SIMFLOW_OPENALEX_EMAIL", "")
         self._api_key = os.environ.get("OPENALEX_API_KEY", "")
         self._last_error = None
+        self._last_query_count = 0
 
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search OpenAlex for works matching the query."""
         self._set_error(None)
+        self._set_query_count(0)
         cache_key = "search:{}:{}".format(query, max_results)
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -49,6 +51,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
             params["api_key"] = self._api_key
         url = "{}?{}".format(OPENALEX_API, urllib.parse.urlencode(params))
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(lambda: self._fetch(url))
         if not success:
             self._set_error(result)
@@ -61,6 +64,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
     def get_metadata(self, doi: str) -> Optional[dict]:
         """Get metadata for a specific DOI via OpenAlex."""
         self._set_error(None)
+        self._set_query_count(0)
         doi_clean = doi.strip()
         if doi_clean.startswith("https://doi.org/"):
             doi_clean = doi_clean[len("https://doi.org/"):]
@@ -80,6 +84,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
             separator = "&" if "?" in url else "?"
             url += "{}api_key={}".format(separator, urllib.parse.quote(self._api_key))
 
+        self._set_query_count(1)
         success, result = retry_with_backoff(lambda: self._fetch(url))
         if not success:
             self._set_error(result)
@@ -95,6 +100,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
         from ..models import ProviderResult
 
         seed = self._get_work(identifier)
+        query_count = self.last_query_count
         if seed is None:
             error = self.last_error
             return ProviderResult(
@@ -102,10 +108,12 @@ class OpenAlexConnector(BaseLiteratureConnector):
                 operation="references",
                 status="error" if error else "empty",
                 error=str(error or ""),
+                query_count=query_count,
             )
         records = []
         for work_id in list(seed.get("referenced_works") or [])[:max_results]:
             work = self._get_work(work_id)
+            query_count += self.last_query_count
             if work:
                 normalized = self._normalize_work(work)
                 if normalized:
@@ -115,6 +123,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
             operation="references",
             status="success" if records else "empty",
             records=records,
+            query_count=query_count,
         )
 
     def citations_result(self, identifier: str, max_results: int = 20):
@@ -122,6 +131,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
         from ..models import ProviderResult
 
         seed = self._get_work(identifier)
+        query_count = self.last_query_count
         if seed is None:
             error = self.last_error
             return ProviderResult(
@@ -129,6 +139,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
                 operation="citations",
                 status="error" if error else "empty",
                 error=str(error or ""),
+                query_count=query_count,
             )
         work_id = str(seed.get("id") or "").rsplit("/", 1)[-1]
         params = {"filter": f"cites:{work_id}", "per_page": min(max_results, 200)}
@@ -138,7 +149,9 @@ class OpenAlexConnector(BaseLiteratureConnector):
             params["api_key"] = self._api_key
         url = "{}?{}".format(OPENALEX_API, urllib.parse.urlencode(params))
         self._set_error(None)
+        self._set_query_count(1)
         success, result = retry_with_backoff(lambda: self._fetch(url))
+        query_count += self.last_query_count
         if not success:
             self._set_error(result)
             return ProviderResult(
@@ -146,6 +159,7 @@ class OpenAlexConnector(BaseLiteratureConnector):
                 operation="citations",
                 status="error",
                 error=str(result),
+                query_count=query_count,
             )
         records = self._parse_search_results(result)
         return ProviderResult(
@@ -153,11 +167,13 @@ class OpenAlexConnector(BaseLiteratureConnector):
             operation="citations",
             status="success" if records else "empty",
             records=records,
+            query_count=query_count,
         )
 
     def _get_work(self, identifier: str) -> Optional[dict]:
         """Fetch raw work JSON by DOI, OpenAlex ID, or URL."""
         self._set_error(None)
+        self._set_query_count(1)
         raw = str(identifier or "").strip()
         if raw.startswith("10.") or "doi.org/" in raw:
             doi = raw.rsplit("doi.org/", 1)[-1]

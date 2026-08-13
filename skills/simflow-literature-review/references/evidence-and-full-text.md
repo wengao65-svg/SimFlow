@@ -25,6 +25,11 @@ SimFlow. The user completes authentication in the external tool or visible
 browser. SimFlow may consume only a resulting entitled candidate with an
 explicit access basis.
 
+Full-text acquisition is optional and independent from discovery, metadata
+verification, and citation snowballing. A failed download leaves metadata
+results usable at their existing evidence level and is reported as a separate
+acquisition failure.
+
 Do not use or recommend Sci-Hub, LibGen, access-control bypass, credential
 capture, stealth browsing, or anti-bot circumvention as SimFlow retrieval
 routes.
