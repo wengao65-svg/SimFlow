@@ -188,7 +188,6 @@ def ensure_simflow_dir(base_dir: str = ".", project_root: Optional[str] = None) 
         sf / "checkpoints",
         sf / "reports",
         sf / "logs",
-        sf / "extensions" / "skills",
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

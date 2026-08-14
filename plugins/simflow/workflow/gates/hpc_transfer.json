@@ -1,6 +1,6 @@
 {
   "name": "hpc_transfer",
-  "description": "Remote HPC file transfer approval gate.",
+  "description": "Compatibility review label only. Real transfer authorization belongs exclusively to an approved immutable hpc/plan and hpc/transfer.",
   "type": "approval",
   "conditions": [
     {
@@ -11,8 +11,8 @@
       "value": "approved"
     }
   ],
-  "actions_on_approve": ["transfer_files", "record_transfer_manifest"],
-  "actions_on_reject": ["report_rejection_reason"],
+  "actions_on_approve": [],
+  "actions_on_reject": ["use_public_hpc_plan_and_bound_approval"],
   "auto_approve": false,
   "timeout_minutes": 60
 }

@@ -15,8 +15,9 @@ The canonical workflow-layer stages are:
 - `writing`
 
 These stages can be entered independently when their inputs and evidence needs
-are satisfied. Stage boundaries should be recorded through `.simflow/` state,
-artifacts, checkpoints, lineage, gate evidence, and handoff notes.
+are satisfied. A stage boundary does not itself require a state write,
+checkpoint, artifact registration, lineage registry, or handoff. Record only a
+meaningful event or deliverable when durable project history benefits from it.
 
 Historical names may still appear in old project records or user language, but
 the runtime no longer loads them as stage aliases:

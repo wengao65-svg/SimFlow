@@ -23,8 +23,8 @@
     "memory_gb": 500,
     "storage_gb": 1000
   },
-  "actions_on_approve": ["proceed_to_modeling"],
-  "actions_on_reject": ["suggest_optimization", "revise_parameters"],
+  "actions_on_approve": ["record_budget_exception_review"],
+  "actions_on_reject": ["record_resource_revision_request"],
   "auto_approve": false,
   "timeout_minutes": 30
 }
