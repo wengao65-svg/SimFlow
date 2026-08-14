@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Marked the active source tree as development version `1.2.0-dev.0`.
+## v1.2.0 (2026-08-14) — Literature retrieval and analysis rigor
+
 - Replaced the single literature-backend fallback with coordinated OpenAlex,
   Crossref, arXiv, and Semantic Scholar search and metadata observations.
 - Added conservative paper identity, deduplication, DOI/title metadata checks,
@@ -14,6 +15,18 @@
 - Tightened literature identity merging to strong identifiers, added bounded
   snowball expansion, budgeted corpus-first verification/refill, compact
   provenance, optional acquisition failures, and stateless task metrics.
+- Added a lightweight Analysis Contract covering the scientific question,
+  analysis and comparison objects, windows and transformations, uncertainty,
+  and intended claim level.
+- Strengthened statistical-unit and dependence guidance so correlated frames,
+  configurations, atoms, restart segments, and overlapping time origins are not
+  silently treated as independent replicates.
+- Added cross-run and cross-model comparability checks, sensitivity reporting,
+  an ordered unexpected-result diagnostic ladder, and bidirectional
+  figure-data-claim trace rules.
+- Kept visual QA optional for exploratory work while making it available for
+  final, publication, and handoff figures, with synthetic positive and negative
+  contract tests for common analysis failures.
 
 ## v1.1.1 (2026-08-12) — Experiment memory ontology boundary
 
