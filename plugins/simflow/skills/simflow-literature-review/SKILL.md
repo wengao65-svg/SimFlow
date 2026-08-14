@@ -26,6 +26,10 @@ evidence.
 
 ## Task principles
 
+- Screen usable local PDF, BibTeX, Zotero, or user-provided corpus material
+  before searching externally; use external indexes to fill documented gaps.
+- Use multiple scholarly indexes as complementary observations rather than
+  treating the first successful backend as authoritative.
 - Prefer primary sources for methods, parameters, and scientific claims.
 - Trace important claims back to the original paper rather than a citing paper.
 - Separate what a source reports from the agent's inference.
@@ -34,6 +38,8 @@ evidence.
 - Preserve disagreement, uncertainty, and scope limits instead of forcing a
   single narrative.
 - Never fabricate a citation, DOI, quotation, author list, or access result.
+- Never infer that a full text was inspected merely because a PDF or URL is
+  available.
 
 ## Minimum checks
 
@@ -66,5 +72,14 @@ evidence.
 
 ## Optional references
 
+Load only the reference needed for the current task:
+
+- `references/discovery-and-verification.md`: corpus-first search, multi-source
+  identity checks, deduplication, and citation snowballing.
+- `references/evidence-and-full-text.md`: metadata/full-text/claim boundaries
+  and lawful full-text acquisition.
+
 Use host search tools, local PDFs, Zotero, scholarly indexes, or user-provided
-collections as appropriate. No particular provider is required.
+collections as appropriate. No particular provider is required. Optional
+helper functions may implement these operations, but this Task Skill does not
+require helper use or own runtime state.

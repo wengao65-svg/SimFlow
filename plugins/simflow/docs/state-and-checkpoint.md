@@ -70,7 +70,7 @@ milestone  run  artifact  analysis  evidence_change  approval  failure  note
 checkpoint  recovery  migration
 ```
 
-The public `record` tool writes the first seven plus explicit migration
+The public `record` tool writes the first eight plus explicit migration
 confirmation. Checkpoint and recovery records are written by their runtime
 operations.
 

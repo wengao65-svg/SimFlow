@@ -17,6 +17,7 @@ from .state import resolve_project_root
 
 GATES_DIR = Path(__file__).parent.parent.parent / "workflow" / "gates"
 GATE_STATE_FILE = ".simflow/state/gates.json"
+RUNTIME_OWNED_GATES = {"hpc_submit", "hpc_transfer"}
 
 
 def list_gates() -> List[str]:
@@ -233,6 +234,26 @@ def check_gate(gate_name: str, context: Dict[str, Any]) -> dict:
             - description: gate description
     """
     gate = load_gate(gate_name)
+    if gate_name in RUNTIME_OWNED_GATES:
+        return {
+            "gate": gate_name,
+            "description": gate.get("description", ""),
+            "status": "block",
+            "runtime_owned": True,
+            "conditions": {
+                "all_met": False,
+                "met": [],
+                "unmet": ["public_hpc_runtime_required"],
+                "details": [{
+                    "id": "public_hpc_runtime_required",
+                    "kind": "runtime_boundary",
+                    "met": False,
+                    "error": "Use hpc/plan and approval bound to run_plan_hash; this advisory gate cannot authorize execution.",
+                }],
+            },
+            "auto_approve": False,
+            "actions_on_reject": gate.get("actions_on_reject", []),
+        }
     cond_result = evaluate_conditions(gate, context)
 
     result = {

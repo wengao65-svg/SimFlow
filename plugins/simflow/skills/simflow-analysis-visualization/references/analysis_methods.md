@@ -2,6 +2,9 @@
 
 Use this reference when a result depends on numerical choices such as fit
 windows, filtering, binning, equilibration cuts, or uncertainty estimates.
+Use `analysis_rigor_contract.md` first for the shared Analysis Contract,
+statistical-unit, cross-run comparability, sensitivity, diagnostic-ladder, and
+figure-data-claim rules.
 
 ## Shared checks
 
@@ -36,6 +39,8 @@ the focused references:
 - Confirm atom identity, periodic boundary conventions, cell vectors, frame count, timestep, and unit conversions before computing trajectory-derived properties.
 - Report equilibration and production windows separately. If no equilibration cut is applied, record that explicitly.
 - For noisy time series, prefer block statistics or independent seeds when available. Single-trajectory results should be labeled as such.
+- Do not treat frames, atoms, configurations, restart segments, or overlapping
+  time origins as independent replicates without a defensible dependence model.
 - Missing frames, nonmonotonic timesteps, changing atom counts, broken topology, or inconsistent units should produce warnings or failure checkpoints.
 
 ## RDF, MSD, and diffusion
@@ -56,6 +61,9 @@ the focused references:
 - Thermal conductivity, heat-current correlation, viscosity, vibrational spectra, and modal analyses should record sampling interval, correlation length, integration window, filtering, ensemble, and unit conversions.
 - GPUMD or LAMMPS transport outputs should retain raw correlation or modal data beside final scalar summaries.
 - Sensitivity to cutoff window or block size should be reported when it can change the conclusion.
+- Cross-run or cross-model summaries should share units, normalization,
+  reference zero, sampling conditions, selections, and analysis windows, or
+  explicitly state and limit unresolved incompatibilities.
 
 ## Acceptance for writing or handoff
 

@@ -18,8 +18,8 @@
       "value": ["pass", "warning"]
     }
   ],
-  "actions_on_approve": ["accept_figures", "proceed_to_writing"],
-  "actions_on_reject": ["revise_visualization", "adjust_parameters"],
+  "actions_on_approve": ["record_figure_review"],
+  "actions_on_reject": ["record_visualization_revision_request"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

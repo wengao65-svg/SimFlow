@@ -1,9 +1,9 @@
 # Figure Contract And Visual QA
 
-Use this reference when a plot is intended to support a scientific claim,
-publication figure, caption, presentation, review, or handoff. The figure is
-not ready until its claim, data, script, parameters, environment, output files,
-and review status can be traced.
+Use this reference when a plot is intended as a final, publication, review, or
+handoff figure. Ordinary exploratory plots do not require this review loop. A
+claim-bearing final figure is not ready until its claim, data, transformation,
+parameters, output files, and review status can be traced.
 
 ## Figure contract
 
@@ -19,6 +19,8 @@ Before rendering the final figure, record:
   units, and accessibility constraints
 - expected caption evidence: source calculation, method, selections, windows,
   units, and uncertainty or caveat language
+- exact supported claim and explicit non-claims; decompose compound claims so
+  an unsupported part cannot inherit support from another part
 
 If the claim is unclear, keep the figure exploratory or ask for the intended
 claim before producing a publication-style result.
@@ -37,7 +39,7 @@ claim before producing a publication-style result.
 
 ## Visual QA loop
 
-For final or handoff figures, use a recorded review loop:
+For final, publication, or handoff figures, use a review loop when useful:
 
 1. Render a preview image from the script or notebook using a headless backend
    when possible.
@@ -58,6 +60,11 @@ near-blank pixels, and alpha/background warnings. It does not prove that labels
 are unclipped, legends do not overlap, units are correct, or the figure supports
 the intended claim; those remain manual or multimodal review items to record in
 the figure manifest.
+
+Visual QA checks rendering quality, not scientific validity. Separately verify
+that plotted values trace to the stated data and transformation, and that the
+caption and downstream prose do not claim causality, mechanism, comparability,
+generality, or certainty beyond the evidence.
 
 ## Figure manifest fields
 

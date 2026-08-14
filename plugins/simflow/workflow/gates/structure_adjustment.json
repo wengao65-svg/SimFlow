@@ -18,8 +18,8 @@
       "value": true
     }
   ],
-  "actions_on_approve": ["finalize_manuscript"],
-  "actions_on_reject": ["revise_structure", "rewrite_sections"],
+  "actions_on_approve": ["record_structure_review"],
+  "actions_on_reject": ["record_structure_revision_request"],
   "auto_approve": false,
   "timeout_minutes": 60
 }

@@ -11,13 +11,8 @@ import os
 from typing import Optional
 
 
-# Known credential environment variables
+# Credential-related environment variables used by current runtime features.
 CREDENTIAL_ENV_VARS = {
-    "MP_API_KEY": {
-        "service": "Materials Project",
-        "required": False,
-        "description": "Materials Project API key for structure database access",
-    },
     "S2_API_KEY": {
         "service": "Semantic Scholar",
         "required": False,
@@ -40,15 +35,12 @@ def get_api_key(service: str) -> Optional[str]:
     """Get API key for a service from environment variables.
 
     Args:
-        service: Service name (e.g., 'materials_project', 'semantic_scholar')
+        service: Service name (currently 'semantic_scholar')
 
     Returns:
         API key string or None if not set
     """
-    env_map = {
-        "materials_project": "MP_API_KEY",
-        "semantic_scholar": "S2_API_KEY",
-    }
+    env_map = {"semantic_scholar": "S2_API_KEY"}
     env_var = env_map.get(service)
     if env_var:
         return os.environ.get(env_var)
@@ -69,10 +61,7 @@ def require_api_key(service: str) -> str:
     """
     key = get_api_key(service)
     if not key:
-        env_map = {
-            "materials_project": "MP_API_KEY",
-            "semantic_scholar": "S2_API_KEY",
-        }
+        env_map = {"semantic_scholar": "S2_API_KEY"}
         env_var = env_map.get(service, "UNKNOWN_API_KEY")
         raise RuntimeError(
             "API key for {} not found. Set {} environment variable.".format(service, env_var)
@@ -126,9 +115,12 @@ def check_all_credentials() -> dict:
 def sanitize_for_logging(text: str) -> str:
     """Remove any potential credentials from text before logging.
 
-    Simple pattern: replace any string that looks like an API key.
+    Redact long token-like strings, including common punctuation separators.
     """
     import re
-    # Remove anything that looks like a long alphanumeric token
-    sanitized = re.sub(r'[A-Za-z0-9]{32,}', '[REDACTED]', text)
+    sanitized = re.sub(
+        r"(?<![A-Za-z0-9._~+/=-])[A-Za-z0-9][A-Za-z0-9._~+/=-]{31,}(?![A-Za-z0-9._~+/=-])",
+        "[REDACTED]",
+        text,
+    )
     return sanitized

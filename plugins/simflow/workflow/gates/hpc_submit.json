@@ -1,6 +1,6 @@
 {
   "name": "hpc_submit",
-  "description": "HPC/local/remote 作业提交审批门：所有真实提交必须由记录的 evidence 和 approval 决定",
+  "description": "Compatibility review label only. Real execution authorization belongs exclusively to hpc/plan plus approval bound to run_plan_hash and hpc/submit.",
   "type": "approval",
   "conditions": [
     {
@@ -39,8 +39,8 @@
       "value": "approved"
     }
   ],
-  "actions_on_approve": ["submit_job", "record_job_id"],
-  "actions_on_reject": ["report_rejection_reason", "suggest_fixes"],
+  "actions_on_approve": [],
+  "actions_on_reject": ["use_public_hpc_plan_and_bound_approval"],
   "auto_approve": false,
   "timeout_minutes": 60
 }

@@ -61,6 +61,12 @@ class MockLiteratureConnector(BaseLiteratureConnector):
     no real API is available and no network access is possible.
     """
 
+    provider_name = "mock"
+
+    def __init__(self):
+        self._last_error = None
+        self._last_query_count = 0
+
     def search(self, query: str, max_results: int = 20, **kwargs) -> list:
         """Search mock papers by query string.
 

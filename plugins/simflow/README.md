@@ -1,6 +1,6 @@
 # SimFlow
 
-Current release: `1.1.1`.
+Current development version: `1.2.0-dev.0`.
 
 SimFlow is a computational-research guidance, provenance, recovery, and safety
 layer for Codex, Claude Code, OpenCode, and compatible host agents.
@@ -186,14 +186,18 @@ simflow/
 
 | Variable | Purpose |
 | --- | --- |
-| `MP_API_KEY` | Materials Project API key |
 | `S2_API_KEY` | Semantic Scholar API key |
+| `OPENALEX_API_KEY` | Optional OpenAlex API key for higher limits |
+| `SIMFLOW_OPENALEX_EMAIL` | Polite contact email for OpenAlex requests |
+| `SIMFLOW_CROSSREF_EMAIL` | Polite contact email for Crossref requests |
 | `SIMFLOW_PYTHON` | Python executable used by the OpenCode MCP adapter |
 | `SIMFLOW_HPC_BROKER_SOCKET` | Unix socket for isolated SSH operations |
 | `SIMFLOW_HPC_BROKER_ALLOWED_ROOTS` | Project roots accessible to the broker |
 
-Without `S2_API_KEY`, literature search uses OpenAlex. Mock literature results
-are degraded, marked `mock_unverified`, and cannot be treated as evidence.
+Automatic literature search coordinates OpenAlex, Crossref, arXiv, and Semantic
+Scholar. An `S2_API_KEY` improves Semantic Scholar reliability but is not
+required. Mock literature data is available only through an explicit `mock`
+backend for tests and is always marked unusable as evidence.
 
 ## Documentation
 

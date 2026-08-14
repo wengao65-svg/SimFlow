@@ -18,8 +18,8 @@
       "value": ["pass", "warning"]
     }
   ],
-  "actions_on_approve": ["record_parameter_decision", "continue_computation"],
-  "actions_on_reject": ["revise_parameters", "iterate_to_proposal"],
+  "actions_on_approve": ["record_parameter_decision"],
+  "actions_on_reject": ["record_parameter_revision_request"],
   "auto_approve": false,
   "timeout_minutes": 30
 }

@@ -1,4 +1,4 @@
-"""Connector selection for optional literature metadata enrichment."""
+"""Connector selection for literature helper operations."""
 
 from __future__ import annotations
 
@@ -20,29 +20,41 @@ _CONNECTORS = {
     "semantic_scholar": SemanticScholarConnector,
     "openalex": OpenAlexConnector,
 }
-_MOCK = MockLiteratureConnector()
-
-
 def get_connector(backend: str = "auto"):
-    """Return a literature connector, using tagged mock data as fallback."""
+    """Return one explicit connector; unknown names fail closed."""
     if backend == "auto":
-        if os.environ.get("S2_API_KEY"):
-            try:
-                return SemanticScholarConnector()
-            except Exception:
-                pass
-        try:
-            return OpenAlexConnector()
-        except Exception:
-            return _MOCK
+        from .service import LiteratureService
+
+        return LiteratureService(get_connectors("auto"))
 
     connector_type = _CONNECTORS.get(backend)
     if connector_type is None:
-        return _MOCK
+        return None
     try:
         return connector_type()
     except Exception:
-        return _MOCK
+        return None
 
 
-__all__ = ["get_connector"]
+def get_connectors(backend: str = "auto") -> list:
+    """Return the ordered provider set for a multi-source operation."""
+    if backend != "auto":
+        connector = get_connector(backend)
+        return [connector] if connector is not None else []
+
+    ordered = [OpenAlexConnector, CrossrefConnector, ArxivConnector]
+    if os.environ.get("S2_API_KEY"):
+        ordered.insert(0, SemanticScholarConnector)
+    else:
+        ordered.append(SemanticScholarConnector)
+
+    connectors = []
+    for connector_type in ordered:
+        try:
+            connectors.append(connector_type())
+        except Exception:
+            continue
+    return connectors
+
+
+__all__ = ["get_connector", "get_connectors"]

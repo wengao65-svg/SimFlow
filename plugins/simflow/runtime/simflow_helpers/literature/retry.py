@@ -22,7 +22,7 @@ def is_retryable(error: Exception) -> bool:
     retryable_types = (
         "ConnectionError", "TimeoutError", "ConnectionResetError",
         "ConnectionRefusedError", "BrokenPipeError",
-        "URLError",
+        "URLError", "RemoteDisconnected", "IncompleteRead",
     )
     return error_type in retryable_types
 
