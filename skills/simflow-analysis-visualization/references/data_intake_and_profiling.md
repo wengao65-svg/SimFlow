@@ -35,6 +35,9 @@ first so plots and statistics do not outrun the data.
 
 ## Readiness decisions
 
+- Route to `analysis_rigor_contract.md` to define the Analysis Contract,
+  statistical unit, comparison basis, claim level, and unexpected-result
+  diagnostic order before inferential or cross-run analysis.
 - Choose chart type from the scientific question plus the profiled data shape:
   trend, distribution, comparison, correlation, composition, spatial structure,
   spectrum, or trajectory-derived metric.
@@ -46,6 +49,8 @@ first so plots and statistics do not outrun the data.
   `analysis_methods.md` and record the chosen values and rejected alternatives.
 - If the deliverable is a figure for writing or handoff, route to
   `figure_contract_and_visual_qa.md` before rendering final outputs.
+- Ordinary exploratory plots do not require a figure manifest or visual-QA
+  loop; retain only the provenance and parameters needed to reproduce them.
 
 ## Minimal profile artifact
 

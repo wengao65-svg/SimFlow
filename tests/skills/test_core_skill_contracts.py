@@ -150,6 +150,7 @@ def test_analysis_visualization_allows_agent_written_analysis():
 def test_analysis_visualization_reference_map_is_routable():
     text = _skill_text("simflow-analysis-visualization")
     references = [
+        "analysis_rigor_contract.md",
         "plotting_principles.md",
         "simulation_output_map.md",
         "analysis_methods.md",
@@ -166,6 +167,7 @@ def test_analysis_visualization_reference_map_is_routable():
         "figure_contract_and_visual_qa.md",
         "tool_specific_visualization_patterns.md",
         "tooling_index.md",
+        "synthetic_analysis_cases.md",
     ]
 
     for reference in references:
