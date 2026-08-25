@@ -16,7 +16,8 @@ workflow executor.
 
 ## Required Capabilities
 
-1. One thin router, seven Research Task Skills, and five Domain Skills.
+1. One explicit opt-in Framework Skill, seven Research Task Skills, and five
+   Domain Skills discovered and composed by the host.
 2. Task and Domain Skills that work without MCP and never own runtime state.
 3. Four compact state tools: inspect, record, checkpoint, recover.
 4. Four execution tools: plan, transfer, submit, status.
@@ -48,7 +49,8 @@ uncertainty. Placeholder Skills are not shipped.
   than notebook lifecycles;
 - exact scientific files remain the evidence source and are referenced by
   project-relative path and hash rather than copied into notebooks;
-- each task selects at most one Task Skill and one Domain Skill;
+- host agents may compose any materially relevant Task, Domain, and host-native
+  custom Skills without a SimFlow cardinality limit;
 - remote execution uses at most plan, transfer, submit, and status;
 - unchanged retries do not repeat approval, while material changes do;
 - checkpoint files contain recovery references, not full state snapshots;

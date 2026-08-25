@@ -74,9 +74,9 @@ turning that output format into a product category.
 
 ## Unsupported Engines
 
-Unsupported engines do not receive placeholder Skills. The router should retain
-the software name as context, select the relevant Research Task Skill, and avoid
-claiming built-in engine support.
+Unsupported engines do not receive placeholder Skills. The host should retain
+the software name as context, compose relevant Research Task or host-native
+custom Skills, and avoid claiming built-in SimFlow engine support.
 
 ## Analysis Helpers
 

@@ -7,8 +7,9 @@ description: Provide GPUMD and NEP-specific guidance for inputs, training files,
 
 ## Purpose
 
-Act as the GPUMD/NEP Domain Skill for the current Research Task Skill without
-owning real execution, approval, workflow state, or persistence.
+Provide GPUMD/NEP-specific semantics to any current Research Task Skills that
+need them, without owning real execution, approval, workflow state, or
+persistence.
 
 ## Use when
 
@@ -20,8 +21,8 @@ owning real execution, approval, workflow state, or persistence.
 
 ## Do not use when
 
-- The question is general MLP methodology independent of GPUMD/NEP; use
-  `simflow-mlp`.
+- The task has no GPUMD/NEP-specific file, command, deployment, restart, or
+  output semantics.
 - The requested final property analysis is engine-independent; pair this Skill
   with analysis guidance rather than expanding its scope.
 
@@ -34,6 +35,8 @@ owning real execution, approval, workflow state, or persistence.
 - Keep dataset semantics, element/type order, units, and model provenance
   explicit.
 - Limit parsing claims to fields that the inspected output actually supports.
+- Combine with `simflow-mlp` when NEP work also needs cross-tool dataset,
+  validation, active-learning, or production-readiness methodology.
 
 ## Minimum checks
 

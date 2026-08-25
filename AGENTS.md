@@ -8,14 +8,16 @@ scientific reasoning, literature work, modeling, coding, analysis, and writing.
 
 ## Architecture Boundaries
 
-SimFlow separates four concerns:
+SimFlow separates five concerns:
 
-1. The router selects at most one Research Task Skill and one optional Domain
-   Skill from the user's current intent.
-2. Research Task Skills guide literature review, proposal, modeling,
-   computation, analysis/visualization, or writing.
+1. The host agent discovers and composes any Research Task, Domain, or
+   host-native custom Skills that materially apply to the current request.
+2. Research Task Skills guide literature review, reference extraction,
+   proposal, modeling, computation, analysis/visualization, or writing.
 3. Domain Skills add VASP, CP2K, LAMMPS, GPUMD/NEP, or general MLP knowledge.
-4. Runtime records and safeguards events that actually happened.
+4. The opt-in `simflow` Framework Skill applies project-memory, provenance,
+   recovery, recording, and execution-safety semantics without routing Skills.
+5. Runtime records and safeguards events that actually happened.
 
 Task and Domain Skills are pure guidance. They must not require state calls,
 own stage transitions, create checkpoints as completion conditions, enforce a
@@ -23,8 +25,9 @@ directory layout, or decide that real execution was approved or successful.
 
 ## Memory Re-entry
 
-Experiment memory is a host/runtime concern, not a Task or Domain Skill
-lifecycle. On the first SimFlow use for a project in each user request:
+Experiment memory is a host/runtime concern, not a Skill lifecycle. Re-enter
+project memory only when the current request depends on existing SimFlow project
+truth, prior Experiment context, recovery state, or a durable runtime action:
 
 1. call `inspect` once with explicit `project_root`, the current working
    directory, and a concise form of the user's current request;
@@ -37,8 +40,8 @@ lifecycle. On the first SimFlow use for a project in each user request:
 5. do not create a session record, handoff, checkpoint, or fixed user-facing
    summary merely because re-entry occurred.
 
-This read is optional when SimFlow is not being used. It is always read-only and
-must not initialize `.simflow`.
+Do not inspect merely because a SimFlow Skill is active. This read is always
+read-only and must not initialize `.simflow`.
 
 ## Runtime Use
 

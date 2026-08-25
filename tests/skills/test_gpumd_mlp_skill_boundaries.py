@@ -132,7 +132,7 @@ def test_gpumd_file_map_covers_generic_mlp_evidence_roles():
     assert "target-property evidence" in file_map
 
 
-def test_gpumd_owns_provider_files_and_delegates_generic_readiness():
+def test_gpumd_owns_provider_files_and_composes_with_mlp_readiness():
     text = _read(GPUMD_SKILL / "SKILL.md")
 
     for filename in [
@@ -150,7 +150,8 @@ def test_gpumd_owns_provider_files_and_delegates_generic_readiness():
         assert filename in text
 
     assert "simflow-mlp" in text
-    assert "general MLP methodology" in text
+    assert "cross-tool dataset" in text
+    assert "production-readiness methodology" in text
     assert "No real execution or production claim" in text
     assert "troubleshooting" in text.lower()
 

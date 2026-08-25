@@ -117,7 +117,9 @@ Claude plugin skills are namespaced by plugin name. Typical invocations are:
 /simflow:simflow-writing
 ```
 
-Natural-language routing also works when Claude Code selects the installed SimFlow skills.
+Natural-language discovery works when Claude Code selects installed Task and
+Domain Skills. `/simflow:simflow` is user-only and adds framework semantics; it
+does not route other Skills.
 
 ## MCP Servers
 
@@ -126,10 +128,11 @@ The Claude adapter uses `.claude.mcp.json`, which points to the existing SimFlow
 - `simflow_state`
 - `hpc`
 
-On the first SimFlow use for a project in one user request, Claude should make
-one read-only `inspect` call with the working directory and query, then reuse
-that context. Compact Experiment notebooks preserve scientific questions and
-decisions without creating session/activity state; exact project files remain
-the evidence source.
+When a request depends on existing SimFlow project truth, recovery state, or a
+durable runtime action, Claude should make one read-only `inspect` call with the
+working directory and query, then reuse that context. Loading a Skill alone does
+not trigger inspection. Compact Experiment notebooks preserve scientific
+questions and decisions without creating session/activity state; exact project
+files remain the evidence source.
 
 Real HPC submission remains blocked unless the existing SimFlow approval gate is explicitly passed.

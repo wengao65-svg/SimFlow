@@ -137,6 +137,8 @@ def test_claude_marketplace_wrapper_builds_expected_shape(tmp_path):
     assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
     assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
     assert (plugin_root / "skills" / "simflow" / "SKILL.md").is_file()
+    framework = (plugin_root / "skills" / "simflow" / "SKILL.md").read_text(encoding="utf-8")
+    assert "disable-model-invocation: true" in framework
     assert (plugin_root / "mcp").is_dir()
     assert (plugin_root / "runtime").is_dir()
     assert not (plugin_root / "tests").exists()
@@ -169,6 +171,9 @@ def test_codex_marketplace_wrapper_builds_canonical_surface(tmp_path):
     assert (plugin_root / ".mcp.json").is_file()
     assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
     assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
+    policy = plugin_root / "skills" / "simflow" / "agents" / "openai.yaml"
+    assert policy.is_file()
+    assert "allow_implicit_invocation: false" in policy.read_text(encoding="utf-8")
     assert_canonical_package_surface(plugin_root)
 
 

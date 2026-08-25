@@ -1,127 +1,124 @@
 ---
 name: simflow
-description: Select at most one computational-research Task Skill and one optional Domain Skill from the user's current intent.
+description: Apply SimFlow-wide provenance, project-memory re-entry, durable recording, recovery, and execution-safety semantics when the user explicitly invokes SimFlow. Does not select or route other Skills.
+disable-model-invocation: true
 ---
 
-# SimFlow Router
+# SimFlow Framework
 
 ## Purpose
 
-`simflow` is a thin intent router. It selects guidance; it does not execute a
-workflow, parse scientific files, or own persistence. Selecting a Task or
-Domain Skill never requires a state write.
+`simflow` is an opt-in Framework Skill. It applies SimFlow-wide provenance,
+project-memory, recording, recovery, and execution-safety semantics to the
+current request. It is not a Skill router, workflow executor, or scientific
+reasoner.
 
 ## Use when
 
-- A computational-research request could benefit from one of the bundled Task
-  or Domain Skills.
-- The current intent has changed and the active guidance should be reconsidered.
-- It is unclear whether a request is literature, planning, modeling,
-  computation, analysis, or writing.
+- The user explicitly invokes SimFlow for framework-level provenance, recovery,
+  durable runtime actions, or execution safety.
+- The current request needs existing SimFlow project truth, prior Experiment
+  context, recovery state, or a durable runtime action.
+- The host must distinguish ordinary scientific work from events that need
+  inspection, recording, approval, or recovery.
 
-## Routing model
+## Skill discovery and composition
 
-Research Task Skills answer how to do the current class of work well:
+The host agent owns discovery and composition of Research Task, Domain, and
+host-native custom Skills.
 
-- `simflow-literature-review`
-- `simflow-reference-extraction`
-- `simflow-proposal`
-- `simflow-modeling`
-- `simflow-computation`
-- `simflow-analysis-visualization`
-- `simflow-writing`
+- Use Skill names and descriptions for host-native progressive disclosure.
+- Load the smallest set of Skills that materially improves the current request;
+  this is a context-efficiency principle, not a numeric cardinality rule.
+- Multiple Research Task or Domain Skills may be combined when the work spans
+  their responsibilities.
+- Respect Skills explicitly selected by the user.
+- Do not preload Skills merely because they may become useful later.
+- Resolve overlapping guidance by responsibility and specificity. No Skill may
+  weaken runtime safety, provenance, or scientific-truthfulness requirements.
+- Surface a material unresolved conflict instead of inventing a central routing
+  decision.
 
-Domain Skills add software- or method-specific knowledge when needed:
-
-- `simflow-vasp`
-- `simflow-cp2k`
-- `simflow-lammps`
-- `simflow-gpumd`
-- `simflow-mlp`
-
-## Selection rules
-
-1. Select at most one Research Task Skill from the user's immediate intent.
-2. Select at most one Domain Skill when engine- or method-specific knowledge is
-   material to the answer.
-3. Do not load every Skill that might become relevant later.
-4. Skill selection follows current intent, not cwd, directory names, workflow
-   stage, or the location of existing files.
-5. A request inside a computation directory may need analysis guidance; a
-   request inside an analysis directory may need computation guidance.
-6. The six recommended research phases are project-organization semantics, not
-   mandatory Skill transitions.
+SimFlow does not maintain an intent map, select other Skills, emit a router
+result, or manage a custom-Skill registry. Host-native custom Skills may
+participate without becoming SimFlow runtime state.
 
 ## Project memory re-entry
 
-When SimFlow is first used for a project in a user request, the host should call
-the read-only `inspect` tool once with `project_root`, `working_directory`, and
-the current query. Reuse that result for the rest of the request.
+Use project memory only when the current request depends on existing SimFlow
+project truth, prior Experiment context, recovery state, or a durable runtime
+action.
 
-- Do not create session state or a handoff for re-entry.
-- Do not repeat `inspect` before every Skill, file read, or tool action.
-- Use `selected_experiment_id` silently only when the match is unambiguous.
-- If Experiment selection is ambiguous, ask only before a durable Experiment
-  write, checkpoint binding, plan binding, transfer, submit, or recorded status.
-- Do not print a fixed recovery summary unless it is relevant to the answer.
+When re-entry is needed:
 
-Examples:
+- Call read-only `inspect` once with the available project root, working
+  directory, and current query.
+- Reuse that result for the current request.
+- Do not create session or activity state for re-entry.
+- Use an unambiguous Experiment match silently.
+- Resolve ambiguity only when it would affect a durable write, checkpoint,
+  plan, transfer, submit, or recorded status.
+- Do not inspect merely because a SimFlow Skill is active.
+- Do not print a fixed recovery summary unless it is relevant to the request.
 
-| Current intent | Task Skill | Optional Domain Skill |
-| --- | --- | --- |
-| analyze GPUMD trajectories | analysis-visualization | gpumd |
-| extract numerical values from a known paper or figure | reference-extraction | none |
-| prepare or run VASP NEB | modeling or computation, choose one | vasp |
-| design NEP active learning | proposal | mlp |
-| train NEP | computation | gpumd |
-| compare MACE and NEP | analysis-visualization | mlp |
-| draft results from accepted evidence | writing | none |
+## Runtime use
 
-## Runtime escalation
+Use runtime only when an event needs inspection, durable recording, approval,
+or recovery. Ordinary reading, reasoning, editing, analysis, plotting, and
+writing do not require a state write.
 
-Runtime is separate from Skill selection. Hand a request to SimFlow runtime
-only when an actual event must be inspected, recorded, safeguarded, or
-recovered. High-risk events include real local or remote execution, scheduler
-submission, credentials, licensed or proprietary files, VASP POTCAR material,
-destructive actions, and state recovery.
+- `inspect` reads project truth and recovery context without writing.
+- `record` appends one meaningful operational fact or Experiment entry.
+- `checkpoint` creates a compact recovery reference when restart value exists.
+- `recover` validates recovery references without executing compute or rolling
+  back project files.
+- `plan`, `transfer`, `submit`, and `status` provide the bounded HPC surface.
 
-Experiment notebooks preserve only scientific questions, Attempts,
-observations, and decisions. Operational records preserve plan, approval,
-transfer, submit, scheduler status, evidence-change, and checkpoint truth.
-Actual scientific files remain exact evidence. An Attempt is a scientific
-strategy, not an HPC Run, and runtime tools must not create Experiments or
-Attempts.
+Actual scientific files remain exact evidence. Experiment notebooks own
+scientific questions, Attempts, observations, and decisions. Operational
+records own execution and evidence-change truth.
 
-The router identifies the boundary but does not approve, submit, transfer,
-record, checkpoint, or recover anything itself.
+## Provenance and recovery semantics
 
-## Ambiguous intent
+- Record logical runs, milestones, analyses, deliverables, approvals, and
+  failures once; do not register every intermediate file or helper action.
+- Treat a scheduler job ID as submitted, not completed, and readable output as
+  present, not converged or scientifically trustworthy.
+- Create checkpoints only when restart paths, hashes, commands, or diagnostic
+  boundaries provide real recovery value.
+- Preserve file references, hashes, manifests, and parent links without copying
+  scientific evidence into SimFlow state.
+- Keep Experiment and Attempt identity separate from immutable execution-plan
+  identity.
 
-- Return the smallest plausible Skill choices and the missing information.
-- Ask only when the ambiguity blocks useful or safe progress.
-- Do not default unknown software to a supported engine.
-- Do not default an unknown computation to static, ENERGY, NVT, or training.
-- If no bundled Domain Skill applies, use the relevant Task Skill alone and
-  preserve the unknown tool as context.
+## Safety semantics
+
+- Never execute a real local, remote, or scheduler job without approval bound
+  to the current immutable run plan.
+- Never store credentials, tokens, passwords, private keys, key paths, or
+  arbitrary SSH options in records or generated files.
+- Keep licensed POTCAR content out of responses, state, checkpoints, packages,
+  and version control; persist metadata only.
+- Never fabricate literature, data, figures, convergence, approval, or job
+  status.
+- Never silently change validated scientific parameters, migrate user data, or
+  reorganize the project layout.
 
 ## Prohibited actions
 
-- Do not act as a centralized workflow executor, domain parser, submitter, or
-  approval gate.
-- Do not require MCP engagement merely because a Skill was selected.
-- Do not turn the one read-only project-memory inspection into a session or
-  activity lifecycle.
-- Do not choose Skills from the current phase or directory name.
-- Do not fabricate literature, inputs, outputs, figures, citations,
-  convergence, approval, or job states.
-- Do not duplicate software capability claims; use the shared toolchain
-  contract when capability detail is needed.
+- Do not route or select Research Task, Domain, or custom Skills.
+- Do not impose Skill cardinality limits or a static intent-to-Skill mapping.
+- Do not require runtime engagement merely because a Skill was loaded.
+- Do not turn memory inspection into a session lifecycle.
+- Do not approve, submit, transfer, checkpoint, or record events that did not
+  actually occur.
 
 ## Completion criteria
 
-- Zero or one Task Skill is selected.
-- Zero or one Domain Skill is selected.
-- Any runtime escalation is stated separately from Skill guidance.
-- Existing Experiment context was inspected at most once for this project in
-  the current user request when SimFlow runtime was used.
-- Unknown intent or unsupported tools are not silently mapped to known paths.
+- Framework semantics were applied only because the user explicitly opted in.
+- Any relevant Skills were discovered and composed by the host, not by SimFlow.
+- Project memory was inspected at most once and only when the request depended
+  on existing project truth, recovery, or a durable action.
+- Durable events, recovery references, and execution approvals reflect what
+  actually happened.
+- Runtime safety and scientific-truthfulness boundaries remain intact.

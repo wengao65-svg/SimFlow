@@ -23,10 +23,10 @@ risks, and approval triggers. They are advisory contracts. Any stage may be
 used independently, revisited, skipped, or combined with custom work when the
 scientific inputs are adequate.
 
-Task Skill selection follows the user's immediate intent, not the current
-stage or directory. For example, explaining an RDF inside a computation folder
-uses analysis guidance; preparing a missing calculation from an analysis folder
-uses computation guidance.
+Host-native Skill discovery follows the user's immediate intent, not the
+current stage or directory. For example, explaining an RDF inside a computation
+folder uses analysis guidance; preparing and validating a missing calculation
+may combine modeling, computation, and engine guidance.
 
 ## Recipes
 
@@ -52,7 +52,8 @@ Only safety and truth boundaries are hard:
 
 Current policy contracts cover:
 
-- one read-only Experiment re-entry inspection per project per user request;
+- at most one read-only Experiment re-entry inspection per project per user
+  request when existing project truth, recovery, or a durable action is needed;
 - append-only scientific memory with exact files retained as evidence;
 - immutable dry-run planning before real execution;
 - approval for real execution with approval reuse only for unchanged plans;

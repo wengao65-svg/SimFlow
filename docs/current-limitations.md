@@ -29,9 +29,9 @@ is scientifically valid.
 
 ## Unsupported Engines
 
-Unsupported engines do not receive placeholder Skills. The router keeps the
-requested software as context, selects the relevant Research Task Skill, and
-states uncertainty instead of mapping the request to a supported engine.
+Unsupported engines do not receive placeholder Skills. The host keeps the
+requested software as context and may combine relevant Research Task or
+host-native custom Skills without mapping it to a supported SimFlow engine.
 
 QE, Gaussian, ABINIT, GROMACS, OpenMM, Phonopy, NEPTrainKit, DeePMD, MACE,
 NequIP, Allegro, and other tools may appear in project records or user-provided

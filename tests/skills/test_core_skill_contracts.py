@@ -131,7 +131,7 @@ def test_legacy_executor_skill_entries_are_removed():
 
 
 def test_computation_preserves_scientific_execution_discipline():
-    text = _skill_text("simflow-computation").lower()
+    text = _normalized_skill_text("simflow-computation").lower()
     assert "scheduler submission as evidence of submission only" in text
     assert "normal process exit" in text
     assert "parser can read" in text

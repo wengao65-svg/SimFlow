@@ -311,24 +311,12 @@ function validateSupportMatrix() {
     'schemas/custom-skill-binding.schema.json',
     'schemas/custom-skill-metadata.schema.json',
     'schemas/skill-contract.schema.json',
+    '.simflow/extensions/skills',
   ].filter(relativePath => fs.existsSync(path.join(ROOT, relativePath)));
   check(
     'unused custom Skill extension surface remains removed',
     removedCustomSkillSurface.length === 0,
     removedCustomSkillSurface.join('\n'),
-  );
-
-  const customSkillClaims = [];
-  for (const relativePath of currentDocumentationFiles) {
-    const content = fs.readFileSync(path.join(ROOT, relativePath), 'utf-8');
-    if (/custom skills?|\.simflow\/extensions\/skills|custom-skill-(?:binding|metadata)/i.test(content)) {
-      customSkillClaims.push(relativePath);
-    }
-  }
-  check(
-    'public product docs do not advertise custom Skill discovery or overrides',
-    customSkillClaims.length === 0,
-    customSkillClaims.join('\n'),
   );
 
   const staleMemoryOrCredentialClaims = [];
@@ -365,7 +353,7 @@ function validateSimplificationContract() {
     .filter(name => fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')))
     .sort();
   check(
-    'public Skill surface is exactly one Router, seven Task, and five Domain Skills',
+    'public Skill surface is exactly one Framework, seven Task, and five Domain Skills',
     JSON.stringify(publicSkills) === JSON.stringify(EXPECTED_PUBLIC_SKILLS),
     publicSkills.join('\n'),
   );

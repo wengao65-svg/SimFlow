@@ -26,15 +26,16 @@ simflow/
 ```
 
 The flat `skills/<name>/SKILL.md` layout is retained because Codex, Claude Code,
-and OpenCode distribution validators discover direct children. Logical Router,
-Task, and Domain classification does not require a physical directory move.
+and OpenCode distribution validators discover direct children. Logical
+Framework, Task, and Domain classification does not require a physical
+directory move.
 
 ## Public Skills
 
-The only directories containing public `SKILL.md` files are the router, seven
-Research Task Skills, and five Domain Skills. Safety, checkpoint, handoff, and
-verification implementations belong under runtime helpers. Unsupported engine
-placeholders do not expose `SKILL.md`.
+The only directories containing public `SKILL.md` files are the opt-in
+Framework Skill, seven Research Task Skills, and five Domain Skills. Safety,
+checkpoint, handoff, and verification implementations belong under runtime
+helpers. Unsupported engine placeholders do not expose `SKILL.md`.
 
 ## Runtime
 

@@ -7,8 +7,8 @@ description: Provide CP2K-specific guidance for inputs, basis and potential choi
 
 ## Purpose
 
-Act as the CP2K Domain Skill for the current Research Task Skill without owning
-workflow state, persistence, submission, or approval.
+Provide CP2K-specific semantics to any current Research Task Skills that need
+them, without owning workflow state, persistence, submission, or approval.
 
 ## Use when
 
@@ -20,7 +20,7 @@ workflow state, persistence, submission, or approval.
 
 ## Do not use when
 
-- The request is engine-independent or another Domain Skill owns the software.
+- The request is engine-independent or does not involve CP2K semantics.
 
 ## Domain principles
 

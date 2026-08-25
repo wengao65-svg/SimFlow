@@ -50,14 +50,22 @@ simflow_state
 hpc
 ```
 
-Ask OpenCode to use `simflow`, `simflow-vasp`, `simflow-cp2k`, or another
-bundled skill. Skills remain guidance and evidence contracts; they do not turn
-SimFlow into a workflow executor.
+Ask OpenCode to use `simflow-vasp`, `simflow-cp2k`, or another specific bundled
+Skill, and let it compose multiple relevant Skills when needed. Skills remain
+guidance and evidence contracts; they do not turn SimFlow into a workflow
+executor.
 
-On the first SimFlow use for a project in one user request, OpenCode should make
-one read-only `inspect` call with the working directory and query, then reuse
-that context. Compact Experiment notebooks preserve scientific questions and
-decisions; exact project files remain the evidence source.
+OpenCode 1.x has no equivalent per-Skill explicit-only metadata. Invoke
+`simflow` manually only when framework-level provenance, project-memory,
+recovery, recording, or execution-safety semantics are wanted. SimFlow does not
+simulate explicit-only enforcement through a central router.
+
+When a request depends on existing SimFlow project truth, recovery state, or a
+durable runtime action, OpenCode should make one read-only `inspect` call with
+the working directory and query, then reuse that context. Skill activation
+alone does not trigger inspection. Compact Experiment notebooks preserve
+scientific questions and decisions; exact project files remain the evidence
+source.
 
 ## Python Interpreter
 

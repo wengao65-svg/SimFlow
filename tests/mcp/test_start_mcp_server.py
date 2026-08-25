@@ -152,9 +152,11 @@ def test_state_server_initialization_adapts_to_mcp_client_info():
     assert "$simflow" in codex_result["instructions"]
     assert "/simflow:simflow" in claude_result["instructions"]
     assert "skill tool" in opencode_result["instructions"]
+    assert "no equivalent per-Skill explicit-only metadata" in opencode_result["instructions"]
     assert "$simflow" not in generic_result["instructions"]
     for result in (codex_result, claude_result, opencode_result, generic_result):
-        assert "read-only inspect once" in result["instructions"]
+        assert "call read-only inspect once" in result["instructions"]
+        assert "Do not inspect merely because a Skill is active" in result["instructions"]
         assert "working_directory" in result["instructions"]
         assert "unambiguous match" in result["instructions"]
 

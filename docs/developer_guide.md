@@ -5,8 +5,9 @@
 Keep scientific guidance, domain knowledge, and runtime state separate.
 
 ```text
-current intent -> one Task Skill + optional Domain Skill
-actual event   -> compact runtime record/recovery/safety operation
+current intent -> host-composed Task, Domain, and custom Skills
+explicit opt-in -> SimFlow Framework semantics
+actual event    -> compact runtime record/recovery/safety operation
 ```
 
 Do not add lifecycle calls merely to prove that a Skill was used.
@@ -24,6 +25,11 @@ inspect, suggest, and use host tools. It must not:
 Keep high-frequency and high-risk behavior in `SKILL.md`; move long methods and
 examples into `references/`. Public Skills remain direct children of `skills/`
 until every host supports recursive discovery.
+
+Do not add a central Skill map or numeric composition limit. Descriptions must
+be discriminating enough for host-native discovery. The `simflow` Framework
+Skill is explicit-only where the host supports that policy and never routes
+other Skills.
 
 ## Helpers
 

@@ -82,13 +82,14 @@ const PURE_DOMAIN_REQUIRED_SECTIONS = [
   '## Optional references',
 ];
 
-const ROUTER_REQUIRED_SECTIONS = [
+const FRAMEWORK_REQUIRED_SECTIONS = [
   '## Purpose',
   '## Use when',
-  '## Routing model',
-  '## Selection rules',
-  '## Runtime escalation',
-  '## Ambiguous intent',
+  '## Skill discovery and composition',
+  '## Project memory re-entry',
+  '## Runtime use',
+  '## Provenance and recovery semantics',
+  '## Safety semantics',
   '## Prohibited actions',
   '## Completion criteria',
 ];
@@ -169,13 +170,13 @@ skillDirs.forEach(skillName => {
 
   const isResearchTask = RESEARCH_TASK_SKILLS.has(skillName);
   const isDomain = DOMAIN_SKILLS.has(skillName);
-  const isRouter = skillName === 'simflow';
+  const isFramework = skillName === 'simflow';
   const missingSections = isResearchTask
     ? PURE_SKILL_REQUIRED_SECTIONS.filter(section => !body.includes(section))
     : isDomain
       ? PURE_DOMAIN_REQUIRED_SECTIONS.filter(section => !body.includes(section))
-    : isRouter
-      ? ROUTER_REQUIRED_SECTIONS.filter(section => !body.includes(section))
+    : isFramework
+      ? FRAMEWORK_REQUIRED_SECTIONS.filter(section => !body.includes(section))
       : LEGACY_REQUIRED_SECTION_GROUPS
       .filter(group => !group.options.some(option => body.includes(option)))
       .map(group => group.label);
@@ -191,6 +192,30 @@ skillDirs.forEach(skillName => {
     for (const pattern of FORBIDDEN_TASK_RUNTIME_PATTERNS) {
       if (pattern.test(body)) {
         console.error(`  ERROR: ${skillName} - pure task skill contains runtime directive matching ${pattern}`);
+        errors++;
+      }
+    }
+  }
+
+  if (isFramework) {
+    const metadataFile = path.join(SKILLS_DIR, skillName, 'agents', 'openai.yaml');
+    const metadata = fs.existsSync(metadataFile) ? fs.readFileSync(metadataFile, 'utf-8') : '';
+    if (fields['disable-model-invocation'] !== 'true') {
+      console.error(`  ERROR: ${skillName} - Claude explicit-only frontmatter must be true`);
+      errors++;
+    }
+    if (!/^\s*allow_implicit_invocation:\s*false\s*$/m.test(metadata)) {
+      console.error(`  ERROR: ${skillName} - Codex explicit-only invocation policy is missing`);
+      errors++;
+    }
+    for (const pattern of [
+      /select at most one research task skill/i,
+      /select at most one domain skill/i,
+      /zero or one task skill/i,
+      /zero or one domain skill/i,
+    ]) {
+      if (pattern.test(body)) {
+        console.error(`  ERROR: ${skillName} - Framework contains stale cardinality rule matching ${pattern}`);
         errors++;
       }
     }

@@ -40,13 +40,12 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "H2O CP2K input-only example completes without runtime state" in result.stdout
     assert "examples contain no direct SSH, SCP, sbatch, or submit bypass path" in result.stdout
     assert "unused custom Skill extension surface remains removed" in result.stdout
-    assert "public product docs do not advertise custom Skill discovery or overrides" in result.stdout
     assert "current docs describe four-entry memory and only implemented credential integrations" in result.stdout
     assert "workflow review gates expose no execution actions" in result.stdout
     assert "compatibility HPC gates cannot authorize execution" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes four compact tools" in result.stdout
-    assert "public Skill surface is exactly one Router, seven Task, and five Domain Skills" in result.stdout
+    assert "public Skill surface is exactly one Framework, seven Task, and five Domain Skills" in result.stdout
     assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
     assert "public Skill text contains no runtime registration or placeholder instructions" in result.stdout
     assert "legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources" in result.stdout

@@ -19,13 +19,17 @@ def test_initialize_instructions_adapt_syntax_but_preserve_invariants():
     generic = build_initialize_instructions("simflow_state", None)
 
     assert "$simflow" in codex
+    assert "only to opt into SimFlow framework semantics" in codex
     assert "/simflow:simflow" in claude
+    assert "only to opt into SimFlow framework semantics" in claude
     assert "skill tool" in opencode
+    assert "no equivalent per-Skill explicit-only metadata" in opencode
     assert "$simflow" not in generic
     for instructions in (codex, claude, opencode, generic):
         assert "project_root" in instructions
-        assert "first SimFlow use for a project" in instructions
-        assert "read-only inspect once" in instructions
+        assert "When the request depends on existing" in instructions
+        assert "call read-only inspect once" in instructions
+        assert "Do not inspect merely because a Skill is active" in instructions
         assert "working_directory" in instructions
         assert "current query" in instructions
         assert "Do not create session state" in instructions

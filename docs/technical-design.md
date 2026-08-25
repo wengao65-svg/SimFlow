@@ -6,11 +6,11 @@
 Host Agent
   reasoning, search, coding, tools
        |
-Research Task Skill
-  literature, proposal, modeling, computation, analysis, writing
-       | optional
-Domain Skill
-  VASP, CP2K, LAMMPS, GPUMD/NEP, MLP
+Host-composed Skills
+  Research Task, Domain, and host-native custom guidance
+       | optional explicit invocation
+SimFlow Framework Skill
+  project memory, provenance, recovery, recording, execution safety
        |
 SimFlow Runtime
   inspect, experiment notebooks, operational truth, approval, recovery
@@ -18,17 +18,19 @@ SimFlow Runtime
 .simflow/
 ```
 
-The two Skill layers answer how to work reliably. Runtime answers what happened
-and what must be safeguarded. Stages and directories do not select Skills, and
-Skill selection does not imply a runtime write.
+Task and Domain Skills answer how to work reliably. The Framework Skill applies
+SimFlow-wide semantics only when explicitly invoked. Runtime answers what
+happened and what must be safeguarded. Stages and directories do not select
+Skills, and Skill loading does not imply inspection or a runtime write.
 
 ## Event Flow
 
-1. Route the immediate user intent to zero or one Task Skill and zero or one
-   Domain Skill.
+1. Let the host discover and compose any Task, Domain, or custom Skills that
+   materially apply to the current request.
 2. Perform the scientific work with host tools and optional helpers.
-3. On the first SimFlow use for a project in a user request, inspect existing
-   experiment context once without writing.
+3. When the request depends on existing project truth, recovery state, or a
+   durable runtime action, inspect existing Experiment context once without
+   writing and reuse that result.
 4. Persist scientific context in the relevant Experiment notebook and machine
    execution truth in operational records; never make both stores authoritative
    for the same field.
@@ -110,3 +112,4 @@ registries.
 - no session/activity ledger, SQLite experiment database, or synchronized
   notebook exports;
 - no experiment or attempt identifier in immutable execution identity.
+- no central Skill routing schema or numeric Skill cardinality rule.

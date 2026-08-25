@@ -1,6 +1,6 @@
 # SimFlow
 
-Current development version: `1.3.0-dev.0`.
+Current development version: `1.4.0-dev.0`.
 
 SimFlow is a computational-research guidance, provenance, recovery, and safety
 layer for Codex, Claude Code, OpenCode, and compatible host agents.
@@ -14,16 +14,15 @@ must be recorded or safeguarded.
 
 ```text
 Host Agent
-  -> Router                 selects at most one Task Skill + one Domain Skill
-  -> Research Task Skill    how to do the current research task well
-  -> Domain Skill           engine- or method-specific knowledge
+  -> Task/Domain/Custom Skills  host-native discovery and composition
+  -> SimFlow Framework Skill   opt-in provenance, recovery, and safety semantics
   -> SimFlow Runtime        inspect, record, recover, and gate real execution
   -> .simflow/              scientific notebooks, operational truth, recovery
 ```
 
-Skill selection follows current intent. Directory organization follows the
-project. Runtime follows events that actually happened. These three concerns
-are deliberately independent.
+Skill discovery and composition belong to the host. Directory organization
+follows the project. Runtime follows events that actually happened. Loading a
+Skill does not itself require project-memory inspection or a state write.
 
 ## Public Skills
 
@@ -31,7 +30,7 @@ SimFlow exposes exactly 13 Skills.
 
 | Class | Skills |
 | --- | --- |
-| Router | `simflow` |
+| Framework | `simflow` |
 | Research Task | `simflow-literature-review`, `simflow-reference-extraction`, `simflow-proposal`, `simflow-modeling`, `simflow-computation`, `simflow-analysis-visualization`, `simflow-writing` |
 | Domain | `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, `simflow-gpumd`, `simflow-mlp` |
 
@@ -39,9 +38,9 @@ Task and Domain Skills are pure instruction bundles. They remain useful without
 MCP and do not own workflow state, artifact registration, checkpoints,
 approval, or directory layout.
 
-Unsupported engines do not receive placeholder Skills. The router preserves
-the requested software as context and uses the relevant Task Skill without
-claiming built-in engine support.
+Unsupported engines do not receive placeholder Skills. Host agents may combine
+the relevant Task Skills with their own software-specific or custom Skills
+without SimFlow claiming built-in engine support.
 
 ## Public Runtime
 

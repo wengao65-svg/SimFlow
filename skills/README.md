@@ -3,10 +3,11 @@
 SimFlow exposes exactly 13 public Skills. They provide reusable scientific
 guidance and do not own runtime state, persistence, approval, or recovery.
 
-## Router
+## Framework Skill
 
-- `simflow`: selects at most one Research Task Skill and one optional Domain
-  Skill from the user's current intent.
+- `simflow`: an explicit, opt-in Framework Skill for project-memory re-entry,
+  provenance, durable recording, recovery, and execution-safety semantics. It
+  does not select or route other Skills.
 
 ## Research Task Skills
 
@@ -37,20 +38,20 @@ Skill. They may ship references and optional bounded helper scripts, but they
 do not own workflow progression or runtime state.
 
 QE, Gaussian, and other unsupported tools do not receive placeholder Skills.
-The router keeps them as unknown context and uses the relevant Task Skill
-without claiming built-in engine support.
+The host may compose relevant SimFlow Task Skills with host-native custom or
+software Skills without claiming built-in SimFlow engine support.
 
-## Loading Rule
+## Discovery And Composition
 
-One ordinary request should select no more than:
+Host agents own Skill discovery and composition through names, descriptions,
+and native progressive disclosure. Load the smallest set that materially helps
+the current request, but do not impose a numeric cardinality limit. Multiple
+Task, Domain, or host-native custom Skills may apply. Skill relevance follows
+current intent, not cwd, phase, or directory names.
 
-```text
-one Research Task Skill + one optional Domain Skill
-```
-
-Skill selection follows current intent, not cwd, phase, or directory names.
-Safety policy, event recording, checkpointing, recovery, verification of actual
-execution, and handoff serialization belong to SimFlow runtime.
+SimFlow does not provide a custom-Skill registry or `.simflow/extensions/skills`
+mechanism. Safety policy, event recording, checkpointing, recovery, verification
+of actual execution, and handoff serialization belong to SimFlow runtime.
 
 ## Script Boundary
 

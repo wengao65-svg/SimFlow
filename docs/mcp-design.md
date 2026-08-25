@@ -21,8 +21,10 @@ activity lifecycle calls, handoff tools, or separate upload/download tools.
 ## State Tool Rules
 
 - `inspect` is always read-only and must work for an uninitialized project.
-- hosts perform at most one initial `inspect` per project per user request and
-  reuse its Experiment selection context;
+- hosts perform at most one `inspect` per project per user request when the
+  request depends on existing project truth, recovery, or a durable runtime
+  action, and reuse its Experiment selection context;
+- loading a Skill alone does not trigger `inspect`;
 - `record` has a strict operational `kind` branch and a separate discriminated
   `channel="experiment"` branch with four entry types;
 - `record` appends one logical operational event or one scientific notebook
