@@ -4,7 +4,7 @@
 
 ```text
 simflow/
-├── skills/                    # 12 public Skills, kept flat for host discovery
+├── skills/                    # 13 public Skills, kept flat for host discovery
 ├── workflow/
 │   ├── stages/                # Advisory research-intent contracts
 │   ├── recipes/               # Optional reference paths
@@ -31,7 +31,7 @@ Task, and Domain classification does not require a physical directory move.
 
 ## Public Skills
 
-The only directories containing public `SKILL.md` files are the router, six
+The only directories containing public `SKILL.md` files are the router, seven
 Research Task Skills, and five Domain Skills. Safety, checkpoint, handoff, and
 verification implementations belong under runtime helpers. Unsupported engine
 placeholders do not expose `SKILL.md`.

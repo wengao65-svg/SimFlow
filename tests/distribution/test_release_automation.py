@@ -46,7 +46,7 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     assert "compatibility HPC gates cannot authorize execution" in result.stdout
     assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
     assert "simflow_state tools/list exposes four compact tools" in result.stdout
-    assert "public Skill surface is exactly one Router, six Task, and five Domain Skills" in result.stdout
+    assert "public Skill surface is exactly one Router, seven Task, and five Domain Skills" in result.stdout
     assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
     assert "public Skill text contains no runtime registration or placeholder instructions" in result.stdout
     assert "legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources" in result.stdout

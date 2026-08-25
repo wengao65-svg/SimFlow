@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CANONICAL_SKILL_DIRS = [
     "skills/simflow-literature-review",
+    "skills/simflow-reference-extraction",
     "skills/simflow-proposal",
     "skills/simflow-modeling",
     "skills/simflow-computation",

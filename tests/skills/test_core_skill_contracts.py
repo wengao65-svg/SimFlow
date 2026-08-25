@@ -11,6 +11,7 @@ SKILLS = ROOT / "skills"
 
 RESEARCH_TASK_SKILLS = [
     "simflow-literature-review",
+    "simflow-reference-extraction",
     "simflow-proposal",
     "simflow-modeling",
     "simflow-computation",
@@ -84,7 +85,7 @@ def test_canonical_core_skills_exist():
         assert f"name: {skill_name}" in text
 
 
-def test_public_skill_surface_is_exactly_twelve():
+def test_public_skill_surface_is_exactly_thirteen():
     public = {path.parent.name for path in SKILLS.glob("*/SKILL.md")}
     expected = {"simflow", *RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS}
     assert public == expected

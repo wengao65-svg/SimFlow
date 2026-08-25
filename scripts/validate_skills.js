@@ -54,6 +54,7 @@ const PURE_SKILL_REQUIRED_SECTIONS = [
 
 const RESEARCH_TASK_SKILLS = new Set([
   'simflow-literature-review',
+  'simflow-reference-extraction',
   'simflow-proposal',
   'simflow-modeling',
   'simflow-computation',

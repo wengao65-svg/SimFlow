@@ -1,6 +1,6 @@
 # SimFlow
 
-Current development version: `1.2.0-dev.0`.
+Current development version: `1.3.0-dev.0`.
 
 SimFlow is a computational-research guidance, provenance, recovery, and safety
 layer for Codex, Claude Code, OpenCode, and compatible host agents.
@@ -27,12 +27,12 @@ are deliberately independent.
 
 ## Public Skills
 
-SimFlow exposes exactly 12 Skills.
+SimFlow exposes exactly 13 Skills.
 
 | Class | Skills |
 | --- | --- |
 | Router | `simflow` |
-| Research Task | `simflow-literature-review`, `simflow-proposal`, `simflow-modeling`, `simflow-computation`, `simflow-analysis-visualization`, `simflow-writing` |
+| Research Task | `simflow-literature-review`, `simflow-reference-extraction`, `simflow-proposal`, `simflow-modeling`, `simflow-computation`, `simflow-analysis-visualization`, `simflow-writing` |
 | Domain | `simflow-vasp`, `simflow-cp2k`, `simflow-lammps`, `simflow-gpumd`, `simflow-mlp` |
 
 Task and Domain Skills are pure instruction bundles. They remain useful without
@@ -168,7 +168,7 @@ Update with `opencode plugin opencode-simflow --global --force`. See
 
 ```text
 simflow/
-├── skills/                    # 12 public Router, Task, and Domain Skills
+├── skills/                    # 13 public Router, Task, and Domain Skills
 ├── workflow/                  # Advisory stages/recipes and runtime policies/gates
 ├── mcp/servers/
 │   ├── simflow_state/         # Four compact state/recovery tools

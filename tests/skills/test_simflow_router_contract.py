@@ -13,6 +13,7 @@ CAPABILITIES = ROOT / "workflow" / "toolchains" / "capabilities.json"
 
 TASK_SKILLS = {
     "literature_review": "simflow-literature-review",
+    "reference_extraction": "simflow-reference-extraction",
     "proposal": "simflow-proposal",
     "modeling": "simflow-modeling",
     "computation": "simflow-computation",

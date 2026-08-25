@@ -30,6 +30,7 @@ const EXPECTED_PUBLIC_SKILLS = [
   'simflow-mlp',
   'simflow-modeling',
   'simflow-proposal',
+  'simflow-reference-extraction',
   'simflow-vasp',
   'simflow-writing',
 ];
@@ -364,7 +365,7 @@ function validateSimplificationContract() {
     .filter(name => fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')))
     .sort();
   check(
-    'public Skill surface is exactly one Router, six Task, and five Domain Skills',
+    'public Skill surface is exactly one Router, seven Task, and five Domain Skills',
     JSON.stringify(publicSkills) === JSON.stringify(EXPECTED_PUBLIC_SKILLS),
     publicSkills.join('\n'),
   );

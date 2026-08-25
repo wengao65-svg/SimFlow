@@ -15,7 +15,7 @@ const SERVER_NAMES = [
   'simflow_state', 'hpc',
 ];
 const SKILL_NAMES = [
-  'simflow', 'simflow-literature-review', 'simflow-proposal', 'simflow-modeling',
+  'simflow', 'simflow-literature-review', 'simflow-reference-extraction', 'simflow-proposal', 'simflow-modeling',
   'simflow-computation', 'simflow-analysis-visualization', 'simflow-writing',
   'simflow-vasp', 'simflow-cp2k', 'simflow-lammps', 'simflow-gpumd',
   'simflow-mlp',

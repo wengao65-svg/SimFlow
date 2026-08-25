@@ -16,7 +16,7 @@ workflow executor.
 
 ## Required Capabilities
 
-1. One thin router, six Research Task Skills, and five Domain Skills.
+1. One thin router, seven Research Task Skills, and five Domain Skills.
 2. Task and Domain Skills that work without MCP and never own runtime state.
 3. Four compact state tools: inspect, record, checkpoint, recover.
 4. Four execution tools: plan, transfer, submit, status.

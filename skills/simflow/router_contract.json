@@ -4,6 +4,7 @@
   "not_runtime_schema": true,
   "research_task_skills": {
     "literature_review": "simflow-literature-review",
+    "reference_extraction": "simflow-reference-extraction",
     "proposal": "simflow-proposal",
     "modeling": "simflow-modeling",
     "computation": "simflow-computation",
@@ -25,6 +26,11 @@
     "load_future_maybe_relevant_skills": false
   },
   "intent_examples": [
+    {
+      "intent": "extract_reference_data_from_known_source",
+      "task_skill": "simflow-reference-extraction",
+      "domain_skill": null
+    },
     {
       "intent": "analyze_existing_gpumd_md",
       "task_skill": "simflow-analysis-visualization",

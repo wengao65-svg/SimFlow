@@ -32,6 +32,7 @@ const REQUIRED_ENTRIES = [
 const PACKAGED_SKILLS = new Set([
   'simflow',
   'simflow-literature-review',
+  'simflow-reference-extraction',
   'simflow-proposal',
   'simflow-modeling',
   'simflow-computation',

@@ -64,6 +64,7 @@ const REQUIRED_RECIPES = ['dft', 'aimd', 'classical_md', 'phonon', 'neb', 'custo
 const PACKAGED_SKILLS = [
   'simflow',
   'simflow-literature-review',
+  'simflow-reference-extraction',
   'simflow-proposal',
   'simflow-modeling',
   'simflow-computation',

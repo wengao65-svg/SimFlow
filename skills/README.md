@@ -1,6 +1,6 @@
 # Skills Directory
 
-SimFlow exposes exactly 12 public Skills. They provide reusable scientific
+SimFlow exposes exactly 13 public Skills. They provide reusable scientific
 guidance and do not own runtime state, persistence, approval, or recovery.
 
 ## Router
@@ -11,6 +11,7 @@ guidance and do not own runtime state, persistence, approval, or recovery.
 ## Research Task Skills
 
 - `simflow-literature-review`
+- `simflow-reference-extraction`
 - `simflow-proposal`
 - `simflow-modeling`
 - `simflow-computation`

@@ -17,6 +17,7 @@ const SERVER_NAMES = [
 const PACKAGED_SKILLS = [
   'simflow',
   'simflow-literature-review',
+  'simflow-reference-extraction',
   'simflow-proposal',
   'simflow-modeling',
   'simflow-computation',

@@ -24,6 +24,7 @@ Domain Skill never requires a state write.
 Research Task Skills answer how to do the current class of work well:
 
 - `simflow-literature-review`
+- `simflow-reference-extraction`
 - `simflow-proposal`
 - `simflow-modeling`
 - `simflow-computation`
@@ -69,6 +70,7 @@ Examples:
 | Current intent | Task Skill | Optional Domain Skill |
 | --- | --- | --- |
 | analyze GPUMD trajectories | analysis-visualization | gpumd |
+| extract numerical values from a known paper or figure | reference-extraction | none |
 | prepare or run VASP NEB | modeling or computation, choose one | vasp |
 | design NEP active learning | proposal | mlp |
 | train NEP | computation | gpumd |

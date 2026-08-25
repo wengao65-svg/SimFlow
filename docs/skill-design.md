@@ -16,7 +16,7 @@ SimFlow Runtime      -> what actually happened and what must be safeguarded
 
 ## Public Skill Set
 
-The public surface contains one router, six Research Task Skills, and five
+The public surface contains one router, seven Research Task Skills, and five
 Domain Skills. See `skills/README.md` for the complete list.
 
 Operational concerns are not Skills:

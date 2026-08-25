@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PACKAGED_SKILLS = {
     "simflow",
     "simflow-literature-review",
+    "simflow-reference-extraction",
     "simflow-proposal",
     "simflow-modeling",
     "simflow-computation",
