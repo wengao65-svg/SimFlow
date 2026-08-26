@@ -1,21 +1,31 @@
 # SimFlow User Guide
 
-## Choose Guidance From Intent
+## Discover And Compose Guidance
 
-Use `simflow` as a thin router or select a specific Skill. One task should load
-at most one Research Task Skill and one optional Domain Skill.
+Describe the task naturally or select specific Skills. The host discovers and
+combines relevant Research Task, Domain, and host-native custom Skills from
+their descriptions. Use the smallest materially useful set, without a numeric
+limit.
 
 Examples:
 
 | Intent | Task Skill | Domain Skill |
 | --- | --- | --- |
 | analyze GPUMD trajectories | analysis/visualization | GPUMD |
-| prepare VASP NEB inputs | modeling or computation, choose one | VASP |
+| prepare and validate VASP NEB inputs | modeling + computation | VASP |
 | design NEP active learning | proposal | MLP |
 | write accepted results | writing | none |
 
+Composite requests may use multiple Skills, for example computation + GPUMD +
+MLP for NEP training, or literature review + reference extraction + analysis
+for a published benchmark comparison.
+
 Skills follow current intent, not cwd or phase. They can guide useful work when
 SimFlow MCP is unavailable.
+
+Explicitly invoke `simflow` only when you want its framework-level provenance,
+project-memory, recovery, recording, or execution-safety semantics. It does not
+choose other Skills.
 
 ## When To Use Runtime
 
@@ -34,13 +44,15 @@ not need a state call merely because a Skill was used.
 ## Re-enter An Existing Project
 
 1. Inspect the project root and existing layout.
-2. On the first SimFlow use for this project in the current user request, call
-   `simflow_state/inspect` once with `working_directory` and the current query.
+2. If the request depends on existing SimFlow project truth, recovery state, or
+   a durable runtime action, call `simflow_state/inspect` once with
+   `working_directory` and the current query.
 3. Reuse that result for the request; do not inspect before every Skill or file
    action.
 4. Continue from exact files and the selected Experiment when the match is
    unambiguous. Ask before a durable binding when selection is ambiguous.
-5. Record only new scientific memory or operational events that need durable
+5. Do not inspect merely because a SimFlow Skill is active. Record only new
+   scientific memory or operational events that need durable
    provenance.
 6. Create a checkpoint only when restart references or a meaningful diagnostic
    boundary exist.

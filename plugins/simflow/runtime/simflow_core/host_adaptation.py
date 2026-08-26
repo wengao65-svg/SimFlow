@@ -30,15 +30,16 @@ def build_initialize_instructions(
         return None
     host = detect_host(client_info)
     invocation = {
-        "codex": "Use $simflow or a domain skill such as $simflow-vasp, or describe the task naturally.",
-        "claude_code": "Use /simflow:simflow or a namespaced domain skill, or describe the task naturally.",
-        "opencode": "Use OpenCode's skill tool to load simflow or a domain skill such as simflow-vasp, or describe the task naturally.",
-        "generic": "Describe the simulation task naturally and use the SimFlow MCP tools for tracked work.",
+        "codex": "Describe the task naturally or invoke specific Skills directly. Use $simflow only to opt into SimFlow framework semantics; it does not route other Skills.",
+        "claude_code": "Describe the task naturally or invoke namespaced Skills directly. Use /simflow:simflow only to opt into SimFlow framework semantics; it does not route other Skills.",
+        "opencode": "Use OpenCode's skill tool for specific Skills. The host has no equivalent per-Skill explicit-only metadata, so load simflow manually only for framework semantics; it does not route other Skills.",
+        "generic": "Discover and compose relevant Skills through the host. Use the SimFlow MCP tools only for tracked work.",
     }[host]
     invariants = (
-        " Pass explicit project_root for runtime operations. On the first SimFlow use for a project"
-        " in each user request, call read-only inspect once with project_root, working_directory,"
-        " and the current query, then reuse the result for that request."
+        " Pass explicit project_root for runtime operations. When the request depends on existing"
+        " SimFlow project truth, prior Experiment context, recovery state, or a durable runtime"
+        " action, call read-only inspect once with project_root, working_directory, and the current"
+        " query, then reuse the result for that request. Do not inspect merely because a Skill is active."
         " Do not create session state or print a fixed re-entry summary."
         " Bind a selected Experiment silently only when inspect reports an unambiguous match;"
         " resolve ambiguity before durable writes or execution binding."

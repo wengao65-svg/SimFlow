@@ -7,8 +7,9 @@ description: Provide VASP-specific guidance for inputs, validation, convergence,
 
 ## Purpose
 
-Act as the VASP Domain Skill for one current Research Task Skill. This Skill does
-not own workflow progression, submission, approval, or SimFlow state.
+Provide VASP-specific semantics to any current Research Task Skills that need
+them. This Skill does not own workflow progression, submission, approval, or
+SimFlow state.
 
 ## Use when
 
@@ -19,7 +20,8 @@ not own workflow progression, submission, approval, or SimFlow state.
 ## Do not use when
 
 - The task is engine-independent and does not require VASP semantics.
-- Another Domain Skill more directly matches the actual software.
+- The request concerns only other software and no VASP-specific boundary is
+  material.
 
 ## Domain principles
 

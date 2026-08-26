@@ -16,8 +16,9 @@ SimFlow Runtime      -> what actually happened and what must be safeguarded
 
 ## Public Skill Set
 
-The public surface contains one router, six Research Task Skills, and five
-Domain Skills. See `skills/README.md` for the complete list.
+The public surface contains one opt-in Framework Skill, seven Research Task
+Skills, and five Domain Skills. See `skills/README.md` for the complete list.
+Host agents discover and compose these Skills directly from their metadata.
 
 Operational concerns are not Skills:
 
@@ -72,17 +73,21 @@ A rule belongs in the main Skill only when at least one condition applies:
 Detailed methods, examples, parameter discussions, and long checklists belong
 under `references/`. Optional bounded utilities belong under `scripts/`.
 
-## Router Contract
+## Framework And Composition Contract
 
-The router selects at most one Task Skill and one optional Domain Skill. It
-follows current user intent, not the active phase or cwd.
+The `simflow` Framework Skill is explicit and opt-in. It supplies project-memory,
+provenance, recovery, recording, and execution-safety semantics; it does not
+select or route other Skills.
 
-For example, RDF interpretation inside a computation directory selects
-analysis plus the relevant Domain Skill. A newly required calculation inside an
-analysis directory selects computation plus the engine Domain Skill.
+Host agents own discovery and composition. They should load the smallest set of
+Skills that materially improves the request, without a numeric limit. Multiple
+Task or Domain Skills are valid when a request spans their responsibilities.
+User-selected Skills take priority, and current intent matters more than cwd,
+phase, or directory names.
 
-The router may identify a runtime boundary, but it does not perform runtime
-operations.
+Host-native custom Skills may participate in composition. SimFlow does not
+provide a custom-Skill registry, binding schema, override mechanism, or
+`.simflow/extensions/skills` directory.
 
 ## Domain Skill Pattern
 
@@ -117,4 +122,5 @@ Skill validation checks:
 - no artifact/checkpoint/stage ownership;
 - no fixed helper or report requirement;
 - no unsupported engine capability claim;
-- one Task plus one Domain routing limits.
+- host-native discovery without central routing or cardinality limits;
+- explicit-only Framework invocation on hosts that support it.

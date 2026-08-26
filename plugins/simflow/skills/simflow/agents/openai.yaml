@@ -1,0 +1,6 @@
+interface:
+  display_name: "SimFlow Framework"
+  short_description: "Opt-in provenance, recovery, and execution safety"
+  default_prompt: "Use $simflow to apply SimFlow framework semantics to this request without routing or selecting other Skills."
+policy:
+  allow_implicit_invocation: false

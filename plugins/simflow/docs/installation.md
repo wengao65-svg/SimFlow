@@ -154,7 +154,16 @@ dependencies only when you want local helper scripts to use those libraries:
 pip install -e ".[vasp]"       # pymatgen VASP helpers plus ASE setup tables
 pip install -e ".[lammps]"     # MDAnalysis-backed LAMMPS analysis helpers
 pip install -e ".[structure]"  # pymatgen and ASE structure helpers
+pip install -e ".[reference-extraction]"  # PDF/vector/raster reference-data helpers
 pip install -e ".[all]"        # all optional scientific helpers
+```
+
+For a packaged Codex, Claude Code, or OpenCode plugin checkout that does not
+include the repository `pyproject.toml`, install the same extraction dependencies
+from the Skill-local file:
+
+```bash
+python -m pip install -r skills/simflow-reference-extraction/requirements.txt
 ```
 
 Unsupported engines do not install placeholder Skills; use the relevant Task
