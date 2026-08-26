@@ -20,8 +20,8 @@ submission plumbing, approval policy, job registries, or workflow state.
 ## Do not use when
 
 - The task is only scientific model construction, output analysis, or writing.
-- The user only needs software-specific syntax; pair with one Domain Skill
-  rather than loading several Task Skills.
+- The user only needs software-specific syntax and no general computation
+  discipline is material.
 
 ## Task principles
 
@@ -73,6 +73,7 @@ submission plumbing, approval policy, job registries, or workflow state.
 
 ## Optional references
 
-Pair with at most one relevant Domain Skill for software-specific input,
-restart, convergence, and output semantics. Runtime safety and event recording
-remain separate from this guidance.
+Combine with any relevant Domain Skills for software-specific input, restart,
+convergence, and output semantics. Cross-tool work may also need another Task
+Skill for a distinct subtask. Runtime safety and event recording remain
+separate from this guidance.

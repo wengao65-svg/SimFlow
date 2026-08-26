@@ -7,8 +7,9 @@ description: Provide LAMMPS-specific guidance for classical, reactive, and MLP-d
 
 ## Purpose
 
-Act as the LAMMPS Domain Skill for one current Research Task Skill. It does not
-own workflow progression, runtime approval, or persistent state.
+Provide LAMMPS-specific semantics to any current Research Task Skills that need
+them. It does not own workflow progression, runtime approval, or persistent
+state.
 
 ## Use when
 
@@ -19,8 +20,8 @@ own workflow progression, runtime approval, or persistent state.
 ## Do not use when
 
 - The task is general MD methodology with no LAMMPS-specific question.
-- The main issue is MLP dataset/training methodology rather than LAMMPS
-  deployment; use `simflow-mlp` instead.
+- The task has no LAMMPS-specific input, deployment, execution, or output
+  semantics.
 
 ## Domain principles
 
@@ -33,6 +34,8 @@ own workflow progression, runtime approval, or persistent state.
   inconsistent data file.
 - Parse log/dump metadata before final property analysis; property methodology
   belongs to the analysis Task Skill.
+- Combine with `simflow-mlp` when LAMMPS deployment also depends on dataset,
+  validation, transferability, or production-readiness methodology.
 
 ## Minimum checks
 

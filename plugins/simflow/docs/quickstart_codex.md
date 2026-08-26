@@ -196,8 +196,12 @@ If SimFlow later adds Codex lifecycle hooks, they must be defined in a dedicated
 
 ## Safety defaults
 
-- On the first SimFlow use for a project in one user request, Codex performs one
-  read-only `inspect` with the working directory and query, then reuses it.
+- Codex discovers specific Task and Domain Skills directly. `$simflow` is
+  explicit-only and adds framework semantics; it does not route other Skills.
+- When a request depends on existing SimFlow project truth, recovery state, or a
+  durable runtime action, Codex performs one read-only `inspect` with the
+  working directory and query, then reuses it.
+- Skill activation alone does not trigger `inspect`.
 - Experiment notebooks preserve scientific questions and decisions; exact
   project files remain the evidence source.
 - Compute and HPC operations default to dry-run behavior.
