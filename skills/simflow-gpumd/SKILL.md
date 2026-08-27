@@ -74,12 +74,35 @@ persistence.
 
 ## Optional references
 
-- `references/gpumd_official_sources.md`
-- `references/gpumd_file_map.md`
-- `references/gpumd_static_inspection.md`
-- `references/gpumd_selected_output_parsing.md`
-- `references/gpumd_nep_evidence.md`
-- `references/gpumd_nep_community_methodology.md`
-- `references/gpumd_task_checklists.md`
-- `references/gpumd_troubleshooting.md`
-- `references/gpumd_tools.md`
+Load references according to the concrete GPUMD simulation, NEP training,
+parsing, or troubleshooting need. Prefer version-matched official sources.
+Load community methodology only for a relevant provider-specific question and
+keep it distinct from authoritative or general MLP guidance.
+
+- `references/gpumd_official_sources.md`: Read when checking version-sensitive
+  GPUMD/NEP commands, file roles, training keywords, restart semantics, or
+  official examples.
+- `references/gpumd_file_map.md`: Read when identifying GPUMD/NEP files and
+  mapping them to dataset, training, model, MD-validation, diagnostic, or
+  property-evidence roles.
+- `references/gpumd_static_inspection.md`: Read when checking an existing GPUMD
+  or NEP directory for required files, referenced paths, command categories,
+  and obvious missing-input risks.
+- `references/gpumd_selected_output_parsing.md`: Read before parsing recognized
+  numeric outputs so parser scope, supported facts, malformed-file handling,
+  and claim limits remain explicit.
+- `references/gpumd_nep_evidence.md`: Read for NEP from-scratch training,
+  ordinary restart, foundation-model fine-tuning, checkpoint lineage, model
+  artifacts, and provider-specific training evidence.
+- `references/gpumd_nep_community_methodology.md`: Read only for relevant
+  community-derived GPUMD/NEP errors, parameter discussions, training practices,
+  recipes, or unresolved claims; verify recommendations against official
+  documentation and the actual version before use.
+- `references/gpumd_task_checklists.md`: Read for a compact static-inspection,
+  manifest-generation, or selected-output-parsing checklist.
+- `references/gpumd_troubleshooting.md`: Read for first-pass diagnosis of
+  missing files, incomplete outputs, malformed tables, missing training
+  evidence, or claims blocked by insufficient readiness evidence.
+- `references/gpumd_tools.md`: Read when considering GPUMDkit, neptrain,
+  neptrainkit, calorine, or another GPUMD/NEP-specific conversion,
+  training-assistance, plotting, or inference route.

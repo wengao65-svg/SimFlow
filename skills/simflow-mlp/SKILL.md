@@ -74,12 +74,35 @@ be loaded alongside this Skill.
 
 ## Optional references
 
-- `references/mlp_scope_and_toolchains.md`
-- `references/mlp_dataset_and_labeling.md`
-- `references/mlp_dft_labeling_consistency.md`
-- `references/mlp_training_validation.md`
-- `references/mlp_active_learning_readiness.md`
-- `references/mlp_evidence_handoff.md`
-- `references/mlp_artifact_schemas.md`
-- `references/mlp_task_checklists.md`
-- `references/mlp_troubleshooting.md`
+Select references according to the evidence question: scope, dataset and
+labels, training and validation, active learning and readiness, evidence
+exchange, helper schemas, or troubleshooting. Combine with an engine-specific
+Domain Skill when provider files or commands matter.
+
+- `references/mlp_scope_and_toolchains.md`: Read when the trainer, labeling
+  engine, MD provider, toolchain roles, or boundary between generic MLP
+  methodology and provider-specific semantics is unclear.
+- `references/mlp_dataset_and_labeling.md`: Read when designing or auditing
+  dataset scope, configuration coverage, label provenance, units, exclusions,
+  splits, leakage, or dataset lineage.
+- `references/mlp_dft_labeling_consistency.md`: Read whenever an MLP dataset
+  contains DFT energy, force, virial, or stress labels, especially for protocol
+  fingerprints, pseudopotential/basis consistency, atom-order mappings, or
+  active-learning label inheritance.
+- `references/mlp_training_validation.md`: Read when reviewing training mode,
+  fine-tuning, restart, optimizer/loss/scheduler evidence, metrics, property
+  validation, transferability, stability, or smoke MD.
+- `references/mlp_active_learning_readiness.md`: Read when designing or
+  reviewing active-learning rounds, acquisition and anomaly criteria, stopping
+  conditions, residual risk, or production MLP-MD readiness.
+- `references/mlp_evidence_handoff.md`: Read when preparing a concise evidence
+  package that must communicate datasets, labels, training, models, validation,
+  readiness gaps, and next actions.
+- `references/mlp_artifact_schemas.md`: Read only when creating, validating, or
+  interpreting helper-produced JSON using `simflow.helper_evidence.v1`; it is
+  not required for ordinary scientific review.
+- `references/mlp_task_checklists.md`: Read when a compact dataset,
+  DFT-label-protocol, validation, or readiness audit checklist is useful.
+- `references/mlp_troubleshooting.md`: Read when evidence is missing,
+  conflicting, malformed, semantically incomplete, protocol-inconsistent, or
+  being used to support a stronger claim than it permits.
