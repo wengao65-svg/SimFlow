@@ -1,6 +1,6 @@
 ---
 name: simflow-cp2k
-description: Provide CP2K-specific guidance for inputs, basis and potential choices, convergence, restart, AIMD, troubleshooting, and output interpretation.
+description: Provide CP2K-specific guidance for input setup and review, Quickstep DFT basis and potential choices, MGRID/SCF convergence, optimization, AIMD, restart and continuation, troubleshooting, and output interpretation. Use when requests mention CP2K, GLOBAL/FORCE_EVAL/DFT/MGRID/SCF/QS/KIND/MOTION, ENERGY/GEO_OPT/CELL_OPT/MD, or CP2K input, restart, log, .ener, and trajectory files.
 ---
 
 # CP2K Domain Skill

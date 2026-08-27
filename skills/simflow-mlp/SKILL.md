@@ -1,6 +1,6 @@
 ---
 name: simflow-mlp
-description: Provide engine-independent machine-learning-potential guidance for datasets, labels, training evidence, validation, active learning, and production readiness.
+description: Provide engine-independent guidance for machine-learning interatomic potentials (MLPs/MLIPs), including dataset and DFT-label provenance, splits and leakage, training and fine-tuning evidence, validation metrics, uncertainty and extrapolation, transferability, active learning, deployment, and production MLP-MD readiness. Use when requests mention machine-learning, neural-network, foundation, or universal interatomic potentials; energy/force/stress labels; model validation; long MLP-MD; or frameworks such as NEP, DeePMD, MACE, NequIP, or Allegro. Combine with engine-specific Domain Skills for provider files and commands.
 ---
 
 # Machine-Learning Potential Domain Skill

@@ -1,6 +1,6 @@
 ---
 name: simflow-vasp
-description: Provide VASP-specific guidance for inputs, validation, convergence, troubleshooting, output interpretation, and licensed POTCAR handling.
+description: Provide VASP-specific guidance for input setup and review, convergence and restart diagnosis, troubleshooting, output interpretation, and licensed POTCAR metadata handling. Use when requests mention VASP, INCAR/POSCAR/KPOINTS/POTCAR, OUTCAR/OSZICAR/vasprun.xml/vaspout.h5, CHGCAR/WAVECAR, or VASP workflows such as relaxation, DOS/bands, AIMD, NEB, phonons, DFT+U/SOC/hybrids, defects, surfaces, optics, spectroscopy, or Wannier analysis.
 ---
 
 # VASP Domain Skill

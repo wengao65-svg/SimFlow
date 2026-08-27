@@ -1,6 +1,6 @@
 ---
 name: simflow-gpumd
-description: Provide GPUMD and NEP-specific guidance for inputs, training files, deployment, static validation, selected output parsing, and troubleshooting.
+description: Provide GPUMD- and NEP-specific guidance for GPUMD simulation files, NEP training, fine-tuning, and restart files, element ordering, model deployment, static validation, selected output parsing, and troubleshooting. Use when requests mention GPUMD, NEP, GPUMDkit, neptrain/NEPTrainKit, calorine, run.in, model.xyz, nep.in, train.xyz, test.xyz, nep.restart, nep.txt, loss.out, thermo.out, neighbor.out, or GPUMD transport outputs. Combine with simflow-mlp for cross-tool dataset, validation, active-learning, transferability, or readiness methodology.
 ---
 
 # GPUMD And NEP Domain Skill

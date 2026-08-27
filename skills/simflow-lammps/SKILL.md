@@ -1,6 +1,6 @@
 ---
 name: simflow-lammps
-description: Provide LAMMPS-specific guidance for classical, reactive, and MLP-driven MD input review, execution diagnosis, restart, and output intake.
+description: Provide LAMMPS-specific guidance for input/data/restart review, classical and reactive force fields, MLP deployment, ensembles and timesteps, packages and accelerators, runtime diagnosis, and log/dump intake. Use when requests mention LAMMPS, pair_style/pair_coeff, fixes/computes/thermo, log.lammps, dump trajectories, lost atoms, dangerous builds, ReaxFF, EAM/MEAM, KIM, or MLP pair styles. Combine with simflow-mlp for dataset, training, transferability, or production-readiness questions.
 ---
 
 # LAMMPS Domain Skill
