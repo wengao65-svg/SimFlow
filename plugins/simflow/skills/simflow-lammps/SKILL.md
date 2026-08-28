@@ -1,6 +1,6 @@
 ---
 name: simflow-lammps
-description: Provide LAMMPS-specific guidance for classical, reactive, and MLP-driven MD input review, execution diagnosis, restart, and output intake.
+description: Provide LAMMPS-specific guidance for input/data/restart review, classical and reactive force fields, MLP deployment, ensembles and timesteps, packages and accelerators, runtime diagnosis, and log/dump intake. Use when requests mention LAMMPS, pair_style/pair_coeff, fixes/computes/thermo, log.lammps, dump trajectories, lost atoms, dangerous builds, ReaxFF, EAM/MEAM, KIM, or MLP pair styles. Combine with simflow-mlp for dataset, training, transferability, or production-readiness questions.
 ---
 
 # LAMMPS Domain Skill
@@ -72,11 +72,31 @@ state.
 
 ## Optional references
 
-- `references/lammps_official_sources.md`
-- `references/lammps_input_validation.md`
-- `references/lammps_force_fields_and_mlp.md`
-- `references/lammps_md_workflows.md`
-- `references/lammps_output_intake.md`
-- `references/lammps_troubleshooting.md`
-- `references/lammps_parameters.md`
-- `references/lammps_tools.md`
+Select references according to whether the request concerns syntax, static
+validation, force-field deployment, MD workflow design, output intake, or
+failure diagnosis. Final property-analysis methodology remains with the
+analysis Task Skill.
+
+- `references/lammps_official_sources.md`: Read when verifying command syntax,
+  package availability, accelerator behavior, pair/fix/compute semantics,
+  restart behavior, or official error meanings.
+- `references/lammps_input_validation.md`: Read when statically reviewing an
+  input script, data file, restart source, includes, thermo setup, or dump
+  configuration.
+- `references/lammps_force_fields_and_mlp.md`: Read when reviewing classical or
+  reactive potentials, KIM models, charge models, type mapping, potential
+  provenance, or MLP deployment in LAMMPS.
+- `references/lammps_md_workflows.md`: Read for minimization, equilibration,
+  production, rerun, deformation, shock, transport, restart planning, or
+  smoke-versus-production distinctions.
+- `references/lammps_output_intake.md`: Read when ingesting log, dump, data, or
+  restart outputs before downstream RDF, MSD, diffusion, transport, mechanical,
+  or visualization analysis.
+- `references/lammps_troubleshooting.md`: Read for missing packages, unknown
+  styles, lost atoms, NaN values, dangerous builds, ReaxFF instability,
+  accelerator mismatches, or MLP runtime errors.
+- `references/lammps_parameters.md`: Read as a compact first-pass evidence and
+  reference index when the request is broad; skip it when a more specific
+  reference has already been selected.
+- `references/lammps_tools.md`: Read when considering the LAMMPS Python
+  interface, bundled utilities, Pizza.py, or another LAMMPS-specific tool route.
