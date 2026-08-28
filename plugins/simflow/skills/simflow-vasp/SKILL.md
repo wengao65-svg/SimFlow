@@ -1,6 +1,6 @@
 ---
 name: simflow-vasp
-description: Provide VASP-specific guidance for inputs, validation, convergence, troubleshooting, output interpretation, and licensed POTCAR handling.
+description: Provide VASP-specific guidance for input setup and review, convergence and restart diagnosis, troubleshooting, output interpretation, and licensed POTCAR metadata handling. Use when requests mention VASP, INCAR/POSCAR/KPOINTS/POTCAR, OUTCAR/OSZICAR/vasprun.xml/vaspout.h5, CHGCAR/WAVECAR, or VASP workflows such as relaxation, DOS/bands, AIMD, NEB, phonons, DFT+U/SOC/hybrids, defects, surfaces, optics, spectroscopy, or Wannier analysis.
 ---
 
 # VASP Domain Skill
@@ -88,23 +88,60 @@ SimFlow state.
 
 ## Optional references
 
-- `references/vasp_official_sources.md`
-- `references/vasp_parameters.md`
-- `references/vasp_task_checklists.md`
-- `references/vasp_troubleshooting.md`
-- `references/vasp_tools.md`
-- `references/vasp_calc_electronic_minimization.md`
-- `references/vasp_calc_structure_optimization.md`
-- `references/vasp_calc_dos_band.md`
-- `references/vasp_calc_magnetism_dftu_soc.md`
-- `references/vasp_calc_aimd_mlff.md`
-- `references/vasp_calc_neb_transition_states.md`
-- `references/vasp_calc_phonons_electron_phonon.md`
-- `references/vasp_calc_surfaces_adsorption_stm.md`
-- `references/vasp_calc_defects_charged_systems.md`
-- `references/vasp_calc_hybrid_meta_vdw.md`
-- `references/vasp_calc_gw_rpa_bse.md`
-- `references/vasp_calc_optics_dielectric_eels.md`
-- `references/vasp_calc_xas_core_spectroscopy.md`
-- `references/vasp_calc_nmr_efg_response.md`
-- `references/vasp_calc_wannier_postprocessing.md`
+Read only the references that materially match the request. For a concrete
+calculation class, load the single matching `vasp_calc_*.md` reference. Combine
+calculation-class references only when the workflow genuinely spans multiple
+classes; do not load all of them unless the user requests a broad VASP audit.
+
+- `references/vasp_official_sources.md`: Read when verifying exact VASP file,
+  INCAR-tag, version-sensitive, or workflow semantics against official
+  documentation.
+- `references/vasp_parameters.md`: Read when reviewing common INCAR/KPOINTS
+  choices, convergence policy, smearing, `NELECT`, `NBANDS`, `NCORE`/`NPAR`, or
+  POTCAR metadata consistency.
+- `references/vasp_task_checklists.md`: Read after classifying the request when
+  a compact intake or cross-task review checklist is useful; pair it with the
+  matching calculation-class reference for method-specific work.
+- `references/vasp_troubleshooting.md`: Read when a run fails, converges poorly,
+  emits warnings, produces suspicious output, or has restart or parsing
+  problems.
+- `references/vasp_tools.md`: Read when selecting or using py4vasp, VASPKIT, or
+  another VASP-specific preparation or post-processing route.
+- `references/vasp_calc_electronic_minimization.md`: Read for static SCF,
+  fixed-structure ground states, charge-density generation, molecules, bulk
+  systems, or electronic-minimization review.
+- `references/vasp_calc_structure_optimization.md`: Read for ionic, cell, or
+  volume relaxation, equation-of-state work, or Pulay-stress review.
+- `references/vasp_calc_dos_band.md`: Read for total/projected DOS, DFT or hybrid
+  band structures, k-paths, Fermi-level handling, and band/DOS figure
+  provenance.
+- `references/vasp_calc_magnetism_dftu_soc.md`: Read for spin-polarized states,
+  magnetic-order comparisons, DFT+U, noncollinear magnetism, SOC, anisotropy, or
+  spin spirals.
+- `references/vasp_calc_aimd_mlff.md`: Read for AIMD, thermostat/barostat
+  choices, constrained or enhanced MD, thermodynamic integration, or VASP MLFF
+  training and deployment.
+- `references/vasp_calc_neb_transition_states.md`: Read for NEB, climbing-image
+  NEB, dimer, IRC, reaction paths, or transition-state searches.
+- `references/vasp_calc_phonons_electron_phonon.md`: Read for finite-displacement
+  or DFPT phonons, vibrations, phonon spectra, electron-phonon coupling, or
+  phonon-related transport.
+- `references/vasp_calc_surfaces_adsorption_stm.md`: Read for slabs, adsorption,
+  work functions, dipole corrections, STM, or surface partial-charge analysis.
+- `references/vasp_calc_defects_charged_systems.md`: Read for point defects,
+  charged supercells, formation energies, potential alignment, electrostatic
+  corrections, or defect spectroscopy.
+- `references/vasp_calc_hybrid_meta_vdw.md`: Read for hybrid functionals,
+  meta-GGA, nonlocal vdW, or empirical dispersion corrections.
+- `references/vasp_calc_gw_rpa_bse.md`: Read for GW, RPA/ACFDT, BSE,
+  quasiparticle, exciton, or related many-body workflows.
+- `references/vasp_calc_optics_dielectric_eels.md`: Read for optical spectra,
+  dielectric response, Born charges, piezoelectric response, Raman/IR setup, or
+  EELS.
+- `references/vasp_calc_xas_core_spectroscopy.md`: Read for XAS, supercell
+  core-hole calculations, or BSE core excitations.
+- `references/vasp_calc_nmr_efg_response.md`: Read for NMR shielding, EFG,
+  hyperfine coupling, magnetic susceptibility, or related response properties.
+- `references/vasp_calc_wannier_postprocessing.md`: Read for Wannierization,
+  band interpolation, band-decomposed charges, py4vasp/VASPKIT workflows, or
+  custom VASP post-processing.
