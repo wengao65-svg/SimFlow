@@ -1,6 +1,9 @@
 # Figure Captions
 
-Use this guide to write computational simulation figure captions. Captions should make figures interpretable without forcing the reader to search the Methods, but they should not become Methods paragraphs.
+Use this guide to write computational simulation figure captions. Supply what a
+reader needs to interpret the displayed evidence. Length follows interpretive
+need: detailed reference definitions can be essential, while routine settings
+can remain in Methods. Captions are not miniature audit reports.
 
 ## Corpus Patterns
 
@@ -16,9 +19,10 @@ PR/arXiv captions usually follow:
 
 They are often more technical and less headline-like, but still need enough conditions and definitions for standalone reading.
 
-## What a Caption Must Contain
+## Select Relevant Information
 
-For each figure, include:
+Check which of these details the displayed figure requires; they are not seven
+mandatory clauses for every caption:
 
 1. Takeaway or role of the figure.
 2. What each panel shows.
@@ -28,7 +32,10 @@ For each figure, include:
 6. Error-bar/statistics definition.
 7. Units and normalization when not obvious from axes.
 
-Do not bury the main result in the last clause. The first sentence should tell the reader why the figure exists.
+A descriptive or takeaway-style opening can orient the reader. Do not force a
+mechanistic conclusion into a diagram title or repeat the full Results argument.
+Define any displayed error bars, nonstandard symbols, and non-obvious normalization.
+Do not invent uncertainty estimates, baselines, or statistical replication when absent.
 
 ## Caption Title Types
 
@@ -52,7 +59,7 @@ Prediction:
 
 ## Panel-by-Panel Pattern
 
-Use this order:
+Follow the actual panel order. One possible arrangement is:
 
 1. `a,` Define the system, workflow, or primary quantity.
 2. `b, c,` Show comparisons or trends.
@@ -81,7 +88,7 @@ Do not include full pseudopotential, cutoff, k-point, thermostat, and training h
 
 ### Method/Workflow Figure
 
-Must define:
+Define the applicable elements shown:
 
 - inputs and outputs
 - training/active-learning/fine-tuning/distillation loop
@@ -89,11 +96,12 @@ Must define:
 - where uncertainty or selection enters
 - what is new relative to standard workflows
 
-Caption should help a reader understand the whole paper's logic from Fig. 1.
+Explain the depicted method; a workflow need not be Fig. 1 or summarize the
+whole paper. Theory or algorithms without training loops need no such loop.
 
 ### Dataset/Coverage Figure
 
-Must define:
+Define the applicable elements shown:
 
 - what each point/configuration represents
 - descriptor used for PCA/UMAP/SOAP/kPCA if shown
@@ -101,11 +109,12 @@ Must define:
 - train/test split or reference set
 
 State the takeaway:
-> The overlap/separation indicates whether production regimes are interpolative or extrapolative.
+Describe the observed overlap or separation without treating a low-dimensional
+projection alone as proof of interpolation, extrapolation, or adequate coverage.
 
 ### Accuracy/Benchmark Figure
 
-Must define:
+Define the applicable elements shown:
 
 - reference method
 - train/test or validation set
@@ -117,7 +126,7 @@ If using parity plots, mention the diagonal and error statistics. If using learn
 
 ### MD/Property Figure
 
-Must define:
+Define the applicable elements shown:
 
 - ensemble, temperature/pressure, trajectory length, and system size if relevant
 - property estimator
@@ -125,11 +134,13 @@ Must define:
 - uncertainty source
 - comparison target
 
-For diffusion, always define the error bars and whether they come from trajectories, fitting, or Arrhenius regression.
+For diffusion error bars, define whether they come from trajectories, fitting,
+or Arrhenius regression. Missing uncertainty is an author query or a claim
+limitation, not permission to invent error bars.
 
 ### Mechanism Figure
 
-Must define:
+Define the applicable elements shown:
 
 - order parameter or descriptor
 - state classification rule
@@ -138,6 +149,15 @@ Must define:
 - whether snapshots are representative or selected
 
 Avoid using snapshots alone as proof. Pair them with quantitative descriptors.
+
+## Reference and Scope Differences
+
+If panels use different reference levels, sampled populations, or measured versus
+extrapolated timings, state that distinction where the comparison is read. The
+AI2BMD corpus example distinguishes full and fragmented DFT references by system
+size; this is a reason for a detailed caption, not expendable Methods clutter.
+See `narrative-examples.md` for the source filename. Likewise, retain exclusions
+or coordinate definitions that change what a free-energy panel represents.
 
 ## Caption Writing Rules
 
@@ -160,7 +180,7 @@ Avoid using snapshots alone as proof. Pair them with quantitative descriptors.
 
 ## Final Check
 
-A reader should be able to answer these questions from the caption:
+A reader should be able to answer the applicable questions from the caption:
 
 - What is being compared?
 - Under what conditions?

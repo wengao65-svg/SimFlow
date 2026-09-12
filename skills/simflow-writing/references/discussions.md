@@ -1,152 +1,59 @@
 # Discussions and Conclusions
 
-Use this guide to draft Discussion, Conclusion, or final Results paragraphs. The Discussion should interpret the evidence chain, define scope, and explain why the work changes the field.
+Interpret the combined results in relation to the original question. Discussion
+can be a separate section, integrated with Results, or a compact closing passage.
+Do not require six rhetorical moves, a future-work paragraph, or a second tour
+through the figures.
 
-## What Discussion Must Do
+## Synthesize Rather Than Recap
 
-Discussion is not a second Results section. It should:
+Explain what the findings change in physical understanding, theory, method
+capability, resource use, or statistical interpretation. Connect complementary
+evidence and identify what it does and does not discriminate. A synthesis may
+remain descriptive or leave competing mechanisms unresolved.
 
-1. State the answer to the problem posed in the Introduction.
-2. Explain what the result changes in current understanding or practice.
-3. Integrate separate Results figures into one mechanism, workflow, or principle.
-4. Define limitations and domain of validity.
-5. Suggest concrete future experiments, simulations, or applications.
-6. End with a calibrated final claim.
+For physical studies, consider how structural, thermodynamic, dynamic, or
+spectroscopic evidence fits together without treating those observables as
+interchangeable. For methods, explain why the new ingredient matters rather
+than repeating benchmark rankings. For resources, distinguish coverage from
+representativeness. For reliability work, practical guidance can be the main
+scientific output when its derivation and scope support it.
 
-## Corpus Patterns
+Compare with prior explanations where relevant. Identify agreement, disagreement,
+or a difference in conditions rather than declaring a debate resolved without
+comparable evidence. Separate a plausible explanation from a demonstrated one.
 
-Nature-family papers often use a short `Discussion` or `Conclusion` after Results. The strongest examples restate the main finding, explain implications, acknowledge limits, and end with an enabled capability.
+## Give Limits Scientific Meaning
 
-CHGNet-style method discussions move from field need, to what the model contributes, to applications, to remaining limitations in charge representation, and finally to a concise capability statement.
+Retain limitations that change interpretation, applicability, or reproducibility.
+Explain the affected inference: missing configurations limit transfer claims;
+an unresolved coordinate may prevent a projected profile from identifying a
+pathway; a theory approximation may exclude an entire response regime.
 
-Graphene-style physical discussions explicitly define assumptions and scope before making broad claims. They discuss defects, substrate facets, functional limitations, and future experiments, then summarize the mechanism.
+Place a limit where it is needed. A short qualification, an opening statement of
+scope, or a dedicated limitations section can each be appropriate. The MQED-DFT
+example makes approximation limits central to the theory; the graphene example
+opens Discussion with model assumptions. Neither justifies a mandatory
+limitations section for every physical paper. See `narrative-examples.md` for
+source identities.
 
-AIMD-statistics-style discussions are more procedural: they convert Results into practical rules and recommended reporting practice.
+Do not repeat generic "not global", "not kinetic", or "further validation is
+needed" language without specifying what that means for the present result.
+Conversely, do not move a decisive limitation solely to SI to improve fluency.
+Consolidate repetitions while retaining qualifications where a claim would
+otherwise be misleading, including in a standalone abstract or conclusion.
 
-PR-style papers often use `Conclusions` rather than `Discussion`. They usually summarize the main computed findings and connect them to future measurements or theory.
+## Close at the Right Strength
 
-## Six-Move Discussion Structure
+End with the scientific answer, a bounded capability, or a justified implication.
+Suggest a future test only when it follows concretely from an unresolved issue;
+do not invent experiments, predictions, or applications to complete a template.
+Numbered recommendations may suit a statistical-method contribution but are not
+the default conclusion style for a physical study.
 
-Move 1: Answer.
-> We have shown/established that [main claim].
+## Revision Check
 
-Move 2: Evidence synthesis.
-Combine the key figure outcomes without repeating all numbers.
-
-Move 3: Mechanistic or methodological meaning.
-Explain why the result happens or why the method works.
-
-Move 4: Field implication.
-State what prior interpretation, limitation, design rule, or simulation practice changes.
-
-Move 5: Scope and limitations.
-Name the conditions under which the claim is demonstrated and what remains outside scope.
-
-Move 6: Forward-looking final sentence.
-State a concrete capability, experiment, or application path.
-
-## Type-Specific Discussion Guides
-
-### Method Papers
-
-Must include:
-
-- What bottleneck is reduced: data cost, transferability, missing physics, MD stability, or uncertainty.
-- Which evidence proves it: benchmark, ablation, learning curve, downstream MD, property validation.
-- Where the method should not yet be trusted.
-- What future data/model ingredients are needed.
-
-Suggested structure:
-
-1. Restate the method contribution.
-2. Summarize accuracy and efficiency gains.
-3. Explain why the new ingredient matters.
-4. Discuss domain of applicability and failure modes.
-5. End with the new simulation capability.
-
-Avoid claiming a method is "universal" unless the demonstrated chemical and configurational space supports that word.
-
-### Physical-Problem Papers
-
-Must include:
-
-- The resolved mechanism or interpretation.
-- How the simulation distinguishes alternatives.
-- How the result explains experiment or prior disagreement.
-- Which real-world conditions could change the conclusion.
-- What experiment could test the prediction.
-
-Suggested structure:
-
-1. State the physical answer.
-2. Synthesize trajectory/spectral/thermodynamic evidence.
-3. Contrast with previous interpretation.
-4. Discuss defects, finite size, functional choice, timescale, or sample conditions.
-5. End with a unified microscopic picture or design principle.
-
-### Scale-Breakthrough Papers
-
-Must include:
-
-- Why the achieved scale changes the physics.
-- What would be missed by small-cell or short-time simulations.
-- Whether scale convergence has been checked.
-- How the result can be tested or generalized.
-
-Do not end with atom count. End with the phenomenon enabled by that scale.
-
-### Reliability/Statistics Papers
-
-Must include:
-
-- Practical rules or thresholds.
-- What common practice is misleading.
-- How uncertainty should be reported.
-- Which quantities or regimes the criterion applies to.
-
-The Discussion should read like a decision guide for future simulations.
-
-## Writing Limitations Well
-
-A limitation should strengthen credibility by being specific and bounded.
-
-Weak:
-> There are some limitations in this work.
-
-Stronger:
-> Because the training set does not include [regime], the present potential should not be used to infer [property] under [condition] without additional validation.
-
-Weak:
-> More experiments are needed.
-
-Stronger:
-> Operando [measurement] under controlled [condition] would directly test the predicted [mechanism/signature].
-
-## Final Paragraph Templates
-
-Method:
-> In summary, [method] provides [capability] by [new ingredient]. Together, the validation and downstream simulations show that [claim]. Future extensions should target [missing regime], but the present framework already enables [specific class of simulations].
-
-Physical:
-> In summary, our simulations identify [mechanism] as the origin of [phenomenon]. This resolves/explains [debate/observation] and suggests that [control variable] can be used to [design/test].
-
-Reliability:
-> In summary, reliable estimates of [quantity] require [criterion]. Reporting [uncertainty metric] alongside [value] will prevent [misinterpretation] and make AIMD/MD studies of [class] more reproducible.
-
-## Common Failures
-
-- Repeating every Results figure in order.
-- Adding new unvalidated claims at the end.
-- Hiding limitations in vague language.
-- Ending with "this work provides insights" without naming the insight.
-- Not returning to the problem stated in the Introduction.
-- Treating model accuracy as the final message when the paper's real claim is physical.
-
-## Final Check
-
-After drafting, ask:
-
-- What changed after this paper?
-- What remains uncertain?
-- What should the next experiment or simulation do?
-- Would a skeptical reviewer know exactly where the claim is valid?
+Does the discussion explain more than the Results summary? Are all implications
+traceable to evidence? Are material limitations visible without dominating
+unrelated passages? An honest unresolved question is preferable to a fabricated
+unifying mechanism or a defensive list of what passed review.

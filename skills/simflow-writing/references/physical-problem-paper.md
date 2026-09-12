@@ -1,56 +1,42 @@
-# Physical-Problem Computational Simulation Paper
+# Physical-Problem Contributions
 
-Use for papers whose main contribution is a physical conclusion about a material, interface, phase transition, transport mechanism, reaction, wetting behavior, defect process, or spectroscopy signal.
+Use when the contribution concerns a material, interface, phase, transport or
+reaction process, defect, or spectroscopic observation. Make the physical
+question the organizing subject; the computational model is usually a means.
 
-## Core Claim
+## Develop the Physical Argument
 
-Frame the paper as:
+Identify what is observed, what remains unexplained, and which available
+comparisons can resolve or constrain the question. A descriptive finding or
+observable-dependent crossover is legitimate even without an isolated mechanism.
+Do not default to "we resolve X by revealing mechanism Y".
 
-> We resolve/explain/predict X by using validated DFT/AIMD/MLP-MD simulations to reveal mechanism Y.
+Organize results by their scientific relationships. Structure may motivate
+dynamics, a spectrum may motivate competing microscopic interpretations, or
+thermodynamic populations may qualify an apparent structural transition. Use
+these connections only where supported; avoid turning correlation into causation.
 
-The model is a means, not the main subject. Lead with the scientific question or controversy.
+Show the phenomenon early when it is intelligible without extensive setup.
+Introduce definitions, model construction, or essential validation first when
+they are needed to interpret it. Neither order is universally preferable.
+No dedicated validation figure, mechanism section, or final prediction is required.
 
-## Introduction Logic
+## Preserve the Evidence Boundary
 
-1. Explain why the physical problem matters.
-2. State the unresolved experimental or theoretical ambiguity.
-3. Explain why direct experiment, DFT, AIMD, or empirical MD cannot settle it alone.
-4. Introduce the validated simulation approach.
-5. Preview the mechanism and its broader implication.
+Connect validation to the specific observable, not just a generic model score.
+Use independent descriptors and controls where they actually distinguish
+interpretations; multiple correlated descriptors alone do not prove a mechanism.
+Account for finite size, sampling, model choice, state definitions, and reference
+states to the extent they constrain the claim. State alternatives that remain open.
 
-## Figure Plan
+For projected free energies, distinguish the coordinate distribution, defined
+state populations, thermodynamic preference, and dynamical pathway. Do not infer
+rates or complete reaction coordinates from an equilibrium projection alone.
+Explain this boundary at the relevant inference, not as a repeated audit warning.
 
-Fig. 1: Problem and simulation setup. Show material/interface/defect/reaction geometry and the unresolved question.
+## Narrative Check
 
-Fig. 2: Validation. Show MLP/DFT/expt agreement sufficient to trust the following physics.
-
-Fig. 3: Main physical observation from trajectories. Show structures, time evolution, phase signatures, transport pathways, or interfacial motifs.
-
-Fig. 4: Mechanism. Use order parameters, free-energy profiles, coordination, RDF, MSD, spectra, charge/spin analysis, or local environments.
-
-Fig. 5: Connection to experiment or prior theory. Explain measured trends, spectra, phase boundaries, contact angle, diffusivity, thermal conductivity, etc.
-
-Fig. 6: Prediction or design rule. Show how composition, temperature, pressure, thickness, defects, or fields tune the mechanism.
-
-## Results Section Order
-
-1. Simulation framework and validation for this material.
-2. Direct observation of the debated or hidden behavior.
-3. Microscopic mechanism and order parameters.
-4. Quantitative comparison with experiments or high-level calculations.
-5. Generalization across conditions and predictive implications.
-
-## Required Evidence
-
-- A clearly stated physical question before method details.
-- Validation targeted to the property being claimed.
-- Multiple independent descriptors supporting the mechanism.
-- Sensitivity checks: cell size, trajectory length, temperature, pressure, functional, seeds, or model uncertainty where relevant.
-- Avoid presenting a single trajectory snapshot as proof.
-
-## Common Weaknesses
-
-- The paper reads like a model-validation paper even though the claimed novelty is physics.
-- The central mechanism is asserted but not isolated by order parameters or controls.
-- Experiment comparison is qualitative when quantitative data are available.
-- Alternative explanations are not addressed.
+Can a reader explain the finding without recounting how the computations were
+approved? Does the text connect observations and explanations while preserving
+negative evidence? Use `narrative-examples.md` for evidence-preserving revisions;
+the illustrative coordination case there is not data for any real manuscript.

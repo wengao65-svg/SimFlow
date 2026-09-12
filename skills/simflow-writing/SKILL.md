@@ -7,179 +7,147 @@ description: Guide the planning, drafting, revision, and review of computational
 
 ## Purpose
 
-Help the agent turn DFT, AIMD, classical MD, machine-learning-potential,
-MLP-MD, active-learning, transport, interface, phase-transition, and related
-simulation evidence into a coherent scientific manuscript. Anchor the writing
-on the paper's claim, evidence chain, and figure logic before polishing prose.
-
-## Use when
-
-- Planning, outlining, drafting, revising, or reviewing a computational
-  materials or physics manuscript.
-- Writing abstracts, introductions, results, discussions, conclusions,
-  methods, figure captions, cover letters, or reviewer responses.
-- Deciding whether a paper is primarily a method, physical-problem,
-  scale-breakthrough, reliability/statistics, or deliberately hybrid
-  contribution.
-- Auditing whether scientific claims, numerical statements, figures, and
-  reproducibility details are supported and mutually consistent.
-- Writing in English or supporting Chinese-language manuscript discussion.
-
-## Do not use when
-
-- The primary task is new literature discovery, model construction,
-  computation, or analysis rather than writing from available evidence.
-- Evidence needed for the requested claim has not yet been produced; identify
-  the missing evidence instead of drafting the claim as established fact.
-- The user needs journal-specific submission rules that are not available in
-  the provided material or verified current sources.
+Turn computational research evidence into academic narrative organized around
+scientific questions, observed phenomena, and evidence-bounded explanations.
+Evidence review determines what can be said; it does not prescribe the order
+or vocabulary of the manuscript. Write about what the results mean, not merely
+which calculations or checks were completed.
 
 ## Task principles
 
-1. Identify the manuscript type: method, physical-problem,
-   scale-breakthrough, reliability/statistics, or a deliberate hybrid with one
-   clearly dominant contribution.
-2. State the one-sentence contribution in the form: "We show/introduce X,
-   which enables Y by overcoming Z." Calibrate each part to demonstrated
-   evidence.
-3. Prefer figure-first planning. Build a claim-evidence map, a 5-6 figure
-   storyboard when appropriate, and rough analysis plots before drafting full
-   sections. Ask which figure or table supports each central claim.
-4. Separate method validation from physical discovery. Make clear which
-   results establish trust in the computational approach and which results
-   deliver the new scientific finding.
+1. Identify the scientific question and contribution: physical understanding,
+   theory or method, data/resource, reliability/statistics, or a combination.
+   Treat scale as a contribution dimension, not a compulsory paper category.
+   These distinctions help select guidance; they do not fix the paper structure.
+2. Formulate the main answer in language specific to the system and evidence.
+   A descriptive finding, constrained interpretation, or unresolved alternative
+   can be the contribution. Do not manufacture a mechanism or resolved debate.
+3. Plan the argument around what each result establishes and what the reader
+   needs to understand next. Figures and rough plots can expose this logic;
+   neither a figure-first workflow nor a fixed figure count is required.
+4. Distinguish the roles of method validation and physical discovery without
+   requiring separate figures or sections. The same evidence can serve both.
+   Verify evidence before drafting, but do not require validation-first prose.
 5. Every substantive claim must be supportable by available results, figures,
-   tables, sources, or explicit user-provided facts.
-6. Describe methods as executed, not as originally planned. Never invent
-   parameters, software versions, citations, sampling, uncertainty estimates,
-   or reproducibility details.
-7. Distinguish observed results, interpretation, hypothesis, and speculation.
-   Do not turn a trend into a mechanism or correlation into causation.
-8. Do not let "DFT accuracy with MD efficiency" stand as the whole novelty.
-   State the capability, regime, scale, reliability result, or physical
-   conclusion that becomes possible.
-9. Treat energy, force, and stress errors as necessary but insufficient for an
-   interatomic potential. Calibrate claims using MD stability and physically
-   meaningful property validation.
-10. Distinguish in-distribution accuracy, interpolation, extrapolation, and
-    downstream transfer. Do not generalize beyond the tested chemical,
-    structural, thermodynamic, or temporal regime.
-11. For trajectory-derived quantities, account for finite-size and finite-time
-    effects, independent trajectories or seeds, equilibration, sampling, and
-    uncertainty when they matter to the claim.
-12. Use local reference papers as style and structure examples without copying
-    wording or inheriting unsupported claims.
+   tables, sources, or explicit user-provided facts. Describe methods as executed,
+   not as planned. Never invent settings, citations, sampling, uncertainty,
+   reproducibility details, or missing results.
+6. Distinguish observation, interpretation, hypothesis, and speculation. Do not
+   turn a trend into a mechanism or correlation into causation. Explain the
+   reasoning connecting evidence and interpretation, including viable alternatives.
+7. Build transitions from scientific dependencies: an observation raises a
+   question, a comparison distinguishes interpretations, or a remaining problem
+   motivates the next analysis. Do not invent dependencies or force every
+   paragraph into a question-observation-explanation formula.
+8. Keep internal acceptance labels and audit checklists out of manuscript prose
+   unless the criteria themselves are the scientific subject. Express the
+   quantity, comparison, uncertainty, and consequence instead. Reconstruct the
+   argument rather than simply replacing words such as "accepted" or "validated".
+9. Retain exclusions, negative evidence, and limits that affect interpretation.
+   State their scientific consequence near the affected claim; place supporting
+   technical detail in Methods or SI as appropriate. Do not conceal limitations
+   for fluency or repeat generic disclaimers in every subsection.
+10. For interatomic potentials, energy, force, and stress errors are necessary
+    but insufficient evidence where those quantities are relevant. Relate
+    validation to the observable and deployment regime, including MD stability
+    and property validation when dynamic applications are claimed. Do not let
+    "DFT accuracy with MD efficiency" stand as the whole novelty.
+11. Distinguish in-distribution accuracy, interpolation, extrapolation, and
+    downstream transfer. Account for finite-size, finite-time, equilibration,
+    independent sampling, and uncertainty where they affect the claim. Never
+    generalize beyond the tested chemical, structural, thermodynamic, or temporal domain.
+12. Use reference papers as examples of reasoning and organization, not wording
+    to copy or scientific authority for the current results. Select examples
+    relevant to the contribution; do not impose journal-family stereotypes.
 
-When the user asks to discuss or plan a manuscript, normally provide the
-manuscript type, one-sentence contribution, figure plan, section outline, key
-validation requirements, and likely reviewer concerns. Adapt the shape when
-the user requests a narrower deliverable.
+For planning, focus on the question, provisional answer, and relationships among
+results. Offer a figure plan or outline when useful. Keep evidence gaps distinct
+from the proposed narrative; do not automatically append a reviewer report.
 
-When the user asks to draft, produce polished scientific prose in the requested
-language. Use explicit placeholders only where evidence or metadata is
-missing, and list what is needed to remove them.
+For drafting, produce academic prose in the requested language and section scope,
+not an audit summary. Use explicit placeholders only for essential missing
+details, with unresolved author queries outside the manuscript. Narrow or
+withhold claims when their supporting evidence is missing.
 
-When the user asks to revise, preserve the scientific claim unless asked to
-change it. Improve logic, specificity, transitions, evidence alignment, and
-claim calibration without silently adding new facts.
+For revision, preserve scientific meaning, numbers, definitions, uncertainty,
+citations, and scope. Improve argumentative order as well as sentences. If an
+existing claim is unsupported, flag and calibrate it rather than preserving an
+error or silently introducing a different scientific conclusion.
 
 ## Minimum checks
 
-- The manuscript type and one-sentence contribution agree with the strongest
-  available evidence.
-- Every central claim maps to a result, figure, table, source, or explicit user
-  fact; each planned figure has a clear argumentative role.
-- Validation figures establish trust separately from figures that present the
-  new scientific result.
-- The introduction starts from the scientific bottleneck rather than merely
-  the software or model name.
-- Methods include the relevant reference standard and executed settings, such
-  as functional, dispersion treatment, Hubbard U, pseudopotential, cutoff,
-  k-point scheme, thermostat or barostat, timestep, ensemble, cell size,
-  trajectory length, seeds, and uncertainty method.
-- Numerical values, units, labels, significant figures, uncertainty, and
-  definitions agree across prose, figures, captions, tables, and supplements.
-- Baselines, sampling adequacy, MD stability, property validation, uncertainty,
-  and reproducibility are sufficient for the strength of the claims.
-- Failed, excluded, or incomplete calculations are disclosed when they affect
-  the scientific record or interpretation.
+- The question and main answer agree with the available evidence.
+- Each central claim maps to evidence; figures and tables have intelligible
+  argumentative roles without a prescribed sequence or count.
+- The prose explains observations, contrasts, and consequences rather than
+  treating passed checks or completed tasks as the scientific result.
+- Validation is connected to the affected claim, whether integrated or separate.
+- Methods report the relevant executed settings, reference states, estimators,
+  exclusions, and sampling or uncertainty procedures without inventing checks.
+- Values, units, labels, significant figures, definitions, and citations agree
+  across prose, figures, tables, captions, and supplements.
 - Strong terms such as mechanism, convergence, transferability, robustness,
-  generality, or production readiness meet an explicit evidence threshold.
-- The requested journal style is followed only to the extent it is known or
-  supplied; scientific accuracy takes precedence over stylistic imitation.
+  generality, and production readiness match the actual evidence.
+- Failed or incomplete calculations are disclosed when they affect interpretation.
+- Follow supplied journal requirements, not assumed rules inferred from examples.
 
 ## Common failure modes
 
-- Drafting polished sections before the central claim and figure logic are
-  stable.
-- Treating a hybrid paper as several equal stories instead of choosing a
-  dominant contribution.
-- Writing the intended protocol instead of the executed protocol.
-- Presenting test-set errors as sufficient evidence of stable or transferable
-  MD behavior.
-- Claiming novelty only from speed or scale without showing the newly enabled
-  science or reliability result.
-- Presenting a plausible explanation as an established mechanism.
-- Ignoring finite-size, finite-time, seed-to-seed, or statistical uncertainty
-  in trajectory-derived properties.
-- Copying a number from an obsolete run, table, or figure revision.
-- Removing failed calculations or negative evidence that constrain the
-  interpretation.
-- Using polished prose to conceal missing evidence, weak baselines, or unclear
-  computational settings.
+- Polishing prose before knowing the relevant trends and uncertainties.
+- Imposing a contribution type, paragraph formula, or figure sequence on all papers.
+- Turning internal review outcomes into the subject of Results or Discussion.
+- Replacing audit vocabulary while leaving a checklist-shaped argument intact.
+- Inventing causal bridges, resolved controversies, or future predictions for fluency.
+- Hiding negative evidence or relocating a crucial limitation where readers miss it.
+- Repeatedly defending a narrow result instead of stating its positive finding
+  and the particular inference it does not support.
+- Treating force errors, one snapshot, or one rare event as sufficient evidence
+  for broad physical or dynamical claims.
+- Using obsolete results or describing the intended protocol instead of execution.
 
 ## Escalate uncertainty when
 
-- A requested claim is stronger or broader than the available validation.
-- The manuscript type or dominant contribution remains ambiguous and would
-  materially change the figure plan or section logic.
-- Methods, numerical values, figure versions, or uncertainty estimates conflict
-  across sources.
-- The reference standard, baseline, sampling protocol, or validation regime is
-  unclear enough to affect reproducibility or scientific interpretation.
-- Authorship, confidential content, target-journal requirements, or publication
-  scope is unclear and materially affects the deliverable.
+- The requested claim exceeds the available evidence or validation domain.
+- The question or contribution is unclear enough to change the argument.
+- Methods, values, figure versions, reference states, or uncertainty estimates conflict.
+- Sampling or model limitations prevent the proposed interpretation.
+- Authorship, confidentiality, or publication requirements affect the deliverable.
 
 ## Completion criteria
 
-- The manuscript has a clear primary type, a calibrated one-sentence
-  contribution, and a coherent claim-evidence chain.
-- Claims, methods, figures, captions, numerical values, and limitations are
-  mutually consistent.
-- Method validation and physical discovery have distinct, intelligible roles.
+- The requested text develops a scientific question, observation, or explanation
+  with a coherent claim-evidence chain, not a record of audit completion.
+- Claims, methods, figures, values, citations, and limitations remain consistent.
 - Unsupported statements are removed, weakened, or explicitly marked, with
-  clearly identified evidence needs where stronger wording would require more
-  support.
-- The document distinguishes observed results from interpretation,
-  hypothesis, and speculation.
-- Missing data or metadata required to finalize placeholders are listed
-  explicitly.
+  evidence needs identified separately when stronger claims would require them.
+- Observations remain distinguishable from interpretations and hypotheses.
+- Necessary limitations are retained without redundant defensive prose.
+- Missing details needed to finalize the text are identified outside the prose.
 
 ## Optional references
 
-Load only the references relevant to the current manuscript type or writing
-task:
+Load only the contribution and section guidance needed for the task:
 
-- `references/method-paper.md`: new MLPs, training workflows, sampling,
-  active learning, pretraining, foundation potentials, uncertainty, or
-  general-purpose potentials.
-- `references/physical-problem-paper.md`: manuscripts whose main claim resolves
-  a materials or physics question.
-- `references/scale-breakthrough-paper.md`: larger systems, longer times, or
-  more realistic thermodynamic or chemical conditions than DFT or AIMD can
-  reach directly.
-- `references/reliability-statistics-paper.md`: statistical error, sampling
-  adequacy, uncertainty, confidence, reproducibility, or reliability criteria.
-- `references/section-templates.md`: section-level structure and contribution
-  templates.
-- `references/abstracts.md`: abstract drafting or revision.
-- `references/introductions.md`: introduction drafting or revision.
-- `references/results.md`: Results drafting from processed evidence and rough
-  plots.
-- `references/discussions.md`: Discussion and Conclusion drafting.
-- `references/methods.md`: Methods drafting and reproducibility checks.
-- `references/figure-captions.md`: figure caption drafting and review.
-- `references/reviewer-checklist.md`: final manuscript review.
+- `references/narrative-examples.md`: audit-to-narrative revision, corpus contrasts,
+  and evidence-preserving examples; read when prose sounds like a report.
+- `references/physical-problem-paper.md`: physical questions and competing explanations.
+- `references/method-paper.md`: theory, derivation, computational methods, MLPs,
+  training, sampling, active learning, and foundation potentials.
+- `references/data-resource-paper.md`: databases, reference datasets, coverage,
+  reusable resources, and sampling or compositional bias.
+- `references/scale-breakthrough-paper.md`: scale-dependent contributions across types.
+- `references/reliability-statistics-paper.md`: uncertainty and sampling as the contribution.
+- `references/section-templates.md`: section-level writing choices and routing,
+  not mandatory templates.
+- `references/abstracts.md`: abstract drafting and revision.
+- `references/introductions.md`: scientific context, prior work, and the open question.
+- `references/results.md`: evidence-to-explanation logic and transitions.
+- `references/discussions.md`: synthesis, implications, scope, and conclusions.
+- `references/methods.md`: executed methods and reproducibility details.
+- `references/figure-captions.md`: interpretable figures and conditional detail.
+- `references/reviewer-checklist.md`: requested review or final evidence checks,
+  not a default drafting outline.
 
-For a hybrid manuscript, load the primary manuscript-type reference first,
-then only the section reference needed for the current task.
+Neither all references nor the original local paper collection is a prerequisite
+for ordinary drafting. This Skill provides guidance, not runtime or project-state
+requirements.

@@ -2,15 +2,23 @@
 
 Use this guide to draft or audit Methods sections for computational materials/physics manuscripts. The patterns are distilled from local Nature, Nature Communications, Nature Machine Intelligence, npj Computational Materials, PRB, and arXiv papers involving DFT, AIMD, MD, MLP, active learning, metadynamics, transport, spectra, phase diagrams, and uncertainty analysis.
 
-## Why Methods Deserves Its Own Reference
+## Purpose and Writing Mode
 
-Yes: include `methods.md` as a separate reference. In computational simulation papers, Methods is not just a place for technical leftovers. It defines:
+Methods explains the executed procedures, definitions, and assumptions needed
+to understand and reproduce the results. It provides:
 
 1. Reproducibility: another group can rerun or audit the work.
 2. Validity domain: readers know where the model/simulation is trustworthy.
 3. Error sources: DFT functional, finite size, trajectory length, sampling, and MLP extrapolation are exposed.
-4. Reviewer defense: most computational-paper objections are Methods objections.
+4. Interpretability: readers understand how the reported quantities were obtained.
 5. Separation of story and protocol: Results can stay readable because Methods carries procedural detail.
+
+The lists below are conditional completeness checks for the author, not the
+required paragraph structure. Write coherent procedural prose using only the
+methods actually used. Do not turn every check into "criterion satisfied" or
+"accepted for production" language. Report actual thresholds and exclusions
+when they define the analysis, with their consequences for the reported results.
+Do not invent a test or setting to fill a checklist item.
 
 ## Corpus Patterns
 
@@ -40,7 +48,10 @@ Put in Methods:
 - property estimators, fitting windows, uncertainty definitions
 - data/code availability
 
-If a detail affects whether a plotted result is believable, mention a short version in Results and full version in Methods.
+If a detail changes interpretation of a result, give the needed explanation
+locally and the full procedure in Methods. Theory, essential definitions, and
+validation can belong in Results when they carry the argument; this division
+is not a rule that all equations or all checks must be moved out of the main text.
 
 ## Recommended Section Order
 
@@ -95,7 +106,10 @@ Must include:
 - data counts: structures, atoms, elements, compositions, phases, trajectories
 - whether test sets are random, physically separated, out-of-domain, or downstream
 
-Write the split logic explicitly. A random split tests interpolation; a physically separated split tests transfer.
+Write the split logic explicitly. A random split usually probes within-dataset
+performance and may leak correlated configurations. Physical separation tests
+transfer only to the held-out regimes it actually represents; neither split
+label alone establishes interpolation, extrapolation, or independence.
 
 Example structure:
 
@@ -115,7 +129,9 @@ Must include:
 - units of reported errors
 - hardware only if it supports cost/speed claims
 
-For method papers, Methods can include equations. For physical papers, keep architecture details shorter and move heavy equations to Supplementary unless model design is central.
+Keep supporting architecture details proportionate to the contribution. Equations
+can appear in theory, Results, or Methods when needed to understand the argument;
+move only supporting derivations to SI, not the paper's central theoretical idea.
 
 Example structure:
 
@@ -163,7 +179,10 @@ For trajectory-derived quantities, do not omit trajectory length and number of s
 
 ## Enhanced Sampling and Free Energy
 
-Use for metadynamics, umbrella sampling, NEB, thermodynamic integration, 2PT entropy, phase diagrams, or rare-event studies.
+Use the applicable details for metadynamics, umbrella sampling, thermodynamic
+integration, entropy models, or rare-event studies. For NEB, describe an energy
+path calculation; do not relabel it as a finite-temperature free-energy barrier
+without the additional analysis required for that claim.
 
 Must include:
 
@@ -239,7 +258,8 @@ For AIMD/MD diffusivity, fitting quality alone does not quantify statistical var
 
 ## Data and Code Availability
 
-Nature-family papers normally require explicit Data availability and Code availability sections.
+Follow the supplied target-journal requirements for availability statements.
+The local papers provide examples, not authoritative current journal policies.
 
 Include:
 
@@ -253,23 +273,26 @@ Include:
 
 If data are available on request only, explain what is included and why public deposition is not possible.
 
-## Nature Versus PR Placement
+## Placement Options
 
-Nature/NatCommun/npj:
+Patterns present in the Nature-family examples include:
 
 - Put readable story in Results.
 - Put technical protocols after Discussion in Methods.
 - Use Data/Code availability sections.
-- Move long derivations and hyperparameter tables to Supplementary.
+- Place supporting derivations and hyperparameter tables in Supplementary.
 
-PR/PRB/arXiv:
+Patterns present in the PR/preprint examples include:
 
 - Put `Computational Methods` or `Models and Methods` before Results.
 - Equations and derivations can appear in the main Methods.
 - Results and Discussion may be combined.
 - Data availability often appears near the end.
 
-## Common Reviewer Objections Methods Should Prevent
+These are observed options, not journal-wide mandates. Retain central theory
+in the main argument and follow the user's manuscript structure when appropriate.
+
+## Internal Completeness Checks
 
 - DFT settings are insufficient to reproduce labels.
 - Training/test split leaks similar structures.
@@ -289,4 +312,6 @@ PR/PRB/arXiv:
 - Are uncertainty bars traceable to a stated procedure?
 - Are limits of the model and simulation protocol visible?
 
-If the answer to any item is no, Methods needs more detail or the claim needs narrowing.
+Apply only the relevant questions. Missing necessary information needs an author
+query, more detail, or a narrower claim, not an invented procedure. Do not append
+this checklist to a manuscript unless the user requests a review deliverable.

@@ -1,12 +1,18 @@
 # Computational Simulation Manuscript Reviewer Checklist
 
-Use before submission or when revising a draft.
+Use for a requested review or final evidence check. This is an internal review
+aid, not the default outline or vocabulary for drafting Results, Methods, or
+Discussion. Apply only relevant questions. Return findings when review is
+requested; otherwise address issues in the text and separate unresolved author
+queries from manuscript prose.
 
 ## Claim Calibration
 
 - Is the main claim stated in one sentence?
-- Is the claim method, physics, scale, statistics, or hybrid?
-- Does every major claim have a corresponding figure or quantitative result?
+- Does the contribution concern physics, theory/method, data/resource, statistics,
+  or a combination, with scale considered where relevant?
+- Does every major claim have evidence, including derivation or qualitative
+  observation where those are appropriate, rather than a mandatory figure?
 - Are universality, transferability, and accuracy claims limited to demonstrated regimes?
 
 ## DFT and Data
@@ -37,7 +43,8 @@ Use before submission or when revising a draft.
 - Are computed properties compared with DFT, experiment, or trusted literature where possible?
 - Are uncertainty bars or confidence intervals provided for fitted quantities?
 - Are order parameters or descriptors defined clearly?
-- Are alternative mechanisms considered and ruled out?
+- Are competing interpretations assessed, with unresolved alternatives retained
+  rather than declared ruled out without discriminating evidence?
 
 ## Writing and Figures
 
@@ -45,3 +52,8 @@ Use before submission or when revising a draft.
 - Does each figure title/takeaway answer a scientific question?
 - Are method details sufficient but not allowed to bury the story?
 - Are limitations acknowledged in a way that strengthens credibility?
+- Does the text explain scientific findings rather than announce passed checks?
+- Are transitions justified by the evidence rather than invented for narrative flow?
+- Are validation and limits placed where interpretation needs them, without a
+  compulsory validation-first order or repetitive defensive disclaimers?
+- Did revision preserve values, definitions, uncertainty, exclusions, and scope?

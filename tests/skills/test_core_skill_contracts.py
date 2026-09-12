@@ -181,35 +181,39 @@ def test_modeling_preserves_user_provided_models():
     assert "Builders such as ASE or pymatgen are optional tools" in text
 
 
-def test_writing_combines_manuscript_strategy_with_evidence_traceability():
-    text = _normalized_skill_text("simflow-writing")
-    assert "Every substantive claim must be supportable" in text
-    assert "Describe methods as executed" in text
-    assert "Unsupported statements are removed, weakened, or explicitly marked" in text
-    assert "method, physical-problem" in text
-    assert '"We show/introduce X, which enables Y by overcoming Z."' in text
-    assert "Prefer figure-first planning" in text
-    assert "Separate method validation from physical discovery" in text
-    assert 'Do not let "DFT accuracy with MD efficiency" stand as the whole novelty' in text
-    assert "energy, force, and stress errors as necessary but insufficient" in text
+def test_writing_preserves_discovery_metadata():
+    import yaml
 
-    references = [
-        "method-paper.md",
-        "physical-problem-paper.md",
-        "scale-breakthrough-paper.md",
-        "reliability-statistics-paper.md",
-        "section-templates.md",
-        "abstracts.md",
-        "introductions.md",
-        "results.md",
-        "discussions.md",
-        "methods.md",
-        "figure-captions.md",
-        "reviewer-checklist.md",
-    ]
-    for reference in references:
-        assert reference in text
-        assert (SKILLS / "simflow-writing" / "references" / reference).is_file()
+    text = _skill_text("simflow-writing")
+    metadata = yaml.safe_load(text.split("---", 2)[1])
+    assert metadata == {
+        "name": "simflow-writing",
+        "description": (
+            "Guide the planning, drafting, revision, and review of computational "
+            "materials and physics manuscripts so their claims, methods, figures, "
+            "validation, uncertainty, and limitations remain faithful to the "
+            "available evidence."
+        ),
+    }
+
+
+def test_writing_reference_tree_is_self_contained_and_reachable():
+    # Packaging checks do not evaluate the quality of generated scientific prose.
+    root = (SKILLS / "simflow-writing").resolve()
+    pending = [root / "SKILL.md"]
+    visited = set()
+    while pending:
+        source = pending.pop()
+        if source in visited:
+            continue
+        visited.add(source)
+        text = source.read_text(encoding="utf-8")
+        for relative in re.findall(r"`((?:references/)?[a-z][a-z0-9-]*\.md)`", text):
+            target = (source.parent / relative).resolve()
+            assert target.is_relative_to(root), (source, relative)
+            assert target.is_file(), (source, relative)
+            pending.append(target)
+    assert visited == {root / "SKILL.md", *root.glob("references/*.md")}
 
 
 def test_engine_skills_are_domain_skills_not_workflow_executors():
