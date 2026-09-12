@@ -11,17 +11,6 @@ Help the agent derive and communicate scientific results without allowing a
 plotting choice, parser success, or attractive figure to substitute for valid
 analysis.
 
-## Use when
-
-- Inspecting simulation outputs, tables, trajectories, logs, or derived data.
-- Computing statistics, convergence measures, physical observables, or figures.
-- Comparing runs, methods, models, or literature benchmarks.
-
-## Do not use when
-
-- The current task is primarily running a new calculation.
-- The user only asks for manuscript prose from already accepted results.
-
 ## Task principles
 
 - Start with a lightweight Analysis Contract: scientific question, analysis

@@ -12,18 +12,6 @@ need it. It does not own workflow progression or runtime state. Provider files
 and commands remain owned by relevant engine-specific Domain Skills, which may
 be loaded alongside this Skill.
 
-## Use when
-
-- Designing or reviewing MLP datasets, labeling, splits, training evidence,
-  validation, active learning, uncertainty, or production deployment.
-- Comparing NEP, MACE, DeePMD, NequIP, Allegro, or custom potential evidence.
-- Deciding whether an MLP is ready for a target scientific use.
-
-## Do not use when
-
-- The task only concerns one provider's input syntax or output file format.
-- The task is general analysis with no MLP-specific methodological question.
-
 ## Domain principles
 
 - Preserve dataset and label provenance from source structures through every

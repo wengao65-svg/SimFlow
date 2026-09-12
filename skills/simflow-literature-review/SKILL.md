@@ -11,19 +11,6 @@ Help the agent establish a reliable scientific background without inventing
 sources, overstating abstracts, or confusing secondary summaries with primary
 evidence.
 
-## Use when
-
-- The user asks to find, screen, compare, or synthesize scientific literature.
-- A research decision depends on published methods, parameters, benchmarks, or
-  competing interpretations.
-- Existing citations or factual claims need source verification.
-
-## Do not use when
-
-- The user only asks to format already verified citations.
-- The task is primarily calculation setup, output analysis, or manuscript
-  drafting and no new literature judgment is needed.
-
 ## Task principles
 
 - Screen usable local PDF, BibTeX, Zotero, or user-provided corpus material

@@ -10,18 +10,6 @@ description: Provide CP2K-specific guidance for input setup and review, Quickste
 Provide CP2K-specific semantics to any current Research Task Skills that need
 them, without owning workflow state, persistence, submission, or approval.
 
-## Use when
-
-- The task involves CP2K input, GLOBAL, FORCE_EVAL, DFT, MGRID, SCF, QS, KIND,
-  MOTION, ENERGY, GEO_OPT, CELL_OPT, AIMD, restart files, logs, `.ener`, or
-  trajectories.
-- CP2K-specific convergence, basis, potential, cutoff, or restart semantics are
-  needed.
-
-## Do not use when
-
-- The request is engine-independent or does not involve CP2K semantics.
-
 ## Domain principles
 
 - Infer the task from explicit intent and input sections. Do not default unknown

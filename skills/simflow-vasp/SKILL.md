@@ -11,18 +11,6 @@ Provide VASP-specific semantics to any current Research Task Skills that need
 them. This Skill does not own workflow progression, submission, approval, or
 SimFlow state.
 
-## Use when
-
-- The task involves INCAR, POSCAR, KPOINTS, POTCAR metadata, OUTCAR, OSZICAR,
-  vasprun.xml, vaspout.h5, CHGCAR, WAVECAR, DOSCAR, EIGENVAL, or VASP errors.
-- VASP-specific choices affect setup, convergence, parsing, or interpretation.
-
-## Do not use when
-
-- The task is engine-independent and does not require VASP semantics.
-- The request concerns only other software and no VASP-specific boundary is
-  material.
-
 ## Domain principles
 
 - Infer the calculation class from explicit intent and files. Do not default

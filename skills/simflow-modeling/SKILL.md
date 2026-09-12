@@ -10,18 +10,6 @@ description: Guide construction and transformation of scientifically meaningful 
 Help the agent translate a scientific question into a defensible computational
 object before engine-specific input details are considered.
 
-## Use when
-
-- Building or transforming structures, supercells, defects, surfaces,
-  interfaces, solvated systems, or constrained models.
-- Deciding composition, charge, periodicity, cell size, or initial geometry.
-- Reviewing whether an existing model represents the intended physical system.
-
-## Do not use when
-
-- The model is fixed and the task only concerns engine syntax or execution.
-- The user only wants analysis of completed outputs.
-
 ## Task principles
 
 - Preserve user-provided source models and never silently replace them.

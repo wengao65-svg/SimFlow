@@ -13,15 +13,6 @@ project-memory, recording, recovery, and execution-safety semantics to the
 current request. It is not a Skill router, workflow executor, or scientific
 reasoner.
 
-## Use when
-
-- The user explicitly invokes SimFlow for framework-level provenance, recovery,
-  durable runtime actions, or execution safety.
-- The current request needs existing SimFlow project truth, prior Experiment
-  context, recovery state, or a durable runtime action.
-- The host must distinguish ordinary scientific work from events that need
-  inspection, recording, approval, or recovery.
-
 ## Skill discovery and composition
 
 The host agent owns discovery and composition of Research Task, Domain, and

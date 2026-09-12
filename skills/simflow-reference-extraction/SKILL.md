@@ -11,23 +11,6 @@ Help the agent recover numerical reference data from known scientific sources
 while preserving source authority, calibration, uncertainty, and the distinction
 between author-provided values and figure reconstruction.
 
-## Use when
-
-- The user wants numerical values from a known paper, supplement, source archive,
-  table, PDF figure, or standalone scientific image.
-- A simulation result needs a traceable literature reference dataset for later
-  comparison.
-- Existing figure digitization needs provenance, calibration, or visual
-  validation.
-
-## Do not use when
-
-- The primary task is discovering or screening papers; use the literature-review
-  Task Skill.
-- The data are already available and the task is statistical comparison,
-  interpretation, or plotting; use the analysis-visualization Task Skill.
-- The user only needs citation formatting or manuscript prose.
-
 ## Task principles
 
 - Prefer the strongest available source in this order:

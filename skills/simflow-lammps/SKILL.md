@@ -11,18 +11,6 @@ Provide LAMMPS-specific semantics to any current Research Task Skills that need
 them. It does not own workflow progression, runtime approval, or persistent
 state.
 
-## Use when
-
-- The task involves LAMMPS input/data/restart files, pair styles, fixes,
-  computes, thermo, dumps, packages, errors, or performance behavior.
-- Classical MD, reactive MD, or MLP deployment uses LAMMPS.
-
-## Do not use when
-
-- The task is general MD methodology with no LAMMPS-specific question.
-- The task has no LAMMPS-specific input, deployment, execution, or output
-  semantics.
-
 ## Domain principles
 
 - Identify units, atom style, boundary conditions, force field, type mapping,

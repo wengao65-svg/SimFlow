@@ -10,18 +10,6 @@ description: Guide computational research question formulation, protocol design,
 Turn a scientific goal into a bounded, testable computational plan without
 inflating it into an unnecessary pipeline or hiding critical assumptions.
 
-## Use when
-
-- The user is choosing methods, observables, baselines, or validation criteria.
-- Several computational routes are plausible and need comparison.
-- A large calculation should be decomposed into lower-cost decisions.
-
-## Do not use when
-
-- The user has already fixed the protocol and only wants execution help.
-- The immediate task is inspection or interpretation of existing outputs.
-- The task is a minor local edit that does not change scientific intent.
-
 ## Task principles
 
 - Define the research question before selecting software or workflow steps.

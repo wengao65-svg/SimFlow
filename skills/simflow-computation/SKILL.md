@@ -10,19 +10,6 @@ description: Guide disciplined preparation, validation, diagnostic execution, mo
 Provide general execution discipline for computational research without owning
 submission plumbing, approval policy, job registries, or workflow state.
 
-## Use when
-
-- Preparing, validating, smoke-testing, running, resuming, or diagnosing a
-  scientific calculation.
-- Reviewing whether an existing calculation is ready for expensive execution.
-- Determining whether a run actually completed and produced usable evidence.
-
-## Do not use when
-
-- The task is only scientific model construction, output analysis, or writing.
-- The user only needs software-specific syntax and no general computation
-  discipline is material.
-
 ## Task principles
 
 - Inspect existing inputs and validated project conventions before changing

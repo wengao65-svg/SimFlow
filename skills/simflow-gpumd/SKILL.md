@@ -11,21 +11,6 @@ Provide GPUMD/NEP-specific semantics to any current Research Task Skills that
 need them, without owning real execution, approval, workflow state, or
 persistence.
 
-## Use when
-
-- The task involves GPUMD `run.in`, `model.xyz`, `thermo.out`, `neighbor.out`,
-  transport output, or neighbor diagnostics.
-- The task involves NEP `nep.in`, `train.xyz`, `test.xyz`, `nep.restart`,
-  `nep.txt`, or `loss.out`.
-- GPUMD/NEP-specific deployment, restart, or narrow output semantics are needed.
-
-## Do not use when
-
-- The task has no GPUMD/NEP-specific file, command, deployment, restart, or
-  output semantics.
-- The requested final property analysis is engine-independent; pair this Skill
-  with analysis guidance rather than expanding its scope.
-
 ## Domain principles
 
 - Distinguish GPUMD simulation, NEP training, fine-tuning, restart, and
