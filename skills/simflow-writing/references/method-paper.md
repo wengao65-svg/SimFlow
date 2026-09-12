@@ -41,6 +41,6 @@ contribution merely to make the paper resemble an application study.
 ## Narrative Check
 
 Does each benchmark answer why the method works, where it works, or what it
-enables? In DPA-2, remaining generalization error motivates fine-tuning and cost
-motivates distillation. In FT-TAO-DFT, formal development is itself part of the
+enables? Remaining generalization error may motivate fine-tuning, and cost may
+motivate compression; in theory work, formal development may itself be the
 contribution. Neither requires a fixed six-figure storyboard.

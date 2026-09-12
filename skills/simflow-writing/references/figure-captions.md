@@ -153,11 +153,9 @@ Avoid using snapshots alone as proof. Pair them with quantitative descriptors.
 ## Reference and Scope Differences
 
 If panels use different reference levels, sampled populations, or measured versus
-extrapolated timings, state that distinction where the comparison is read. The
-AI2BMD corpus example distinguishes full and fragmented DFT references by system
-size; this is a reason for a detailed caption, not expendable Methods clutter.
-See `narrative-examples.md` for the source filename. Likewise, retain exclusions
-or coordinate definitions that change what a free-energy panel represents.
+extrapolated timings, state that distinction where the comparison is read. This
+can justify a detailed caption rather than a short one. Likewise, retain
+exclusions or coordinate definitions that change what a free-energy panel represents.
 
 ## Caption Writing Rules
 

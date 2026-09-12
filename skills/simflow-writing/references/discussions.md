@@ -31,11 +31,9 @@ an unresolved coordinate may prevent a projected profile from identifying a
 pathway; a theory approximation may exclude an entire response regime.
 
 Place a limit where it is needed. A short qualification, an opening statement of
-scope, or a dedicated limitations section can each be appropriate. The MQED-DFT
-example makes approximation limits central to the theory; the graphene example
-opens Discussion with model assumptions. Neither justifies a mandatory
-limitations section for every physical paper. See `narrative-examples.md` for
-source identities.
+scope, or a dedicated limitations section can each be appropriate. Approximation
+boundaries may be central theoretical content, whereas another paper may need
+only a local qualification. There is no mandatory limitations structure.
 
 Do not repeat generic "not global", "not kinetic", or "further validation is
 needed" language without specifying what that means for the present result.

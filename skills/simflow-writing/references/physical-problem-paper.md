@@ -38,5 +38,5 @@ Explain this boundary at the relevant inference, not as a repeated audit warning
 
 Can a reader explain the finding without recounting how the computations were
 approved? Does the text connect observations and explanations while preserving
-negative evidence? Use `narrative-examples.md` for evidence-preserving revisions;
-the illustrative coordination case there is not data for any real manuscript.
+negative evidence? Preserve values, definitions, uncertainty, and scope when
+revising the argument.

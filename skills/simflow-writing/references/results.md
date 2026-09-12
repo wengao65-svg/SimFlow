@@ -54,12 +54,10 @@ Avoid excessive subdivisions that turn each diagnostic into a separate result.
 - Link the next analysis to the remaining scientific issue, not to a figure
   number or a completed validation stage. Not every paragraph needs a transition.
 
-In the silane example, structural pairing raises the question of molecular
-persistence; lifetimes address that question and spectra provide a possible
-experimental signature. In DPA-2, remaining zero-shot error motivates fine-tuning,
-and computational cost motivates distillation. These are different valid forms
-of progression, not interchangeable section templates. Source identities and
-reading locations are given in `narrative-examples.md`.
+Structural pairing can raise a question about molecular persistence, motivating
+a lifetime analysis. In a method study, remaining generalization error can
+motivate fine-tuning, and computational cost can motivate compression. These
+are possible scientific dependencies, not facts to assume for the current work.
 
 ## Integrate Validation and Limits
 

@@ -15,8 +15,6 @@ argument and supplied publication requirements, not the reference corpus.
 - `discussions.md`: synthesize implications and limits without mandatory moves.
 - `methods.md`: specify what was done and how quantities were obtained.
 - `figure-captions.md`: supply the definitions needed to interpret each figure.
-- `narrative-examples.md`: distinguish audit summaries from academic narrative
-  and inspect evidence-preserving revision cases.
 
 The same paper may combine Results and Discussion or put theory before results.
 Do not force a dedicated mechanism section, validation figure, prediction panel,

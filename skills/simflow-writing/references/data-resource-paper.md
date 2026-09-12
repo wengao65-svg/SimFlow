@@ -32,7 +32,6 @@ plan. State actual access conditions without inventing a public release or DOI.
 ## Narrative Check
 
 Does the paper show what can be learned using the resource and what comparisons
-remain biased or unsupported? The non-crystalline-structure diffusivity corpus
-example connects composition coverage, restricted comparisons, and feature
-design; it does not license treating its collection as an unbiased sample of
-all materials. See `narrative-examples.md` for the source filename.
+remain biased or unsupported? Coverage analysis can motivate restricted
+comparisons or feature design without establishing an unbiased sample of all
+materials.

@@ -128,8 +128,6 @@ error or silently introducing a different scientific conclusion.
 
 Load only the contribution and section guidance needed for the task:
 
-- `references/narrative-examples.md`: audit-to-narrative revision, corpus contrasts,
-  and evidence-preserving examples; read when prose sounds like a report.
 - `references/physical-problem-paper.md`: physical questions and competing explanations.
 - `references/method-paper.md`: theory, derivation, computational methods, MLPs,
   training, sampling, active learning, and foundation potentials.
