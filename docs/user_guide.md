@@ -1,169 +1,28 @@
-# SimFlow User Guide
+# Using SimFlow Skills
 
-## Discover And Compose Guidance
+Start with a concrete scientific request: a research question, existing inputs,
+output files, or a draft. The host agent discovers the relevant Research Task
+and Domain Skills. For example, a VASP relaxation review can combine modeling,
+computation, and VASP guidance; a GPUMD potential assessment can combine
+computation, GPUMD, MLP, and analysis guidance.
 
-Describe the task naturally or select specific Skills. The host discovers and
-combines relevant Research Task, Domain, and host-native custom Skills from
-their descriptions. Use the smallest materially useful set, without a numeric
-limit.
+The agent should inspect the user's actual files and explain what is known,
+unknown, or inconsistent. A proposed change to a validated scientific
+parameter needs a reason and visible diff. A scheduler job ID only shows
+submission; output files need convergence and scientific checks before a result
+is reported as usable.
 
-Examples:
+Use the project's existing README, experiment notebook, Git history, or chosen
+record location for continuity. Ask the agent to draft a note there if useful.
+SimFlow Skills do not create their own experiment ledger, stage state, artifact
+registry, or `.simflow/` directory. Existing `.simflow/` data remains untouched.
 
-| Intent | Task Skill | Domain Skill |
-| --- | --- | --- |
-| analyze GPUMD trajectories | analysis/visualization | GPUMD |
-| prepare and validate VASP NEB inputs | modeling + computation | VASP |
-| design NEP active learning | proposal | MLP |
-| write accepted results | writing | none |
+For real local compute, remote writes, or scheduler submission, review the
+concrete command, inputs, destination, resources, cost, and overwrite scope.
+The host's permissions and the user's authorization control execution. A
+materially changed action may need renewed authorization. Credentials and
+licensed POTCAR content must stay out of logs, reports, responses, and packages.
 
-Composite requests may use multiple Skills, for example computation + GPUMD +
-MLP for NEP training, or literature review + reference extraction + analysis
-for a published benchmark comparison.
-
-Skills follow current intent, not cwd or phase. They can guide useful work when
-SimFlow MCP is unavailable.
-
-Explicitly invoke `simflow` only when you want its framework-level provenance,
-project-memory, recovery, recording, or execution-safety semantics. It does not
-choose other Skills.
-
-## When To Use Runtime
-
-Use runtime only when you need to:
-
-- inspect durable project state or recovery points;
-- record one meaningful milestone, run, deliverable, analysis, approval, or
-  failure;
-- create or validate a real recovery reference;
-- plan, transfer, submit, or monitor real execution;
-- explicitly index legacy SimFlow state.
-
-Ordinary reading, editing, plotting, literature synthesis, and draft writing do
-not need a state call merely because a Skill was used.
-
-## Re-enter An Existing Project
-
-1. Inspect the project root and existing layout.
-2. If the request depends on existing SimFlow project truth, recovery state, or
-   a durable runtime action, call `simflow_state/inspect` once with
-   `working_directory` and the current query.
-3. Reuse that result for the request; do not inspect before every Skill or file
-   action.
-4. Continue from exact files and the selected Experiment when the match is
-   unambiguous. Ask before a durable binding when selection is ambiguous.
-5. Do not inspect merely because a SimFlow Skill is active. Record only new
-   scientific memory or operational events that need durable
-   provenance.
-6. Create a checkpoint only when restart references or a meaningful diagnostic
-   boundary exist.
-
-The compact summary exposes active Experiments, current goal, active run,
-recent milestone, failure, checkpoint, and next action.
-No session, iteration, activity, or mandatory handoff lifecycle is required.
-
-## Experiment Memory
-
-Use `record(channel="experiment")` for durable scientific semantics that a
-later request must recover: the scientific question, Attempts, observations,
-decisions, uncertainty, and next action. Do not mirror raw trajectories,
-structures, outputs, logs, operational evidence changes, or technical recovery
-events into the notebook; those remain exact files or operational records and
-may be referenced by path, hash, or runtime record ID.
-
-An Experiment follows one scientific question. Parameter variants such as
-temperature, element, seed, retry, and resume are Attempts unless they change
-the question or acceptance criteria. Ordinary parameter edits are Attempts or
-Decisions. The writable ontology is fixed at Experiment, Attempt, Observation,
-and Decision. An Attempt is a scientific strategy and may contain multiple
-operational Runs; it is not a scheduler job or submit attempt.
-
-Use an operational `evidence_change` record only after a persistent change has
-actually completed, partially completed, or failed. It is a single immutable
-fact event, never a planned/open/reverted lifecycle. Technical recovery stays
-in checkpoint, recover, and resume Run records; write a Decision only when the
-recovery choice has scientific significance.
-
-## Records
-
-Use one record for a logical deliverable or run. A directory of outputs may be
-represented by a manifest or a few key file references. Parent record IDs can
-link an analysis to its run or a figure to its processed data.
-
-Do not record temporary files, repeated copies, helper invocation receipts, or
-reports whose only purpose is to prove that another record exists.
-
-## Stages And Recipes
-
-The six stage names provide shared research vocabulary. They do not require
-ordered transitions. DFT, AIMD, classical MD, MLP-MD, phonon, NEB, and custom
-paths are recipes or tags, not fixed executor DAGs.
-
-Project directories are independent of runtime stages. SimFlow respects an
-existing layout and offers the six `phaseN_*` directories only as a template
-for new work.
-
-## Computation And HPC
-
-Before real local, remote, or scheduler execution:
-
-1. inspect existing inputs and preserve validated scientific parameters;
-2. run cheap validation or a smoke test where appropriate;
-3. call `hpc/plan` with the exact script and inputs;
-4. review the returned validation, credential scan, restricted files, target,
-   resources, and `run_plan_hash`;
-5. record explicit user approval bound to that hash;
-6. use `hpc/transfer` when the plan declares remote transfer;
-7. call `hpc/submit` with the same hash and approval reference;
-8. use `hpc/status` for scheduler state and inspect scientific outputs
-   separately.
-
-Changing the script, inputs, target, remote directory, resources, transfer
-scope, destructive scope, or restricted-file metadata invalidates approval.
-An unchanged retry or resume can reuse it.
-
-A scheduler job ID means submission occurred; it does not mean the calculation
-completed. Output existence does not prove convergence, and parser success does
-not prove scientific validity.
-
-Production or scientific readiness decisions are not submit decisions. A
-production-readiness result still requires separate `hpc_submit` evidence,
-approval bound to the current run plan, and a real submit record.
-
-## POTCAR
-
-VASP POTCAR may be materialized from a user-owned licensed library into a
-controlled calculation directory. Variant selection must be exact. SimFlow may
-record element, dataset, relative path, size, hash, and validation metadata.
-POTCAR content must never enter `.simflow`, Git, logs, checkpoints, packages,
-or MCP responses.
-
-## Analysis And Figures
-
-Choose the analysis location from the actual input scope:
-
-- one calculation unit: near that unit;
-- multiple runs in one stage: one stage-level analysis entry;
-- multiple stages in one phase: the meaningful phase common parent;
-- only project-wide synthesis: phase 5 when that template is used.
-
-Keep one authoritative location. Use shallow README indexes and relative links
-instead of copying or symlinking results. Record analysis only at logical
-deliverable granularity, including relevant inputs, script/environment, main
-outputs, uncertainty, and parent record IDs.
-
-## Writing
-
-Claims must remain traceable to real evidence. Do not turn a trend into a
-mechanism, correlation into causation, a planned calculation into a result, or
-an unfinished run into completed evidence. Methods must describe what was
-actually executed.
-
-## Legacy Migration
-
-`inspect` reports legacy `.simflow/state/*.json`, old `.simflow/memory/` files,
-and nested `.simflow` roots without writing. Memory inventory includes only
-path, size, hash, safe JSON shape, and SQLite header metadata; it never queries
-SQLite tables or imports memory content. To persist a compact index, use the
-operational `record(kind="migration")` branch with `confirm_migration=true` and
-the exact current report hash. The operation does not reorganize the project
-or import host conversations.
+Each installed Skill includes its optional scripts and local resources. Pure
+checks print JSON by default; use an explicit report path when a durable file
+is useful. Use the project's existing research notebook for experiment records.

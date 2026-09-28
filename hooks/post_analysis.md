@@ -1,24 +1,6 @@
-# Post-Analysis Hook
+# Retired hook: post_analysis
 
-## 触发时机
-
-分析阶段完成后。
-
-## 执行步骤
-
-1. 检查分析结果完整性
-2. 检查收敛性
-3. 生成数据摘要
-4. 如有异常结果，记录审查建议；不要自动接受结果或推进阶段
-5. 准备可视化所需数据
-
-## 输出
-
-- 分析完整性报告
-- 收敛性报告
-- 数据摘要
-
-## 失败处理
-
-- 收敛未达到：记录收敛风险与下一步诊断建议
-- 数据异常：记录异常证据与复核建议
+This source-only compatibility notice is not an active hook and is not shipped
+in the Skill-only packages. No stage transition, runtime record, hash approval,
+or checkpoint is required. Use the relevant Research Task and Domain Skills;
+real execution follows user authorization and host permissions.

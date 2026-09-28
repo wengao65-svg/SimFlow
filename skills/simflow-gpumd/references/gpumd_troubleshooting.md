@@ -6,6 +6,6 @@ Common evidence issues:
 - Output files are absent because the relevant command was not requested or the run did not complete.
 - Table outputs have inconsistent columns, truncated rows, or mixed text/numeric content.
 - NEP training evidence lacks dataset lineage, validation split, test metrics, or model hashes.
-- Long MLP-MD evidence lacks smoke-test, anomaly, and production-readiness gate records.
+- Long MLP-MD evidence lacks smoke-test, anomaly, and production-readiness review notes.
 
 Report what evidence is missing and which claim it blocks.

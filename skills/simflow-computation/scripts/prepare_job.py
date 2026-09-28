@@ -7,14 +7,12 @@ dry-run mode to validate without submission.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.hpc import generate_slurm_script, generate_pbs_script, estimate_resources
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from job_scripts import generate_slurm_script, generate_pbs_script, estimate_resources
 
 
 def prepare_slurm_job(config: dict) -> dict:
@@ -59,8 +57,15 @@ def prepare_pbs_job(config: dict) -> dict:
     return {"scheduler": "pbs", "script": script}
 
 
-def prepare_job(config: dict, scheduler: str, output_dir: str, dry_run: bool = True) -> dict:
-    """Prepare job submission script."""
+def prepare_job(config: dict, scheduler: str, output_dir: str, *, overwrite: bool = False) -> dict:
+    """Write a scheduler script for user review; never submit or execute it."""
+    if config.get("pre_commands"):
+        raise ValueError("pre_commands are not accepted by the stateless job-script helper")
+    sensitive = re.compile(r"(?i)(password|passwd|token|secret|credential|private.key|api[_-]?key|ssh\s+-)")
+    if sensitive.search(json.dumps(config)):
+        raise ValueError("Job configuration appears to contain credentials or SSH options")
+    if any("\n" in value or "\r" in value for value in config.values() if isinstance(value, str)):
+        raise ValueError("Job configuration fields must be single-line values")
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -82,24 +87,24 @@ def prepare_job(config: dict, scheduler: str, output_dir: str, dry_run: bool = T
 
     if scheduler == "slurm":
         result = prepare_slurm_job(config)
-        script_name = "submit.sh"
+        script_name = "job.slurm"
     elif scheduler == "pbs":
         result = prepare_pbs_job(config)
-        script_name = "submit.pbs"
+        script_name = "job.pbs"
     else:
         raise ValueError("Unsupported scheduler: {}".format(scheduler))
 
     script_path = output_path / script_name
-    script_path.write_text(result["script"])
+    with script_path.open("w" if overwrite else "x") as handle:
+        handle.write(result["script"])
 
     return {
         "status": "success",
         "scheduler": scheduler,
         "script_path": str(script_path),
-        "dry_run": dry_run,
-        "config": {k: v for k, v in config.items() if k != "pre_commands"},
         "resource_estimate": resource_estimate,
         "executable": config.get("executable"),
+        "execution_note": "This helper only writes text. Host permissions and user authorization control any later execution.",
     }
 
 
@@ -109,27 +114,14 @@ def main():
                         help="Job scheduler type")
     parser.add_argument("--config", required=True,
                         help="JSON file with job configuration")
-    parser.add_argument("--output-dir", default=".", help="Output directory")
-    parser.add_argument("--dry-run", action="store_true", default=True,
-                        help="Generate script without submitting")
-    parser.add_argument("--no-dry-run", dest="dry_run", action="store_false",
-                        help="Mark as ready for submission")
-    add_helper_recording_args(parser, default_stage="computation")
+    parser.add_argument("--output-dir", required=True, help="Explicit output directory")
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly replace an existing job script")
     args = parser.parse_args()
 
     try:
         with open(args.config) as f:
             config = json.load(f)
-        result = prepare_job(config, args.scheduler, args.output_dir, args.dry_run)
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="prepare_job",
-            input_paths=[args.config],
-            output_paths=[result["script_path"]],
-            metadata={"dry_run": args.dry_run},
-        )
+        result = prepare_job(config, args.scheduler, args.output_dir, overwrite=args.overwrite)
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

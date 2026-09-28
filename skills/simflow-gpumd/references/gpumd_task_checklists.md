@@ -9,9 +9,8 @@
 
 ## Manifest generation
 
-- Include files, hashes, user command string, tool/version facts, environment notes, evidence role, and lineage.
-- Mark `actual_tool_used.support_level` from the shared toolchain contract.
-- Mark helper capability as input generation, input validation, compute planning, static inspection, manifest generation, selected output parsing, orchestration, or evidence handoff.
+- List only user-selected files, their presence, and size. Write an optional report only when requested.
+- Keep relevant command and version details in the user's chosen research note.
 
 ## Selected output parsing
 

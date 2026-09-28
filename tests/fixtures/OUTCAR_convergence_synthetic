@@ -1,0 +1,14 @@
+Synthetic parser fixture, not simulation evidence.
+NSW = 10
+ENCUT = 520.0
+Iteration 1( 1)
+aborting loop because EDIFF is reached
+energy(sigma->0) = -10.0
+FORCES: max atom, RMS 0.5 0.1
+Iteration 2( 1)
+aborting loop because EDIFF is reached
+energy(sigma->0) = -12.0
+FORCES: max atom, RMS 0.005 0.001
+in kB 0.1 0.2 0.3 0.0 0.0 0.0
+reached required accuracy
+General timing and accounting informations for this job:

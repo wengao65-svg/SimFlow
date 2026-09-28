@@ -1,7 +1,6 @@
 # GPUMD File Map
 
-Map software-specific files to generic MLP evidence roles without changing the
-shared helper-evidence schema:
+Map software-specific files to the scientific evidence they can support:
 
 | GPUMD/NEP artifact | Generic MLP evidence role |
 | --- | --- |

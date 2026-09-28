@@ -1,5 +1,7 @@
 # SimFlow Product Requirements Document
 
+> Historical design record for the retired runtime/MCP architecture. Current behavior is described in [the Skill Pack direction](direction-skill-pack.md).
+
 ## Product
 
 SimFlow is a host-neutral computational-research guidance, provenance,

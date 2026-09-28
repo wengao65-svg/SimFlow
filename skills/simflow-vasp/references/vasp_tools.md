@@ -62,16 +62,16 @@ running or recommending VASPKIT.
 SimFlow context:
 - Record executable path, version when practical, task id, command log,
   local config assumptions such as `~/.vaspkit`, generated data files,
-  generated plot scripts, and parent artifact ids.
+  generated plot scripts, and source file paths.
 - Keep POTCAR-related or input-generation tasks out of the analysis layer
-  unless the user explicitly asks and the safety gate is satisfied.
+  unless the user explicitly asks and the host permissions and licensed-file constraints are satisfied.
 - Treat VASPKIT plots and tables as derived artifacts; preserve both
   derived data and rendered images, plus the command log.
 
 Prohibited:
 - Do not use VASPKIT or ASE calculators to generate, copy, print, snapshot, or
   redistribute POTCAR content. Restricted materialization belongs only to the
-  SimFlow VASP runtime.
+  VASP Skill helper using a user-owned licensed library.
 - Do not treat VASPKIT as the only valid VASP post-processing path; user
   scripts, py4vasp, pymatgen, or custom Python are acceptable when
   evidence and lineage are recorded.

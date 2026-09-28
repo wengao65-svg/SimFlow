@@ -34,6 +34,6 @@ Minimum production-readiness evidence must include:
 - Target-scale validation when production systems are materially larger or
   explore slower collective modes than the smoke-test systems.
 
-The production-readiness approval gate records a scientific readiness decision
-only. It must not set `real_submit_allowed: true`; real local, remote, or HPC
-execution still requires the independent submit gate.
+Production-readiness review is a scientific decision only. It does not grant
+execution permission. Real local, remote, or HPC execution follows the host's
+permission model and the user's authorization for the concrete action.

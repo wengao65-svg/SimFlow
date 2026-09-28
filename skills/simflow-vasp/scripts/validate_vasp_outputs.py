@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Validate VASP output files for convergence and correctness.
+"""Report final electronic/ionic evidence, termination, and requested force check.
 
-Checks:
-- Electronic convergence (energy stability across ionic steps)
-- Ionic convergence (forces below threshold)
-- Energy monotonicity for relaxations
-- SCF convergence
+Ionic energy differences and monotonicity are diagnostics, not SCF criteria.
+Missing evidence is not a successful validation.
 """
 
 import argparse
@@ -13,12 +10,8 @@ import json
 import sys
 from pathlib import Path
 
-# Add the repository root so canonical runtime imports resolve.
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-import runtime.simflow_helpers.engines.parsers.vasp_parser as vasp_mod
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import lib.vasp_parser as vasp_mod
 VASPParser = vasp_mod.VASPParser
 
 
@@ -31,33 +24,29 @@ def validate_convergence(outcar_path: str, oszicar_path: str = None,
     outcar_result = parser.parse(outcar_path)
     convergence = parser.check_convergence(outcar_path)
 
-    checks.append({
-        "check": "electronic_convergence",
-        "passed": outcar_result.converged,
-        "message": "Electronic convergence reached" if outcar_result.converged
-                   else "Electronic convergence NOT reached",
-    })
-
+    electronic = outcar_result.metadata.get("electronic_converged")
+    checks.append({"check": "electronic_convergence", "passed": electronic,
+                   "message": "Final SCF convergence marker present" if electronic else "Final SCF convergence not established"})
+    checks.append({"check": "normal_termination",
+                   "passed": outcar_result.metadata.get("terminated_normally"),
+                   "message": "Check OUTCAR timing/accounting footer"})
+    if outcar_result.metadata.get("ionic_required", True):
+        checks.append({"check": "ionic_convergence",
+                       "passed": outcar_result.metadata.get("ionic_converged"),
+                       "message": "Structural convergence requires its own stopping evidence"})
+        max_force = outcar_result.metadata.get("max_force")
+        checks.append({"check": "final_force", "passed": None if max_force is None else max_force <= force_tol,
+                       "message": f"Final max force: {max_force}; requested tolerance: {force_tol} eV/Angstrom"})
     if oszicar_path and Path(oszicar_path).exists():
-        oszicar_result = parser.parse(oszicar_path)
+        energies = parser.parse(oszicar_path).metadata.get("energies", [])
+        if len(energies) >= 2:
+            delta = abs(energies[-1] - energies[-2])
+            checks.append({"check": "last_ionic_energy_change", "passed": None,
+                           "message": f"Last ionic energy change: {delta:.6g} eV (reference tolerance {energy_tol}); not an SCF convergence criterion"})
 
-        if oszicar_result.final_energy is not None:
-            if oszicar_result.total_energy is not None:
-                energy_change = abs(oszicar_result.final_energy - oszicar_result.total_energy)
-                energy_converged = energy_change < energy_tol
-                checks.append({
-                    "check": "energy_convergence",
-                    "passed": energy_converged,
-                    "message": "Energy change: {:.6f} eV (tol: {})".format(energy_change, energy_tol),
-                })
-
-            ionic_steps = oszicar_result.metadata.get("ionic_steps", 0)
-            if ionic_steps > 1:
-                checks.append({
-                    "check": "ionic_relaxation",
-                    "passed": True,
-                    "message": "Ionic relaxation completed in {} steps".format(ionic_steps),
-                })
+    if outcar_result.errors:
+        checks.append({"check": "parser_errors", "passed": False,
+                       "message": "; ".join(outcar_result.errors)})
 
     outcar_content = Path(outcar_path).read_text(errors="replace")
 
@@ -75,10 +64,11 @@ def validate_convergence(outcar_path: str, oszicar_path: str = None,
             "message": "{} warnings found in OUTCAR".format(warnings_count),
         })
 
-    all_passed = all(c["passed"] for c in checks)
+    required = [c for c in checks if c["check"] != "last_ionic_energy_change"]
+    status = "fail" if any(c["passed"] is False for c in required) else ("unknown" if any(c["passed"] is None for c in required) else "pass")
 
     return {
-        "status": "pass" if all_passed else "fail",
+        "status": status,
         "final_energy": outcar_result.final_energy,
         "convergence": convergence,
         "checks": checks,
@@ -128,7 +118,6 @@ def main():
     parser.add_argument("--oszicar", help="OSZICAR file path (optional)")
     parser.add_argument("--force-tol", type=float, default=0.01, help="Force convergence tolerance (eV/A)")
     parser.add_argument("--energy-tol", type=float, default=1e-4, help="Energy convergence tolerance (eV)")
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -138,14 +127,6 @@ def main():
         if args.oszicar:
             result["monotonicity"] = validate_energy_monotonicity(args.oszicar)
 
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="vasp_validate_outputs",
-            software="vasp",
-            input_paths=[args.outcar, args.oszicar] if args.oszicar else [args.outcar],
-        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

@@ -1,5 +1,7 @@
 # Approval Reviewer SimFlow Contract
 
+> Historical design record for the retired runtime/MCP architecture. Current behavior is described in [the Skill Pack direction](direction-skill-pack.md).
+
 ## Purpose
 
 Reviewers should protect real execution, scientific truth, restricted content,

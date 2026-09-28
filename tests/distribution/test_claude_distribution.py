@@ -6,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGED_SKILLS = {
-    "simflow",
     "simflow-literature-review",
     "simflow-reference-extraction",
     "simflow-proposal",
@@ -53,23 +52,9 @@ def read_json(path: Path) -> dict:
 
 def assert_canonical_package_surface(plugin_root: Path) -> None:
     packaged = {path.parent.name for path in (plugin_root / "skills").glob("*/SKILL.md")}
-    assert PACKAGED_SKILLS.issubset(packaged)
-    assert packaged.issubset(PACKAGED_SKILLS)
-    assert (plugin_root / "runtime" / "simflow_core").is_dir()
-    assert (plugin_root / "runtime" / "simflow_helpers").is_dir()
-    for relative_path in FORBIDDEN_SOURCE_PATHS:
-        assert not (plugin_root / relative_path).exists(), relative_path
-    for name in [
-        "literature_review",
-        "proposal",
-        "modeling",
-        "computation",
-        "analysis_visualization",
-        "writing",
-    ]:
-        assert (plugin_root / "workflow" / "stages" / f"{name}.json").is_file()
-    for name in ["dft", "aimd", "classical_md", "phonon", "neb", "custom", "mlp_md"]:
-        assert (plugin_root / "workflow" / "recipes" / f"{name}.json").is_file()
+    assert packaged == PACKAGED_SKILLS
+    for retired in ["runtime", "mcp", "workflow", "schemas", ".mcp.json", ".claude.mcp.json"]:
+        assert not (plugin_root / retired).exists(), retired
     restricted = [path for path in plugin_root.rglob("*") if path.name in RESTRICTED_VASP_NAMES]
     assert restricted == []
 
@@ -81,7 +66,7 @@ def test_claude_source_manifests_are_separate_from_codex():
     codex_marketplace = read_json(ROOT / ".agents" / "plugins" / "marketplace.json")
 
     assert plugin["name"] == "simflow"
-    assert plugin["mcpServers"] == "./.claude.mcp.json"
+    assert "mcpServers" not in plugin
     assert "interface" not in plugin
     assert "hooks" not in plugin
 
@@ -90,25 +75,13 @@ def test_claude_source_manifests_are_separate_from_codex():
     assert "version" not in simflow_entry
     assert "mcpServers" not in simflow_entry
 
-    assert codex_plugin["mcpServers"] == "./.mcp.json"
+    assert "mcpServers" not in codex_plugin
     assert codex_marketplace["name"] == "simflow-source"
 
 
-def test_claude_mcp_config_uses_plugin_root_substitution():
-    mcp = read_json(ROOT / ".claude.mcp.json")
-    servers = mcp["mcpServers"]
-
-    assert set(servers) == {
-        "simflow_state",
-        "hpc",
-    }
-    for name, server in servers.items():
-        assert server["command"] == "python3"
-        assert server["args"] == [
-            "${CLAUDE_PLUGIN_ROOT}/scripts/start_mcp_server.py",
-            name,
-        ]
-        assert server["cwd"] == "${CLAUDE_PLUGIN_ROOT}"
+def test_claude_does_not_register_mcp():
+    assert not (ROOT / ".claude.mcp.json").exists()
+    assert not (ROOT / ".mcp.json").exists()
 
 
 def test_claude_marketplace_wrapper_builds_expected_shape(tmp_path):
@@ -133,14 +106,6 @@ def test_claude_marketplace_wrapper_builds_expected_shape(tmp_path):
     assert entry["source"] == "./plugins/simflow"
     assert "version" not in entry
     assert (plugin_root / ".claude-plugin" / "plugin.json").is_file()
-    assert (plugin_root / ".claude.mcp.json").is_file()
-    assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
-    assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
-    assert (plugin_root / "skills" / "simflow" / "SKILL.md").is_file()
-    framework = (plugin_root / "skills" / "simflow" / "SKILL.md").read_text(encoding="utf-8")
-    assert "disable-model-invocation: true" in framework
-    assert (plugin_root / "mcp").is_dir()
-    assert (plugin_root / "runtime").is_dir()
     assert not (plugin_root / "tests").exists()
     assert not (plugin_root / ".simflow").exists()
     assert not (plugin_root / ".omx").exists()
@@ -168,12 +133,6 @@ def test_codex_marketplace_wrapper_builds_canonical_surface(tmp_path):
     assert entry["name"] == "simflow"
     assert entry["source"]["path"] == "./plugins/simflow"
     assert (plugin_root / ".codex-plugin" / "plugin.json").is_file()
-    assert (plugin_root / ".mcp.json").is_file()
-    assert (plugin_root / "scripts" / "start_mcp_server.py").is_file()
-    assert (plugin_root / "scripts" / "start_hpc_broker.py").is_file()
-    policy = plugin_root / "skills" / "simflow" / "agents" / "openai.yaml"
-    assert policy.is_file()
-    assert "allow_implicit_invocation: false" in policy.read_text(encoding="utf-8")
     assert_canonical_package_surface(plugin_root)
 
 

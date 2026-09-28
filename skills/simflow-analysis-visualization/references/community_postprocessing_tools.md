@@ -29,7 +29,7 @@ strongly-bound runner for each community package.
 5. Record executable path, version/help output when practical, command, cwd,
    environment variables, config files, raw inputs, generated data, figures,
    stdout/stderr or command log, warnings, citation/license note, and parent
-   artifact ids.
+   source file paths.
 6. Treat generated plots and tables as derived artifacts. Do not call them final
    evidence until the figure contract, source data, parameters, caption evidence,
    and visual QA are connected.
@@ -63,7 +63,7 @@ engine-specific community tools live with their domain skills:
 The adapter protocol above still applies when invoking these tools: capture
 command, version, inputs, outputs, environment, citations, and license notes.
 Keep POTCAR-related or input-generation tasks out of the analysis layer
-unless the user explicitly asks and the safety gate is satisfied. Never
+unless the user explicitly asks and the host permissions and licensed-file constraints are satisfied. Never
 copy, print, snapshot, or redistribute POTCAR contents.
 
 ## Citation, license, and reproducibility notes

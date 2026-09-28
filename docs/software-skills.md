@@ -17,26 +17,14 @@ Unknown or specialized requests such as phonon, NEB, SOC, hybrid, DFT+U,
 defect, surface, adsorption, and custom analysis should return candidates and
 missing information instead of silently becoming a static calculation.
 
-POTCAR content is licensed/proprietary in many installations. SimFlow may use a
-configured user-owned library to materialize POTCAR inside a controlled local
-calculation directory, using fixed ASE setup tables for variant selection and
-SimFlow runtime code for all restricted file access. It must never return,
-print, place in the normal artifact store, commit, package, or redistribute the
-content.
+POTCAR content is licensed in many installations. Materialize an exact dataset
+only from a user-owned library into a controlled calculation directory, with
+host permissions and user authorization. Never print, commit, package, or
+redistribute its content.
 
-Optional helper script:
-
-```bash
-python skills/simflow-vasp/scripts/orchestrate_vasp_task.py \
-  --task "plan VASP NEB calculation" \
-  --project-root /path/to/project \
-  --calc-dir ./neb
-```
-
-The script does not submit jobs and does not advance a fixed VASP workflow.
-
-Helpers remain usable without SimFlow MCP or workflow state. Runtime recording,
-when explicitly requested by a caller, is a separate adapter concern.
+The Skill-only packages currently omit legacy helper scripts that depend on the
+runtime. Use the host's available scientific tools until a helper has been
+separated, validated, and republished.
 
 ## CP2K
 
@@ -67,10 +55,8 @@ production-readiness methodology without prescribing one trainer's
 implementation. Provider files and configuration syntax remain with the
 relevant software Domain Skill.
 
-Domain Skill, helper support level, and helper-evidence output are distinct
-concepts. `workflow/toolchains/capabilities.json` is the support-level source of
-truth. Optional scripts may emit `simflow.helper_evidence.v1` records without
-turning that output format into a product category.
+Domain knowledge and helper support are separate. The installed Skill
+provides scientific methodology even when a bundled helper is unavailable.
 
 ## Unsupported Engines
 

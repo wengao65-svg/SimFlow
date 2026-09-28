@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = ROOT / "skills" / "simflow-lammps" / "scripts" / "inspect_lammps_inputs.py"
-SAFE_EXAMPLE = ROOT / "examples" / "lammps_safe_dry_run" / "input" / "in.lammps"
+SAFE_EXAMPLE = ROOT / "tests" / "fixtures" / "in_lammps_safe.lammps"
 
 
 SYNTHETIC_DATA = """LAMMPS data file - synthetic fixture
@@ -56,8 +56,7 @@ def test_inspect_lammps_inputs_passes_synthetic_safe_example():
     result = mod.inspect_lammps_inputs(str(SAFE_EXAMPLE), force_field_source="synthetic LJ fixture")
 
     assert result["status"] == "pass"
-    assert result["helper_evidence"]["schema_version"] == "simflow.helper_evidence.v1"
-    assert result["helper_evidence"]["status"] == "success"
+    assert "helper_evidence" not in result
     assert result["required_checks"] == {
         "units": True,
         "atom_style": True,
@@ -69,7 +68,7 @@ def test_inspect_lammps_inputs_passes_synthetic_safe_example():
     assert result["data_file"]["present"] is True
     assert result["force_field_provenance"]["redistributed_by_simflow"] is False
     assert result["lammps_mlp_deployment_manifest"]["detected"] is False
-    assert "dry_run_report_before_execution" in result["recommended_artifacts"]
+    assert "recommended_artifacts" not in result
 
 
 def test_inspect_lammps_inputs_reports_missing_data_file(tmp_path):
@@ -196,7 +195,7 @@ def test_inspect_lammps_inputs_records_mlp_deployment_model_provenance(tmp_path)
     assert deployment["pair_styles"] == ["deepmd"]
     assert deployment["model_files"][0]["token"] == "graph.pb"
     assert deployment["model_files"][0]["present"] is True
-    assert deployment["model_files"][0]["sha256"]
+    assert deployment["model_files"][0]["bytes"] > 0
     assert deployment["handoff_to"] == "simflow-mlp"
     assert deployment["claim_scope"] == "deployment_only"
     assert "lmp_help_evidence" in deployment
@@ -243,12 +242,11 @@ def test_inspect_lammps_inputs_writes_mlp_deployment_handoff_json(tmp_path):
     deployment = json.loads(output.read_text(encoding="utf-8"))
 
     assert result["mlp_deployment_output"] == str(output)
-    assert deployment["schema_version"] == "simflow.helper_evidence.v1"
+    assert "schema_version" not in deployment
     assert deployment["status"] == "success"
     assert deployment["evidence_role"] == "lammps_mlp_deployment_manifest"
     assert deployment["capability"] == "mlp_deployment_manifest"
-    assert deployment["actual_tool_used"]["software"] == "lammps"
-    assert deployment["model_files"][0]["sha256"]
+    assert deployment["model_files"][0]["bytes"] > 0
     assert deployment["handoff_to"] == "simflow-mlp"
     assert deployment["claim_scope"] == "deployment_only"
     assert deployment["model_file_status"] == "complete"

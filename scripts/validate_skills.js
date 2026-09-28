@@ -9,41 +9,11 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const SKILLS_DIR = path.join(ROOT, 'skills');
 
-const LEGACY_REQUIRED_SECTION_GROUPS = [
-  {
-    label: 'trigger conditions',
-    options: ['## 触发条件', '## Trigger conditions'],
-  },
-  {
-    label: 'input conditions',
-    options: ['## 输入条件', '## Input conditions'],
-  },
-  {
-    label: 'output artifacts',
-    options: ['## 输出 Artifact', '## Output artifacts'],
-  },
-  {
-    label: 'status write rules',
-    options: ['## 状态写入规则', '## Status write rules'],
-  },
-  {
-    label: 'checkpoint rules',
-    options: ['## Checkpoint 规则', '## Checkpoint rules'],
-  },
-  {
-    label: 'prohibited actions',
-    options: ['## 禁止事项', '## Prohibited actions'],
-  },
-  {
-    label: 'manual confirmation scenarios',
-    options: ['## 需要人工确认的场景', '## Manual confirmation scenarios'],
-  },
-];
-
+// The frontmatter description already drives host discovery.  Current pure
+// Skills deliberately omit generic "Use when"/"Do not use when" headings;
+// require scientific content instead of enforcing empty routing boilerplate.
 const PURE_SKILL_REQUIRED_SECTIONS = [
   '## Purpose',
-  '## Use when',
-  '## Do not use when',
   '## Task principles',
   '## Minimum checks',
   '## Common failure modes',
@@ -72,8 +42,6 @@ const DOMAIN_SKILLS = new Set([
 
 const PURE_DOMAIN_REQUIRED_SECTIONS = [
   '## Purpose',
-  '## Use when',
-  '## Do not use when',
   '## Domain principles',
   '## Minimum checks',
   '## Common failure modes',
@@ -82,17 +50,6 @@ const PURE_DOMAIN_REQUIRED_SECTIONS = [
   '## Optional references',
 ];
 
-const FRAMEWORK_REQUIRED_SECTIONS = [
-  '## Purpose',
-  '## Use when',
-  '## Skill discovery and composition',
-  '## Project memory re-entry',
-  '## Runtime use',
-  '## Provenance and recovery semantics',
-  '## Safety semantics',
-  '## Prohibited actions',
-  '## Completion criteria',
-];
 
 const FORBIDDEN_TASK_RUNTIME_PATTERNS = [
   /project_reentry/i,
@@ -170,16 +127,11 @@ skillDirs.forEach(skillName => {
 
   const isResearchTask = RESEARCH_TASK_SKILLS.has(skillName);
   const isDomain = DOMAIN_SKILLS.has(skillName);
-  const isFramework = skillName === 'simflow';
   const missingSections = isResearchTask
     ? PURE_SKILL_REQUIRED_SECTIONS.filter(section => !body.includes(section))
     : isDomain
       ? PURE_DOMAIN_REQUIRED_SECTIONS.filter(section => !body.includes(section))
-    : isFramework
-      ? FRAMEWORK_REQUIRED_SECTIONS.filter(section => !body.includes(section))
-      : LEGACY_REQUIRED_SECTION_GROUPS
-      .filter(group => !group.options.some(option => body.includes(option)))
-      .map(group => group.label);
+      : ['unrecognized public Skill'];
 
   if (missingSections.length > 0) {
     console.error(`  ERROR: ${skillName} - missing sections: ${missingSections.join(', ')}`);
@@ -192,30 +144,6 @@ skillDirs.forEach(skillName => {
     for (const pattern of FORBIDDEN_TASK_RUNTIME_PATTERNS) {
       if (pattern.test(body)) {
         console.error(`  ERROR: ${skillName} - pure task skill contains runtime directive matching ${pattern}`);
-        errors++;
-      }
-    }
-  }
-
-  if (isFramework) {
-    const metadataFile = path.join(SKILLS_DIR, skillName, 'agents', 'openai.yaml');
-    const metadata = fs.existsSync(metadataFile) ? fs.readFileSync(metadataFile, 'utf-8') : '';
-    if (fields['disable-model-invocation'] !== 'true') {
-      console.error(`  ERROR: ${skillName} - Claude explicit-only frontmatter must be true`);
-      errors++;
-    }
-    if (!/^\s*allow_implicit_invocation:\s*false\s*$/m.test(metadata)) {
-      console.error(`  ERROR: ${skillName} - Codex explicit-only invocation policy is missing`);
-      errors++;
-    }
-    for (const pattern of [
-      /select at most one research task skill/i,
-      /select at most one domain skill/i,
-      /zero or one task skill/i,
-      /zero or one domain skill/i,
-    ]) {
-      if (pattern.test(body)) {
-        console.error(`  ERROR: ${skillName} - Framework contains stale cardinality rule matching ${pattern}`);
         errors++;
       }
     }

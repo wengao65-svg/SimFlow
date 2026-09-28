@@ -1,5 +1,7 @@
 # MLP-MD Workflow Recipe
 
+> Historical design record for the retired runtime/MCP architecture. Current behavior is described in [the Skill Pack direction](direction-skill-pack.md).
+
 `mlp_md` is a SimFlow recipe/tag for machine-learning-potential-driven
 molecular dynamics. It does not add top-level workflow stages and it does not
 make SimFlow a training or MD executor.

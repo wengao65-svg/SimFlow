@@ -30,8 +30,7 @@ Use this reference for ionic relaxation, cell relaxation, volume relaxation, equ
 - Record whether a relaxation stopped because it converged or because `NSW` was exhausted.
 - For energy comparisons, ensure comparable settings, volumes/cells, smearing, k meshes, and pseudopotentials.
 - For equation-of-state or volume scans, preserve every structure/energy pair
-  and the fit script in one scan manifest; do not create one runtime record per
-  point.
+  and the fit script together in the user's chosen result location.
 
 ## Common risks
 

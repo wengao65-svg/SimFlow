@@ -1,138 +1,24 @@
-# SimFlow Claude Code Quick Start
+# SimFlow for Claude Code
 
-This guide uses the Claude Code plugin marketplace path. SimFlow remains skill-driven: users interact through Claude plugin skills and MCP tools, not through a primary SimFlow CLI.
-
-## Prerequisites
-
-- Python 3.10+
-- Node.js 18+ for repository validation
-- Claude Code installed
-
-## Install the Published Marketplace
-
-Regular users install the published Claude marketplace branch. Claude Code pins marketplace refs in the source string:
+Install the published Skill-only marketplace:
 
 ```bash
 claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
 claude plugin install simflow@simflow-claude-marketplace
 ```
 
-For a generic git URL, use `#ref`:
+Use a natural-language task or a relevant namespaced Skill such as
+`/simflow:simflow-vasp`, `/simflow:simflow-cp2k`, or
+`/simflow:simflow-writing`. The plugin installs 12 Skills and no SimFlow MCP
+server. It does not create a SimFlow experiment notebook.
 
-```bash
-claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-```
-
-`claude plugin marketplace add` supports `--scope` and `--sparse`. It does not use a `--ref` option.
-
-## Update SimFlow
-
-Update the marketplace source and installed plugin when a new SimFlow Claude
-marketplace version is published:
-
-```bash
-claude plugin marketplace update simflow-claude-marketplace
-claude plugin update simflow
-```
-
-Restart Claude Code or open a new session after updating so the new plugin
-version is loaded.
-
-## Developer Local Test
-
-Build and install the local Claude marketplace wrapper:
-
-```bash
-git clone https://github.com/wengao65-svg/SimFlow.git ~/simflow
-cd ~/simflow
-npm install
-npm run build:claude-marketplace
-claude plugin marketplace add ./dist/claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-```
-
-The wrapper contains:
-
-```text
-.claude-plugin/marketplace.json
-plugins/simflow/
-```
-
-Inside `plugins/simflow/`, the copied plugin root includes:
-
-```text
-.claude-plugin/plugin.json
-.claude.mcp.json
-skills/
-mcp/
-runtime/
-schemas/
-templates/
-workflow/
-scripts/start_mcp_server.py
-README.md
-LICENSE
-```
-
-The marketplace entry uses the Claude relative-path source form:
-
-```json
-{
-  "name": "simflow",
-  "source": "./plugins/simflow"
-}
-```
-
-## Verify
-
-Validate the source checkout:
-
-```bash
-npm run validate:claude-plugin
-```
-
-Validate the built wrapper:
+For local development:
 
 ```bash
 npm run build:claude-marketplace
 SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin
 ```
 
-When the Claude CLI is available, also run:
-
-```bash
-claude plugin validate dist/claude-marketplace
-claude plugin details simflow@simflow-claude-marketplace
-```
-
-## Use SimFlow Skills
-
-Claude plugin skills are namespaced by plugin name. Typical invocations are:
-
-```text
-/simflow:simflow
-/simflow:simflow-vasp
-/simflow:simflow-cp2k
-/simflow:simflow-writing
-```
-
-Natural-language discovery works when Claude Code selects installed Task and
-Domain Skills. `/simflow:simflow` is user-only and adds framework semantics; it
-does not route other Skills.
-
-## MCP Servers
-
-The Claude adapter uses `.claude.mcp.json`, which points to the existing SimFlow MCP startup wrapper through `${CLAUDE_PLUGIN_ROOT}`. It should expose:
-
-- `simflow_state`
-- `hpc`
-
-When a request depends on existing SimFlow project truth, recovery state, or a
-durable runtime action, Claude should make one read-only `inspect` call with the
-working directory and query, then reuse that context. Loading a Skill alone does
-not trigger inspection. Compact Experiment notebooks preserve scientific
-questions and decisions without creating session/activity state; exact project
-files remain the evidence source.
-
-Real HPC submission remains blocked unless the existing SimFlow approval gate is explicitly passed.
+Real compute or scheduler submission uses the host's permissions and the
+user's authorization for the concrete action. A submitted job is not proof
+of a converged scientific result.

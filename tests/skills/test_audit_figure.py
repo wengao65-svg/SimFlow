@@ -73,7 +73,7 @@ def test_audit_figure_flags_near_blank_image(tmp_path):
     assert any("nearly uniform" in warning for warning in result["warnings"])
 
 
-def test_audit_figure_helper_run_recording_args(tmp_path):
+def test_audit_figure_report_is_explicit_and_stateless(tmp_path):
     figure = tmp_path / "figure.png"
     output = tmp_path / "audit.json"
     _write_png(figure)
@@ -84,11 +84,8 @@ def test_audit_figure_helper_run_recording_args(tmp_path):
             str(SCRIPT),
             "--figure",
             str(figure),
-            "--output",
+            "--report",
             str(output),
-            "--project-root",
-            str(tmp_path),
-            "--record-helper-run",
         ],
         cwd=ROOT,
         text=True,
@@ -98,13 +95,6 @@ def test_audit_figure_helper_run_recording_args(tmp_path):
 
     assert result.returncode == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
-    assert payload["helper_run_id"].startswith("helper_")
-    assert payload["helper_run_manifest_artifact_id"].startswith("art_")
+    assert payload["status"] in {"passed", "warning"}
     assert output.is_file()
-    assert (
-        tmp_path
-        / ".simflow"
-        / "artifacts"
-        / "analysis_visualization"
-        / f"audit_figure_{payload['helper_run_id']}_helper_run.json"
-    ).is_file()
+    assert not (tmp_path / ".simflow").exists()

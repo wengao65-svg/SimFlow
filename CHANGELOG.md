@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## v1.5.0 (2026-09-24) — Skill-only distribution
+
+- Replaced default Codex, Claude Code, and OpenCode MCP registration with 12
+  portable Research Task and Domain Skills. Retired the Framework Skill from
+  public discovery.
+- Removed the repository Codex submit prohibition and SimFlow approval settings;
+  real execution now follows host permissions and user authorization for the
+  concrete action.
+- Migrated scientific helpers into self-contained Skill directories and
+  included their scripts, local libraries, and assets in all three packages.
+  Retired runtime, MCP, workflow, schema sources, duplicate generators, and
+  old orchestration entrypoints.
+- This removes the former Python `runtime.*` and `mcp.*` import surface and
+  their stateful commands; callers should use the installed Skill scripts or
+  their own project tools.
+- Updated installation, release, and scientific guidance to keep research
+  decisions and records with the user.
+
 ## v1.2.0 (2026-08-14) — Literature retrieval and analysis rigor
 
 - Replaced the single literature-backend fallback with coordinated OpenAlex,

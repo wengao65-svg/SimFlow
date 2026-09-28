@@ -14,6 +14,10 @@ be loaded alongside this Skill.
 
 ## Domain principles
 
+- For real training or MD, review the command, inputs, destination, and
+  resources; follow the host's permissions and the user's authorization for
+  that action.
+
 - Preserve dataset and label provenance from source structures through every
   transformation.
 - Keep training, validation, transferability, stability, and production
@@ -60,6 +64,10 @@ be loaded alongside this Skill.
 - Evidence gaps and target-domain limits are explicit.
 - Readiness language matches the strongest completed validation, not intent.
 
+## Optional local tools
+
+`scripts/build_mlp_dataset_manifest.py`, `summarize_mlp_metrics.py`, `validate_mlp_evidence.py`, and `prepare_mlp_handoff.py` support bounded local review. Their summaries cannot certify model transferability or production readiness without scientific validation.
+
 ## Optional references
 
 Select references according to the evidence question: scope, dataset and
@@ -86,9 +94,7 @@ Domain Skill when provider files or commands matter.
 - `references/mlp_evidence_handoff.md`: Read when preparing a concise evidence
   package that must communicate datasets, labels, training, models, validation,
   readiness gaps, and next actions.
-- `references/mlp_artifact_schemas.md`: Read only when creating, validating, or
-  interpreting helper-produced JSON using `simflow.helper_evidence.v1`; it is
-  not required for ordinary scientific review.
+- `references/mlp_artifact_schemas.md`: Read when preparing a concise, user-owned MLP evidence note or handoff.
 - `references/mlp_task_checklists.md`: Read when a compact dataset,
   DFT-label-protocol, validation, or readiness audit checklist is useful.
 - `references/mlp_troubleshooting.md`: Read when evidence is missing,

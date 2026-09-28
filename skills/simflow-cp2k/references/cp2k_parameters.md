@@ -1,6 +1,6 @@
 # CP2K Parameter Policies
 
-This note is a SimFlow-maintained quick reference for common-task orchestration and review. It is not a full CP2K parameter catalog. Verify exact keyword meanings, defaults, units, and allowed values in the CP2K manual when a parameter affects scientific conclusions.
+This note is a SimFlow-maintained quick reference for common-task input preparation and review. It is not a full CP2K parameter catalog. Verify exact keyword meanings, defaults, units, and allowed values in the CP2K manual when a parameter affects scientific conclusions.
 
 ## GLOBAL
 

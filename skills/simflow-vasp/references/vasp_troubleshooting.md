@@ -67,4 +67,4 @@ Failure reports should include:
 - conservative diagnosis and alternative hypotheses
 - recommended next checks
 - whether user approval is needed before real execution or costly reruns
-- checkpoint id when a failure checkpoint is created
+- restart path and diagnostic notes when a recoverable state exists

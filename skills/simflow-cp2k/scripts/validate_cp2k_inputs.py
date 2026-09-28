@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate common-task CP2K inputs inside a SimFlow project."""
+"""Statically validate a CP2K calculation directory."""
 
 from __future__ import annotations
 
@@ -8,91 +8,39 @@ import json
 import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-from _common import resolve_cp2k_paths, write_json_verified
-from runtime.simflow_core.result_contract import attach_simflow_result
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_helpers.engines.cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib.cp2k_validation import normalize_cp2k_task, validate_cp2k_inputs
 
 
-def run_validation(
-    task: str,
-    project_root: str,
-    calc_dir: str = ".",
-    input_path: str | None = None,
-) -> dict:
-    """Validate a CP2K input deck and write the SimFlow report output."""
-    task_norm = normalize_cp2k_task(task)
-    stage = "computation"
-    activity = "input_validation"
-    root, work_dir = resolve_cp2k_paths(project_root, calc_dir)
-
-    if input_path and not input_path.startswith("/"):
-        input_path = str(work_dir / input_path)
-
-    report = validate_cp2k_inputs(task_norm, str(work_dir), input_path=input_path)
-    handoff = {
-        "task": task_norm,
-        "validation_status": report["status"],
-        "next_steps": [
-            "Fix failed checks before any compute preparation." if report["status"] == "fail" else "Validation passed or was skipped for this task.",
-            "Use orchestrate_cp2k_task.py for the full dry-run planning/report flow.",
-        ],
-        "approval_needed": False,
-    }
-    files = {
-        "validation_report": write_json_verified(root, "reports/cp2k/validation_report.json", report),
-        "handoff_artifact": write_json_verified(root, "reports/cp2k/handoff_artifact.json", handoff),
-    }
-    result = {
-        "status": "success",
-        "task": task_norm,
-        "validation_report": report,
-        "reports": files,
-    }
-    return attach_simflow_result(
-        result,
-        role="helper",
-        activity=activity,
-        legacy_status=result["status"],
-        stage=stage,
-        state_effect="none",
-    )
+def run_validation(task: str, calc_dir: str, input_path: str | None = None, report: str | None = None) -> dict:
+    work_dir = Path(calc_dir).expanduser().resolve()
+    deck = Path(input_path).expanduser() if input_path else None
+    if deck is not None and not deck.is_absolute():
+        deck = work_dir / deck
+    result = validate_cp2k_inputs(normalize_cp2k_task(task), str(work_dir), input_path=str(deck) if deck else None)
+    if report:
+        path = Path(report).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        result["report"] = str(path)
+    return result
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Validate common-task CP2K inputs inside a SimFlow project")
-    parser.add_argument("--task", required=True, help="CP2K task or workflow mode")
-    parser.add_argument("--project-root", required=True, help="User project root for .simflow and reports")
-    parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to project_root")
-    parser.add_argument("--input-path", help="Input deck path, relative to calc-dir unless absolute")
-    add_helper_recording_args(parser, default_stage="computation")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task", required=True)
+    parser.add_argument("--calc-dir", required=True)
+    parser.add_argument("--input-path", help="CP2K input deck relative to calc-dir or absolute")
+    parser.add_argument("--report", help="Optional JSON report path")
     args = parser.parse_args()
-
     try:
-        result = run_validation(
-            task=args.task,
-            project_root=args.project_root,
-            calc_dir=args.calc_dir,
-            input_path=args.input_path,
-        )
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="cp2k_validate_inputs",
-            software="cp2k",
-            input_paths=[args.input_path] if args.input_path else [],
-            output_paths=list(result.get("reports", {}).values()),
-        )
-        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        result = run_validation(args.task, args.calc_dir, args.input_path, args.report)
     except Exception as exc:
-        print(json.dumps({"status": "error", "message": str(exc)}, indent=2, ensure_ascii=False))
-        sys.exit(1)
+        print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+    print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,7 +1,7 @@
 # CP2K Methods Index
 
 This is a lightweight SimFlow index for common CP2K workflow methods.
-It exists to steer orchestration decisions, not to mirror the full CP2K manual.
+It helps select relevant guidance and does not mirror the full CP2K manual.
 For source-backed guidance beyond this common layer, use `cp2k_official_sources.md`, `cp2k_example_patterns.md`, and `cp2k_task_checklists.md`. Use `cp2k_local_examples_index.md` only when the user provides a CP2K source tree.
 
 ## Covered by simflow-cp2k

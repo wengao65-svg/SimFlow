@@ -25,8 +25,8 @@ between author-provided values and figure reconstruction.
   normalization, calibration, and validation.
 - Do not silently smooth, interpolate, extrapolate, fill occluded regions,
   convert units, or invent unsupported significant digits.
-- Helpers are optional and standalone. They do not initialize SimFlow state or
-  record a run unless the caller explicitly requests runtime recording.
+- Deterministic extraction tools are optional. They should write only the
+  output the user requested and never initialize SimFlow project state.
 
 ## Minimum checks
 
@@ -70,6 +70,10 @@ between author-provided values and figure reconstruction.
 - Validation artifacts support the extraction without being presented as proof
   of the underlying scientific claim.
 
+## Optional local tools
+
+`scripts/extract_reference_data.py` extracts selected source data. Keep source provenance and uncertainty; optional validation reports require an explicit path.
+
 ## Optional references
 
 Load only the material needed for the current source:
@@ -82,8 +86,6 @@ Load only the material needed for the current source:
   digitization, heatmaps, and colorbars.
 - `references/schema.md`: normalized CSV and metadata contract.
 
-The optional helper is
-`scripts/extract_reference_data.py`. Preserve its scientific outputs as
-`reference_data.csv`, `metadata.json`, and applicable validation overlays. It
-must remain usable without SimFlow MCP, and no fixed helper is required when a
-better source-specific method is available.
+When using an extraction tool, preserve its scientific outputs as a traceable
+table, method metadata, and applicable validation overlays. No fixed helper is
+required when a better source-specific method is available.

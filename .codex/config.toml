@@ -1,22 +1,3 @@
 [plugin]
 name = "simflow"
-version = "1.4.0"
-
-[defaults]
-working_directory = "."
-sandbox = false
-
-[tools]
-allow_file_read = true
-allow_file_write = true
-allow_shell = false
-allow_network = false
-allow_hpc_submit = false
-
-[workflow]
-default_dry_run = true
-require_approval_for_submit = true
-
-[logging]
-level = "info"
-directory = ".simflow/logs/"
+version = "1.5.0"

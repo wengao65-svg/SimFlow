@@ -11,11 +11,14 @@ from pathlib import Path
 import pytest
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "skills" / "simflow-computation" / "scripts" / "generate_cp2k_inputs.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "skills" / "simflow-cp2k" / "scripts" / "generate_cp2k_inputs.py"
 H2O_CIF = Path(__file__).resolve().parents[2] / "examples" / "h2o" / "H2O.cif"
 
 
 def _load_module(name, path):
+    for module_name in list(sys.modules):
+        if module_name == "lib" or module_name.startswith("lib."):
+            del sys.modules[module_name]
     spec = importlib.util.spec_from_file_location(name, str(path))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

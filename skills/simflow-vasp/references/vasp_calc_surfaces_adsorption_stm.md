@@ -27,7 +27,7 @@ Use this reference for slab models, adsorption workflows, work functions, dipole
 
 - Preserve all user-provided slabs/adsorbates and write variants under named directories.
 - Record vacuum and dipole-correction choices; asymmetric slabs and charged surfaces need extra care.
-- For adsorption energies, register all reference calculations with comparable settings.
+- For adsorption energies, list all reference calculations with comparable settings.
 - For STM/partial charges, record selected bands/energy window, bias interpretation, and visualization tool.
 
 ## Common risks

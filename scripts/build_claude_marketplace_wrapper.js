@@ -24,30 +24,18 @@ const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.claude-plugin', 'marketplace.
 
 const REQUIRED_ENTRIES = [
   { source: '.claude-plugin/plugin.json', target: '.claude-plugin/plugin.json' },
-  { source: '.claude.mcp.json', target: '.claude.mcp.json' },
   { source: 'skills', target: 'skills' },
-  { source: 'mcp', target: 'mcp' },
-  { source: 'runtime', target: 'runtime' },
-  { source: 'schemas', target: 'schemas' },
-  { source: 'templates', target: 'templates' },
-  { source: 'workflow', target: 'workflow' },
-  { source: 'scripts/start_mcp_server.py', target: 'scripts/start_mcp_server.py' },
-  { source: 'scripts/start_hpc_broker.py', target: 'scripts/start_hpc_broker.py' },
   { source: 'docs/quickstart_claude.md', target: 'docs/quickstart_claude.md' },
-  { source: 'docs/release_claude.md', target: 'docs/release_claude.md' },
-  { source: 'docs/state-and-checkpoint.md', target: 'docs/state-and-checkpoint.md' },
   { source: 'docs/installation.md', target: 'docs/installation.md' },
+  { source: 'docs/helper-dependencies.md', target: 'docs/helper-dependencies.md' },
   { source: 'docs/user_guide.md', target: 'docs/user_guide.md' },
-  { source: 'docs/mcp-design.md', target: 'docs/mcp-design.md' },
   { source: 'docs/skill-design.md', target: 'docs/skill-design.md' },
-  { source: 'docs/credentials-policy.md', target: 'docs/credentials-policy.md' },
   { source: 'AGENTS.md', target: 'AGENTS.md' },
   { source: 'README.md', target: 'README.md' },
   { source: 'LICENSE', target: 'LICENSE' },
 ];
 
 const PACKAGED_SKILLS = new Set([
-  'simflow',
   'simflow-literature-review',
   'simflow-reference-extraction',
   'simflow-proposal',
@@ -232,7 +220,7 @@ function build() {
       {
         name: 'simflow',
         source: './plugins/simflow',
-        description: 'Claude Code computational simulation workflow layer with recipe/tag guidance and approval-aware evidence tracking.',
+        description: 'Computational simulation Skills for Claude Code.',
         author: {
           name: 'wengao65-svg',
         },
@@ -249,14 +237,10 @@ function build() {
   if (!fs.existsSync(path.join(PLUGIN_ROOT, '.claude-plugin', 'plugin.json'))) {
     throw new Error('Built Claude plugin is missing .claude-plugin/plugin.json');
   }
-  if (!fs.existsSync(path.join(PLUGIN_ROOT, '.claude.mcp.json'))) {
-    throw new Error('Built Claude plugin is missing .claude.mcp.json');
-  }
-  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_mcp_server.py'))) {
-    throw new Error('Built Claude plugin is missing scripts/start_mcp_server.py');
-  }
-  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_hpc_broker.py'))) {
-    throw new Error('Built Claude plugin is missing scripts/start_hpc_broker.py');
+  for (const retired of ['.claude.mcp.json', 'mcp', 'runtime', 'workflow', 'schemas']) {
+    if (fs.existsSync(path.join(PLUGIN_ROOT, retired))) {
+      throw new Error(`Built Claude plugin unexpectedly includes ${retired}`);
+    }
   }
   if (fs.existsSync(path.join(PLUGIN_ROOT, 'tests'))) {
     throw new Error('Built Claude plugin must not contain tests');

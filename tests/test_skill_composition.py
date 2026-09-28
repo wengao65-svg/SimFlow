@@ -1,42 +1,16 @@
-"""Tests for host-native Skill discovery and composition boundaries."""
-
+"""The host can compose Task and Domain Skills without a central router."""
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-FRAMEWORK = ROOT / "skills" / "simflow" / "SKILL.md"
 
 
-def test_framework_has_no_router_schema_or_numeric_selection_policy():
-    text = FRAMEWORK.read_text(encoding="utf-8").lower()
-
-    assert not (FRAMEWORK.parent / "router_contract.json").exists()
-    assert "max_research_task_skills" not in text
-    assert "max_domain_skills" not in text
-    assert "zero or one task" not in text
-    assert "zero or one domain" not in text
+def test_skill_pack_has_no_framework_router():
+    assert not (ROOT / "skills" / "simflow" / "SKILL.md").exists()
+    assert not (ROOT / "skills" / "simflow" / "router_contract.json").exists()
 
 
-def test_framework_has_no_mcp_lifecycle_quick_start():
-    skill = FRAMEWORK.read_text(encoding="utf-8")
-    for removed in [
-        "Required MCP Engagement",
-        "Quick Start for Re-entering a Project",
-        "project_reentry",
-        "begin_experiment",
-        "start_activity",
-        "session_handoff",
-    ]:
-        assert removed not in skill
-
-
-def test_documented_composition_supports_cross_responsibility_work():
-    user_guide = " ".join(
-        (ROOT / "docs" / "user_guide.md").read_text(encoding="utf-8").lower().split()
-    )
-    skill_readme = (ROOT / "skills" / "README.md").read_text(encoding="utf-8").lower()
-
-    assert "modeling + computation" in user_guide
-    assert "computation + gpumd + mlp" in user_guide
-    assert "literature review + reference extraction + analysis" in user_guide
-    assert "numeric cardinality limit" in skill_readme
+def test_documented_composition_keeps_user_in_control():
+    readme = (ROOT / "skills" / "README.md").read_text(encoding="utf-8").lower()
+    assert "host discovers and combines" in readme
+    assert "user owns scientific decisions and records" in readme
+    assert "real execution follows the host's permissions" in readme

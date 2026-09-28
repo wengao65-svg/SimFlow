@@ -86,7 +86,8 @@ def test_parse_log_extracts_units_and_thermo():
         assert r["timestep_command"] == 0.5
         assert r["atom_style"] == "atomic"
         assert r["thermo"]["total_steps"] == 100
-        assert r["thermo"]["converged"] is True
+        assert r["thermo"]["converged"] is False
+        assert any("cannot establish scientific convergence" in warning for warning in r["thermo"]["warnings"])
 
 
 def test_build_intake_manifest_records_limitations_and_boundary():
@@ -124,7 +125,7 @@ def test_build_intake_manifest_flags_missing_image_flags_as_limitation():
         assert "md_structure" in manifest["recommended_analysis_family"]
 
 
-def test_parse_lammps_outputs_writes_manifest_and_handoff(tmp_path):
+def test_parse_lammps_outputs_writes_only_explicit_report(tmp_path):
     mod = _load_module()
     calc = tmp_path / "calc"
     calc.mkdir()
@@ -132,21 +133,17 @@ def test_parse_lammps_outputs_writes_manifest_and_handoff(tmp_path):
     _write_dump(calc / "dump.lammps", n_frames=2, image_flags=True)
     _write_data(calc / "data.lammps")
 
-    result = mod.parse_lammps_outputs(project_root=str(tmp_path), calc_dir="calc")
+    report = tmp_path / "intake.json"
+    result = mod.parse_lammps_outputs(calc_dir=str(calc), report=str(report))
 
     assert result["status"] == "success"
-    assert result["simflow_result"]["role"] == "helper"
-    assert result["simflow_result"]["stage"] == "analysis_visualization"
-    intake_rel = result["reports"]["intake_manifest"]
-    assert intake_rel == "reports/lammps/intake_manifest.json"
-    intake_path = tmp_path / intake_rel
-    payload = json.loads(intake_path.read_text())
+    assert "simflow_result" not in result
+    payload = json.loads(report.read_text())["intake_manifest"]
     assert payload["manifest_type"] == "lammps_output_intake_manifest"
     assert payload["source_files"]["dump"]["has_image_flags"] is True
     assert payload["source_files"]["log"]["units_style"] == "real"
-    handoff_path = tmp_path / result["reports"]["handoff_artifact"]
-    handoff = json.loads(handoff_path.read_text())
-    assert handoff["analysis_status"] == "ready"
+    assert not (tmp_path / "reports").exists()
+    assert not (tmp_path / ".simflow").exists()
 
 
 def test_parse_lammps_outputs_returns_needs_inputs_when_files_missing(tmp_path):
@@ -154,10 +151,11 @@ def test_parse_lammps_outputs_returns_needs_inputs_when_files_missing(tmp_path):
     calc = tmp_path / "empty"
     calc.mkdir()
 
-    result = mod.parse_lammps_outputs(project_root=str(tmp_path), calc_dir="empty")
+    result = mod.parse_lammps_outputs(calc_dir=str(calc))
 
     assert result["status"] == "needs_inputs"
     assert result["intake_manifest"]["missing_inputs"]
+    assert not list(calc.iterdir())
 
 
 if __name__ == "__main__":

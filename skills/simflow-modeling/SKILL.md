@@ -55,6 +55,10 @@ object before engine-specific input details are considered.
 - Structural sanity checks pass or failures are reported.
 - Derived models remain traceable to their sources and transformations.
 
+## Optional local tools
+
+`scripts/build_structure.py`, `make_supercell.py`, and `validate_structure.py` provide local structure construction and checks. Generation requires an explicit output; existing outputs require `--overwrite`.
+
 ## Optional references
 
 Use a Domain Skill only when software- or method-specific model semantics are

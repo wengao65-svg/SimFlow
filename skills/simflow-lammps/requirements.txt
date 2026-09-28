@@ -1,0 +1,2 @@
+ase>=3.22
+MDAnalysis>=2.5

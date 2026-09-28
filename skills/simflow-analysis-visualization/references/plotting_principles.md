@@ -28,7 +28,7 @@ plotting style, figure manifests, or visual evidence for writing and handoff.
 
 ## Provenance and handoff
 
-- A figure manifest should include figure path, source data path, plotting script path, parent artifact ids, software/tool versions when available, and skipped or warning states.
+- A figure manifest should include figure path, source data path, plotting script path, source file paths, software/tool versions when available, and skipped or warning states.
 - Captions are artifacts when they are intended for writing or handoff. Link them to the figure and analysis artifacts they interpret.
 - If a figure cannot be regenerated because an optional dependency is missing, record a skipped reason and preserve the available intermediate data.
 

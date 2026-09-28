@@ -53,7 +53,7 @@ route are unclear. This map is a guide, not a fixed parser requirement.
   Keep the requested software as context and use generic analysis guidance or
   user-provided scripts with explicit limitations.
 - If durable traceability is needed, reference the logical input or analysis
-  package once rather than registering every file separately.
+  record the meaningful result once in the user's chosen note rather than listing every intermediate file.
 
 ## Generic data and trajectories
 

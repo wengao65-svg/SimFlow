@@ -16,24 +16,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_simflow_root = Path(__file__).resolve().parents[3]
-if str(_simflow_root) not in sys.path:
-    sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.result_contract import attach_simflow_result
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.state import resolve_project_path, resolve_project_root
-from runtime.simflow_helpers.engines.parsers.lammps_parser import LAMMPSParser
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from lammps_parser import LAMMPSParser
 
 _UNITS_RE = re.compile(r"^\s*units\s+(\S+)", re.MULTILINE)
 _TIMESTEP_RE = re.compile(r"^\s*timestep\s+([\d.eE+-]+)", re.MULTILINE)
 _ATOM_STYLE_RE = re.compile(r"^\s*atom_style\s+(\S+)", re.MULTILINE)
-
-
-def _resolve_lammps_paths(project_root: str, calc_dir: str = ".") -> tuple[Path, Path]:
-    root = resolve_project_root(project_root=project_root)
-    work_dir = resolve_project_path(calc_dir, project_root=str(root))
-    return root, work_dir
 
 
 def _find_file(work_dir: Path, explicit: str | None, candidates: list[str]) -> Path | None:
@@ -256,80 +244,47 @@ def build_intake_manifest(
 
 
 def parse_lammps_outputs(
-    project_root: str,
-    calc_dir: str = ".",
+    calc_dir: str,
     log_path: str | None = None,
     dump_path: str | None = None,
     data_path: str | None = None,
+    report: str | None = None,
 ) -> dict[str, Any]:
-    root, work_dir = _resolve_lammps_paths(project_root, calc_dir)
+    work_dir = Path(calc_dir).expanduser().resolve()
     log = parse_log(_find_file(work_dir, log_path, ["log.lammps", "lammps.log", "log.cite"]))
     dump = parse_dump_header(_find_file(work_dir, dump_path, ["dump.lammps", "dump.lammpstrj", "trajectory"]))
     data = parse_data_header(_find_file(work_dir, data_path, ["data.lammps", "data", "data.file"]))
 
     manifest = build_intake_manifest(log=log, dump=dump, data=data, work_dir=work_dir)
 
-    reports: dict[str, str] = {}
-    intake_path = root / "reports" / "lammps" / "intake_manifest.json"
-    intake_path.parent.mkdir(parents=True, exist_ok=True)
-    intake_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    json.loads(intake_path.read_text(encoding="utf-8"))
-    reports["intake_manifest"] = "reports/lammps/intake_manifest.json"
-
-    handoff = {
-        "task": "parse",
-        "analysis_status": "ready" if not manifest["missing_inputs"] else "needs_inputs",
-        "next_steps": [
-            "Review intake_manifest.json for units, image flags, atom ids, and limitations.",
-            "Hand the manifest to simflow-analysis-visualization for property-level analysis.",
-        ],
-        "approval_needed": False,
-    }
-    handoff_path = root / "reports" / "lammps" / "handoff_artifact.json"
-    handoff_path.write_text(json.dumps(handoff, indent=2, ensure_ascii=False), encoding="utf-8")
-    json.loads(handoff_path.read_text(encoding="utf-8"))
-    reports["handoff_artifact"] = "reports/lammps/handoff_artifact.json"
-
     result: dict[str, Any] = {
         "status": "success" if not manifest["missing_inputs"] else "needs_inputs",
         "intake_manifest": manifest,
-        "reports": reports,
     }
-    return attach_simflow_result(
-        result,
-        role="helper",
-        activity="parse",
-        legacy_status=result["status"],
-        stage="analysis_visualization",
-        state_effect="none",
-    )
+    if report:
+        report_path = Path(report).expanduser()
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        result["report"] = str(report_path)
+    return result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Parse LAMMPS outputs into an intake manifest")
-    parser.add_argument("--project-root", required=True, help="User project root for .simflow and reports")
-    parser.add_argument("--calc-dir", default=".", help="Calculation directory relative to project_root")
+    parser.add_argument("--calc-dir", required=True, help="Calculation directory to inspect")
     parser.add_argument("--log", default=None, help="Explicit LAMMPS log path (relative to calc-dir or absolute)")
     parser.add_argument("--dump", default=None, help="Explicit LAMMPS dump path (relative to calc-dir or absolute)")
     parser.add_argument("--data", default=None, help="Explicit LAMMPS data/topology path (relative to calc-dir or absolute)")
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
+    parser.add_argument("--report", help="Optional JSON report path")
     args = parser.parse_args()
 
     try:
         result = parse_lammps_outputs(
-            project_root=args.project_root,
             calc_dir=args.calc_dir,
             log_path=args.log,
             dump_path=args.dump,
             data_path=args.data,
-        )
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="lammps_parse_outputs",
-            software="lammps",
-            output_paths=list(result.get("reports", {}).values()),
+            report=args.report,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     except Exception as exc:

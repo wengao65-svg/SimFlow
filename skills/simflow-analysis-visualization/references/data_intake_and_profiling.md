@@ -6,7 +6,7 @@ first so plots and statistics do not outrun the data.
 
 ## Intake record
 
-- Record the project root, source directory, input paths, parent artifact ids
+- Record the project root, source directory, input paths, source file paths
   when available, software provenance, run type, and whether each file is raw
   output, user-edited data, or derived data.
 - Preserve raw outputs. Write parsed tables, cleaned tables, summaries, and
@@ -56,7 +56,7 @@ first so plots and statistics do not outrun the data.
 
 A useful profile artifact should include:
 
-- source paths and parent artifact ids
+- source paths and source file paths
 - software or data provenance
 - raw vs derived classification
 - schema or column/array interpretation

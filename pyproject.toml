@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simflow"
-version = "1.4.0"
-description = "Host-neutral computational simulation domain workflow layer"
+version = "1.5.0"
+description = "Portable computational simulation Skills for AI agents"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
-keywords = ["simulation", "dft", "md", "workflow", "materials-science"]
+keywords = ["simulation", "dft", "md", "skills", "materials-science"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -24,8 +24,11 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-vasp = ["pymatgen>=2023.0", "ase>=3.22"]
-lammps = ["MDAnalysis>=2.5"]
+vasp = ["pymatgen>=2023.0", "ase>=3.22", "matplotlib>=3.7"]
+lammps = ["MDAnalysis>=2.5", "ase>=3.22"]
+cp2k = ["ase>=3.22"]
+gpumd = ["pymatgen>=2023.0"]
+analysis = ["numpy>=1.26", "matplotlib>=3.7", "MDAnalysis>=2.5", "Pillow>=10"]
 structure = ["pymatgen>=2023.0", "ase>=3.22"]
 reference-extraction = [
     "PyMuPDF>=1.24",
@@ -36,6 +39,7 @@ reference-extraction = [
     "h5py>=3.10",
 ]
 all = [
+    "matplotlib>=3.7",
     "pymatgen>=2023.0",
     "MDAnalysis>=2.5",
     "ase>=3.22",
@@ -54,9 +58,8 @@ dev = [
     "ase>=3.22",
 ]
 
-[tool.setuptools.packages.find]
-include = ["runtime*", "mcp*", "skills*"]
-exclude = ["tests*", "docs*", "examples*"]
+[tool.setuptools]
+packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

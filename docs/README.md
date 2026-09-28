@@ -1,45 +1,25 @@
 # SimFlow Documentation Index
 
-SimFlow separates scientific guidance from event-driven runtime state. Start
-with the user and architecture documents below.
+SimFlow is distributed as a Skill Pack. Start with the product boundary and
+migration plan, then use the host-specific installation guide.
 
-## Start Here
+## Start here
 
 - [README](../README.md): product summary and install paths.
-- [User Guide](user_guide.md): Skills, compact records, recovery, and common
-  work patterns.
-- [Skill Design](skill-design.md): Router, Task, Domain, and pure Skill rules.
-- [Workflow Layer Design](workflow-layer-design.md): advisory stages, recipes,
-  and hard safety boundaries.
-- [User Project Layout](user-project-layout.md): existing-layout-first and
-  analysis placement guidance.
-
-## Runtime And Safety
-
-- [MCP Tool Reference](mcp-tool-reference.md): the four state and four HPC
-  tools.
-- [State And Recovery](state-and-checkpoint.md): Experiment notebooks,
-  operational records, checkpoints, summary rebuild, and legacy migration.
-- [HPC Integration](hpc-integration.md): immutable run plans and approval reuse.
-- [Verification Gates](verification-gates.md): evidence and approval rules.
-- [Credentials Policy](credentials-policy.md): credential and broker boundary.
-- [Approval Reviewer Contract](approval_reviewer_simflow_contract.md): review
-  signals for real execution and scientific truth.
-
-## Installation And Release
-
-- [Installation](installation.md)
-- [Claude Quick Start](quickstart_claude.md)
-- [Codex Quick Start](quickstart_codex.md)
-- [OpenCode Quick Start](quickstart_opencode.md)
-- [Current Limitations](current-limitations.md)
-- [Release Checklist](release-checklist.md)
+- [Skill Pack Direction](direction-skill-pack.md): user research evidence,
+  peer comparison, target boundary, and staged migration plan.
+- [Installation](installation.md): Codex, Claude Code, and OpenCode setup.
+- [Skill Design](skill-design.md): progressive disclosure and pure Skill rules.
+- [User Project Layout](user-project-layout.md): existing-layout-first guidance.
+- [Current Limitations](current-limitations.md): known migration boundaries.
 
 ## Development
 
-- [Technical Design](technical-design.md)
 - [Developer Guide](developer_guide.md)
-- [Target Repository Structure](target-repo-structure.md)
 - [Software Skills](software-skills.md)
-- [Artifact And Record Guidance](artifact-schema.md)
-- [MLP-MD Recipe](mlp-md-workflow.md)
+- [Release Checklist](release-checklist.md)
+
+Historical design documents remain in the source checkout as migration
+history. The runtime, MCP, workflow, and schema source layers have been
+retired; generated host packages include only the 12 Skills and their local
+resources.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Run an isolated OpenCode install/config/skill/MCP smoke test. */
+/** Run an isolated OpenCode install/config/skill smoke test. */
 
 const fs = require('fs');
 const os = require('os');
@@ -11,11 +11,8 @@ const ROOT = path.resolve(__dirname, '..');
 const PACKAGE_ROOT = path.resolve(process.argv[2] || path.join(ROOT, 'dist', 'opencode-plugin'));
 const OPENCODE = process.env.SIMFLOW_OPENCODE_BIN || 'opencode';
 const DEFAULT_TIMEOUT = Number(process.env.SIMFLOW_OPENCODE_SMOKE_TIMEOUT_MS) || 120000;
-const SERVER_NAMES = [
-  'simflow_state', 'hpc',
-];
 const SKILL_NAMES = [
-  'simflow', 'simflow-literature-review', 'simflow-reference-extraction', 'simflow-proposal', 'simflow-modeling',
+  'simflow-literature-review', 'simflow-reference-extraction', 'simflow-proposal', 'simflow-modeling',
   'simflow-computation', 'simflow-analysis-visualization', 'simflow-writing',
   'simflow-vasp', 'simflow-cp2k', 'simflow-lammps', 'simflow-gpumd',
   'simflow-mlp',
@@ -125,16 +122,15 @@ function main() {
       }
     }
 
-    const mcpOutput = run(OPENCODE, ['mcp', 'list'], { cwd: project, env: isolatedEnv, timeout: 90000 });
-    for (const name of SERVER_NAMES) {
-      if (!mcpOutput.includes(name)) {
-        throw new Error(`OpenCode MCP status is missing ${name}\n${mcpOutput.slice(0, 6000)}`);
-      }
+    if (fs.existsSync(path.join(project, '.simflow'))) {
+      throw new Error('Skill discovery created unexpected .simflow project state');
     }
+
 
     console.log(`OpenCode ${version} isolated smoke passed`);
     console.log(`Skills discovered: ${SKILL_NAMES.length}`);
-    console.log(`MCP servers discovered: ${SERVER_NAMES.length}`);
+    console.log('SimFlow MCP servers discovered: 0');
+    console.log('SimFlow project state created: 0');
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

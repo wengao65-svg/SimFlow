@@ -10,10 +10,6 @@ import json
 import sys
 from pathlib import Path
 
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
     from ase.io import read, write
@@ -79,7 +75,7 @@ def _build_warnings(pair_style: str, pair_coeff: str, params: dict) -> list[dict
 def structure_to_lammps(input_file: str, output_data: str, atom_style: str = "atomic") -> dict:
     """Convert structure file to LAMMPS data format using ASE."""
     atoms = read(input_file)
-    write(output_data, atoms, format="lammps-data")
+    write(output_data, atoms, format="lammps-data", atom_style=atom_style)
 
     return {
         "input_file": input_file,
@@ -199,6 +195,8 @@ def generate_lammps_inputs(
     pair_style: str = "lj/cut",
     pair_coeff: str = "* * 1.0 1.0",
     params: dict = None,
+    report: str | None = None,
+    overwrite: bool = False,
 ) -> dict:
     """Generate a small, traceable LAMMPS input package."""
     params = params or {}
@@ -247,11 +245,15 @@ def generate_lammps_inputs(
             ],
         }
 
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_path = Path(output_dir).expanduser().resolve()
+    if ".simflow" in output_path.parts:
+        raise ValueError("LAMMPS inputs cannot be written under .simflow")
     data_path = output_path / "data.lammps"
     input_path = output_path / "in.lammps"
-    manifest_path = output_path / "lammps_input_manifest.json"
+    existing = [str(path) for path in (data_path, input_path) if path.exists()]
+    if existing and not overwrite:
+        raise FileExistsError(f"Refusing to overwrite existing LAMMPS inputs: {', '.join(existing)}")
+    output_path.mkdir(parents=True, exist_ok=True)
 
     structure_info = structure_to_lammps(input_file, str(data_path), atom_style=params.get("atom_style", "atomic"))
     generate_input_script(
@@ -276,12 +278,17 @@ def generate_lammps_inputs(
         "warnings": warnings,
         "status": "warning" if warnings else "success",
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    files_generated = [str(input_path), str(data_path)]
+    if report:
+        manifest_path = Path(report).expanduser()
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        files_generated.append(str(manifest_path))
     return {
         "status": "success",
         "job_type": normalized_job,
         "pair_style": pair_style,
-        "files_generated": [str(input_path), str(data_path), str(manifest_path)],
+        "files_generated": files_generated,
         "structure": structure_info,
         "manifest": manifest,
         "warnings": warnings,
@@ -298,33 +305,24 @@ def main():
                         help=f"LAMMPS pair style. Options: {list(PAIR_STYLES.keys())}")
     parser.add_argument("--pair-coeff", required=True,
                         help="pair_coeff line (e.g., '* * Si.eam Si')")
-    parser.add_argument("--output-dir", default="lammps_input", help="Output directory")
+    parser.add_argument("--output-dir", required=True, help="Explicit output directory")
+    parser.add_argument("--report", help="Optional JSON input manifest path")
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly replace existing LAMMPS inputs")
     parser.add_argument("--params", type=str, default="{}",
                         help="JSON string of additional parameters")
-    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     try:
         params = json.loads(args.params)
-        output_dir = Path(args.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
         result = generate_lammps_inputs(
             args.input,
             args.job_type,
-            str(output_dir),
+            args.output_dir,
             pair_style=args.pair_style,
             pair_coeff=args.pair_coeff,
             params=params,
-        )
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="lammps_generate_inputs",
-            software="lammps",
-            input_paths=[args.input],
-            output_paths=result.get("files_generated", []),
+            report=args.report,
+            overwrite=args.overwrite,
         )
         print(json.dumps(result, indent=2))
     except Exception as e:

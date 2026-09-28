@@ -1,110 +1,34 @@
 # Current Product Limitations
 
-This page describes the current release boundary. Review it before publishing
-release notes or marketplace packages.
+SimFlow ships 12 Research Task and Domain Skills, with optional standalone
+scientific scripts. They provide guidance and focused checks; they do not
+manage experiments, guarantee scientific validity, or submit jobs.
 
-## Supported Domain Skills
+The former `runtime.*` and `mcp.*` Python APIs and their stateful commands have
+been removed. Existing projects that imported them need to move to the
+appropriate Skill script or their own project tooling. Existing `.simflow/`
+user data is not converted by this release.
 
-The public product includes Domain Skills for:
+Scripts need the relevant Python libraries in the user's environment. VASP, GPUMD/NEP, and structure generation use `pymatgen`; CP2K CIF conversion
+and LAMMPS structure conversion use ASE. Analysis tools may need plotting or
+trajectory libraries. See [helper dependencies](helper-dependencies.md). Their checks cover selected file fields
+and common cases, not all software versions or scientific workflows. Consult
+the engine documentation and inspect original outputs for consequential claims.
 
-- VASP;
-- CP2K;
-- LAMMPS;
-- GPUMD/NEP;
-- engine-independent MLP methodology.
+Real local, remote, or scheduler execution uses the host's permissions and the
+user's authorization for the concrete action. A Skill cannot mechanically
+intercept arbitrary shell commands. A job ID, output file, or successful parser
+run does not establish convergence. Existing `.simflow/` directories are
+historical user data and are left untouched.
 
-These Skills provide scientific guidance and may use optional validation,
-generation, parsing, or analysis helpers. They do not own runtime state or make
-SimFlow a workflow executor.
+Licensed POTCAR content and credentials must stay out of responses, reports,
+commits, and packages. The VASP helper can materialize POTCAR only from a
+user-owned library into a controlled calculation directory.
 
-GPUMD and NEP have bounded helper support for input preparation, static
-validation, dry-run planning, selected output parsing, orchestration metadata,
-and evidence handoff. SimFlow does not claim an engine-specific GPUMD/NEP real
-execution implementation. A user-provided script may still use the generic,
-approval-bound HPC runtime.
-
-`workflow/toolchains/capabilities.json` describes helper support. Optional
-helper output does not establish that a calculation completed or that a result
-is scientifically valid.
-
-## Unsupported Engines
-
-Unsupported engines do not receive placeholder Skills. The host keeps the
-requested software as context and may combine relevant Research Task or
-host-native custom Skills without mapping it to a supported SimFlow engine.
-
-QE, Gaussian, ABINIT, GROMACS, OpenMM, Phonopy, NEPTrainKit, DeePMD, MACE,
-NequIP, Allegro, and other tools may appear in project records or user-provided
-scripts. SimFlow does not advertise engine-specific generation, validation,
-parsing, execution, or scientific interpretation for them unless a tested
-Domain Skill and release contract exist.
-
-## Runtime Observation Boundary
-
-SimFlow records only events that pass through its compact runtime. It does not
-observe arbitrary host shell commands, parse Codex/Claude/OpenCode transcripts,
-or infer that a Skill was loaded.
-
-New state consists of append-only `.simflow/experiments/*.md` notebooks,
-`.simflow/records.jsonl`, compact checkpoints, reports, and deterministic
-`project.json`/Experiment-index views. Historical `.simflow/state/*.json`,
-legacy `.simflow/memory/`, and nested `.simflow` roots are read-only
-compatibility input. Explicit migration writes a single metadata index and
-never reorganizes or imports source content.
-
-There is no SQLite/session/activity ledger, Experiment lifecycle controller,
-per-file artifact registry, automatic session handoff, or automatic stage
-checkpoint. Compact Experiment notebooks are intentionally retained to prevent
-loss of scientific questions, Attempts, observations, decisions, and next steps
-across host sessions. Their ontology is capped at those four entry types.
-Persistent evidence changes and technical recovery remain operational facts,
-not notebook lifecycles.
-
-## Execution Boundary
-
-The public HPC surface is `plan`, `transfer`, `submit`, and `status`. Real
-local, remote, or scheduler execution requires:
-
-- a current immutable run plan;
-- dry-run validation and credential scan from that plan;
-- explicit approval bound to its exact `run_plan_hash`;
-- unchanged script, inputs, target, resources, transfer scope, destructive
-  scope, and restricted-file metadata.
-
-Remote file movement uses `hpc/transfer` with `direction=upload|download` and a
-verified manifest. SSH operations use the isolated credential broker. Direct
-host `ssh` or `scp` commands are outside SimFlow's observable runtime and must
-not be represented as tracked SimFlow execution.
-
-An unchanged retry may reuse approval. A materially changed plan requires new
-approval. Job submission, output existence, and parser success do not prove
-scientific completion.
-
-## Licensed And Large Scientific Artifacts
-
-The repository and generated distributions must not contain real VASP
-`POTCAR`, `WAVECAR`, `CHGCAR`, `OUTCAR`, or `vasprun.xml` artifacts. Examples may
-include redistributable metadata placeholders or explicit synthetic fixtures.
-
-A user-owned POTCAR library may be materialized into a controlled calculation
-directory and transferred through an approved run plan. POTCAR bodies remain
-outside `.simflow`, Git, packages, checkpoints, logs, and ordinary records.
-
-## Distribution Boundary
-
-Codex and Claude marketplace branches and the `opencode-simflow` npm package
-are the user-facing distribution channels. The OpenCode adapter targets stable
-OpenCode `1.18.9 <= version < 2`; V2 beta APIs are outside the current contract.
-PyPI is not the primary install path until a package is published and
-install-smoked.
-
-Standard MCP `clientInfo` may tailor discovery wording. It does not change tool
-semantics, approval, project-root checks, or credential isolation.
-
-## Scientific Responsibility
-
-Research Task and Domain Skills improve how work is performed. The host agent
-and user remain responsible for scientific decisions, literature selection,
-model choices, parameter justification, interpretation, and final claims.
-SimFlow must not turn planned, submitted, partial, parsed, or failed work into a
-completed scientific result.
+The VASP lightweight parser does not infer convergence from OSZICAR, minimal
+XML extraction, or EIGENVAL. These sources provide data only. OUTCAR checks
+separate final SCF evidence, structural stopping evidence, and normal
+termination. The output validator's force threshold is an additional requested
+check; it is not a substitute for the calculation's original convergence criteria.
+CP2K CIF conversion expands symmetry using ASE and rejects partial/disordered
+occupancies; resolve those structures explicitly before generating inputs.

@@ -8,7 +8,7 @@ figure-data-claim rules.
 
 ## Shared checks
 
-- Start with a file manifest, source artifact ids, software or data provenance, unit conventions, and missing-output notes.
+- Identify the source files, software or data provenance, unit conventions, and missing outputs needed for the question.
 - Separate raw outputs, parsed data, derived data, plots, captions, and interpretation notes.
 - Record warnings, unconverged states, failed frames, rejected points, and alternative interpretations.
 - Do not infer completion from the presence of an output file alone. Check convergence, run termination, and expected frame or step counts.

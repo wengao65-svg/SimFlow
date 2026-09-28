@@ -13,6 +13,9 @@ state.
 
 ## Domain principles
 
+- For real execution, review the command, inputs, destination, and resources;
+  follow the host's permissions and the user's authorization for that action.
+
 - Identify units, atom style, boundary conditions, force field, type mapping,
   and intended ensemble before interpreting commands.
 - Separate classical, reactive, and MLP deployment assumptions.
@@ -57,6 +60,10 @@ state.
 - LAMMPS-specific input and output semantics are understood.
 - Execution warnings and scientific limitations are visible.
 - Final property claims are deferred to appropriate analysis methodology.
+
+## Optional local tools
+
+`scripts/generate_lammps_inputs.py`, `inspect_lammps_inputs.py`, and `parse_lammps_outputs.py` are independent local helpers. Generation requires an explicit directory; existing inputs require `--overwrite`. A parsed thermo table does not establish convergence.
 
 ## Optional references
 

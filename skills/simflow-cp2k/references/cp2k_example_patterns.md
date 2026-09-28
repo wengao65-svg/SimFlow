@@ -126,21 +126,14 @@ Handoff content should include:
 - Upload manifest and expected retrieval files.
 - Recommended command shape such as `cp2k.psmp -i input.inp -o output.log`, without claiming the executable exists locally.
 - Execution-environment assumptions: module name, CP2K version, data-library availability, scheduler, MPI layout, walltime, memory, and scratch policy when known.
-- Required approval evidence before real execution: input validation, dry-run/plan, resource estimate, credential scan, file hashes, and explicit gate decision.
+- Before real execution, review the validated inputs, intended command,
+  destination, resource estimate, transfer scope, and host permissions with
+  the user when authorization is needed.
 
-Do not submit local, remote, or HPC jobs from this skill without the SimFlow approval gate.
-
-For remote execution, use this MCP sequence after the calculation package and
-dry-run evidence are ready:
-
-1. Call `hpc/plan` with the script, complete input set, target, remote directory, resources, and transfer scope.
-2. Record an explicit approval bound to the returned immutable `run_plan_hash`.
-3. Call `hpc/transfer` with `direction=upload` and wait for a verified transfer report.
-4. Call `hpc/submit` with the same `run_plan_hash` and verified transfer report.
-5. Poll with `hpc/status`; create and approve a download plan before calling `hpc/transfer` with `direction=download`.
-
-Direct Agent `scp`/`ssh` is an explicit override path only and is not the
-supported tracked workflow.
+For remote work, use the user's existing access and scheduler tools. Check what
+will be uploaded or overwritten, submit only within the authorized scope, and
+inspect scheduler status and retrieved scientific outputs separately. A changed
+command, input set, target, or resource request may need fresh authorization.
 
 ## Output review pattern
 

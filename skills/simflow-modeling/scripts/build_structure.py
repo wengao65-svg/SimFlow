@@ -9,29 +9,30 @@ Supports creating structures from:
 
 import argparse
 import json
-import sys
 from pathlib import Path
-
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 from pymatgen.core import Structure, Lattice
 
 
+# Conventional cubic cells; lattice_param is the conventional lattice constant.
+FCC_SITES = [[0, 0, 0], [0, .5, .5], [.5, 0, .5], [.5, .5, 0]]
+
+
+def _fcc_basis(a, elements, offset=None):
+    sites = list(FCC_SITES)
+    species = [elements[0]] * 4
+    if offset is not None:
+        sites += [[(x + d) % 1 for x, d in zip(site, offset)] for site in FCC_SITES]
+        species += [elements[-1]] * 4
+    return Structure(Lattice.cubic(a), species, sites)
+
+
 STRUCTURE_TYPES = {
-    "fcc": lambda a, el: Structure(Lattice.cubic(a), [el], [[0, 0, 0]]),
-    "bcc": lambda a, el: Structure(Lattice.cubic(a), [el, el], [[0, 0, 0], [0.5, 0.5, 0.5]]),
-    "diamond": lambda a, el: Structure(
-        Lattice.cubic(a), [el, el], [[0, 0, 0], [0.25, 0.25, 0.25]]
-    ),
-    "rocksalt": lambda a, el1, el2: Structure(
-        Lattice.cubic(a), [el1, el2], [[0, 0, 0], [0.5, 0.5, 0.5]]
-    ),
-    "zincblende": lambda a, el1, el2: Structure(
-        Lattice.cubic(a), [el1, el2], [[0, 0, 0], [0.25, 0.25, 0.25]]
-    ),
+    "fcc": lambda a, el: _fcc_basis(a, [el]),
+    "bcc": lambda a, el: Structure(Lattice.cubic(a), [el, el], [[0, 0, 0], [.5, .5, .5]]),
+    "diamond": lambda a, el: _fcc_basis(a, [el], [.25, .25, .25]),
+    "rocksalt": lambda a, el1, el2: _fcc_basis(a, [el1, el2], [.5, 0, 0]),
+    "zincblende": lambda a, el1, el2: _fcc_basis(a, [el1, el2], [.25, .25, .25]),
 }
 
 
@@ -79,13 +80,13 @@ def main():
     p_type.add_argument("--type", required=True, choices=list(STRUCTURE_TYPES.keys()))
     p_type.add_argument("--lattice-param", type=float, required=True, help="Lattice parameter (Angstrom)")
     p_type.add_argument("--elements", nargs="+", required=True, help="Element symbols")
-    p_type.add_argument("--output", default="POSCAR", help="Output file")
+    p_type.add_argument("--output", required=True, help="Output file")
     p_type.add_argument("--format", choices=["poscar", "cif"], default="poscar")
 
     # From file
     p_file = sub.add_parser("from_file", help="Read from CIF/POSCAR")
     p_file.add_argument("--input", required=True, help="Input file")
-    p_file.add_argument("--output", default="POSCAR", help="Output file")
+    p_file.add_argument("--output", required=True, help="Output file")
     p_file.add_argument("--format", choices=["poscar", "cif"], default="poscar")
 
     # From parameters
@@ -100,15 +101,17 @@ def main():
     p_params.add_argument("--coords", nargs="+", required=True,
                           help="Coordinates as 'x,y,z' strings")
     p_params.add_argument("--fractional", action="store_true", default=True)
-    p_params.add_argument("--output", default="POSCAR")
+    p_params.add_argument("--output", required=True)
     p_params.add_argument("--format", choices=["poscar", "cif"], default="poscar")
-    add_helper_recording_args(parser, default_stage="modeling")
+
+    for command in (p_type, p_file, p_params):
+        command.add_argument("--overwrite", action="store_true", help="Explicitly replace an existing output file")
 
     args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
-        sys.exit(1)
+        parser.exit(1)
 
     try:
         if args.command == "from_type":
@@ -123,10 +126,14 @@ def main():
             )
         else:
             parser.print_help()
-            sys.exit(1)
+            parser.exit(1)
 
         # Write output
         output_path = Path(args.output)
+        if ".simflow" in output_path.expanduser().resolve().parts:
+            raise ValueError("Structure output cannot be written under .simflow")
+        if output_path.exists() and not args.overwrite:
+            raise FileExistsError(f"Refusing to overwrite existing structure: {output_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         if args.format == "cif" or args.output.endswith(".cif"):
@@ -150,20 +157,11 @@ def main():
             },
             "volume": round(structure.volume, 4),
         }
-        input_paths = [args.input] if getattr(args, "command", None) == "from_file" else []
-        info = maybe_record_helper_run(
-            args=args,
-            result=info,
-            script_path=Path(__file__).resolve(),
-            helper_name="build_structure",
-            input_paths=input_paths,
-            output_paths=[str(output_path)],
-        )
         print(json.dumps(info, indent=2))
 
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))
-        sys.exit(1)
+        parser.exit(1)
 
 
 if __name__ == "__main__":

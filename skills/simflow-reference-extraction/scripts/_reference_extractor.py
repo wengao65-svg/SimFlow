@@ -18,15 +18,12 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import contextlib
+import io
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Any
 
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
-
-from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:  # Optional dependencies are checked by the commands that need them.
     import numpy as np
@@ -45,7 +42,10 @@ except ImportError:  # pragma: no cover - exercised with import blocking in test
     ImageDraw = None
 
 try:
-    import fitz  # PyMuPDF
+    # Some PyMuPDF versions print a deprecation notice to stdout at import;
+    # keep the CLI stdout machine-readable for JSON-producing commands.
+    with contextlib.redirect_stdout(io.StringIO()):
+        import fitz  # PyMuPDF
 except ImportError:  # pragma: no cover - exercised with import blocking in tests
     fitz = None
 
@@ -93,12 +93,10 @@ def require_pillow() -> None:
         )
 
 
-def prepare_output_dir(path: Path, *, overwrite: bool, project_root: str | None = None) -> Path:
+def prepare_output_dir(path: Path, *, overwrite: bool) -> Path:
     """Create a dedicated output directory without silently deleting user data."""
     resolved = path.expanduser().resolve()
     protected = {Path("/").resolve(), Path.home().resolve(), Path.cwd().resolve()}
-    if project_root:
-        protected.add(Path(project_root).expanduser().resolve())
     if resolved in protected:
         raise ValueError(f"Refusing to use protected directory as extraction output: {resolved}")
     if resolved.exists() and not resolved.is_dir():
@@ -1819,7 +1817,7 @@ def raster_heatmap_extract(args) -> dict[str, Any]:
     jdump(meta,out/"metadata.json"); return meta
 
 
-def dataset_validate(dataset_dir: Path) -> dict[str, Any]:
+def dataset_validate(dataset_dir: Path, report: Path | None = None) -> dict[str, Any]:
     meta_path=dataset_dir/"metadata.json"; csv_path=dataset_dir/"reference_data.csv"
     issues=[]; warnings=[]
     if not meta_path.exists(): issues.append("metadata.json missing")
@@ -1843,7 +1841,8 @@ def dataset_validate(dataset_dir: Path) -> dict[str, Any]:
         for _,fname in (meta.get("outputs") or {}).items():
             if isinstance(fname,str) and fname and not (dataset_dir/fname).exists(): warnings.append(f"declared output missing: {fname}")
     result={"schema_version":"0.3","dataset_dir":str(dataset_dir),"row_count":rows,"columns":fields,"ok":not issues,"issues":issues,"warnings":warnings}
-    jdump(result,dataset_dir/"validation_report.json")
+    if report is not None:
+        jdump(result, report)
     return result
 
 def source_manifest(source: Path, out: Path) -> dict[str, Any]:
@@ -2135,10 +2134,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--value-name", default="value"); s.add_argument("--value-unit")
     s.add_argument("--conditions", help="JSON object string")
 
-    s = sub.add_parser("dataset-validate", help="Validate a normalized output directory and write validation_report.json")
+    s = sub.add_parser("dataset-validate", help="Validate a normalized output directory")
     s.add_argument("dataset_dir")
+    s.add_argument("--report", help="Optional JSON validation report path")
     for name, command_parser in sub.choices.items():
-        add_helper_recording_args(command_parser, default_stage="analysis_visualization")
         if name != "dataset-validate":
             command_parser.add_argument(
                 "--overwrite",
@@ -2156,33 +2155,6 @@ def _command_input_paths(args: argparse.Namespace) -> list[str]:
     return []
 
 
-def _attach_helper_evidence(args: argparse.Namespace, result: dict[str, Any]) -> dict[str, Any]:
-    validation_ok = result.get("ok")
-    status = "warning" if validation_ok is False else "success"
-    result["helper_evidence"] = build_helper_evidence(
-        helper="extract_reference_data",
-        capability=args.command.replace("-", "_"),
-        status=status,
-        stage=args.stage,
-        activity="scientific_reference_extraction",
-        evidence_role="reference_dataset",
-        source_files=[source_file_record(path) for path in _command_input_paths(args)],
-        actual_tool_used={"software": "custom", "name": "simflow-reference-extraction"},
-        parser_status="parsed" if status == "success" else "partial",
-        claim_limits=[
-            "Successful parsing does not establish scientific correctness.",
-            "Figure-derived values remain reconstructions at their recorded provenance grade.",
-        ],
-        warnings=result.get("warnings", []),
-        limitations=[
-            "Semantic figure, panel, series, unit, and condition choices require scientific review.",
-        ],
-        parent_artifacts=getattr(args, "parent_artifact", None),
-        dataset_schema_version=result.get("schema_version"),
-    )
-    return result
-
-
 def main() -> int:
     args = build_parser().parse_args()
     try:
@@ -2191,7 +2163,6 @@ def main() -> int:
                 prepare_output_dir(
                     Path(args.out),
                     overwrite=bool(args.overwrite),
-                    project_root=args.project_root,
                 )
             )
         if args.command == "source-manifest":
@@ -2215,25 +2186,12 @@ def main() -> int:
         elif args.command == "raster-heatmap-extract":
             result = raster_heatmap_extract(args)
         elif args.command == "dataset-validate":
-            result = dataset_validate(Path(args.dataset_dir).resolve())
+            result = dataset_validate(
+                Path(args.dataset_dir).resolve(),
+                Path(args.report).expanduser().resolve() if args.report else None,
+            )
         else:
             raise AssertionError(args.command)
-        result = _attach_helper_evidence(args, result)
-        output_paths = [args.out] if hasattr(args, "out") else [str(Path(args.dataset_dir).resolve() / "validation_report.json")]
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).with_name("extract_reference_data.py"),
-            helper_name="extract_reference_data",
-            software="custom",
-            input_paths=_command_input_paths(args),
-            output_paths=output_paths,
-            metadata={
-                "capability": args.command.replace("-", "_"),
-                "evidence_role": "reference_dataset",
-                "dataset_schema_version": result.get("schema_version"),
-            },
-        )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except Exception as exc:

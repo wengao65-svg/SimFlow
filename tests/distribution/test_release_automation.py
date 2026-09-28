@@ -26,39 +26,8 @@ def test_release_validation_supports_local_skip_wrapper_mode():
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Version Synchronization" in result.stdout
-    assert "Support Matrix" in result.stdout
-    assert "Simplification Contract" in result.stdout
-    assert "legacy workflow notification templates remain absent from the source tree" in result.stdout
-    assert "Restricted Artifact Scan" in result.stdout
-    assert "Workflow Automation" in result.stdout
-    assert "Marketplace Version Guard" in result.stdout
-    assert "OpenCode source adapter exists" in result.stdout
-    assert "OpenCode canonical plugin module exists" in result.stdout
-    assert "safe dry-run example records plan and deliverable" in result.stdout
-    assert "LAMMPS safe dry-run example records plan and deliverable" in result.stdout
-    assert "H2O CP2K input-only example completes without runtime state" in result.stdout
-    assert "examples contain no direct SSH, SCP, sbatch, or submit bypass path" in result.stdout
-    assert "unused custom Skill extension surface remains removed" in result.stdout
-    assert "current docs describe four-entry memory and only implemented credential integrations" in result.stdout
-    assert "workflow review gates expose no execution actions" in result.stdout
-    assert "compatibility HPC gates cannot authorize execution" in result.stdout
-    assert "MLP workflow docs describe readiness as a scientific decision" in result.stdout
-    assert "simflow_state tools/list exposes four compact tools" in result.stdout
-    assert "public Skill surface is exactly one Framework, seven Task, and five Domain Skills" in result.stdout
-    assert "public Skill scripts contain no stage runners or stateful runtime calls" in result.stdout
-    assert "public Skill text contains no runtime registration or placeholder instructions" in result.stdout
-    assert "legacy SQLite/session/activity ledger ceremony remains absent from tracked runtime sources" in result.stdout
-    assert "compact Experiment notebook module, summary rebuild, and schema are release-required" in result.stdout
-    assert "tracked runtime contains no SQLite ledger implementation" in result.stdout
-    assert "Experiment Memory v1 ontology is capped at four entry types with no action field" in result.stdout
-    assert "HPC consumes existing Attempt references and Run identity remains independent" in result.stdout
-    assert "four-entry Experiment memory, immutable evidence changes, and read-only inspect are operational" in result.stdout
-    assert "Experiment and Attempt bindings do not affect immutable run_plan_hash" in result.stdout
-    assert "legacy state and memory migration is metadata-only until explicit current-hash confirmation" in result.stdout
-    assert "compact records redact credentials and POTCAR materialization remains metadata-only" in result.stdout
-    assert "hpc exposes four immutable-plan tools, bound approval, and fail-closed credential scans" in result.stdout
-    assert "operational Skill script directories contain no Python entry points" in result.stdout
+    assert "SimFlow Skill Pack Release Validation" in result.stdout
+    assert "default MCP files absent" in result.stdout
     assert "wrapper build validation skipped" in result.stdout
     assert "Errors: 0" in result.stdout
 

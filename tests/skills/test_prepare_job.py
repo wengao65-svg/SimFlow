@@ -9,7 +9,6 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-computation" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
-# Also add runtime/lib for hpc module
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
@@ -54,10 +53,10 @@ def test_prepare_job_with_output():
             "software": "vasp",
             "num_atoms": 2,
         }
-        result = prepare_job(config, "slurm", tmpdir, dry_run=True)
+        result = prepare_job(config, "slurm", tmpdir)
         assert result["status"] == "success"
         assert os.path.exists(result["script_path"])
-        assert result["dry_run"] is True
+        assert "dry_run" not in result
 
 
 def test_resource_estimation():
@@ -70,7 +69,7 @@ def test_resource_estimation():
             "job_type": "relax",
             "num_atoms": 200,
         }
-        result = prepare_job(config, "slurm", tmpdir, dry_run=True)
+        result = prepare_job(config, "slurm", tmpdir)
         assert result["resource_estimate"] is not None
         assert result["resource_estimate"]["recommended_nodes"] >= 1
 
@@ -82,3 +81,15 @@ if __name__ == "__main__":
         t()
         print("OK")
     print(f"\n  All {len(tests)} tests passed!")
+
+
+def test_existing_script_requires_explicit_overwrite(tmp_path):
+    import pytest
+    from prepare_job import prepare_job
+    script = tmp_path / "job.slurm"
+    script.write_text("user script")
+    with pytest.raises(FileExistsError):
+        prepare_job({"nodes": 1}, "slurm", str(tmp_path))
+    assert script.read_text() == "user script"
+    prepare_job({"nodes": 1}, "slurm", str(tmp_path), overwrite=True)
+    assert "#SBATCH" in script.read_text()

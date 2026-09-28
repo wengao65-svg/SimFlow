@@ -4,21 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
-import sys
 from pathlib import Path
 from typing import Any
-
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
-
-from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.toolchains import support_level_for_capability, support_level_for_tool
-from runtime.simflow_helpers.adapters import adapter_capabilities
-
 
 RECOGNIZED_ROLES = {
     "thermo.out": "thermo_table",
@@ -38,16 +27,6 @@ RECOGNIZED_ROLES = {
     "kappa.out": "thermal_conductivity_table",
     "dos.out": "density_of_states_table",
 }
-
-
-def _sha256(path: Path) -> str | None:
-    if not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(8192), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _infer_software(path: Path, selected: str) -> str:
@@ -81,7 +60,6 @@ def parse_table(path: Path, software: str) -> dict[str, Any]:
             "path": str(path),
             "present": False,
             "bytes": None,
-            "sha256": None,
             "software": inferred_software,
             "parsed": False,
             "parser_status": "missing",
@@ -123,7 +101,6 @@ def parse_table(path: Path, software: str) -> dict[str, Any]:
         "path": str(path),
         "present": True,
         "bytes": path.stat().st_size if path.is_file() else None,
-        "sha256": _sha256(path),
         "software": inferred_software,
         "parsed": parsed,
         "parser_status": parser_status,
@@ -152,8 +129,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Parse selected GPUMD/NEP output tables")
     parser.add_argument("--files", nargs="+", required=True, help="Output files to parse")
     parser.add_argument("--software", choices=["auto", "gpumd", "nep"], default="auto")
-    parser.add_argument("--output", default=None, help="Optional JSON summary output")
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
+    parser.add_argument("--report", help="Optional JSON summary path")
     args = parser.parse_args()
 
     parsed_files = [parse_table(Path(path).expanduser(), args.software) for path in args.files]
@@ -161,49 +137,21 @@ def main() -> None:
     blocked = all(item["parser_status"] in {"missing", "unrecognized", "malformed"} for item in parsed_files)
     degraded = any(item["parser_status"] != "parsed" or item.get("warnings") for item in parsed_files)
     software = "nep" if all(item["software"] == "nep" for item in parsed_files) else "gpumd"
-    result = build_helper_evidence(
-        helper="parse_gpumd_outputs",
-        capability="selected_output_parsing",
-        status="blocked" if blocked else ("warning" if degraded else "success"),
-        stage="analysis_visualization",
-        activity="selected_output_parsing",
-        evidence_role="gpumd_nep_output_parse_summary",
-        source_files=[source_file_record(path) for path in args.files],
-        actual_tool_used={
-            "software": software,
-            "support_level": support_level_for_tool({}, software),
-        },
-        parser_status=overall_parser_status,
-        claim_limits=[
-            "No convergence, model-quality, or transport-property claim is made.",
-            "Parsed numeric summaries must be reviewed against the original GPUMD/NEP context.",
+    result = {
+        "status": "blocked" if blocked else ("warning" if degraded else "success"),
+        "software": software,
+        "parser_status": overall_parser_status,
+        "files": parsed_files,
+        "claim_limits": [
+            "Numeric parsing does not establish convergence, model quality, or transport properties.",
+            "Review column meaning and units against the original GPUMD/NEP context.",
         ],
-        limitations=[
-            "Only simple numeric tables are parsed.",
-            "No convergence, model-quality, or transport-property claim is made.",
-        ],
-        files=parsed_files,
-        capability_support_level=support_level_for_capability(
-            software,
-            "selected_output_parsing",
-        ),
-        adapter_capabilities=adapter_capabilities(software),
-    )
-    if args.output:
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        result["output_file"] = str(output)
-    result = maybe_record_helper_run(
-        args=args,
-        result=result,
-        script_path=Path(__file__).resolve(),
-        helper_name="parse_gpumd_outputs",
-        software=software,
-        input_paths=args.files,
-        output_paths=[args.output] if args.output else [],
-        metadata={"capability": "selected_output_parsing", "helper_result_status": result.get("status")},
-    )
+    }
+    if args.report:
+        report = Path(args.report).expanduser()
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        result["report"] = str(report)
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 

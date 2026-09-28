@@ -15,17 +15,10 @@ default; user-explicit values are preserved with warnings when needed.
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
-# Add runtime to path for vasp_potcar/vasp_incar modules
-SIMFLOW_ROOT = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(SIMFLOW_ROOT))
-sys.path.insert(0, str(SIMFLOW_ROOT / "runtime"))
-
-from runtime.simflow_core.result_contract import attach_simflow_result
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
     from pymatgen.core import Structure
@@ -34,13 +27,12 @@ except ImportError:
     print(json.dumps({"status": "error", "message": "pymatgen not installed"}))
     sys.exit(1)
 
-from runtime.simflow_helpers.engines.vasp_potcar import (
+from lib.vasp_potcar import (
     generate_potcar,
     get_potcar_nelect,
-    get_potcar_path,
     read_poscar_species,
 )
-from runtime.simflow_helpers.engines.vasp_incar import (
+from lib.vasp_incar import (
     apply_nbands_policy,
     apply_ncore_npar_policy,
     filter_vasp_incar_params,
@@ -147,7 +139,7 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
                          potcar_root: str = None, use_vaspkit: bool = False,
                          potcar_flavor: str = None,
                          potcar_setups: str | dict | None = None,
-                         project_root: str = None) -> dict:
+                         overwrite: bool = False) -> dict:
     """Generate complete VASP input set.
 
     Args:
@@ -160,7 +152,6 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         use_vaspkit: Compatibility-only VASPKIT toggle; never used for POTCAR
         potcar_flavor: POTCAR functional flavor
         potcar_setups: Fixed ASE-style profile or element suffix overrides
-        project_root: Optional project boundary for restricted materialization
 
     Returns:
         Dict with status, files generated, and POTCAR generation info
@@ -168,7 +159,12 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
     structure = Structure.from_file(poscar_path)
     params = params or {}
 
-    output_path = Path(output_dir)
+    output_path = Path(output_dir).expanduser().resolve()
+    if ".simflow" in output_path.parts:
+        raise ValueError("VASP inputs cannot be written under .simflow")
+    existing = [name for name in ("POSCAR", "INCAR", "KPOINTS") if (output_path / name).exists()]
+    if existing and not overwrite:
+        raise FileExistsError(f"Refusing to overwrite existing VASP inputs: {', '.join(existing)}; pass --overwrite explicitly")
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Write the normalized POSCAR first so POTCAR selection follows the exact
@@ -184,41 +180,18 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
     except Exception:
         elements = [str(s) for s in structure.composition.elements]
 
-    configured_root = potcar_root or get_potcar_path()
-    if configured_root and ".simflow" in output_path.resolve().parts:
-        potcar_result = {
-            "status": "metadata_only",
-            "reason_code": "calculation_dir_required",
-            "message": "Configured POTCAR materialization requires a calculation directory outside .simflow.",
-            "elements": elements,
-            "resolved_datasets": [],
-            "restricted": True,
-            "content_materialized": False,
-            "content_included": False,
-            "output_name": "POTCAR",
-        }
-    else:
-        potcar_result = generate_potcar(
-            str(poscar_out),
-            str(potcar_out),
-            potcar_root=potcar_root,
-            flavor=potcar_flavor,
-            setups=potcar_setups,
-            use_vaspkit=use_vaspkit,
-            project_root=project_root,
-        )
+    potcar_result = generate_potcar(
+        str(poscar_out),
+        str(potcar_out),
+        potcar_root=potcar_root,
+        flavor=potcar_flavor,
+        setups=potcar_setups,
+        use_vaspkit=use_vaspkit,
+        project_root=str(output_path.parent),
+    )
 
     if potcar_result["status"] in {"materialized", "existing"} and potcar_out.is_file():
         potcar_path_for_incar = str(potcar_out)
-    else:
-        potcar_info = {
-            "note": "Restricted POTCAR content is not included in this metadata file.",
-            "elements": elements,
-            "generation": potcar_result,
-            "allowed_action": "Configure a licensed local POTCAR library and a controlled calculation directory before real execution.",
-        }
-        (output_path / "POTCAR_info.json").write_text(json.dumps(potcar_info, indent=2))
-        files_generated.append(str(output_path / "POTCAR_info.json"))
 
     if potcar_result["status"] in {"error", "needs_inputs"}:
         result = {
@@ -232,14 +205,7 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
             "elements": [str(s) for s in structure.composition.elements],
             "potcar": potcar_result,
         }
-        return attach_simflow_result(
-            result,
-            role="helper",
-            activity="vasp_generate_inputs",
-            legacy_status=result["status"],
-            stage="computation",
-            state_effect="none",
-        )
+        return result
 
     # INCAR (after POTCAR, so we can read ZVAL for NBANDS policy)
     incar, incar_policy = generate_incar(
@@ -272,14 +238,7 @@ def generate_vasp_inputs(poscar_path: str, job_type: str, output_dir: str,
         "incar_policy": incar_policy,
         "potcar": potcar_result,
     }
-    return attach_simflow_result(
-        result,
-        role="helper",
-        activity="vasp_generate_inputs",
-        legacy_status=result["status"],
-        stage="computation",
-        state_effect="none",
-    )
+    return result
 
 
 def main():
@@ -291,20 +250,21 @@ def main():
                                  "optics", "dielectric", "eels",
                                  "gw", "rpa", "bse", "wannier"],
                         help="VASP job type")
-    parser.add_argument("--output-dir", default="vasp_input", help="Output directory")
+    parser.add_argument("--output-dir", required=True, help="Explicit calculation output directory")
     parser.add_argument("--params", type=str, default="{}",
                         help="JSON string of INCAR parameter overrides")
     parser.add_argument("--kppa", type=int, default=1000,
                         help="K-points per reciprocal atom")
     parser.add_argument("--potcar-root", type=str, default=None,
-                        help="Licensed local POTCAR library root; path is redacted from helper records")
+                        help="Licensed local POTCAR library root; never included in reports")
     parser.add_argument("--potcar-flavor", type=str, default=None,
                         help="POTCAR functional flavor; defaults to SIMFLOW_VASP_POTCAR_FLAVOR or PBE")
     parser.add_argument("--potcar-setups", type=str, default=None,
                         help="minimal, recommended, gw, or a JSON object with base and element suffix overrides")
     parser.add_argument("--use-vaspkit", action="store_true",
                         help="Compatibility-only flag; SimFlow never delegates POTCAR materialization to VASPKIT")
-    add_helper_recording_args(parser, default_stage="computation")
+    parser.add_argument("--report", help="Optional JSON report path")
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly replace existing POSCAR, INCAR, or KPOINTS")
     args = parser.parse_args()
 
     try:
@@ -318,30 +278,12 @@ def main():
                                        use_vaspkit=args.use_vaspkit,
                                        potcar_flavor=args.potcar_flavor,
                                        potcar_setups=potcar_setups,
-                                       project_root=args.project_root)
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="vasp_generate_inputs",
-            software="vasp",
-            input_paths=[args.poscar],
-            output_paths=result.get("files_generated", []),
-            sensitive_cli_options=["--potcar-root"],
-            sensitive_json_cli_options={
-                "--params": [
-                    "potcar_root",
-                    "potcar_path",
-                    "SIMFLOW_VASP_POTCAR_PATH",
-                    "VASP_POTCAR_PATH",
-                    "POTCAR_ROOT",
-                    "POTCAR_PATH",
-                    "POTPAW",
-                    "POTPAW_PBE",
-                    "POTPAW_LDA",
-                ],
-            },
-        )
+                                       overwrite=args.overwrite)
+        if args.report:
+            report = Path(args.report).expanduser()
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            result["report"] = str(report)
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

@@ -27,7 +27,7 @@ Use this reference for ab-initio molecular dynamics, thermostat/barostat choices
 
 ## SimFlow guidance
 
-- AIMD and MLFF training are high-cost compute; require dry-run evidence and approval gates before real execution.
+- AIMD and MLFF training are high-cost compute; review the dry-run, resources, target, and command with the user before real execution when host permissions require authorization.
 - Separate equilibration from production in reports and figures.
 - Record uncertainty estimates, time origins, sampling interval, unit conversions, and discarded transient.
 - For MLFF, record training database provenance, test errors, active-learning decisions, and prediction-only vs ab-initio steps.

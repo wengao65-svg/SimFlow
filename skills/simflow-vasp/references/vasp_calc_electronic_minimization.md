@@ -26,12 +26,12 @@ Use this reference for static ground-state calculations, molecule or bulk setup 
 
 ## SimFlow guidance
 
-- Default to dry-run/static inspection unless the user explicitly requests real execution and approval gates pass.
+- Default to dry-run/static inspection unless the user explicitly requests real
+  execution and the host permits the requested action.
 - Do not infer convergence from file existence or scheduler completion.
 - For downstream DOS/band/SOC/hybrid/GW/BSE work, record whether `CHGCAR`, `WAVECAR`, `vaspout.h5`, and Fermi-level evidence are needed.
-- Keep input manifests, validation reports, dry-run reports, and helper-run
-  manifests together; reference the logical package once only when durable
-  provenance is needed.
+- If a durable note is needed, record reviewed inputs, the calculation command,
+  validation limits, and output paths in the user's chosen project record.
 
 ## Common risks
 

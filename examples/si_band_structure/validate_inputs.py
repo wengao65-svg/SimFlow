@@ -7,8 +7,6 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-SIMFLOW_ROOT = SCRIPT_DIR.parent.parent
-sys.path.insert(0, str(SIMFLOW_ROOT))
 
 
 def validate_step(step: str, real_submit: bool = False) -> list:
@@ -47,9 +45,8 @@ def validate_step(step: str, real_submit: bool = False) -> list:
     potcar = step_dir / "POTCAR"
     potcar_metadata = step_dir / "POTCAR.metadata.json"
     if potcar.exists():
-        first_line = potcar.read_text().split("\n")[0]
-        if "Si" not in first_line:
-            issues.append(f"{step}/POTCAR first line: {first_line.strip()} (expected Si)")
+        if not potcar.is_file() or potcar.stat().st_size == 0:
+            issues.append(f"{step}/POTCAR is empty or not a regular file")
     elif potcar_metadata.exists():
         try:
             metadata = json.loads(potcar_metadata.read_text())
@@ -106,7 +103,7 @@ def main():
             steps = ", ".join(missing_real_potcar)
             print(f"Input metadata valid for dry-run. Provide licensed POTCAR locally before real submission: {steps}.")
         else:
-            print("All inputs valid. Ready for submission.")
+            print("Required files are present. Review POTCAR dataset, parameters, resources, and command before submission.")
     else:
         print("Some issues found. Fix before submission.")
         sys.exit(1)

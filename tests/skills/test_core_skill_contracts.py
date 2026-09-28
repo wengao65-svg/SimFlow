@@ -38,8 +38,6 @@ REMOVED_OPERATIONAL_AND_PLACEHOLDER_SKILLS = [
 
 PURE_TASK_REQUIRED_SECTIONS = [
     "## Purpose",
-    "## Use when",
-    "## Do not use when",
     "## Task principles",
     "## Minimum checks",
     "## Common failure modes",
@@ -78,16 +76,16 @@ def _normalized_skill_text(skill_name: str) -> str:
 
 
 def test_canonical_core_skills_exist():
-    for skill_name in ["simflow", *RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS]:
+    for skill_name in [*RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS]:
         skill_file = SKILLS / skill_name / "SKILL.md"
         assert skill_file.is_file(), skill_name
         text = skill_file.read_text(encoding="utf-8")
         assert f"name: {skill_name}" in text
 
 
-def test_public_skill_surface_is_exactly_thirteen():
+def test_public_skill_surface_is_exactly_twelve():
     public = {path.parent.name for path in SKILLS.glob("*/SKILL.md")}
-    expected = {"simflow", *RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS}
+    expected = {*RESEARCH_TASK_SKILLS, *ENGINE_DOMAIN_SKILLS}
     assert public == expected
     for skill_name in REMOVED_OPERATIONAL_AND_PLACEHOLDER_SKILLS:
         assert not (SKILLS / skill_name / "SKILL.md").exists()
@@ -137,8 +135,7 @@ def test_computation_preserves_scientific_execution_discipline():
     assert "parser can read" in text
     assert "small diagnostic run" in text
     assert "do not silently relax scientific settings" in text
-    assert "runtime safety and event recording" in text
-    assert "remain separate from this guidance" in text
+    assert "host's permission controls" in text
 
 
 def test_analysis_visualization_allows_agent_written_analysis():
@@ -285,8 +282,8 @@ def test_lammps_skill_covers_classic_reactive_mlp_and_reference_contracts():
     references_dir = SKILLS / "simflow-lammps" / "references"
 
     for phrase in [
-        "classical md",
-        "reactive md",
+        "classical",
+        "reactive",
         "mlp deployment",
         "troubleshooting",
         "simflow-mlp",

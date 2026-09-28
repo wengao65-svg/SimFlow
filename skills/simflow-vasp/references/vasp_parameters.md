@@ -87,7 +87,7 @@ These are common research-grade targets, not automatic pass/fail standards. Reco
 ## POTCAR and NELECT discipline
 
 - SimFlow must not return, print, snapshot, register as a normal artifact, commit, package, or redistribute POTCAR content.
-- A configured user-owned library may be read and concatenated only by the SimFlow runtime into a controlled calculation directory. ASE supplies setup tables only and never handles restricted file materialization.
+- A configured user-owned library may be read and concatenated only by the host tools into a controlled calculation directory. ASE supplies setup tables only and never handles restricted file materialization.
 - `potcar_setups` supports only `minimal`, `recommended`, and `gw`; `None` means `minimal`. Element-level suffix overrides are allowed, while unknown profiles and atom-index setups are rejected.
 - Record metadata only: element order, resolved dataset sequence, pseudopotential family/flavor/date labels, ZVAL-derived `NELECT`, size, SHA-256, and provenance when allowed.
 - POSCAR species order and POTCAR block order must match.
@@ -156,7 +156,7 @@ occupied_bands = ceil((NELECT + |MAGMOM|) / 2)
 
 ### Implementation
 
-Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
+Implementation reference: use the host's available VASP tooling or inspect the input directly.
 - `choose_nbands()` — returns `None` (don't write) or `int` (write this value)
 - `apply_nbands_policy()` — modifies INCAR dict in-place
 - `get_explicit_user_nbands()` — distinguishes user value from template residual
@@ -196,7 +196,7 @@ or probe a machine just to infer these tags without approval.
 
 ### Implementation
 
-Core logic: `runtime/simflow_helpers/engines/vasp_incar.py`
+Implementation reference: use the host's available VASP tooling or inspect the input directly.
 - `infer_vasp_execution_context()` — conservatively classifies CPU,
   accelerated, or unknown execution evidence
 - `apply_ncore_npar_policy()` — removes residual tags, preserves explicit user

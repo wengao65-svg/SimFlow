@@ -4,10 +4,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "simflow-analysis-visualization" / "scripts" / "analyze_dft_results.py"
+SCRIPT = ROOT / "skills" / "simflow-vasp" / "scripts" / "analyze_dft_results.py"
 
 
-def test_analyze_dft_results_does_not_expose_qe_runtime_helper_route():
+def test_analyze_dft_results_only_supports_its_vasp_parser():
     source = SCRIPT.read_text(encoding="utf-8")
 
     assert "QEParser" not in source

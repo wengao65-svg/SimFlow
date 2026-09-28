@@ -1,6 +1,6 @@
 {
   "name": "simflow-claude-dev",
-  "description": "Development marketplace for the SimFlow Claude Code adapter.",
+  "description": "Development marketplace for SimFlow computational-research Skills.",
   "owner": {
     "name": "wengao65-svg"
   },
@@ -8,7 +8,7 @@
     {
       "name": "simflow",
       "source": "./",
-      "description": "Claude Code computational-research guidance with compact provenance, recovery, and immutable run-plan approval.",
+      "description": "Claude Code Skills for computational simulation, analysis, and scientific writing.",
       "author": {
         "name": "wengao65-svg"
       },

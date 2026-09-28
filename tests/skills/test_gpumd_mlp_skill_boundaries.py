@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[2]
 MLP_SKILL = ROOT / "skills" / "simflow-mlp"
 GPUMD_SKILL = ROOT / "skills" / "simflow-gpumd"
 COMMUNITY_REFERENCE = GPUMD_SKILL / "references" / "gpumd_nep_community_methodology.md"
-CAPABILITIES = ROOT / "workflow" / "toolchains" / "capabilities.json"
 
 
 def _read(path: Path) -> str:
@@ -181,26 +180,12 @@ def test_vasp_mlp_and_gpumd_use_domain_skill_product_terminology():
         assert stale_term not in positioning
 
 
-def test_domain_skill_helper_support_and_helper_evidence_are_separate_concepts():
-    contract = json.loads(_read(CAPABILITIES))
-    policy = contract["policy"].lower()
-
-    assert "domain skill" in policy
-    assert "helper support" in policy
-    assert "helper-evidence" in policy
-    assert {"gpumd", "nep"} <= set(contract["helper_supported_software"])
-    for tool in ["gpumd", "nep"]:
-        supported = set(contract["capability_support"][tool]["supported"])
-        assert {
-            "input_generation",
-            "input_validation",
-            "compute_planning",
-            "orchestration",
-            "static_input_inspection",
-            "manifest_generation",
-            "selected_output_parsing",
-            "evidence_handoff",
-        } <= supported
+def test_domain_skill_helpers_are_self_contained():
+    for script in (GPUMD_SKILL / "scripts").glob("*.py"):
+        text = _read(script)
+        assert "runtime." not in text
+        assert "mcp." not in text
+        assert "record_helper_run" not in text
 
 
 def test_community_reference_has_current_provenance_privacy_and_scope_contract():

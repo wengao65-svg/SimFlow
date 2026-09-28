@@ -17,8 +17,7 @@ capture a fresh note with:
 - source files used by the audit and any generated probe outputs
 - skipped reason when a dependency is absent, interactive-only, or unsuitable
 
-Store checkout-specific facts under project reports or helper-run manifests
-rather than in this distributable reference.
+Keep checkout-specific facts in the user's chosen research note or requested report.
 
 ## Plotting and tables
 
@@ -66,7 +65,7 @@ routes rather than required SimFlow parsers.
 
 ## Simulation-specific helpers
 
-- SimFlow helper scripts: useful for built-in stage-runner evidence and helper-run manifests. They are optional helpers, not the only valid analysis path.
+- SimFlow helper scripts: optional parsing and plotting tools with explicit input and output paths.
 - GPUMD tools: optional route for GPUMD-specific outputs, transport analyses, and NEP-related diagnostics when available in the user's environment.
 - LAMMPS tools and custom scripts: useful when dump columns, units style, or thermo output require project-specific parsing.
 - CP2K tools and custom scripts: useful when output print settings or project-specific trajectories go beyond the common parser surface.
@@ -76,4 +75,4 @@ routes rather than required SimFlow parsers.
 - Check availability before choosing a tool for a required deliverable.
 - Do not install packages unless the user explicitly approves dependency installation.
 - If a preferred tool is absent, choose a traceable fallback or record `skipped_optional_dependency` with the missing package and affected analysis scope.
-- Record the executable, Python interpreter, package versions when practical, command line, source files, output files, and parent artifact ids.
+- When reproducibility matters, note the executable, interpreter, versions, command, and source/output files in the user's chosen record.

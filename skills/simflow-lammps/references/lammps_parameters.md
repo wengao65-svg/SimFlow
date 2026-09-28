@@ -23,7 +23,7 @@ manual and must not override official LAMMPS documentation.
 | Dynamics or operation | `run`, `minimize`, or `rerun`; integration fixes for MD |
 | Output | `thermo`, `thermo_style`, `dump`, `restart`, analysis `fix ave/time` |
 | Included inputs | `include` files recorded and inspected as separate artifacts |
-| Safety | dry-run evidence, credential scan, approval before real execution |
+| Safety | dry-run evidence, credential scan, user authorization before real execution |
 
 ## Local Example Motifs
 

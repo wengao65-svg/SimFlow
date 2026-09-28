@@ -58,9 +58,13 @@ submission plumbing, approval policy, job registries, or workflow state.
 - Validation evidence and unresolved warnings are reported.
 - No stronger completion claim is made than the observed outputs support.
 
+## Optional local tools
+
+For script text only, `scripts/prepare_job.py` prepares a Slurm or PBS script at an explicit destination. It never submits a job. Review generated commands and resources with the user before any real execution.
+
 ## Optional references
 
 Combine with any relevant Domain Skills for software-specific input, restart,
 convergence, and output semantics. Cross-tool work may also need another Task
-Skill for a distinct subtask. Runtime safety and event recording remain
-separate from this guidance.
+Skill for a distinct subtask. Real execution follows the user's concrete
+authorization and the host's permission controls.

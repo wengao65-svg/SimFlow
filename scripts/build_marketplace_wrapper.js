@@ -24,29 +24,18 @@ const MARKETPLACE_PATH = path.join(WRAPPER_ROOT, '.agents', 'plugins', 'marketpl
 
 const REQUIRED_ENTRIES = [
   { source: '.codex-plugin/plugin.json', target: '.codex-plugin/plugin.json' },
-  { source: '.mcp.json', target: '.mcp.json' },
   { source: 'skills', target: 'skills' },
-  { source: 'mcp', target: 'mcp' },
-  { source: 'runtime', target: 'runtime' },
-  { source: 'schemas', target: 'schemas' },
-  { source: 'templates', target: 'templates' },
-  { source: 'workflow', target: 'workflow' },
-  { source: 'scripts/start_mcp_server.py', target: 'scripts/start_mcp_server.py' },
-  { source: 'scripts/start_hpc_broker.py', target: 'scripts/start_hpc_broker.py' },
   { source: 'docs/quickstart_codex.md', target: 'docs/quickstart_codex.md' },
-  { source: 'docs/state-and-checkpoint.md', target: 'docs/state-and-checkpoint.md' },
   { source: 'docs/installation.md', target: 'docs/installation.md' },
+  { source: 'docs/helper-dependencies.md', target: 'docs/helper-dependencies.md' },
   { source: 'docs/user_guide.md', target: 'docs/user_guide.md' },
-  { source: 'docs/mcp-design.md', target: 'docs/mcp-design.md' },
   { source: 'docs/skill-design.md', target: 'docs/skill-design.md' },
-  { source: 'docs/credentials-policy.md', target: 'docs/credentials-policy.md' },
   { source: 'AGENTS.md', target: 'AGENTS.md' },
   { source: 'README.md', target: 'README.md' },
   { source: 'LICENSE', target: 'LICENSE' },
 ];
 
 const PACKAGED_SKILLS = new Set([
-  'simflow',
   'simflow-literature-review',
   'simflow-reference-extraction',
   'simflow-proposal',
@@ -250,11 +239,10 @@ function build() {
   if (!fs.existsSync(path.join(PLUGIN_ROOT, '.codex-plugin', 'plugin.json'))) {
     throw new Error('Built plugin is missing .codex-plugin/plugin.json');
   }
-  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_mcp_server.py'))) {
-    throw new Error('Built plugin is missing scripts/start_mcp_server.py');
-  }
-  if (!fs.existsSync(path.join(PLUGIN_ROOT, 'scripts', 'start_hpc_broker.py'))) {
-    throw new Error('Built plugin is missing scripts/start_hpc_broker.py');
+  for (const retired of ['runtime', 'mcp', 'schemas', 'workflow', '.mcp.json']) {
+    if (fs.existsSync(path.join(PLUGIN_ROOT, retired))) {
+      throw new Error(`Skill-only plugin unexpectedly includes ${retired}`);
+    }
   }
   if (fs.existsSync(path.join(PLUGIN_ROOT, 'tests'))) {
     throw new Error('Built plugin must not contain tests');

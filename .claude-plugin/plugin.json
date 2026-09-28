@@ -1,7 +1,7 @@
 {
   "name": "simflow",
-  "version": "1.4.0",
-  "description": "Claude Code computational-research guidance with compact provenance, recovery, and immutable run-plan approval.",
+  "version": "1.5.0",
+  "description": "Claude Code Skills for computational simulation, analysis, and scientific writing.",
   "author": {
     "name": "wengao65-svg",
     "url": "https://github.com/wengao65-svg"
@@ -15,7 +15,6 @@
     "aimd",
     "molecular-dynamics",
     "materials-science",
-    "mcp"
-  ],
-  "mcpServers": "./.claude.mcp.json"
+    "agent-skills"
+  ]
 }

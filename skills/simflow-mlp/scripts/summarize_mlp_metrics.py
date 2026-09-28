@@ -10,11 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
-
-from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from metadata import source_file_record
 
 
 def _load_metrics(path: Path) -> dict[str, Any]:
@@ -52,7 +49,6 @@ def main() -> None:
     parser.add_argument("--metrics", nargs="+", required=True)
     parser.add_argument("--thresholds", default=None, help="Optional JSON object of metric thresholds")
     parser.add_argument("--output", default=None)
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     threshold_data = json.loads(args.thresholds) if args.thresholds else {}
@@ -69,47 +65,34 @@ def main() -> None:
                     "within_threshold": value <= threshold_data[metric],
                 })
     missing_or_empty = [summary for summary in summaries if not summary.get("present") or not summary.get("metrics")]
-    result = build_helper_evidence(
-        helper="summarize_mlp_metrics",
-        capability="model_metrics_summary",
-        status="blocked" if len(missing_or_empty) == len(summaries) else ("warning" if missing_or_empty else "success"),
-        stage="analysis_visualization",
-        activity="model_metrics_summary",
-        evidence_role="model_metrics_summary",
-        source_files=[source_file_record(path) for path in args.metrics],
-        actual_tool_used={"software": "custom", "support_level": "tracked_only"},
-        parser_status="missing" if len(missing_or_empty) == len(summaries) else ("partial" if missing_or_empty else "parsed"),
-        claim_limits=[
+    result = {
+        "helper": "summarize_mlp_metrics",
+        "capability": "model_metrics_summary",
+        "evidence_role": "model_metrics_summary",
+        "status": "blocked" if len(missing_or_empty) == len(summaries) else ("warning" if missing_or_empty else "success"),
+        "source_files": [source_file_record(path) for path in args.metrics],
+        "parser_status": "missing" if len(missing_or_empty) == len(summaries) else ("partial" if missing_or_empty else "parsed"),
+        "claim_limits": [
             "Metric summaries do not certify production readiness.",
             "Metric units, splits, and validation domain must be reviewed from source context.",
         ],
-        warnings=[
+        "warnings": [
             warning
             for summary in summaries
             for warning in summary.get("warnings", [])
         ],
-        limitations=[
+        "limitations": [
             "Threshold comparisons are mechanical and do not certify production readiness.",
             "Metric units and split semantics must be reviewed from source context.",
         ],
-        metric_files=summaries,
-        threshold_comparisons=comparisons,
-    )
+        "metric_files": summaries,
+        "threshold_comparisons": comparisons,
+    }
     if args.output:
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         result["output_file"] = str(output)
-    result = maybe_record_helper_run(
-        args=args,
-        result=result,
-        script_path=Path(__file__).resolve(),
-        helper_name="summarize_mlp_metrics",
-        software="custom",
-        input_paths=args.metrics,
-        output_paths=[args.output] if args.output else [],
-        metadata={"evidence_role": "model_metrics_summary", "helper_result_status": result.get("status")},
-    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 

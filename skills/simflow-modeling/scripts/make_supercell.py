@@ -3,18 +3,12 @@
 
 import argparse
 import json
-import sys
 from pathlib import Path
-
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 from pymatgen.core import Structure
 
 
-def make_supercell(input_file: str, scale_matrix: list, output_file: str, fmt: str = "poscar") -> dict:
+def make_supercell(input_file: str, scale_matrix: list, output_file: str, fmt: str = "poscar", overwrite: bool = False) -> dict:
     """Create a supercell from a structure file.
 
     Args:
@@ -31,6 +25,10 @@ def make_supercell(input_file: str, scale_matrix: list, output_file: str, fmt: s
 
     # Write output
     out_path = Path(output_file)
+    if ".simflow" in out_path.expanduser().resolve().parts:
+        raise ValueError("Supercell output cannot be written under .simflow")
+    if out_path.exists() and not overwrite:
+        raise FileExistsError(f"Refusing to overwrite existing structure: {out_path}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if fmt == "cif" or output_file.endswith(".cif"):
@@ -59,25 +57,17 @@ def main():
     parser.add_argument("--nx", type=int, required=True, help="Supercell dimension along a")
     parser.add_argument("--ny", type=int, required=True, help="Supercell dimension along b")
     parser.add_argument("--nz", type=int, required=True, help="Supercell dimension along c")
-    parser.add_argument("--output", default="POSCAR_supercell", help="Output file")
+    parser.add_argument("--output", required=True, help="Output file")
     parser.add_argument("--format", choices=["poscar", "cif"], default="poscar")
-    add_helper_recording_args(parser, default_stage="modeling")
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly replace an existing output file")
     args = parser.parse_args()
 
     try:
-        result = make_supercell(args.input, [args.nx, args.ny, args.nz], args.output, args.format)
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="make_supercell",
-            input_paths=[args.input],
-            output_paths=[args.output],
-        )
+        result = make_supercell(args.input, [args.nx, args.ny, args.nz], args.output, args.format, args.overwrite)
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))
-        sys.exit(1)
+        parser.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,103 +1,49 @@
 # SimFlow Developer Guide
 
-## Design Rule
+SimFlow is a portable set of 12 scientific Skills. The host agent applies the
+relevant Research Task and Domain Skills, and the user owns research choices,
+experiment records, and authorization of concrete execution. See
+[the direction plan](direction-skill-pack.md) for the research and migration
+decisions behind this boundary.
 
-Keep scientific guidance, domain knowledge, and runtime state separate.
+## Skill layout
 
-```text
-current intent -> host-composed Task, Domain, and custom Skills
-explicit opt-in -> SimFlow Framework semantics
-actual event    -> compact runtime record/recovery/safety operation
-```
+Each Skill lives directly under `skills/<name>/` and has `SKILL.md`. Keep the
+main instructions short: triggering context, key scientific checks, failure
+cases, claim limits, and completion criteria. Put detailed methods in
+`references/`. Optional Python tools belong to that Skill's `scripts/`, local
+code to its `lib/`, and fixed templates to `assets/`. A Skill must work when
+installed alone; it must not import files from another SimFlow Skill or from
+the source repository root.
 
-Do not add lifecycle calls merely to prove that a Skill was used.
+Task and Domain Skills guide the agent. They do not route one another, own
+stage transitions, create a project ledger, initialize `.simflow/`, or certify
+that execution was approved or scientifically successful.
 
-## Skills
+## Helper behavior
 
-A Research Task or Domain Skill is a pure instruction bundle. It may guide,
-inspect, suggest, and use host tools. It must not:
+Scripts should do bounded scientific work: inspect inputs, validate parameters,
+parse outputs, transform structures, prepare text, or draw figures. Pure checks
+print JSON to stdout. A report is written only when the caller names a path;
+generation tools require an explicit destination. Existing calculation inputs
+must not be overwritten silently. Do not add helper-run records, generic file
+hashes, stage state, approval gates, or registry updates.
 
-- require MCP or state initialization;
-- own stage progression, approval, artifact registration, or checkpoints;
-- enforce a fixed project layout, parser, helper, report, or software path;
-- claim support for an engine that has no tested Domain Skill.
+Use only the source evidence needed for the scientific operation. A parser's
+success means it parsed selected fields; it does not prove convergence, job
+completion, or model quality. Preserve restricted POTCAR and credential
+boundaries. Real local, remote, or scheduler execution belongs to the host and
+the user's authorization for the concrete action.
 
-Keep high-frequency and high-risk behavior in `SKILL.md`; move long methods and
-examples into `references/`. Public Skills remain direct children of `skills/`
-until every host supports recursive discovery.
-
-Do not add a central Skill map or numeric composition limit. Descriptions must
-be discriminating enough for host-native discovery. The `simflow` Framework
-Skill is explicit-only where the host supports that policy and never routes
-other Skills.
-
-## Helpers
-
-Helpers are optional scientific utilities. By default they read project files
-and write requested outputs inside the authorized project without initializing
-SimFlow state. Optional recording belongs in a shared adapter and should append
-one logical record, not per-file registry updates.
-
-Safety, delivery, and verification helpers are internal runtime modules, not
-public Skills. Engine helpers must return uncertainty for unsupported tasks.
-
-## Compact State
-
-Use the canonical stores according to ownership:
-
-- `experiment_notebook` for append-only scientific semantics;
-- `record_event` for one logical event;
-- `inspect_project` for read-only status;
-- `create_recovery_checkpoint` for a real recovery boundary;
-- `recover_checkpoint` for reference/hash validation.
-
-`record` has two strict branches. Operational writes use `kind` and must reject
-Experiment-only fields. Experiment writes use `channel="experiment"`, one of
-the four entry types, and an entry-specific payload; they must reject `kind`.
-Keep actual scientific files authoritative and rebuild `project.json` with
-`rebuild_project_summary()` from notebooks, records, and checkpoints.
-
-Do not add new writes to legacy `.simflow/state/*.json` registries. Legacy APIs
-may read them and may provide compatibility views, but compact writes must not
-synchronize artifact, lineage, stage, job, or checkpoint registries.
-
-Legacy migration may inventory `.simflow/memory/` recursively, but it may emit
-only path, size, hash, JSON/JSONL container shape, and SQLite header metadata.
-It must never query SQLite tables, expose stored values, or alter source bytes.
-
-## MCP
-
-The public surface is fixed at four `simflow_state` and four `hpc` tools unless
-a new product decision justifies expansion. Composite tools should expose
-strict JSON schemas and explicit `project_root` where project access is needed.
-
-Real execution must be derived from a persisted run plan and approval bound to
-its `run_plan_hash`. Experiment and Attempt bindings belong to operational plan
-records and must not participate in that hash. HPC may bind only existing
-Experiment and Attempt references and must never create either. An Attempt is a
-scientific strategy; a Run is one actual execution, and one Attempt may bind
-multiple Runs. Submit inputs must not accept mutable replacement hashes.
-
-Experiment Memory v1 has a fixed ontology ceiling of Experiment, Attempt,
-Observation, and Decision. Do not add lifecycle entry types or a generic action
-taxonomy. Persistent evidence changes are single immutable operational
-`evidence_change` events and never expose planned/open/reverted state.
-
-## Workflow Contracts
-
-Stage and recipe files are guidance. Runtime policy files may enforce only real
-safety, truth, recording, and recovery boundaries. Do not reintroduce automatic
-stage-boundary checkpoints, per-file artifact versioning, mandatory phase
-transitions, or directory admission rules.
-
-## Validation
+## Checks
 
 ```bash
+python scripts/audit_skill_pack.py --strict
 python -m pytest tests/ -q
 npm run validate:all
-python scripts/audit_skill_scripts.py
-npm run validate:release -- --skip-wrapper-build
+SIMFLOW_RELEASE_ALLOW_DIRTY=1 npm run validate:release
 ```
 
-Changes to distribution content also require marketplace/package builds and
-isolated host smoke tests from the release checklist.
+Distribution tests build Codex, Claude Code, and OpenCode packages and run the
+installed Python entrypoints from outside this checkout. Keep all three
+builders aligned when changing Skill files or resources.

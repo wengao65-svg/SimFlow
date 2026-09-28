@@ -5,9 +5,8 @@ analysis, calculation, plotting, training assistance, and inference. For
 general-purpose tools (ASE, pymatgen, MDAnalysis), see
 `simflow-analysis-visualization/references/tooling_index.md`.
 
-These tools are optional routes and are tracked_only in the SimFlow
-toolchain contract. SimFlow does not execute them. Record command,
-version, inputs, outputs, environment, and limitations when used.
+These tools are optional routes, not bundled executors. When they are used,
+note the command, version, inputs, outputs, and limitations in the user's chosen project record.
 
 ## GPUMDkit
 
@@ -56,7 +55,7 @@ Independent community training assistant for NEP workflows. Distinct from
 
 - Capabilities: dataset preparation assistance, training orchestration,
   loss diagnostics, training-run inspection.
-- SimFlow context: tracked_only (registered in `capabilities.json`).
+- SimFlow context: optional external tool, selected by the user and host.
   Record the actual tool used, version, command, dataset lineage, and
   training config provenance.
 - Do not treat community training policies, loss schedules, or
@@ -73,7 +72,7 @@ GPUMD `nep` trainer.
 
 - Capabilities: NEP dataset preparation, training orchestration, loss and
   training diagnostics, prediction helpers.
-- SimFlow context: tracked_only (registered in `capabilities.json`).
+- SimFlow context: optional external tool, selected by the user and host.
   Record provenance without claiming SimFlow execution support.
 - Identify the actual trainer before interpreting training evidence; do
   not treat neptrainkit's policies as NEP defaults.
@@ -85,7 +84,7 @@ NEP ONNX inference and analysis library for trained NEP models.
 - Capabilities: energy, force, and stress prediction from trained NEP
   models without running GPUMD MD; model introspection; prediction outside
   the MD runtime.
-- SimFlow context: tracked_only (registered in `capabilities.json`).
+- SimFlow context: optional external tool, selected by the user and host.
   Record model file, ONNX export provenance, prediction context, and
   calorine version.
 - Useful for MLP analysis-stage inference, model comparison, and

@@ -1,17 +1,6 @@
-# Pre-Task Advisory Hook
+# Retired hook: pre_stage
 
-## Trigger
-
-Before a bounded research task when input ambiguity could affect quality or
-safety.
-
-## Checks
-
-1. Identify the immediate user intent.
-2. Select at most one Task Skill and one optional Domain Skill.
-3. Inspect existing files, conventions, and scientific assumptions.
-4. Report missing inputs or uncertainty that blocks useful work.
-5. Escalate to runtime only for durable state, approval, execution, or recovery.
-
-This hook is advisory. It does not require a prior stage, state read, phase
-directory, or workflow transition.
+This source-only compatibility notice is not an active hook and is not shipped
+in the Skill-only packages. No stage transition, runtime record, hash approval,
+or checkpoint is required. Use the relevant Research Task and Domain Skills;
+real execution follows user authorization and host permissions.

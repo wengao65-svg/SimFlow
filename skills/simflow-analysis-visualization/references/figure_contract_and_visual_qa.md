@@ -10,7 +10,7 @@ parameters, output files, and review status can be traced.
 Before rendering the final figure, record:
 
 - the claim or question the figure is meant to support
-- source data and parent artifact ids
+- source data and source file paths
 - derived data paths when plotted values are not directly present in raw output
 - analysis window, filtering, binning, smoothing, normalization, fitting, or
   uncertainty convention
@@ -54,7 +54,7 @@ The QA loop may be performed by programmatic checks, image inspection, or both.
 Do not manually edit the rendered image in a way that disconnects it from the
 recorded source data and script.
 
-The optional `scripts/audit_figure.py` helper can record deterministic baseline
+A deterministic image check can record baseline
 checks such as file existence, non-empty output, image readability, dimensions,
 near-blank pixels, and alpha/background warnings. It does not prove that labels
 are unclipped, legends do not overlap, units are correct, or the figure supports
@@ -75,7 +75,7 @@ A figure manifest should include:
 - plotting script or notebook path
 - command line or notebook execution note
 - environment or package version note when practical
-- parent artifact ids
+- source file paths
 - figure contract summary
 - visual QA status and warnings
 - caption path when the caption is a handoff artifact

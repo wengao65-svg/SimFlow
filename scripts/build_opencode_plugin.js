@@ -10,27 +10,17 @@ const PACKAGE_NAME = 'opencode-simflow';
 
 const REQUIRED_ENTRIES = [
   ['skills', 'skills'],
-  ['mcp', 'mcp'],
-  ['runtime', 'runtime'],
-  ['schemas', 'schemas'],
-  ['templates', 'templates'],
-  ['workflow', 'workflow'],
-  ['scripts/start_mcp_server.py', 'scripts/start_mcp_server.py'],
-  ['scripts/start_hpc_broker.py', 'scripts/start_hpc_broker.py'],
   ['docs/quickstart_opencode.md', 'docs/quickstart_opencode.md'],
-  ['docs/state-and-checkpoint.md', 'docs/state-and-checkpoint.md'],
   ['docs/installation.md', 'docs/installation.md'],
+  ['docs/helper-dependencies.md', 'docs/helper-dependencies.md'],
   ['docs/user_guide.md', 'docs/user_guide.md'],
-  ['docs/mcp-design.md', 'docs/mcp-design.md'],
   ['docs/skill-design.md', 'docs/skill-design.md'],
-  ['docs/credentials-policy.md', 'docs/credentials-policy.md'],
   ['AGENTS.md', 'AGENTS.md'],
   ['README.md', 'README.md'],
   ['LICENSE', 'LICENSE'],
 ];
 
 const PACKAGED_SKILLS = new Set([
-  'simflow',
   'simflow-literature-review',
   'simflow-reference-extraction',
   'simflow-proposal',
@@ -128,7 +118,7 @@ function build() {
   writeJson(path.join(OUTPUT, 'package.json'), {
     name: PACKAGE_NAME,
     version: rootPackage.version,
-    description: 'SimFlow computational simulation workflow layer for OpenCode.',
+    description: 'SimFlow computational simulation Skills for OpenCode.',
     type: 'module',
     main: './index.mjs',
     exports: {
@@ -136,16 +126,14 @@ function build() {
       './server': './index.mjs',
     },
     files: [
-      'index.mjs', 'skills', 'mcp', 'runtime', 'schemas', 'templates', 'workflow',
-      'scripts', 'docs', 'AGENTS.md', 'README.md', 'LICENSE',
+      'index.mjs', 'skills', 'docs', 'AGENTS.md', 'README.md', 'LICENSE',
     ],
     engines: {
       node: '>=18',
       opencode: '>=1.18.9 <2',
-      python: '>=3.10',
     },
     os: ['linux', 'darwin'],
-    keywords: ['opencode', 'simulation', 'dft', 'molecular-dynamics', 'mcp', 'skills'],
+    keywords: ['opencode', 'simulation', 'dft', 'molecular-dynamics', 'skills'],
     repository: {
       type: 'git',
       url: 'git+https://github.com/wengao65-svg/SimFlow.git',

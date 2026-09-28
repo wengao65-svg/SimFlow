@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for plot_band_structure.py (moved to simflow-analysis-visualization)."""
+"""Tests for the VASP band plotting helper."""
 
 import sys
 import tempfile
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-analysis-visualization" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[2] / "skills" / "simflow-vasp" / "scripts"
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 sys.path.insert(0, str(SCRIPT_DIR))
 

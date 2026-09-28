@@ -8,7 +8,7 @@ Use this reference after classifying the VASP request. The checklists are eviden
 - Record the stage: usually `modeling`, `computation`, or `analysis_visualization`.
 - List available files and predecessor evidence.
 - Record VASP version/executable family if known (`vasp_std`, `vasp_gam`, `vasp_ncl`).
-- Check whether real execution is requested. If yes, require dry-run evidence and the approval gate before submitting anything.
+- Check whether real execution is requested. If yes, require dry-run evidence and the user authorization and host permissions before submitting anything.
 
 ## Static SCF
 
@@ -39,7 +39,7 @@ Use this reference after classifying the VASP request. The checklists are eviden
 - Check `IBRION=0`, `NSW>0`, `POTIM`, `TEBEG/TEEND`, `MDALGO` or legacy thermostat tags, `ISIF`, and restart policy.
 - Separate equilibration and production evidence.
 - For transport/statistics, record trajectory length, sampling interval, discarded transient, time origins, uncertainty estimate, and unit conversion.
-- Real AIMD execution is high-cost compute and requires the approval gate.
+- Real AIMD execution is high-cost compute and requires user authorization when required by host permissions.
 
 ## NEB and transition states
 

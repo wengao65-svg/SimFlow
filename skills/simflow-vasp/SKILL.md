@@ -40,16 +40,16 @@ SimFlow state.
   committed, packaged, or stored as ordinary evidence.
 - Resolve exact datasets in POSCAR order; never use wildcard fallback among
   variants such as `Fe`, `Fe_pv`, or `Fe_sv`.
-- Only the SimFlow runtime may read and concatenate exact datasets from a
-  user-owned POTCAR library into a controlled calculation directory. Fixed
-  setup profiles may use `minimal`, `recommended`, or `gw` plus explicit
-  element overrides.
+- Materialize exact datasets only from a user-owned licensed library into a
+  controlled calculation directory, with the user's authorization and host
+  permissions. Fixed setup profiles may use `minimal`, `recommended`, or `gw`
+  plus explicit element overrides.
 - Do not return, print, snapshot, register as a normal artifact, commit,
   package, or redistribute POTCAR content.
 - Guidance and returned evidence are metadata-only: element, exact dataset,
   ZVAL when available, size, SHA-256, and validation status.
-- Any real transfer or execution involving POTCAR must be handed to runtime
-  safety controls.
+- Review the exact transfer or execution scope and use the host's permissions
+  before acting on licensed files.
 
 ## Common failure modes
 
@@ -73,6 +73,10 @@ SimFlow state.
 - VASP-specific inputs and outputs have been checked against the explicit task.
 - Uncertainty and unsupported conclusions are visible.
 - POTCAR handling remains exact, metadata-only, and non-redistributive.
+
+## Optional local tools
+
+`scripts/generate_vasp_inputs.py`, `validate_vasp_outputs.py`, `troubleshoot_vasp.py`, `analyze_dft_results.py`, and `plot_band_structure.py` are independent local helpers. Input generation requires a calculation directory; existing inputs require `--overwrite`. POTCAR may come only from a user-owned licensed library and its contents stay private.
 
 ## Optional references
 

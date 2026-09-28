@@ -1,5 +1,8 @@
 # MCP Tool Reference
 
+> 历史架构文档：描述旧 runtime/MCP 实现，不适用于 1.5.0 Skill-only 默认安装。当前产品边界见 [重构方向](direction-skill-pack.md)。
+
+
 SimFlow exposes two MCP servers and eight composite tools. Skills do not require
 MCP engagement. Use these tools only when project truth, approval, transfer,
 execution, or recovery needs runtime support.

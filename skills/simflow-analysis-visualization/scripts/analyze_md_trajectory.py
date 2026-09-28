@@ -15,10 +15,6 @@ from pathlib import Path
 
 import numpy as np
 
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 try:
     from MDAnalysis import Universe
@@ -286,7 +282,6 @@ def main():
                         help="MDAnalysis trajectory format hint (e.g. LAMMPSDUMP, XDATCAR) when extension is ambiguous.")
     parser.add_argument("--equilibration-start", type=int, default=None,
                         help="First production frame index; RDF/MSD are computed from this frame onward.")
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
     args = parser.parse_args()
 
     try:
@@ -301,13 +296,6 @@ def main():
             trajectory_format=args.trajectory_format,
         )
         result["status"] = "success"
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="analyze_md_trajectory",
-            input_paths=[args.topology, args.trajectory],
-        )
         print(json.dumps(result, indent=2))
     except Exception as e:
         print(json.dumps({"status": "error", "message": str(e)}))

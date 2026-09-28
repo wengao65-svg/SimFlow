@@ -6,18 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
-
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
-
-from runtime.simflow_core.helper_evidence import build_helper_evidence, source_file_record
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_core.toolchains import helper_capabilities_for_tool, support_level_for_capability, support_level_for_tool
-from runtime.simflow_helpers.adapters import adapter_capabilities
-
 
 COMMON_GPUMD_FILES = ["run.in", "model.xyz"]
 COMMON_NEP_FILES = ["nep.in", "train.xyz"]
@@ -29,18 +19,6 @@ REFERENCE_PATTERNS = [
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
-
-
-def _hash(path: Path) -> str | None:
-    import hashlib
-
-    if not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(8192), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _commands(path: Path) -> list[dict[str, Any]]:
@@ -79,7 +57,7 @@ def inspect_directory(directory: Path) -> dict[str, Any]:
     warnings = []
     for name in dict.fromkeys(expected):
         path = directory / name
-        files.append({"path": str(path), "present": path.exists(), "sha256": _hash(path)})
+        files.append({"path": str(path), "present": path.is_file()})
         if not path.exists():
             warnings.append({"code": "missing_expected_file", "message": f"Expected file is absent: {name}"})
 
@@ -102,63 +80,31 @@ def inspect_directory(directory: Path) -> dict[str, Any]:
 
     status = "blocked" if mode == "unknown" else ("warning" if warnings else "success")
     software = "gpumd" if mode != "nep" else "nep"
-    return build_helper_evidence(
-        helper="inspect_gpumd_inputs",
-        capability="static_input_inspection",
-        status=status,
-        stage="computation",
-        activity="static_input_inspection",
-        evidence_role="gpumd_nep_input_inspection",
-        source_files=[source_file_record(path) for path in input_paths],
-        actual_tool_used={"software": software, "support_level": support_level_for_tool({}, software)},
-        parser_status="not_applicable",
-        claim_limits=[
-            "Static input inspection does not validate GPUMD/NEP execution readiness.",
-            "No input generation, execution, submit, or scientific readiness claim is made.",
-        ],
-        warnings=warnings,
-        limitations=[
-            "This is static inspection only.",
-            "No GPUMD/NEP executable was called.",
-            "No input generation or scientific readiness decision was performed.",
-        ],
-        capability_support_level=support_level_for_capability(software, "static_input_inspection"),
-        adapter_capabilities=adapter_capabilities(software),
-        tool_capabilities={
-            "gpumd": helper_capabilities_for_tool("gpumd"),
-            "nep": helper_capabilities_for_tool("nep"),
-        },
-        directory=str(directory),
-        mode=mode,
-        files=files,
-        referenced_files=referenced,
-        command_summary=command_summary,
-    )
+    return {
+        "status": status,
+        "software": software,
+        "directory": str(directory),
+        "mode": mode,
+        "files": files,
+        "referenced_files": referenced,
+        "command_summary": command_summary,
+        "warnings": warnings,
+        "claim_limits": ["Static inspection cannot establish execution or scientific readiness."],
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Statically inspect existing GPUMD/NEP inputs")
     parser.add_argument("--calculation-dir", default=".", help="Directory containing existing GPUMD/NEP files")
-    parser.add_argument("--output", default=None, help="Optional JSON output path")
-    add_helper_recording_args(parser, default_stage="computation")
+    parser.add_argument("--report", help="Optional JSON report path")
     args = parser.parse_args()
 
     result = inspect_directory(Path(args.calculation_dir))
-    if args.output:
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        result["output_file"] = str(output)
-    result = maybe_record_helper_run(
-        args=args,
-        result=result,
-        script_path=Path(__file__).resolve(),
-        helper_name="inspect_gpumd_inputs",
-        software="gpumd",
-        input_paths=[str(Path(args.calculation_dir))],
-        output_paths=[args.output] if args.output else [],
-        metadata={"capability": "static_input_inspection", "helper_result_status": result.get("status")},
-    )
+    if args.report:
+        report = Path(args.report).expanduser()
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        result["report"] = str(report)
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 

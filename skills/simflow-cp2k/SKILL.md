@@ -18,6 +18,8 @@ them, without owning workflow state, persistence, submission, or approval.
 - Preserve validated user input and local data-file conventions.
 - Treat example inputs as starting points, not universal production settings.
 - Distinguish a parsed output from a completed and scientifically adequate run.
+- For real execution, review the command, inputs, destination, and resources;
+  follow the host's permissions and the user's authorization for that action.
 
 ## Minimum checks
 
@@ -50,6 +52,10 @@ them, without owning workflow state, persistence, submission, or approval.
 - CP2K inputs and outputs are consistent with the explicit scientific task.
 - Convergence and restart limitations are reported.
 - No completion or scientific claim exceeds the available output evidence.
+
+## Optional local tools
+
+`scripts/generate_cp2k_inputs.py`, `validate_cp2k_inputs.py`, and `parse_cp2k_outputs.py` are independent local helpers. Generation requires an explicit directory; existing input files require `--overwrite`. Check outputs against the original CP2K logs before drawing scientific conclusions.
 
 ## Optional references
 

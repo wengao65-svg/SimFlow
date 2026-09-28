@@ -43,8 +43,6 @@ def test_skill_contract_and_progressive_references_are_present():
     text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
     for section in [
         "## Purpose",
-        "## Use when",
-        "## Do not use when",
         "## Task principles",
         "## Minimum checks",
         "## Common failure modes",
@@ -99,7 +97,7 @@ def test_source_extract_preserves_a0_contract_without_runtime_state(tmp_path: Pa
     assert metadata["schema_version"] == "0.3"
     assert metadata["extraction"]["provenance_grade"] == "A0"
     assert "helper_evidence" not in metadata
-    assert stdout["helper_evidence"]["schema_version"] == "simflow.helper_evidence.v1"
+    assert "helper_evidence" not in stdout
     assert len(rows) == 2
     assert not (tmp_path / ".simflow").exists()
 

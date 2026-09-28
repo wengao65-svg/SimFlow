@@ -1,8 +1,6 @@
-# SimFlow Claude Marketplace Release
+# Claude Marketplace Release
 
-Use this checklist to publish the Claude Code adapter. This is independent of the Codex marketplace release path.
-
-## Build and Validate
+Build and validate the Skill-only wrapper:
 
 ```bash
 npm run validate:claude-plugin
@@ -10,58 +8,13 @@ npm run build:claude-marketplace
 SIMFLOW_CLAUDE_MARKETPLACE_ROOT=dist/claude-marketplace npm run validate:claude-plugin
 ```
 
-When Claude Code is available locally:
+A publish dry run is available with
+`npm run publish:claude-marketplace -- --dry-run`. Review the generated branch
+content: `plugins/simflow/` should contain the plugin manifest, 12 Skill
+folders with their scripts and local resources, references, and public docs. It must exclude `.claude.mcp.json`,
+`mcp/`, `runtime/`, `workflow/`, and `schemas/`.
 
-```bash
-claude plugin validate dist/claude-marketplace
-```
-
-## Dry Run Publish
-
-```bash
-npm run publish:claude-marketplace -- --dry-run
-```
-
-Inspect the generated worktree path printed by the command. Confirm it contains:
-
-```text
-.claude-plugin/marketplace.json
-plugins/simflow/.claude-plugin/plugin.json
-plugins/simflow/.claude.mcp.json
-plugins/simflow/skills/
-plugins/simflow/mcp/
-plugins/simflow/runtime/
-```
-
-## Publish
-
-```bash
-npm run publish:claude-marketplace
-```
-
-This replaces the `claude-marketplace` branch contents with `dist/claude-marketplace`.
-
-## User Smoke Test
-
-```bash
-claude plugin marketplace add wengao65-svg/SimFlow@claude-marketplace
-claude plugin install simflow@simflow-claude-marketplace
-claude plugin details simflow@simflow-claude-marketplace
-```
-
-For git URLs, use `#claude-marketplace`:
-
-```bash
-claude plugin marketplace add https://github.com/wengao65-svg/SimFlow.git#claude-marketplace
-```
-
-Verify these skill invocations:
-
-```text
-/simflow:simflow
-/simflow:simflow-vasp
-/simflow:simflow-cp2k
-/simflow:simflow-writing
-```
-
-Verify the installed plugin exposes the two SimFlow MCP servers and that real HPC submission still requires explicit approval.
+Publish with `npm run publish:claude-marketplace`, then install the branch in a
+fresh Claude Code environment and verify a relevant Skill such as
+`/simflow:simflow-vasp` can be discovered. Installation must not register a
+SimFlow MCP server or create `.simflow/` state.

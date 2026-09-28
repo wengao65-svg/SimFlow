@@ -13,6 +13,9 @@ persistence.
 
 ## Domain principles
 
+- For real execution, review the command, inputs, destination, and resources;
+  follow the host's permissions and the user's authorization for that action.
+
 - Distinguish GPUMD simulation, NEP training, fine-tuning, restart, and
   production deployment.
 - Never default an unknown request to NVT, training, or another common task.
@@ -56,6 +59,10 @@ persistence.
 - GPUMD/NEP-specific files and task intent are consistent.
 - Parser limits, missing inputs, and readiness gaps are explicit.
 - No real execution or production claim is inferred from setup evidence alone.
+
+## Optional local tools
+
+`scripts/generate_gpumd_inputs.py`, `validate_gpumd_inputs.py`, `inspect_gpumd_inputs.py`, `parse_gpumd_outputs.py`, `build_gpumd_manifest.py`, and `prepare_gpumd_handoff.py` are independent local helpers. Checks print JSON by default; `--report` writes only when requested. Generation requires an explicit directory and `--overwrite` for existing inputs.
 
 ## Optional references
 

@@ -1,2 +1,0 @@
-"""Optional analysis helpers."""
-

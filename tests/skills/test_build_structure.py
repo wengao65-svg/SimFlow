@@ -14,7 +14,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 def test_from_type_fcc():
     from build_structure import build_from_type
     s = build_from_type("fcc", 4.05, ["Al"])
-    assert len(s) == 1
+    assert len(s) == 4
     assert str(s[0].specie) == "Al"
 
 
@@ -28,19 +28,19 @@ def test_from_type_bcc():
 def test_from_type_diamond():
     from build_structure import build_from_type
     s = build_from_type("diamond", 5.43, ["Si"])
-    assert len(s) == 2
+    assert len(s) == 8
 
 
 def test_from_type_rocksalt():
     from build_structure import build_from_type
     s = build_from_type("rocksalt", 5.63, ["Na", "Cl"])
-    assert len(s) == 2
+    assert len(s) == 8
 
 
 def test_from_type_zincblende():
     from build_structure import build_from_type
     s = build_from_type("zincblende", 5.65, ["Ga", "As"])
-    assert len(s) == 2
+    assert len(s) == 8
 
 
 def test_from_type_unknown():
@@ -87,3 +87,21 @@ if __name__ == "__main__":
         t()
         print("OK")
     print(f"\n  All {len(tests)} tests passed!")
+
+
+import pytest
+import math
+
+@pytest.mark.parametrize("kind,elements,distance,coordination", [
+    ("fcc", ["Al"], 1 / math.sqrt(2), 12),
+    ("bcc", ["Fe"], math.sqrt(3) / 2, 8),
+    ("diamond", ["Si"], math.sqrt(3) / 4, 4),
+    ("rocksalt", ["Na", "Cl"], .5, 6),
+    ("zincblende", ["Ga", "As"], math.sqrt(3) / 4, 4),
+])
+def test_prototype_nearest_neighbors(kind, elements, distance, coordination):
+    from build_structure import build_from_type
+    structure = build_from_type(kind, 4.0, elements)
+    neighbors = structure.get_neighbors(structure[0], 4 * distance + 1e-6)
+    assert len(neighbors) == coordination
+    assert all(neighbor.nn_distance == pytest.approx(4 * distance) for neighbor in neighbors)

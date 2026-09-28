@@ -1,6 +1,6 @@
 # CP2K Common Workflows
 
-This summary captures the common-task layer that `simflow-cp2k` orchestrates.
+This summary captures common CP2K tasks that `simflow-cp2k` helps review.
 For portable setup and execution-boundary examples, load `cp2k_example_patterns.md`. For official-source navigation and broader workflows, load `cp2k_official_sources.md` and `cp2k_task_checklists.md`.
 
 ## Single Point Energy

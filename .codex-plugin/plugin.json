@@ -1,7 +1,7 @@
 {
   "name": "simflow",
-  "version": "1.4.0",
-  "description": "Codex-native computational simulation domain workflow layer",
+  "version": "1.5.0",
+  "description": "Computational simulation Skills for Codex",
   "author": {
     "name": "wengao65-svg",
     "url": "https://github.com/wengao65-svg"
@@ -15,20 +15,18 @@
     "aimd",
     "molecular-dynamics",
     "materials-science",
-    "mcp"
+    "agent-skills"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "SimFlow",
-    "shortDescription": "Computational simulation workflow layer for Codex.",
-    "longDescription": "SimFlow provides pure research-task and domain guidance plus compact event records, recovery references, immutable run-plan approval, and optional scientific helpers.",
+    "shortDescription": "Computational simulation Skills for Codex.",
+    "longDescription": "Portable VASP, CP2K, LAMMPS, GPUMD, MLP, analysis, and writing guidance. Research decisions and records remain under user control.",
     "developerName": "wengao65-svg",
     "category": "Productivity",
     "capabilities": [
       "Interactive",
-      "Write",
-      "MCP"
+      "Write"
     ],
     "defaultPrompt": [
       "Use SimFlow to plan a VASP computation recipe.",

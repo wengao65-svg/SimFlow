@@ -8,6 +8,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = ROOT / "skills" / "simflow-lammps" / "scripts" / "generate_lammps_inputs.py"
@@ -54,6 +56,7 @@ def test_generate_lammps_inputs_writes_traceable_manifest():
                 "force_field_source": "user-provided Si.tersoff path",
                 "potential_files": ["Si.tersoff"],
             },
+            report=str(Path(tmpdir) / "lammps_input_manifest.json"),
         )
         manifest_path = Path(tmpdir) / "lammps_input_manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -67,6 +70,16 @@ def test_generate_lammps_inputs_writes_traceable_manifest():
         assert manifest["force_field_provenance"]["redistributed_by_simflow"] is False
         assert manifest["force_field_provenance"]["potential_files"] == ["Si.tersoff"]
         assert manifest["warnings"] == []
+
+
+def test_generate_lammps_inputs_refuses_to_overwrite_existing_inputs(tmp_path):
+    mod = _load_module()
+    calc = tmp_path / "calc"
+    calc.mkdir()
+    (calc / "in.lammps").write_text("user validated script\n")
+    with pytest.raises(FileExistsError, match="overwrite"):
+        mod.generate_lammps_inputs(str(POSCAR), "nvt", str(calc))
+    assert (calc / "in.lammps").read_text() == "user validated script\n"
 
 
 def test_generate_lammps_inputs_returns_clarification_for_unknown_job():
@@ -133,3 +146,19 @@ def test_generate_lammps_inputs_cli_accepts_mlp_md_for_needs_inputs():
         result = json.loads(completed.stdout)
         assert result["status"] == "needs_inputs"
         assert result["job_type"] == "mlp_md"
+
+
+def test_charge_data_round_trip(tmp_path):
+    from ase import Atoms
+    from ase.io import read, write
+    from generate_lammps_inputs import structure_to_lammps
+    import pytest
+    source = tmp_path / "charged.extxyz"
+    atoms = Atoms("NaCl", positions=[[0,0,0], [2,2,2]], cell=[5,5,5], pbc=True)
+    atoms.set_initial_charges([1, -1])
+    write(source, atoms)
+    data = tmp_path / "data.lammps"
+    structure_to_lammps(str(source), str(data), atom_style="charge")
+    assert "Atoms # charge" in data.read_text()
+    restored = read(data, format="lammps-data", atom_style="charge")
+    assert restored.get_initial_charges() == pytest.approx([1, -1])

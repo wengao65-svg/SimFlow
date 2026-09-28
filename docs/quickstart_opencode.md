@@ -1,117 +1,22 @@
-# SimFlow OpenCode Quick Start
+# SimFlow for OpenCode
 
-SimFlow supports stable OpenCode `1.18.9 <= version < 2` through the
-`opencode-simflow` npm plugin. The V2 beta plugin API is not part of this
-compatibility contract.
-
-## Requirements
-
-- OpenCode 1.18.9 or a later stable 1.x release
-- Python 3.10+
-- Linux, macOS, or WSL2
-
-The adapter does not configure providers, models, credentials, permissions, or
-automatic execution.
-
-## Install
-
-Install SimFlow for all OpenCode projects:
+Install the published Skill-only package:
 
 ```bash
 opencode plugin opencode-simflow --global
 ```
 
-For one project only, run the command without `--global` from that project:
+The adapter adds the 12 SimFlow Skills to OpenCode discovery. It does not add
+or modify MCP servers. Check discovery with `opencode debug skill`, then ask a
+scientific question or load a relevant Skill.
 
-```bash
-opencode plugin opencode-simflow
-```
-
-Update or replace the installed version:
-
-```bash
-opencode plugin opencode-simflow --global --force
-```
-
-## Verify
-
-Inspect the resolved configuration, skills, and MCP servers:
-
-```bash
-opencode debug config
-opencode debug skill
-opencode mcp list
-```
-
-The plugin exposes the canonical SimFlow skills and these MCP server names:
-
-```text
-simflow_state
-hpc
-```
-
-Ask OpenCode to use `simflow-vasp`, `simflow-cp2k`, or another specific bundled
-Skill, and let it compose multiple relevant Skills when needed. Skills remain
-guidance and evidence contracts; they do not turn SimFlow into a workflow
-executor.
-
-OpenCode 1.x has no equivalent per-Skill explicit-only metadata. Invoke
-`simflow` manually only when framework-level provenance, project-memory,
-recovery, recording, or execution-safety semantics are wanted. SimFlow does not
-simulate explicit-only enforcement through a central router.
-
-When a request depends on existing SimFlow project truth, recovery state, or a
-durable runtime action, OpenCode should make one read-only `inspect` call with
-the working directory and query, then reuse that context. Skill activation
-alone does not trigger inspection. Compact Experiment notebooks preserve
-scientific questions and decisions; exact project files remain the evidence
-source.
-
-## Python Interpreter
-
-The adapter starts MCP servers with `python3` by default. Override the
-interpreter when SimFlow is installed in a virtual environment:
-
-```bash
-export SIMFLOW_PYTHON=/path/to/venv/bin/python
-opencode
-```
-
-The value is passed as a command-array element, not through a shell.
-
-## Existing MCP Names
-
-User configuration wins when an OpenCode configuration already defines one of
-the two SimFlow MCP names. The plugin preserves the existing entry and writes
-a warning containing only the conflicting server name. Resolve the collision
-in `opencode.json` before relying on that SimFlow server.
-
-## Source Checkout
-
-When OpenCode starts from the SimFlow source repository, it automatically loads
-`.opencode/plugins/simflow.js`. No global installation is required for local
-development.
-
-Build and validate the publishable package:
+For local development:
 
 ```bash
 npm run build:opencode-plugin
 SIMFLOW_OPENCODE_PLUGIN_ROOT=dist/opencode-plugin npm run validate:opencode-plugin
-node scripts/smoke_opencode_plugin.js dist/opencode-plugin
 ```
 
-The isolated smoke test uses temporary HOME and XDG directories. It does not
-read the developer's provider configuration or invoke a model.
-
-## Publishing
-
-Maintainers can inspect the package without publishing:
-
-```bash
-npm run publish:opencode-plugin -- --dry-run
-```
-
-Real npm publication requires the manual OpenCode release workflow, an
-authorized repository Actions secret named `SIMFLOW`, completed release gates,
-and explicit approval. It is
-not triggered by ordinary pushes to `main`.
+Real compute or scheduler submission follows OpenCode's permissions and the
+user's authorization for the concrete action. Inspect outputs before judging
+scientific completion.

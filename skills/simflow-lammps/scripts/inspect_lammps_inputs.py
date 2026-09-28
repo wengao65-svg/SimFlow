@@ -10,12 +10,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
 
-from runtime.simflow_core.helper_evidence import build_helper_evidence, sha256_file, source_file_record
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
-from runtime.simflow_helpers.adapters import adapter_capabilities
+
+def source_file_record(path: str | Path, *, role: str | None = None) -> dict[str, Any]:
+    candidate = Path(path).expanduser()
+    record = {"path": str(candidate), "present": candidate.exists(), "is_file": candidate.is_file(),
+              "bytes": candidate.stat().st_size if candidate.is_file() else None}
+    if role:
+        record["role"] = role
+    return record
 
 
 OFFICIAL_REFERENCES = {
@@ -332,7 +335,6 @@ def _file_provenance(input_script: Path, token: str, role: str) -> dict[str, Any
         "present": path.exists(),
         "is_file": path.is_file(),
         "bytes": path.stat().st_size if path.is_file() else None,
-        "sha256": sha256_file(path),
     }
 
 
@@ -388,38 +390,34 @@ def _lammps_mlp_deployment_evidence(
             "code": "missing_mlp_model_file",
             "message": f"LAMMPS MLP deployment references missing model file: {item.get('token')}",
         })
-    return build_helper_evidence(
-        helper="lammps_inspect_inputs",
-        capability="mlp_deployment_manifest",
-        status="warning" if warnings else "success",
-        stage="computation",
-        activity="mlp_deployment_manifest",
-        evidence_role="lammps_mlp_deployment_manifest",
-        source_files=[source_file_record(input_script)] + [
+    return {
+        "helper": "lammps_inspect_inputs",
+        "capability": "mlp_deployment_manifest",
+        "status": "warning" if warnings else "success",
+        "evidence_role": "lammps_mlp_deployment_manifest",
+        "source_files": [source_file_record(input_script)] + [
             source_file_record(item["path"], role=item.get("role") or "mlp_model_file")
             for item in manifest.get("model_files", [])
             if item.get("path")
         ],
-        actual_tool_used={"software": "lammps", "support_level": "helper_supported"},
-        parser_status="parsed" if manifest.get("detected") else "not_applicable",
-        claim_limits=manifest.get("claim_limits", []),
-        warnings=warnings,
-        limitations=[
+        "parser_status": "parsed" if manifest.get("detected") else "not_applicable",
+        "claim_limits": manifest.get("claim_limits", []),
+        "warnings": warnings,
+        "limitations": [
             "Records LAMMPS MLP deployment provenance only.",
             "Does not judge model training quality, validation coverage, extrapolation safety, or production readiness.",
             "No LAMMPS executable was called.",
         ],
-        detected=manifest.get("detected", False),
-        pair_styles=manifest.get("pair_styles", []),
-        model_files=manifest.get("model_files", []),
-        model_file_status=manifest.get("model_file_status"),
-        type_mapping=manifest.get("type_mapping", []),
-        required_lammps_packages=manifest.get("required_lammps_packages", []),
-        lmp_help_evidence=manifest.get("lmp_help_evidence", {}),
-        claim_scope=manifest.get("claim_scope"),
-        handoff_to=manifest.get("handoff_to"),
-        adapter_capabilities=adapter_capabilities("lammps"),
-    )
+        "detected": manifest.get("detected", False),
+        "pair_styles": manifest.get("pair_styles", []),
+        "model_files": manifest.get("model_files", []),
+        "model_file_status": manifest.get("model_file_status"),
+        "type_mapping": manifest.get("type_mapping", []),
+        "required_lammps_packages": manifest.get("required_lammps_packages", []),
+        "lmp_help_evidence": manifest.get("lmp_help_evidence", {}),
+        "claim_scope": manifest.get("claim_scope"),
+        "handoff_to": manifest.get("handoff_to"),
+    }
 
 
 def _dump_restart_manifest(input_script: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
@@ -749,32 +747,10 @@ def inspect_lammps_inputs(
 
     result = {
         "status": "error" if missing_required_files else ("warning" if warnings or missing_required_items else "pass"),
-        "helper_evidence": build_helper_evidence(
-            helper="lammps_inspect_inputs",
-            capability="static_input_inspection",
-            status="blocked" if missing_required_files else ("warning" if warnings or missing_required_items else "success"),
-            stage="computation" if not log_file else "analysis_visualization",
-            activity="static_input_inspection",
-            evidence_role="lammps_input_inspection",
-            source_files=[source_file_record(script_path)] + (
+        "source_files": [source_file_record(script_path)] + (
                 [source_file_record(resolved_data_file, role="data_file")] if resolved_data_file else []
             ),
-            actual_tool_used={"software": "lammps", "support_level": "helper_supported"},
-            parser_status="parsed",
-            claim_limits=[
-                "Static inspection does not imply LAMMPS execution readiness.",
-                "MLP deployment evidence records how a model is referenced by LAMMPS only.",
-                "No MLP training quality, validation adequacy, or production readiness claim is made.",
-            ],
-            warnings=warnings,
-            limitations=[
-                "Input includes and variables are not fully expanded.",
-                "No LAMMPS executable was called.",
-            ],
-            adapter_capabilities=adapter_capabilities("lammps"),
-        ),
         "software": "lammps",
-        "stage_hint": "computation" if not log_file else "analysis_visualization",
         "input_script": str(script_path),
         "data_file": data_report,
         "log_file": log_report,
@@ -806,16 +782,6 @@ def inspect_lammps_inputs(
         },
         "local_example_motifs": _matching_local_motifs(commands),
         "warnings": warnings,
-        "recommended_artifacts": [
-            "input_script",
-            "data_file_or_structure_source",
-            "force_field_provenance",
-            "input_validation_report",
-            "dry_run_report_before_execution",
-            "credential_scan",
-            "log_file_if_executed",
-            "trajectory_or_analysis_outputs_if_claimed",
-        ],
         "official_references": OFFICIAL_REFERENCES,
     }
     return result
@@ -830,7 +796,6 @@ def main() -> None:
     parser.add_argument("--lmp-help-output", default=None, help="Optional saved output from `lmp -h`; the helper reads it but does not run LAMMPS")
     parser.add_argument("--output", default=None, help="Optional JSON report path")
     parser.add_argument("--mlp-deployment-output", default=None, help="Optional LAMMPS MLP deployment handoff JSON path")
-    add_helper_recording_args(parser, default_stage="computation")
     args = parser.parse_args()
 
     result = inspect_lammps_inputs(
@@ -861,23 +826,6 @@ def main() -> None:
     if output_paths:
         result["output_files"] = output_paths
 
-    input_paths = [args.input_script]
-    for optional_path in (args.data_file, args.log_file):
-        if optional_path:
-            input_paths.append(optional_path)
-    if args.lmp_help_output:
-        input_paths.append(args.lmp_help_output)
-
-    result = maybe_record_helper_run(
-        args=args,
-        result=result,
-        script_path=Path(__file__).resolve(),
-        helper_name="lammps_inspect_inputs",
-        software="lammps",
-        input_paths=input_paths,
-        output_paths=output_paths,
-        metadata={"helper_result_status": result.get("status")},
-    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     if result.get("status") == "error":
         raise SystemExit(1)

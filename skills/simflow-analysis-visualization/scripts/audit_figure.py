@@ -10,10 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_simflow_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_simflow_root))
-
-from runtime.simflow_core.script_contracts import add_helper_recording_args, maybe_record_helper_run
 
 
 def _blank_report(figure_path: Path, output_path: Path | None) -> dict[str, Any]:
@@ -140,21 +136,11 @@ def audit_figure(figure: str, output: str | None = None) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit a rendered figure with deterministic baseline checks")
     parser.add_argument("--figure", required=True, help="Rendered figure path")
-    parser.add_argument("--output", required=True, help="JSON audit report path")
-    add_helper_recording_args(parser, default_stage="analysis_visualization")
+    parser.add_argument("--report", help="Optional JSON audit report path")
     args = parser.parse_args()
 
     try:
-        result = audit_figure(args.figure, args.output)
-        result = maybe_record_helper_run(
-            args=args,
-            result=result,
-            script_path=Path(__file__).resolve(),
-            helper_name="audit_figure",
-            input_paths=[args.figure],
-            output_paths=[args.output],
-            metadata={"helper_result_status": result.get("status"), "warnings": result.get("warnings", [])},
-        )
+        result = audit_figure(args.figure, args.report)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         if result.get("status") == "error":
             sys.exit(1)

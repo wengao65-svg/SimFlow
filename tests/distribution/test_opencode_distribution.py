@@ -6,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGED_SKILLS = {
-    "simflow",
     "simflow-literature-review",
     "simflow-reference-extraction",
     "simflow-proposal",
@@ -37,7 +36,7 @@ def test_opencode_source_adapter_is_dependency_free_and_local():
     text = module.read_text(encoding="utf-8")
     assert 'id: "simflow"' in text
     assert "config.skills.paths" in text
-    assert "SIMFLOW_PYTHON" in text
+    assert "config.mcp" not in text
     assert "permission" not in text
 
 
@@ -57,13 +56,8 @@ def test_opencode_package_builds_canonical_surface(tmp_path):
 
     skills = {path.parent.name for path in (output / "skills").glob("*/SKILL.md")}
     assert skills == PACKAGED_SKILLS
-    framework = (output / "skills" / "simflow" / "SKILL.md").read_text(encoding="utf-8")
-    assert "disable-model-invocation: true" in framework
-    assert (output / "scripts" / "start_mcp_server.py").is_file()
-    assert (output / "scripts" / "start_hpc_broker.py").is_file()
-    assert (output / "runtime" / "simflow_core").is_dir()
-    assert (output / "mcp" / "servers").is_dir()
-
+    for retired in ["mcp", "runtime", "workflow", "schemas"]:
+        assert not (output / retired).exists()
     for forbidden in [
         "tests",
         "notifications",

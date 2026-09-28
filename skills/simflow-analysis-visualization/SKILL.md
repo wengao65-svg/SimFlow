@@ -87,6 +87,10 @@ analysis.
 - Final, publication, or handoff figures receive visual QA when useful;
   exploratory analysis does not acquire a mandatory figure-review workflow.
 
+## Optional local tools
+
+`scripts/analyze_md_trajectory.py`, `plot_energy_curve.py`, `audit_figure.py`, and `generate_analysis_report.py` provide bounded analyses and figures. Use explicit output paths for persistent files; inspection reports are optional.
+
 ## Optional references
 
 - `references/analysis_rigor_contract.md`

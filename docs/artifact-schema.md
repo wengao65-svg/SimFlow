@@ -1,5 +1,8 @@
 # Logical Records And File References
 
+> 历史架构文档：描述旧 runtime/MCP 实现，不适用于 1.5.0 Skill-only 默认安装。当前产品边界见 [重构方向](direction-skill-pack.md)。
+
+
 ## Record Granularity
 
 SimFlow records logical events and deliverables, not every file. Typical record
